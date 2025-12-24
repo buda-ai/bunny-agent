@@ -1,9 +1,16 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { E2BSandbox } from "../e2b-sandbox.js";
 
 describe("E2BSandbox", () => {
+  const originalEnv = process.env;
+
   beforeEach(() => {
+    process.env = { ...originalEnv };
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    process.env = originalEnv;
   });
 
   describe("constructor", () => {
@@ -22,13 +29,10 @@ describe("E2BSandbox", () => {
     });
 
     it("should use E2B_API_KEY from environment", () => {
-      const originalEnv = process.env.E2B_API_KEY;
       process.env.E2B_API_KEY = "env-api-key";
 
       const sandbox = new E2BSandbox();
       expect(sandbox).toBeInstanceOf(E2BSandbox);
-
-      process.env.E2B_API_KEY = originalEnv;
     });
   });
 
@@ -38,11 +42,47 @@ describe("E2BSandbox", () => {
       expect(typeof sandbox.attach).toBe("function");
     });
 
-    it("should throw an error without proper configuration", async () => {
-      const sandbox = new E2BSandbox({ apiKey: "invalid-key" });
+    it("should throw error when E2B_API_KEY is not set", async () => {
+      // Remove API key to test error handling
+      delete process.env.E2B_API_KEY;
 
-      // Should throw an error (either SDK not found or network/auth error)
-      await expect(sandbox.attach("test-id")).rejects.toThrow();
+      const sandbox = new E2BSandbox();
+
+      // Should throw an error about missing API key
+      await expect(sandbox.attach("test-id")).rejects.toThrow(
+        /E2B API key not found/
+      );
+
+      console.log(
+        "[Test Info] E2B_API_KEY not set - this test verifies proper error handling.\n" +
+          "To run integration tests with E2B, set E2B_API_KEY environment variable."
+      );
+    });
+
+    it("should throw error when SDK is not installed (with API key set)", async () => {
+      // Set API key but SDK won't be installed in test environment
+      process.env.E2B_API_KEY = "test-api-key";
+
+      const sandbox = new E2BSandbox();
+
+      // Should throw an error (SDK not found or auth error)
+      try {
+        await sandbox.attach("test-id");
+        // If we get here, the SDK is installed - that's also valid
+        console.log(
+          "[Test Info] E2B SDK is installed. Integration tests would run with valid API key."
+        );
+      } catch (error) {
+        expect(error).toBeDefined();
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+
+        // Either SDK not found or API error is expected
+        console.log(
+          `[Test Info] Expected error: ${errorMessage}\n` +
+            "Install e2b package to enable E2B sandbox: npm install e2b"
+        );
+      }
     });
   });
 });

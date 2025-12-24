@@ -1,12 +1,14 @@
 /**
  * Claude Agent SDK Runner
  *
- * This module provides a runner that uses the Anthropic Claude SDK
- * and outputs AI SDK UI messages for streaming.
+ * This module provides a runner that uses the official Claude Agent SDK
+ * (@anthropic-ai/claude-agent-sdk) and outputs AI SDK UI messages for streaming.
  *
- * The runner uses @anthropic-ai/sdk for real Claude API access.
- * When the SDK is not installed, it falls back to a mock implementation
- * for development purposes.
+ * The Claude Agent SDK provides a high-level interface for building AI agents
+ * with Claude Code's capabilities, including file operations, command execution,
+ * and more.
+ *
+ * @see https://platform.claude.com/docs/en/agent-sdk/typescript-v2-preview
  */
 
 /**
@@ -21,10 +23,14 @@ export interface ClaudeRunnerOptions {
   maxTurns?: number;
   /** Allowed tools */
   allowedTools?: string[];
+  /** Working directory for the agent */
+  cwd?: string;
+  /** Environment variables to pass to the agent */
+  env?: Record<string, string>;
 }
 
 /**
- * A runner that executes tasks using Claude API
+ * A runner that executes tasks using Claude Agent SDK
  */
 export interface ClaudeRunner {
   /**
@@ -35,67 +41,70 @@ export interface ClaudeRunner {
   run(userInput: string): AsyncIterable<string>;
 }
 
-// Type definitions for Anthropic SDK
-interface MessageStreamEvent {
+/**
+ * Type definitions for Claude Agent SDK
+ * Based on @anthropic-ai/claude-agent-sdk
+ */
+interface SDKMessage {
   type: string;
-  index?: number;
-  message?: {
-    id: string;
-    type: string;
-    role: string;
-    content: ContentBlock[];
-    model: string;
-    stop_reason: string | null;
-    stop_sequence: string | null;
-    usage: { input_tokens: number; output_tokens: number };
-  };
-  content_block?: ContentBlock;
-  delta?: {
-    type: string;
-    text?: string;
-    partial_json?: string;
-  };
+  subtype?: string;
+  [key: string]: unknown;
 }
 
-interface ContentBlock {
-  type: "text" | "tool_use";
-  text?: string;
-  id?: string;
-  name?: string;
-  input?: unknown;
+interface SDKResultMessage extends SDKMessage {
+  type: "result";
+  subtype: "success" | "error" | "interrupted";
+  is_error?: boolean;
+  duration_ms?: number;
+  num_turns?: number;
+  total_cost_usd?: number;
+  permission_denials?: number;
+  errors?: string[];
+  structured_output?: unknown;
 }
 
-interface MessageStream {
-  [Symbol.asyncIterator](): AsyncIterator<MessageStreamEvent>;
+interface SDKAssistantMessage extends SDKMessage {
+  type: "assistant";
+  message: string;
 }
 
-interface AnthropicClient {
-  messages: {
-    stream(params: {
-      model: string;
-      max_tokens: number;
-      system?: string;
-      messages: Array<{ role: string; content: string }>;
-      tools?: Array<{
-        name: string;
-        description: string;
-        input_schema: { type: string; properties: Record<string, unknown>; required?: string[] };
-      }>;
-    }): MessageStream;
-  };
+interface SDKToolUseMessage extends SDKMessage {
+  type: "tool_use";
+  tool_name: string;
+  tool_input: unknown;
+  tool_use_id: string;
 }
 
-interface AnthropicModule {
-  default: new (options: { apiKey?: string }) => AnthropicClient;
+interface SDKToolResultMessage extends SDKMessage {
+  type: "tool_result";
+  tool_use_id: string;
+  output: string;
+  is_error?: boolean;
+}
+
+interface ClaudeAgentSDKOptions {
+  model?: string;
+  systemPrompt?: string;
+  maxTurns?: number;
+  allowedTools?: string[];
+  cwd?: string;
+  env?: Record<string, string>;
+}
+
+interface ClaudeAgentSDKModule {
+  query(params: {
+    prompt: string;
+    options?: ClaudeAgentSDKOptions;
+  }): AsyncIterable<SDKMessage>;
 }
 
 // Module registry for optional dependencies
 const OPTIONAL_MODULES: Record<string, string> = {
-  "anthropic-sdk": "@anthropic-ai/sdk",
+  "claude-agent-sdk": "@anthropic-ai/claude-agent-sdk",
 };
 
 /**
- * Create a Claude runner
+ * Create a Claude runner using the official Claude Agent SDK
  */
 export function createClaudeRunner(options: ClaudeRunnerOptions): ClaudeRunner {
   return {
@@ -104,22 +113,26 @@ export function createClaudeRunner(options: ClaudeRunnerOptions): ClaudeRunner {
       const apiKey = process.env.ANTHROPIC_API_KEY;
       if (!apiKey) {
         console.error(
-          "Warning: ANTHROPIC_API_KEY not set. Using mock response."
+          "[SandAgent] Warning: ANTHROPIC_API_KEY not set. Using mock response.\n" +
+            "To use the real Claude Agent SDK:\n" +
+            "1. Set ANTHROPIC_API_KEY environment variable\n" +
+            "2. Install the SDK: npm install @anthropic-ai/claude-agent-sdk"
         );
         yield* runMockAgent(options, userInput);
         return;
       }
 
-      // Try to load the Anthropic SDK
-      const sdk = await loadAnthropicSDK();
+      // Try to load the Claude Agent SDK
+      const sdk = await loadClaudeAgentSDK();
 
       if (sdk) {
-        // Use the real Anthropic SDK
-        yield* runWithAnthropicSDK(sdk, options, userInput, apiKey);
+        // Use the real Claude Agent SDK
+        yield* runWithClaudeAgentSDK(sdk, options, userInput);
       } else {
-        // Fallback to mock implementation for development
+        // Fallback to mock implementation
         console.error(
-          "Warning: @anthropic-ai/sdk not installed. Using mock response."
+          "[SandAgent] Warning: @anthropic-ai/claude-agent-sdk not installed. Using mock response.\n" +
+            "Install the SDK: npm install @anthropic-ai/claude-agent-sdk"
         );
         yield* runMockAgent(options, userInput);
       }
@@ -127,141 +140,43 @@ export function createClaudeRunner(options: ClaudeRunnerOptions): ClaudeRunner {
   };
 }
 
-async function loadAnthropicSDK(): Promise<AnthropicModule | null> {
+/**
+ * Load the Claude Agent SDK dynamically
+ */
+async function loadClaudeAgentSDK(): Promise<ClaudeAgentSDKModule | null> {
   try {
-    // Use a registry pattern for safer dynamic imports
-    const modulePath = OPTIONAL_MODULES["anthropic-sdk"];
-    // Dynamic import is safe here as the module path comes from a fixed registry
+    const modulePath = OPTIONAL_MODULES["claude-agent-sdk"];
     const module = await import(/* webpackIgnore: true */ modulePath);
-    return module as AnthropicModule;
+    return module as ClaudeAgentSDKModule;
   } catch {
-    // SDK not installed, return null
     return null;
   }
 }
 
 /**
- * Define available tools for the agent
+ * Run with real Claude Agent SDK
  */
-const AVAILABLE_TOOLS = [
-  {
-    name: "bash",
-    description: "Execute a bash command in the sandbox environment",
-    input_schema: {
-      type: "object" as const,
-      properties: {
-        command: {
-          type: "string",
-          description: "The bash command to execute",
-        },
-      },
-      required: ["command"],
-    },
-  },
-  {
-    name: "write_file",
-    description: "Write content to a file",
-    input_schema: {
-      type: "object" as const,
-      properties: {
-        path: {
-          type: "string",
-          description: "The file path to write to",
-        },
-        content: {
-          type: "string",
-          description: "The content to write",
-        },
-      },
-      required: ["path", "content"],
-    },
-  },
-  {
-    name: "read_file",
-    description: "Read content from a file",
-    input_schema: {
-      type: "object" as const,
-      properties: {
-        path: {
-          type: "string",
-          description: "The file path to read",
-        },
-      },
-      required: ["path"],
-    },
-  },
-];
-
-/**
- * Get filtered tools based on allowed tools list
- */
-function getFilteredTools(allowedTools?: string[]) {
-  if (!allowedTools || allowedTools.length === 0) {
-    return AVAILABLE_TOOLS;
-  }
-  return AVAILABLE_TOOLS.filter((tool) => allowedTools.includes(tool.name));
-}
-
-/**
- * Run with real Anthropic SDK
- */
-async function* runWithAnthropicSDK(
-  sdk: AnthropicModule,
+async function* runWithClaudeAgentSDK(
+  sdk: ClaudeAgentSDKModule,
   options: ClaudeRunnerOptions,
-  userInput: string,
-  apiKey: string
+  userInput: string
 ): AsyncIterable<string> {
-  const Anthropic = sdk.default;
-  const client = new Anthropic({ apiKey });
-
-  const tools = getFilteredTools(options.allowedTools);
-  const systemPrompt =
-    options.systemPrompt ??
-    "You are a helpful AI assistant. You can execute commands, read and write files to complete tasks.";
+  const sdkOptions: ClaudeAgentSDKOptions = {
+    model: options.model,
+    systemPrompt: options.systemPrompt,
+    maxTurns: options.maxTurns,
+    allowedTools: options.allowedTools,
+    cwd: options.cwd,
+    env: options.env,
+  };
 
   try {
-    const stream = client.messages.stream({
-      model: options.model,
-      max_tokens: 8096,
-      system: systemPrompt,
-      messages: [{ role: "user", content: userInput }],
-      tools: tools.length > 0 ? tools : undefined,
-    });
-
-    let currentToolCallId: string | undefined;
-    let currentToolName: string | undefined;
-    let toolInputBuffer = "";
-
-    for await (const event of stream) {
-      // Convert Anthropic stream events to AI SDK UI format
-      const chunks = convertEventToAISDKUI(
-        event,
-        currentToolCallId,
-        currentToolName,
-        toolInputBuffer
-      );
-
-      // Update state based on event
-      if (event.type === "content_block_start" && event.content_block) {
-        if (event.content_block.type === "tool_use") {
-          currentToolCallId = event.content_block.id;
-          currentToolName = event.content_block.name;
-          toolInputBuffer = "";
-        }
-      }
-
-      if (event.type === "content_block_delta" && event.delta) {
-        if (event.delta.partial_json) {
-          toolInputBuffer += event.delta.partial_json;
-        }
-      }
-
-      if (event.type === "content_block_stop") {
-        currentToolCallId = undefined;
-        currentToolName = undefined;
-        toolInputBuffer = "";
-      }
-
+    for await (const message of sdk.query({
+      prompt: userInput,
+      options: sdkOptions,
+    })) {
+      // Convert SDK messages to AI SDK UI format
+      const chunks = convertSDKMessageToAISDKUI(message);
       for (const chunk of chunks) {
         yield chunk;
       }
@@ -279,63 +194,69 @@ async function* runWithAnthropicSDK(
 }
 
 /**
- * Convert Anthropic stream event to AI SDK UI format
+ * Convert Claude Agent SDK message to AI SDK UI format
+ *
+ * AI SDK UI message types:
+ * - 0: text content
+ * - 3: error
+ * - 9: tool call
+ * - a: tool result
+ * - d: finish
  */
-function convertEventToAISDKUI(
-  event: MessageStreamEvent,
-  currentToolCallId?: string,
-  currentToolName?: string,
-  toolInputBuffer?: string
-): string[] {
+function convertSDKMessageToAISDKUI(message: SDKMessage): string[] {
   const chunks: string[] = [];
 
-  switch (event.type) {
-    case "message_start":
-      // Start of message - no output needed
-      break;
-
-    case "content_block_start":
-      if (event.content_block?.type === "text") {
-        // Text block starting - no output needed
-      } else if (event.content_block?.type === "tool_use") {
-        // Tool call starting
-        // Will be emitted when we have the full input
+  switch (message.type) {
+    case "system":
+      // System initialization messages - emit as text for visibility
+      if (message.subtype === "init") {
+        chunks.push(
+          `0:${JSON.stringify(`[System initialized: ${message.model ?? "unknown model"}]\n`)}\n`
+        );
       }
       break;
 
-    case "content_block_delta":
-      if (event.delta?.type === "text_delta" && event.delta.text) {
-        // Text content - stream as AI SDK text chunk (type 0)
-        chunks.push(`0:${JSON.stringify(event.delta.text)}\n`);
-      } else if (event.delta?.type === "input_json_delta") {
-        // Tool input being streamed - will be combined and emitted at block end
+    case "assistant":
+      // Assistant text response
+      const assistantMsg = message as SDKAssistantMessage;
+      if (assistantMsg.message) {
+        chunks.push(`0:${JSON.stringify(assistantMsg.message)}\n`);
       }
       break;
 
-    case "content_block_stop":
-      // If we were building a tool call, emit it now
-      if (currentToolCallId && currentToolName && toolInputBuffer) {
-        try {
-          const input = JSON.parse(toolInputBuffer);
-          chunks.push(
-            `9:${JSON.stringify({
-              toolCallId: currentToolCallId,
-              toolName: currentToolName,
-              args: input,
-            })}\n`
-          );
-        } catch {
-          // Invalid JSON input - skip tool call
-        }
+    case "tool_use":
+      // Tool call
+      const toolUseMsg = message as SDKToolUseMessage;
+      chunks.push(
+        `9:${JSON.stringify({
+          toolCallId: toolUseMsg.tool_use_id,
+          toolName: toolUseMsg.tool_name,
+          args: toolUseMsg.tool_input,
+        })}\n`
+      );
+      break;
+
+    case "tool_result":
+      // Tool result
+      const toolResultMsg = message as SDKToolResultMessage;
+      chunks.push(
+        `a:${JSON.stringify({
+          toolCallId: toolResultMsg.tool_use_id,
+          result: toolResultMsg.output,
+        })}\n`
+      );
+      break;
+
+    case "result":
+      // Result message - indicates completion
+      const resultMsg = message as SDKResultMessage;
+      if (resultMsg.is_error && resultMsg.errors) {
+        chunks.push(`3:${JSON.stringify(resultMsg.errors.join(", "))}\n`);
       }
       break;
 
-    case "message_stop":
-      // Message complete - finish message will be sent separately
-      break;
-
-    case "message_delta":
-      // Message metadata update - no output needed
+    default:
+      // Other message types (user, thinking, etc.) - skip for now
       break;
   }
 
@@ -343,9 +264,9 @@ function convertEventToAISDKUI(
 }
 
 /**
- * Mock implementation for development without Anthropic SDK or API key
+ * Mock implementation for development without Claude Agent SDK or API key
  *
- * This provides a simple response for testing the streaming infrastructure
+ * This provides a helpful response for testing the streaming infrastructure
  * without needing actual API access.
  */
 async function* runMockAgent(
@@ -358,10 +279,11 @@ async function* runMockAgent(
     `Model: ${options.model}\n\n` +
     `This is a mock response because:\n` +
     `- ANTHROPIC_API_KEY is not set, OR\n` +
-    `- @anthropic-ai/sdk is not installed\n\n` +
-    `To use the real Claude API:\n` +
+    `- @anthropic-ai/claude-agent-sdk is not installed\n\n` +
+    `To use the real Claude Agent SDK:\n` +
     `1. Set ANTHROPIC_API_KEY environment variable\n` +
-    `2. Install the SDK: npm install @anthropic-ai/sdk`;
+    `2. Install the SDK: npm install @anthropic-ai/claude-agent-sdk\n\n` +
+    `Documentation: https://platform.claude.com/docs/en/agent-sdk/typescript-v2-preview`;
 
   // Simulate streaming by yielding chunks
   const words = response.split(" ");

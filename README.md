@@ -44,7 +44,7 @@ All at the same time.
 SandAgent instance
   ├─ Isolated sandbox (E2B recommended / Sandock)
   ├─ Dedicated filesystem volume
-  ├─ Anthropic Claude SDK (@anthropic-ai/sdk)
+  ├─ Claude Agent SDK (@anthropic-ai/claude-agent-sdk)
   ├─ Agent Template (system prompt, skills, MCP config)
   └─ AI SDK–compatible message stream
 ```

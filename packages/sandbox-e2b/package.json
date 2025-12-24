@@ -32,10 +32,10 @@
     "@sandagent/core": "workspace:*"
   },
   "peerDependencies": {
-    "@e2b/code-interpreter": ">=0.0.5"
+    "e2b": ">=2.0.0"
   },
   "peerDependenciesMeta": {
-    "@e2b/code-interpreter": {
+    "e2b": {
       "optional": true
     }
   },

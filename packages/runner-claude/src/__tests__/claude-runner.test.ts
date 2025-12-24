@@ -117,8 +117,8 @@ describe("createClaudeRunner", () => {
       .map((c) => JSON.parse(c.slice(2)))
       .join("");
 
-    // Should contain installation hint
-    expect(fullText).toContain("@anthropic-ai/sdk");
+    // Should contain installation hint (updated to Claude Agent SDK)
+    expect(fullText).toContain("@anthropic-ai/claude-agent-sdk");
     expect(fullText).toContain("ANTHROPIC_API_KEY");
   });
 });

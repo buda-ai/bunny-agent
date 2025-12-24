@@ -10,44 +10,76 @@ import type {
 export interface E2BSandboxOptions {
   /** E2B API key (defaults to E2B_API_KEY env var) */
   apiKey?: string;
-  /** E2B template to use */
+  /** E2B template to use (default: "base") */
   template?: string;
-  /** Timeout for sandbox operations in milliseconds */
+  /** Timeout for sandbox operations in milliseconds (default: 300000 = 5 min) */
   timeout?: number;
 }
 
-// Type definitions for E2B SDK
+/**
+ * Type definitions for E2B SDK (e2b package)
+ * Based on https://e2b.dev/docs
+ */
 interface E2BSandboxInstance {
-  process: {
-    start(opts: {
-      cmd: string;
-      cwd?: string;
-      envs?: Record<string, string>;
-      onStdout?: (chunk: { line: string }) => void;
-      onStderr?: (chunk: { line: string }) => void;
-    }): Promise<{ wait(): Promise<{ exitCode: number }> }>;
+  sandboxId: string;
+  commands: {
+    run(
+      cmd: string,
+      opts?: {
+        cwd?: string;
+        envs?: Record<string, string>;
+        onStdout?: (data: string) => void;
+        onStderr?: (data: string) => void;
+        timeout?: number;
+      }
+    ): Promise<{
+      exitCode: number;
+      stdout: string;
+      stderr: string;
+    }>;
   };
-  filesystem: {
-    write(path: string, content: string | Uint8Array): Promise<void>;
+  files: {
+    write(path: string, content: string | ArrayBuffer): Promise<void>;
     makeDir(path: string): Promise<void>;
   };
-  close(): Promise<void>;
+  kill(): Promise<void>;
 }
 
-interface E2BSandboxConstructor {
-  create(opts?: { apiKey?: string; template?: string; timeout?: number }): Promise<E2BSandboxInstance>;
+interface E2BSandboxStatic {
+  create(opts?: {
+    apiKey?: string;
+    template?: string;
+    timeoutMs?: number;
+    metadata?: Record<string, string>;
+  }): Promise<E2BSandboxInstance>;
+  connect(
+    sandboxId: string,
+    opts?: { apiKey?: string }
+  ): Promise<E2BSandboxInstance>;
 }
 
 // Module registry for optional dependencies
-// This allows us to dynamically load modules without security risks
 const OPTIONAL_MODULES: Record<string, string> = {
-  "e2b-code-interpreter": "@e2b/code-interpreter",
+  e2b: "e2b",
 };
 
 /**
  * E2B-based sandbox implementation.
  *
  * Uses E2B cloud sandboxes for isolation and execution.
+ * Requires the `e2b` package to be installed and E2B_API_KEY to be set.
+ *
+ * @example
+ * ```ts
+ * import { E2BSandbox } from "@sandagent/sandbox-e2b";
+ *
+ * const sandbox = new E2BSandbox({
+ *   template: "base",
+ *   timeout: 300000,
+ * });
+ *
+ * const handle = await sandbox.attach("session-123");
+ * ```
  */
 export class E2BSandbox implements SandboxAdapter {
   private readonly apiKey?: string;
@@ -58,24 +90,36 @@ export class E2BSandbox implements SandboxAdapter {
   constructor(options: E2BSandboxOptions = {}) {
     this.apiKey = options.apiKey ?? process.env.E2B_API_KEY;
     this.template = options.template ?? "base";
-    this.timeout = options.timeout ?? 60000;
+    this.timeout = options.timeout ?? 300000; // 5 minutes default
   }
 
   /**
-   * Attach to or create a sandbox with the given ID
+   * Attach to or create a sandbox with the given ID.
+   * If a sandbox with this ID already exists in memory, it will be reused.
    */
   async attach(id: string): Promise<SandboxHandle> {
+    // Check for API key
+    if (!this.apiKey) {
+      throw new Error(
+        "E2B API key not found. Please set E2B_API_KEY environment variable or pass apiKey option."
+      );
+    }
+
     // Check if we already have an instance for this ID
     let instance = this.instances.get(id);
 
     if (!instance) {
       // Dynamically import E2B SDK
-      const e2b = await this.loadE2B();
-      instance = await e2b.create({
+      const E2BSandboxClass = await this.loadE2B();
+      
+      // Create a new sandbox with metadata to identify it
+      instance = await E2BSandboxClass.create({
         apiKey: this.apiKey,
         template: this.template,
-        timeout: this.timeout,
+        timeoutMs: this.timeout,
+        metadata: { sandagentId: id },
       });
+      
       this.instances.set(id, instance);
     }
 
@@ -84,16 +128,15 @@ export class E2BSandbox implements SandboxAdapter {
     });
   }
 
-  private async loadE2B(): Promise<E2BSandboxConstructor> {
+  private async loadE2B(): Promise<E2BSandboxStatic> {
     try {
-      // Use a registry pattern for safer dynamic imports
-      const modulePath = OPTIONAL_MODULES["e2b-code-interpreter"];
-      // Dynamic import is safe here as the module path comes from a fixed registry
+      const modulePath = OPTIONAL_MODULES["e2b"];
       const module = await import(/* webpackIgnore: true */ modulePath);
-      return (module.Sandbox ?? module.default) as E2BSandboxConstructor;
-    } catch {
+      return (module.Sandbox ?? module.default) as E2BSandboxStatic;
+    } catch (error) {
       throw new Error(
-        "E2B SDK not found. Please install @e2b/code-interpreter: npm install @e2b/code-interpreter"
+        "E2B SDK not found. Please install e2b: npm install e2b\n" +
+          "Documentation: https://e2b.dev/docs"
       );
     }
   }
@@ -114,10 +157,7 @@ class E2BHandle implements SandboxHandle {
   /**
    * Execute a command in the sandbox and stream the output
    */
-  exec(
-    command: string[],
-    opts?: ExecOptions
-  ): AsyncIterable<Uint8Array> {
+  exec(command: string[], opts?: ExecOptions): AsyncIterable<Uint8Array> {
     const self = this;
 
     return {
@@ -127,26 +167,25 @@ class E2BHandle implements SandboxHandle {
         let error: Error | null = null;
         let resolveNext: (() => void) | null = null;
 
-        // Start the process
-        const processPromise = self.instance.process.start({
-          cmd: command.join(" "),
+        // Start the command
+        const commandPromise = self.instance.commands.run(command.join(" "), {
           cwd: opts?.cwd,
           envs: opts?.env,
-          onStdout: (chunk) => {
-            const data = new TextEncoder().encode(chunk.line + "\n");
-            chunks.push(data);
+          onStdout: (data: string) => {
+            const chunk = new TextEncoder().encode(data);
+            chunks.push(chunk);
             if (resolveNext) {
               resolveNext();
               resolveNext = null;
             }
           },
-          onStderr: () => {
-            // Stderr goes to diagnostics, not the stream
+          onStderr: (data: string) => {
+            // Log stderr for diagnostics but don't include in main stream
+            console.error(`[E2B stderr] ${data}`);
           },
         });
 
-        processPromise
-          .then((proc) => proc.wait())
+        commandPromise
           .then(() => {
             finished = true;
             if (resolveNext) {
@@ -155,7 +194,7 @@ class E2BHandle implements SandboxHandle {
             }
           })
           .catch((err) => {
-            error = err;
+            error = err instanceof Error ? err : new Error(String(err));
             if (resolveNext) {
               resolveNext();
               resolveNext = null;
@@ -164,17 +203,16 @@ class E2BHandle implements SandboxHandle {
 
         return {
           async next(): Promise<IteratorResult<Uint8Array>> {
-            // If there are buffered chunks, return the first one
+            // Return buffered chunks first
             if (chunks.length > 0) {
               return { value: chunks.shift()!, done: false };
             }
 
-            // If finished and no more chunks, we're done
+            // Check completion states
             if (finished && chunks.length === 0) {
               return { value: undefined, done: true };
             }
 
-            // If there's an error, throw it
             if (error) {
               throw error;
             }
@@ -184,7 +222,7 @@ class E2BHandle implements SandboxHandle {
               resolveNext = resolve;
             });
 
-            // Check again
+            // Check again after waiting
             if (chunks.length > 0) {
               return { value: chunks.shift()!, done: false };
             }
@@ -213,10 +251,23 @@ class E2BHandle implements SandboxHandle {
       // Ensure directory exists
       const dirPath = fullPath.substring(0, fullPath.lastIndexOf("/"));
       if (dirPath) {
-        await this.instance.filesystem.makeDir(dirPath);
+        try {
+          await this.instance.files.makeDir(dirPath);
+        } catch {
+          // Directory might already exist, ignore error
+        }
       }
 
-      await this.instance.filesystem.write(fullPath, file.content);
+      // Convert Uint8Array to ArrayBuffer if needed
+      const content =
+        file.content instanceof Uint8Array
+          ? (file.content.buffer.slice(
+              file.content.byteOffset,
+              file.content.byteOffset + file.content.byteLength
+            ) as ArrayBuffer)
+          : file.content;
+
+      await this.instance.files.write(fullPath, content);
     }
   }
 
@@ -224,7 +275,7 @@ class E2BHandle implements SandboxHandle {
    * Destroy the sandbox and release resources
    */
   async destroy(): Promise<void> {
-    await this.instance.close();
+    await this.instance.kill();
     this.onDestroy();
   }
 }
