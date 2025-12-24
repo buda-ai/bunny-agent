@@ -3,7 +3,7 @@
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { useState, useMemo } from "react";
-import { BotIcon, UserIcon } from "lucide-react";
+import { BotIcon, UserIcon, AlertCircleIcon } from "lucide-react";
 import {
   Conversation,
   ConversationContent,
@@ -36,9 +36,10 @@ export default function Home() {
     [sessionId]
   );
 
-  const { messages, sendMessage, status } = useChat({ transport });
+  const { messages, sendMessage, status, error } = useChat({ transport });
 
   const isLoading = status === "streaming" || status === "submitted";
+  const hasError = status === "error" && error;
 
   const handleSubmit = (message: { text: string }) => {
     if (message.text.trim() && !isLoading) {
@@ -73,6 +74,21 @@ export default function Home() {
               <MessageContent>
                 <Loader size={20} />
               </MessageContent>
+            </Message>
+          )}
+          {hasError && (
+            <Message from="assistant">
+              <div className="flex items-start gap-3">
+                <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-destructive/10">
+                  <AlertCircleIcon className="size-4 text-destructive" />
+                </div>
+                <MessageContent>
+                  <div className="text-destructive">
+                    <p className="font-medium">Error</p>
+                    <p className="text-sm opacity-80">{error.message}</p>
+                  </div>
+                </MessageContent>
+              </div>
             </Message>
           )}
         </ConversationContent>

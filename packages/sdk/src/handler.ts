@@ -79,10 +79,13 @@ export function createAgentHandler(
       const agent = config.createAgent({ sessionId: body.sessionId });
 
       // Stream the response directly - no parsing, no modification
-      return agent.stream({
+      // Await to catch any errors during stream setup (e.g., sandbox attachment)
+      const response = await agent.stream({
         messages: body.messages,
         workspace: body.workspace,
       });
+      
+      return response;
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
       return new Response(
