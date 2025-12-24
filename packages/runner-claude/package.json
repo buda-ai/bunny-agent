@@ -29,10 +29,10 @@
   },
   "license": "Apache-2.0",
   "peerDependencies": {
-    "@anthropic-ai/claude-code": ">=0.1.0"
+    "@anthropic-ai/sdk": ">=0.50.0"
   },
   "peerDependenciesMeta": {
-    "@anthropic-ai/claude-code": {
+    "@anthropic-ai/sdk": {
       "optional": true
     }
   },
