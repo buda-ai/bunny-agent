@@ -4,6 +4,7 @@ const nextConfig = {
     "@sandagent/core",
     "@sandagent/sdk",
     "@sandagent/sandbox-sandock",
+    "kui",
   ],
 };
 
