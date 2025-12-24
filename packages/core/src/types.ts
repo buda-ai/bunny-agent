@@ -81,6 +81,8 @@ export interface SandAgentOptions {
   sandbox: SandboxAdapter;
   /** Runner specification */
   runner: RunnerSpec;
+  /** Environment variables to pass to the sandbox */
+  env?: Record<string, string>;
 }
 
 /**
