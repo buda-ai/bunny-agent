@@ -1,4 +1,10 @@
 export { SandAgent } from "./sand-agent.js";
+export {
+  JsonlTranscriptWriter,
+  MemoryTranscriptWriter,
+  ConsoleTranscriptWriter,
+  MultiTranscriptWriter,
+} from "./transcript.js";
 export type {
   SandAgentOptions,
   SandboxAdapter,
@@ -7,4 +13,6 @@ export type {
   StreamInput,
   Message,
   ExecOptions,
+  TranscriptWriter,
+  TranscriptEntry,
 } from "./types.js";

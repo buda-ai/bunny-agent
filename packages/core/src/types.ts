@@ -106,4 +106,40 @@ export interface StreamInput {
   };
   /** Content type for the response (defaults to text/event-stream) */
   contentType?: string;
+  /** Transcript writer for recording all streamed data (optional) */
+  transcriptWriter?: TranscriptWriter;
+}
+
+/**
+ * A single transcript entry
+ */
+export interface TranscriptEntry {
+  /** ISO 8601 timestamp */
+  timestamp: string;
+  /** Type of entry */
+  type: "chunk" | "metadata" | "error" | "start" | "end";
+  /** Agent ID */
+  agentId: string;
+  /** Raw data (base64 encoded for binary) */
+  data?: string;
+  /** Decoded text (if data is text) */
+  text?: string;
+  /** Additional metadata */
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Interface for writing transcript entries
+ */
+export interface TranscriptWriter {
+  /**
+   * Write a transcript entry
+   * @param entry - The entry to write
+   */
+  write(entry: TranscriptEntry): void | Promise<void>;
+
+  /**
+   * Close the writer and flush any pending data
+   */
+  close?(): void | Promise<void>;
 }

@@ -101,12 +101,31 @@ export class SandAgent {
    * 4. Returns the response for direct passthrough to the client
    *
    * The server NEVER parses or modifies the stream.
+   *
+   * @param input - Stream input including messages and optional transcript writer
+   * @returns Response with AI SDK UI stream
    */
   async stream(input: StreamInput): Promise<Response> {
     const handle = await this.ensureAttached();
     const command = this.buildCommand(input);
 
     const workspacePath = input.workspace?.path ?? "/workspace";
+    const transcriptWriter = input.transcriptWriter;
+    const agentId = this.id;
+
+    // Write start entry if transcript is enabled
+    if (transcriptWriter) {
+      await transcriptWriter.write({
+        timestamp: new Date().toISOString(),
+        type: "start",
+        agentId,
+        metadata: {
+          command: command.join(" "),
+          workspace: workspacePath,
+          runner: this.runner,
+        },
+      });
+    }
 
     // Execute the command and get stdout as an async iterable
     const stdout = handle.exec(command, {
@@ -114,14 +133,50 @@ export class SandAgent {
     });
 
     // Create a ReadableStream that passes through the stdout chunks
+    // and optionally writes to transcript
     const readableStream = new ReadableStream<Uint8Array>({
       async start(controller) {
         try {
           for await (const chunk of stdout) {
+            // Write to transcript if enabled
+            if (transcriptWriter) {
+              const text = new TextDecoder().decode(chunk);
+              await transcriptWriter.write({
+                timestamp: new Date().toISOString(),
+                type: "chunk",
+                agentId,
+                data: Buffer.from(chunk).toString("base64"),
+                text,
+              });
+            }
+
+            // Passthrough to response
             controller.enqueue(chunk);
           }
+
+          // Write end entry if transcript is enabled
+          if (transcriptWriter) {
+            await transcriptWriter.write({
+              timestamp: new Date().toISOString(),
+              type: "end",
+              agentId,
+            });
+          }
+
           controller.close();
         } catch (error) {
+          // Write error entry if transcript is enabled
+          if (transcriptWriter) {
+            const errorMessage =
+              error instanceof Error ? error.message : String(error);
+            await transcriptWriter.write({
+              timestamp: new Date().toISOString(),
+              type: "error",
+              agentId,
+              text: errorMessage,
+            });
+          }
+
           controller.error(error);
         }
       },

@@ -350,12 +350,13 @@ This is a **deliberate design**, not a limitation.
 
 ## 12. Implementation Checklist
 
-- [ ] `SandAgent` lifecycle implemented
-- [ ] Sandbox adapter implemented
-- [ ] CLI runner streams UI messages
-- [ ] Server passthrough is zero-copy
-- [ ] No stdout parsing anywhere
-- [ ] Persistence verified by re-run
+- [x] `SandAgent` lifecycle implemented
+- [x] Sandbox adapter implemented (E2B, Sandock)
+- [x] CLI runner streams UI messages
+- [x] Server passthrough is zero-copy
+- [x] No stdout parsing anywhere
+- [x] Persistence verified by re-run
+- [x] JSONL transcript export for debugging
 
 ---
 

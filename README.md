@@ -319,7 +319,7 @@ This is a conscious design decision.
 
 - [x] Agent Templates (default, coder, analyst, researcher)
 - [x] GAIA Benchmark for comparing agent CLIs
-- [ ] Optional JSONL transcript export (debugging / replay)
+- [x] JSONL transcript export (debugging / replay)
 - [ ] Multiple UI stream profiles (web / terminal)
 - [ ] Additional agent runtimes
 - [ ] Snapshot & restore
@@ -344,6 +344,7 @@ SandAgent is opinionated by design.
 | [Quick Start](./spec/QUICK_START.md) | Get running in 5 minutes |
 | [Persistence Guide](./spec/PERSISTENCE_GUIDE.md) | Managing state across runs |
 | [Sandbox Adapters](./spec/SANDBOX_ADAPTERS.md) | Configuring sandbox environments |
+| [Debugging Guide](./spec/DEBUGGING_GUIDE.md) | Transcript recording and troubleshooting |
 | [API Reference](./spec/API_REFERENCE.md) | Complete API documentation |
 | [Technical Specification](./spec/TECHNICAL_SPEC.md) | Full architecture details |
 | [Templates Guide](./templates/README.md) | Creating and using agent templates |
