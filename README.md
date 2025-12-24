@@ -39,18 +39,7 @@ Open http://localhost:3000 → Click **Settings** → Enter your API keys → St
 
 > **Note:** API keys are configured in the browser settings page, not environment variables. This makes it easy to test without server configuration.
 
-### Option B: Run Tests
-
-Verify everything works without needing API keys:
-
-```bash
-git clone https://github.com/vikadata/sandagent.git
-cd sandagent
-pnpm install && pnpm build
-pnpm test  # 87 tests
-```
-
-### Option C: Manager CLI
+### Option B: Manager CLI
 
 **manager-cli** provides the `sandagent` command for managing sandboxes and running agents from the command line:
 
@@ -77,7 +66,7 @@ npx sandagent --help
 
 **Use cases:** Server-side automation, CI/CD pipelines, managing multiple sandbox instances.
 
-### Option D: Runner CLI (Local Development)
+### Option C: Runner CLI (Local Development)
 
 **runner-cli** provides `sandagent-runner` - a terminal-based agent similar to `gemini-cli` or `claude-code`:
 
@@ -97,6 +86,17 @@ npx sandagent-runner run --template analyst -- "Analyze this data"
 ```
 
 **Use cases:** Local development, terminal-based workflows, developers who prefer CLI over web UI.
+
+### Option D: Run Tests
+
+Verify everything works without needing API keys:
+
+```bash
+git clone https://github.com/vikadata/sandagent.git
+cd sandagent
+pnpm install && pnpm build
+pnpm test  # 87 tests
+```
 
 ---
 
