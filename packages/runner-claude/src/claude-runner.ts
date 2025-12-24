@@ -80,8 +80,10 @@ export function createClaudeRunner(options: ClaudeRunnerOptions): ClaudeRunner {
 
 async function loadClaudeAgentSDK(): Promise<ClaudeAgentSDK | null> {
   try {
-    const module = await import("@anthropic-ai/claude-code");
-    return module as unknown as ClaudeAgentSDK;
+    // Use dynamic import with a variable to avoid TypeScript static analysis
+    const moduleName = "@anthropic-ai/claude-code";
+    const module = await (Function('moduleName', 'return import(moduleName)')(moduleName) as Promise<unknown>);
+    return module as ClaudeAgentSDK;
   } catch {
     // SDK not installed, return null
     return null;

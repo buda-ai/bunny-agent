@@ -80,9 +80,10 @@ export class E2BSandbox implements SandboxAdapter {
 
   private async loadE2B(): Promise<E2BSandboxConstructor> {
     try {
-      // Dynamically import E2B SDK
-      const module = await import("@e2b/code-interpreter");
-      return module.Sandbox ?? module.default?.Sandbox ?? module.default;
+      // Use dynamic import with a variable to avoid TypeScript static analysis
+      const moduleName = "@e2b/code-interpreter";
+      const module = await (Function('moduleName', 'return import(moduleName)')(moduleName) as Promise<Record<string, unknown>>);
+      return (module.Sandbox ?? module.default) as E2BSandboxConstructor;
     } catch {
       throw new Error(
         "E2B SDK not found. Please install @e2b/code-interpreter: npm install @e2b/code-interpreter"
