@@ -1,8 +1,8 @@
 {
-  "name": "sandagent-nextjs-example",
+  "name": "@sandagent/example",
   "version": "0.1.0",
   "private": true,
-  "description": "Example Next.js app using SandAgent with KUI",
+  "description": "Complete SandAgent example with AI Chat UI, template selector, and real-time streaming",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

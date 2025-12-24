@@ -2,6 +2,82 @@
 
 **Turn powerful coding agents into universal Super Agents.**
 
+---
+
+## 🚀 Quick Start
+
+Choose your preferred way to get started:
+
+### Option A: Web UI (Recommended for first-time users)
+
+Run the complete example app with AI chat interface, template selector, and real-time streaming:
+
+```bash
+# Clone and setup
+git clone https://github.com/vikadata/sandagent.git
+cd sandagent
+pnpm install && pnpm build
+
+# Set your API keys
+export ANTHROPIC_API_KEY=your_key
+export E2B_API_KEY=your_e2b_key  # Get one at https://e2b.dev
+
+# Start the example app
+cd apps/sandagent-example
+pnpm dev
+```
+
+Open http://localhost:3000 - you'll see a complete AI chat interface with template selection!
+
+### Option B: Run Tests
+
+Verify everything works without needing API keys:
+
+```bash
+git clone https://github.com/vikadata/sandagent.git
+cd sandagent
+pnpm install && pnpm build
+pnpm test  # 87 tests
+```
+
+### Option C: Manager CLI (Command Line)
+
+Use the `sandagent` command to manage sandboxes and run agents:
+
+```bash
+# After building (see Option A)
+cd apps/manager-cli && pnpm build
+
+# Run an agent task
+npx sandagent run "Create a hello world script"
+
+# Run with a specific template
+npx sandagent run --template coder "Build a REST API"
+
+# See all commands
+npx sandagent --help
+```
+
+### Option D: Runner CLI (Local Development)
+
+Like `gemini-cli` or `claude-code` - runs directly in your terminal:
+
+```bash
+# After building (see Option A)
+cd apps/runner-cli && pnpm build
+
+# Run from a template directory
+cd templates/coder
+npx sandagent-runner run -- "Build a REST API with Express"
+
+# Or specify a template
+npx sandagent-runner run --template analyst -- "Analyze this data"
+```
+
+---
+
+## What is SandAgent?
+
 **SandAgent** is an open-source, sandboxed agent runtime that turns powerful **coding agents** into **general-purpose Super Agents**,
 by running them inside isolated sandboxes with real filesystems and **streaming AI SDK–compatible UI messages end-to-end**.
 
@@ -15,7 +91,7 @@ What the agent outputs is **exactly** what the UI renders.
 
 ---
 
-## What is SandAgent?
+## Core Concept
 
 Most agent systems split into two worlds:
 
@@ -25,18 +101,6 @@ Most agent systems split into two worlds:
 SandAgent intentionally **collapses this boundary**.
 
 > **The agent speaks the UI protocol directly.**
-
-This allows SandAgent to act as:
-
-* a sandboxed agent runtime
-* a transport layer for AI SDK UI
-* a persistent execution environment
-
-All at the same time.
-
----
-
-## Core Concept
 
 ### One SandAgent = One Sandbox + One Filesystem + One UI Stream
 
@@ -49,48 +113,21 @@ SandAgent instance
   └─ AI SDK–compatible message stream
 ```
 
-* Creating a `SandAgent` attaches to a sandbox
-* The sandbox owns the filesystem
-* Templates provide pre-configured agent behavior
-* The CLI inside the sandbox **streams AI SDK UI messages**
-* The server **passes them through unchanged**
-
----
-
-## Why Passthrough?
-
-SandAgent is optimized for **speed to product**.
-
-By letting the CLI emit AI SDK UI messages directly:
-
-* there is no protocol adapter layer
-* there is no event re-encoding
-* there is no impedance mismatch
-
-```text
-Claude Agent SDK
-   ↓
-SandAgent CLI
-   ↓  (AI SDK UI messages)
-Server (passthrough)
-   ↓
-AI SDK UI (render)
-```
-
-If it renders in AI SDK UI, SandAgent can stream it.
-
 ---
 
 ## Monorepo Structure
 
 ```text
 sandagent/
+├─ apps/
+│  ├─ sandagent-example/   # Complete Next.js app with AI chat UI
+│  ├─ manager-cli/         # sandagent command - manage sandboxes, run agents
+│  └─ runner-cli/          # sandagent-runner - like gemini-cli, runs locally
 ├─ packages/
 │  ├─ core/                # SandAgent lifecycle & sandbox binding
-│  ├─ cli/                 # Agent runner CLI (AI SDK UI passthrough)
 │  ├─ sdk/                 # Next.js / server passthrough helpers
-│  ├─ sandbox-sandock/     # Sandock adapter
-│  ├─ sandbox-e2b/         # E2B adapter (recommended)
+│  ├─ sandbox-sandock/     # Docker sandbox adapter
+│  ├─ sandbox-e2b/         # E2B cloud sandbox adapter (recommended)
 │  ├─ runner-claude/       # Claude Agent SDK runtime
 │  └─ benchmark/           # GAIA benchmark for comparing agent CLIs
 ├─ templates/
@@ -98,9 +135,7 @@ sandagent/
 │  ├─ coder/               # Software development focused
 │  ├─ analyst/             # Data analysis optimized
 │  └─ researcher/          # Web research capabilities
-├─ examples/
-│  └─ nextjs-app/
-└─ README.md
+└─ spec/                   # Documentation and specifications
 ```
 
 ---
@@ -149,8 +184,7 @@ What happens:
 4. Server streams stdout directly to the client
 5. AI SDK UI renders everything as-is
 
-No translation.
-No reinterpretation.
+No translation. No reinterpretation.
 
 ---
 
@@ -167,23 +201,10 @@ Templates provide pre-configured agent behavior including system prompts, skills
 | `analyst` | Data analysis optimized | Data processing, SQL, visualization |
 | `researcher` | Web research capabilities | Information gathering, summarization |
 
-### Template Structure
-
-```text
-template-name/
-├─ .claude/
-│  ├─ settings.json      # Claude-specific settings
-│  └─ mcp.json           # MCP server configuration
-├─ CLAUDE.md             # System instructions for the agent
-└─ skills/               # Pre-defined skill files
-   ├── code-review.md
-   └── debugging.md
-```
-
 ### Using Templates
 
 ```ts
-// Use the coder template
+// Use the coder template in code
 runner: {
   kind: "claude-agent-sdk",
   model: "claude-sonnet-4-20250514",
@@ -191,105 +212,107 @@ runner: {
 }
 ```
 
-Or via CLI:
-
 ```bash
-sandagent run --template coder -- "Build a REST API"
+# Use the coder template via CLI
+sandagent run --template coder "Build a REST API"
 ```
 
 See [templates/README.md](./templates/README.md) for creating custom templates.
 
 ---
 
-## Next.js + AI SDK Example
+## Development
 
-### `/app/api/ai/route.ts`
+### Prerequisites
 
-```ts
-import { SandAgent } from "@sandagent/core";
-import { E2BSandbox } from "@sandagent/sandbox-e2b";
+* Node.js >= 20.0.0
+* pnpm 9.0.0+
 
-export async function POST(req: Request) {
-  const { messages, sessionId } = await req.json();
+### Available Scripts
 
-  const agent = new SandAgent({
-    id: sessionId,
-    sandbox: new E2BSandbox(),
-    runner: {
-      kind: "claude-agent-sdk",
-      model: "claude-sonnet-4-20250514",
-      template: "default",
-    },
-  });
+| Script | Description |
+|--------|-------------|
+| `pnpm install` | Install all dependencies across workspaces |
+| `pnpm build` | Build all packages and apps |
+| `pnpm test` | Run all tests (87 tests) |
+| `pnpm lint` | Run linters on all packages |
+| `pnpm typecheck` | Type-check all packages |
+| `pnpm clean` | Clean build artifacts |
 
-  // Passthrough AI SDK UI stream
-  return agent.stream({
-    messages,
-    workspace: { path: "/workspace" },
-  });
-}
-```
-
-The UI receives:
-
-* assistant messages
-* tool call cards
-* logs and status updates
-
-Exactly as produced by the agent runtime.
-
----
-
-## CLI Contract
-
-The CLI runs **inside the sandbox** and outputs **AI SDK UI messages**.
+### Working with Individual Packages
 
 ```bash
-sandagent run \
-  --model claude-sonnet-4-20250514 \
-  --template coder \
-  --cwd /workspace \
-  -- "Create a weather script and run it"
+# Build a specific package
+cd packages/core
+pnpm build
+
+# Run tests for a specific package
+cd packages/core
+pnpm test
+
+# Run tests in watch mode
+pnpm test -- --watch
 ```
 
-### CLI Options
+### Environment Variables
 
-| Option | Description |
-|--------|-------------|
-| `-m, --model` | Model to use (default: claude-sonnet-4-20250514) |
-| `-T, --template` | Template to use (default, coder, analyst, researcher) |
-| `-c, --cwd` | Working directory (default: /workspace) |
-| `-s, --system-prompt` | Custom system prompt (overrides template) |
-| `-t, --max-turns` | Maximum conversation turns |
-| `-a, --allowed-tools` | Comma-separated list of allowed tools |
-
-### CLI guarantees
-
-* stdout is a valid AI SDK UI message stream
-* messages are ordered
-* streaming is continuous until completion or error
-
-SandAgent does not inspect or modify the stream.
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `ANTHROPIC_API_KEY` | Yes | API key for Claude Agent SDK |
+| `E2B_API_KEY` | For E2B | API key for E2B cloud sandbox |
+| `DOCKER_HOST` | For Sandock | Docker host URL (optional) |
 
 ---
 
-## Persistence Model
+## Why Passthrough?
 
-### Filesystem
+SandAgent is optimized for **speed to product**.
 
-* Each agent has a dedicated filesystem volume
-* Files persist across runs with the same `id`
-* Agents can read, write, execute, and debug real artifacts
+By letting the CLI emit AI SDK UI messages directly:
 
-### Identity
+* there is no protocol adapter layer
+* there is no event re-encoding
+* there is no impedance mismatch
 
-```ts
-new SandAgent({ id })
+```text
+Claude Agent SDK
+   ↓
+SandAgent CLI
+   ↓  (AI SDK UI messages)
+Server (passthrough)
+   ↓
+AI SDK UI (render)
 ```
 
-means:
+If it renders in AI SDK UI, SandAgent can stream it.
 
-> "Resume this world."
+---
+
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [Quick Start](./spec/QUICK_START.md) | Get running in 5 minutes |
+| [Persistence Guide](./spec/PERSISTENCE_GUIDE.md) | Managing state across runs |
+| [Sandbox Adapters](./spec/SANDBOX_ADAPTERS.md) | Configuring sandbox environments |
+| [Debugging Guide](./spec/DEBUGGING_GUIDE.md) | Transcript recording and troubleshooting |
+| [API Reference](./spec/API_REFERENCE.md) | Complete API documentation |
+| [Technical Specification](./spec/TECHNICAL_SPEC.md) | Full architecture details |
+| [Templates Guide](./templates/README.md) | Creating and using agent templates |
+
+---
+
+## Roadmap
+
+- [x] Agent Templates (default, coder, analyst, researcher)
+- [x] GAIA Benchmark for comparing agent CLIs
+- [x] JSONL transcript export (debugging / replay)
+- [x] Manager CLI (sandagent command)
+- [x] Runner CLI (sandagent-runner command)
+- [ ] Multiple UI stream profiles (web / terminal)
+- [ ] Additional agent runtimes
+- [ ] Snapshot & restore
+- [ ] Volume export
 
 ---
 
@@ -312,142 +335,6 @@ But also means:
 * Non-UI consumers should build their own adapters
 
 This is a conscious design decision.
-
----
-
-## Roadmap
-
-- [x] Agent Templates (default, coder, analyst, researcher)
-- [x] GAIA Benchmark for comparing agent CLIs
-- [x] JSONL transcript export (debugging / replay)
-- [ ] Multiple UI stream profiles (web / terminal)
-- [ ] Additional agent runtimes
-- [ ] Snapshot & restore
-- [ ] Volume export
-
----
-
-## Non-goals
-
-* ❌ Being UI-agnostic
-* ❌ Acting as a generic agent event bus
-* ❌ Supporting multiple UI protocols at once
-
-SandAgent is opinionated by design.
-
----
-
-## Development
-
-### Prerequisites
-
-* Node.js >= 20.0.0
-* pnpm 9.0.0+
-
-### Quick Start (Local Development)
-
-```bash
-# Clone the repository
-git clone https://github.com/vikadata/sandagent.git
-cd sandagent
-
-# Install dependencies
-pnpm install
-
-# Build all packages
-pnpm build
-
-# Run all tests
-pnpm test
-```
-
-### Available Scripts
-
-| Script | Description |
-|--------|-------------|
-| `pnpm install` | Install all dependencies across workspaces |
-| `pnpm build` | Build all packages in the monorepo |
-| `pnpm test` | Run all tests across all packages |
-| `pnpm lint` | Run linters on all packages |
-| `pnpm typecheck` | Type-check all packages |
-| `pnpm clean` | Clean build artifacts from all packages |
-
-### Working with Individual Packages
-
-```bash
-# Build a specific package
-cd packages/core
-pnpm build
-
-# Run tests for a specific package
-cd packages/core
-pnpm test
-
-# Run tests in watch mode (during development)
-cd packages/core
-pnpm test -- --watch
-```
-
-### Running the Example App
-
-```bash
-# First build all packages
-pnpm build
-
-# Navigate to example app
-cd examples/nextjs-app
-
-# Install dependencies
-pnpm install
-
-# Set environment variables
-export ANTHROPIC_API_KEY=your_api_key
-export E2B_API_KEY=your_e2b_key  # Optional, for E2B sandbox
-
-# Start development server
-pnpm dev
-```
-
-Then open http://localhost:3000 to see the AI chat interface.
-
-### Running GAIA Benchmark
-
-```bash
-# Build the benchmark package
-cd packages/benchmark
-pnpm build
-
-# Download GAIA dataset
-npx sandagent-benchmark download
-
-# Run benchmark with sandagent
-npx sandagent-benchmark run --runner sandagent --level 1
-
-# Compare results across different runners
-npx sandagent-benchmark compare
-```
-
-### Environment Variables
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `ANTHROPIC_API_KEY` | Yes | API key for Claude Agent SDK |
-| `E2B_API_KEY` | For E2B | API key for E2B sandbox |
-| `DOCKER_HOST` | For Sandock | Docker host URL (optional) |
-
----
-
-## Documentation
-
-| Document | Description |
-|----------|-------------|
-| [Quick Start](./spec/QUICK_START.md) | Get running in 5 minutes |
-| [Persistence Guide](./spec/PERSISTENCE_GUIDE.md) | Managing state across runs |
-| [Sandbox Adapters](./spec/SANDBOX_ADAPTERS.md) | Configuring sandbox environments |
-| [Debugging Guide](./spec/DEBUGGING_GUIDE.md) | Transcript recording and troubleshooting |
-| [API Reference](./spec/API_REFERENCE.md) | Complete API documentation |
-| [Technical Specification](./spec/TECHNICAL_SPEC.md) | Full architecture details |
-| [Templates Guide](./templates/README.md) | Creating and using agent templates |
 
 ---
 

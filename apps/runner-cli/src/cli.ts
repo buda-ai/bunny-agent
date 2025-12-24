@@ -1,15 +1,16 @@
 #!/usr/bin/env node
 
 /**
- * SandAgent CLI
+ * SandAgent Runner CLI
  *
- * Agent runner that streams AI SDK UI messages to stdout.
+ * Like gemini-cli or claude-code - runs locally in your terminal.
+ * Streams AI SDK UI messages directly to stdout.
  *
  * Usage:
- *   sandagent run [options] -- "<user input>"
+ *   sandagent-runner run [options] -- "<user input>"
  *
- * The CLI is designed to be executed inside a sandbox and outputs
- * AI SDK UI messages directly to stdout for passthrough streaming.
+ * The CLI is designed to be executed in a specific working directory
+ * (e.g., a template directory) and outputs AI SDK UI messages directly.
  */
 
 import { parseArgs } from "node:util";
@@ -36,7 +37,7 @@ function parseCliArgs(): ParsedArgs {
       cwd: {
         type: "string",
         short: "c",
-        default: process.env.SANDAGENT_WORKSPACE ?? "/workspace",
+        default: process.env.SANDAGENT_WORKSPACE ?? process.cwd(),
       },
       template: {
         type: "string",
@@ -72,7 +73,7 @@ function parseCliArgs(): ParsedArgs {
   // Check for "run" command
   if (positionals[0] !== "run") {
     console.error('Error: Expected "run" command');
-    console.error('Usage: sandagent run [options] -- "<user input>"');
+    console.error('Usage: sandagent-runner run [options] -- "<user input>"');
     process.exit(1);
   }
 
@@ -88,7 +89,7 @@ function parseCliArgs(): ParsedArgs {
 
   if (!userInput) {
     console.error("Error: User input is required");
-    console.error('Usage: sandagent run [options] -- "<user input>"');
+    console.error('Usage: sandagent-runner run [options] -- "<user input>"');
     process.exit(1);
   }
 
@@ -105,14 +106,21 @@ function parseCliArgs(): ParsedArgs {
 
 function printHelp(): void {
   console.log(`
-SandAgent CLI - Agent runner that streams AI SDK UI messages
+🤖 SandAgent Runner CLI
+
+Like gemini-cli or claude-code - runs locally in your terminal.
+Streams AI SDK UI messages directly to stdout.
 
 Usage:
-  sandagent run [options] -- "<user input>"
+  sandagent-runner run [options] -- "<user input>"
+
+  # Or run from a template directory:
+  cd templates/coder
+  sandagent-runner run -- "Build a REST API"
 
 Options:
   -m, --model <model>          Model to use (default: claude-sonnet-4-20250514)
-  -c, --cwd <path>             Working directory (default: /workspace)
+  -c, --cwd <path>             Working directory (default: current directory)
   -T, --template <name>        Template to use (default: default)
                                Available: default, coder, analyst, researcher
   -s, --system-prompt <prompt> Custom system prompt (overrides template)
@@ -133,10 +141,18 @@ Templates:
   researcher  Optimized for research tasks
 
 Examples:
-  sandagent run -- "Create a hello world script"
-  sandagent run --template coder -- "Build a REST API with Express"
-  sandagent run --template analyst -- "Analyze sales.csv and create a report"
-  sandagent run --model claude-3-5-sonnet -- "Fix the bug in main.ts"
+  # Run with default template
+  sandagent-runner run -- "Create a hello world script"
+
+  # Run from a template directory (recommended)
+  cd templates/coder
+  sandagent-runner run -- "Build a REST API with Express"
+
+  # Use a specific template
+  sandagent-runner run --template analyst -- "Analyze sales.csv"
+
+  # Specify working directory
+  sandagent-runner run --cwd ./my-project -- "Fix the bug in main.ts"
 `);
 }
 

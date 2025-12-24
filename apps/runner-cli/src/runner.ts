@@ -52,7 +52,7 @@ function findTemplatesDir(): string | null {
   }
 
   // Development: relative to this file
-  // When built, this file is at packages/cli/dist/runner.js
+  // When built, this file is at apps/runner-cli/dist/runner.js
   // Templates are at the repo root: templates/
   const devPath = path.resolve(__dirname, "../../../templates");
   if (fs.existsSync(devPath)) {

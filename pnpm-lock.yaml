@@ -18,7 +18,48 @@ importers:
         specifier: ^1.6.1
         version: 1.6.1(@types/node@20.19.27)(lightningcss@1.30.2)
 
-  examples/nextjs-app:
+  apps/manager-cli:
+    dependencies:
+      '@sandagent/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@sandagent/runner-claude':
+        specifier: workspace:*
+        version: link:../../packages/runner-claude
+      '@sandagent/sandbox-e2b':
+        specifier: workspace:*
+        version: link:../../packages/sandbox-e2b
+      '@sandagent/sandbox-sandock':
+        specifier: workspace:*
+        version: link:../../packages/sandbox-sandock
+    devDependencies:
+      '@types/node':
+        specifier: ^20.10.0
+        version: 20.19.27
+      typescript:
+        specifier: ^5.3.0
+        version: 5.9.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.27)(lightningcss@1.30.2)
+
+  apps/runner-cli:
+    dependencies:
+      '@sandagent/runner-claude':
+        specifier: workspace:*
+        version: link:../../packages/runner-claude
+    devDependencies:
+      '@types/node':
+        specifier: ^20.10.0
+        version: 20.19.27
+      typescript:
+        specifier: ^5.3.0
+        version: 5.9.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.27)(lightningcss@1.30.2)
+
+  apps/sandagent-example:
     dependencies:
       '@ai-sdk/react':
         specifier: beta
@@ -97,22 +138,6 @@ importers:
       tsx:
         specifier: ^4.19.2
         version: 4.21.0
-      typescript:
-        specifier: ^5.3.0
-        version: 5.9.3
-      vitest:
-        specifier: ^1.6.1
-        version: 1.6.1(@types/node@20.19.27)(lightningcss@1.30.2)
-
-  packages/cli:
-    dependencies:
-      '@sandagent/runner-claude':
-        specifier: workspace:*
-        version: link:../runner-claude
-    devDependencies:
-      '@types/node':
-        specifier: ^20.10.0
-        version: 20.19.27
       typescript:
         specifier: ^5.3.0
         version: 5.9.3
