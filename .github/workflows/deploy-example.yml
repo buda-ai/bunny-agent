@@ -5,10 +5,6 @@ on:
     branches:
       - main
       - develop
-  pull_request:
-    branches:
-      - main
-      - develop
 
 env:
   VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
@@ -48,9 +44,9 @@ jobs:
         run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
         working-directory: apps/sandagent-example
 
-      # Deploy to Preview for PRs and develop branch
+      # Deploy to Preview for develop branch
       - name: Deploy Preview to Vercel
-        if: github.event_name == 'pull_request' || github.ref == 'refs/heads/develop'
+        if: github.ref == 'refs/heads/develop'
         run: |
           url=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
           echo "Preview URL: $url"
@@ -58,6 +54,6 @@ jobs:
 
       # Deploy to Production for main branch
       - name: Deploy Production to Vercel
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        if: github.ref == 'refs/heads/main'
         run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
         working-directory: apps/sandagent-example
