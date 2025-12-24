@@ -10,10 +10,11 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@ai-sdk/react": "beta",
     "@sandagent/core": "workspace:*",
     "@sandagent/sdk": "workspace:*",
     "@sandagent/sandbox-sandock": "workspace:*",
-    "ai": "^3.0.0",
+    "ai": "beta",
     "next": "^14.2.35",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"

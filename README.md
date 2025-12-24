@@ -266,6 +266,18 @@ SandAgent is opinionated by design.
 
 ---
 
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [Quick Start](./spec/QUICK_START.md) | Get running in 5 minutes |
+| [Persistence Guide](./spec/PERSISTENCE_GUIDE.md) | Managing state across runs |
+| [Sandbox Adapters](./spec/SANDBOX_ADAPTERS.md) | Configuring sandbox environments |
+| [API Reference](./spec/API_REFERENCE.md) | Complete API documentation |
+| [Technical Specification](./spec/TECHNICAL_SPEC.md) | Full architecture details |
+
+---
+
 ## One-line takeaway
 
 > **SandAgent is a sandboxed Super Agent runtime that speaks AI SDK UI natively.**

@@ -1,18 +1,29 @@
 "use client";
 
-import { useChat } from "ai/react";
-import { useState } from "react";
+import { useChat } from "@ai-sdk/react";
+import { DefaultChatTransport } from "ai";
+import { useState, useMemo } from "react";
 
 export default function Home() {
   const [sessionId] = useState(() => `session-${Date.now()}`);
+  const [inputValue, setInputValue] = useState("");
 
-  const { messages, input, handleInputChange, handleSubmit, isLoading } =
-    useChat({
-      api: "/api/ai",
-      body: {
-        sessionId,
-      },
-    });
+  const transport = useMemo(() => new DefaultChatTransport({
+    api: "/api/ai",
+    body: { sessionId },
+  }), [sessionId]);
+
+  const { messages, sendMessage, status } = useChat({ transport });
+
+  const isLoading = status === "streaming" || status === "submitted";
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (inputValue.trim() && !isLoading) {
+      sendMessage({ role: "user", parts: [{ type: "text", text: inputValue }] });
+      setInputValue("");
+    }
+  };
 
   return (
     <main>
@@ -24,7 +35,9 @@ export default function Home() {
               key={message.id}
               className={`message ${message.role}`}
             >
-              {message.content}
+              {message.parts.map((part, i) => 
+                part.type === "text" ? <span key={i}>{part.text}</span> : null
+              )}
             </div>
           ))}
           {isLoading && (
@@ -34,8 +47,8 @@ export default function Home() {
         <form onSubmit={handleSubmit} className="input-form">
           <input
             type="text"
-            value={input}
-            onChange={handleInputChange}
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
             placeholder="Ask the agent to do something..."
             disabled={isLoading}
           />
