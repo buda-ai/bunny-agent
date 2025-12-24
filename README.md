@@ -14,7 +14,7 @@ Choose your preferred way to get started. All options are designed for **develop
 |-----|------------|----------|
 | **sandagent-example** | Complete Next.js web app with AI chat UI | First-time users, web integration testing |
 | **manager-cli** | Command-line tool to manage sandboxes | DevOps, server-side orchestration |
-| **runner-cli** | Terminal-based agent (like gemini-cli) | Local development, CLI enthusiasts |
+| **runner-cli** | Terminal-based agent (like claude-code, gemini-cli) | Local development, CLI enthusiasts |
 
 ### Option A: Web UI (Recommended for first-time users)
 
