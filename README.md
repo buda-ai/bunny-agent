@@ -6,11 +6,23 @@
 
 ## 🚀 Quick Start
 
-Choose your preferred way to get started:
+Choose your preferred way to get started. All options are designed for **developers to debug and test** SandAgent capabilities.
+
+### Understanding the Apps
+
+| App | What it is | Best for |
+|-----|------------|----------|
+| **sandagent-example** | Complete Next.js web app with AI chat UI | First-time users, web integration testing |
+| **manager-cli** | Command-line tool to manage sandboxes | DevOps, server-side orchestration |
+| **runner-cli** | Terminal-based agent (like gemini-cli) | Local development, CLI enthusiasts |
 
 ### Option A: Web UI (Recommended for first-time users)
 
-Run the complete example app with AI chat interface, template selector, and real-time streaming:
+**sandagent-example** is a complete Next.js application with:
+- 💬 Full AI chat interface with real-time streaming
+- 🎨 Template selector (default, coder, analyst, researcher)
+- ⚙️ In-browser settings page to configure API keys
+- 🚀 Deployable to Vercel with one click
 
 ```bash
 # Clone and setup
@@ -18,16 +30,14 @@ git clone https://github.com/vikadata/sandagent.git
 cd sandagent
 pnpm install && pnpm build
 
-# Set your API keys
-export ANTHROPIC_API_KEY=your_key
-export E2B_API_KEY=your_e2b_key  # Get one at https://e2b.dev
-
 # Start the example app
 cd apps/sandagent-example
 pnpm dev
 ```
 
-Open http://localhost:3000 - you'll see a complete AI chat interface with template selection!
+Open http://localhost:3000 → Click **Settings** → Enter your API keys → Start chatting!
+
+> **Note:** API keys are configured in the browser settings page, not environment variables. This makes it easy to test without server configuration.
 
 ### Option B: Run Tests
 
@@ -40,13 +50,17 @@ pnpm install && pnpm build
 pnpm test  # 87 tests
 ```
 
-### Option C: Manager CLI (Command Line)
+### Option C: Manager CLI
 
-Use the `sandagent` command to manage sandboxes and run agents:
+**manager-cli** provides the `sandagent` command for managing sandboxes and running agents from the command line:
 
 ```bash
 # After building (see Option A)
 cd apps/manager-cli && pnpm build
+
+# Set environment variables
+export ANTHROPIC_API_KEY=your_key
+export E2B_API_KEY=your_e2b_key
 
 # Run an agent task
 npx sandagent run "Create a hello world script"
@@ -54,17 +68,25 @@ npx sandagent run "Create a hello world script"
 # Run with a specific template
 npx sandagent run --template coder "Build a REST API"
 
+# List available templates
+npx sandagent templates
+
 # See all commands
 npx sandagent --help
 ```
 
+**Use cases:** Server-side automation, CI/CD pipelines, managing multiple sandbox instances.
+
 ### Option D: Runner CLI (Local Development)
 
-Like `gemini-cli` or `claude-code` - runs directly in your terminal:
+**runner-cli** provides `sandagent-runner` - a terminal-based agent similar to `gemini-cli` or `claude-code`:
 
 ```bash
 # After building (see Option A)
 cd apps/runner-cli && pnpm build
+
+# Set environment variables
+export ANTHROPIC_API_KEY=your_key
 
 # Run from a template directory
 cd templates/coder
@@ -73,6 +95,8 @@ npx sandagent-runner run -- "Build a REST API with Express"
 # Or specify a template
 npx sandagent-runner run --template analyst -- "Analyze this data"
 ```
+
+**Use cases:** Local development, terminal-based workflows, developers who prefer CLI over web UI.
 
 ---
 

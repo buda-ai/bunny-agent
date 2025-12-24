@@ -19,12 +19,14 @@ export class SandAgent {
   private readonly id: string;
   private readonly sandbox: SandboxAdapter;
   private readonly runner: RunnerSpec;
+  private readonly env: Record<string, string>;
   private handle: SandboxHandle | null = null;
 
   constructor(options: SandAgentOptions) {
     this.id = options.id;
     this.sandbox = options.sandbox;
     this.runner = options.runner;
+    this.env = options.env ?? {};
   }
 
   /**
@@ -130,6 +132,7 @@ export class SandAgent {
     // Execute the command and get stdout as an async iterable
     const stdout = handle.exec(command, {
       cwd: workspacePath,
+      env: this.env,
     });
 
     // Create a ReadableStream that passes through the stdout chunks
