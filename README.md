@@ -337,6 +337,106 @@ SandAgent is opinionated by design.
 
 ---
 
+## Development
+
+### Prerequisites
+
+* Node.js >= 20.0.0
+* pnpm 9.0.0+
+
+### Quick Start (Local Development)
+
+```bash
+# Clone the repository
+git clone https://github.com/vikadata/sandagent.git
+cd sandagent
+
+# Install dependencies
+pnpm install
+
+# Build all packages
+pnpm build
+
+# Run all tests
+pnpm test
+```
+
+### Available Scripts
+
+| Script | Description |
+|--------|-------------|
+| `pnpm install` | Install all dependencies across workspaces |
+| `pnpm build` | Build all packages in the monorepo |
+| `pnpm test` | Run all tests across all packages |
+| `pnpm lint` | Run linters on all packages |
+| `pnpm typecheck` | Type-check all packages |
+| `pnpm clean` | Clean build artifacts from all packages |
+
+### Working with Individual Packages
+
+```bash
+# Build a specific package
+cd packages/core
+pnpm build
+
+# Run tests for a specific package
+cd packages/core
+pnpm test
+
+# Run tests in watch mode (during development)
+cd packages/core
+pnpm test -- --watch
+```
+
+### Running the Example App
+
+```bash
+# First build all packages
+pnpm build
+
+# Navigate to example app
+cd examples/nextjs-app
+
+# Install dependencies
+pnpm install
+
+# Set environment variables
+export ANTHROPIC_API_KEY=your_api_key
+export E2B_API_KEY=your_e2b_key  # Optional, for E2B sandbox
+
+# Start development server
+pnpm dev
+```
+
+Then open http://localhost:3000 to see the AI chat interface.
+
+### Running GAIA Benchmark
+
+```bash
+# Build the benchmark package
+cd packages/benchmark
+pnpm build
+
+# Download GAIA dataset
+npx sandagent-benchmark download
+
+# Run benchmark with sandagent
+npx sandagent-benchmark run --runner sandagent --level 1
+
+# Compare results across different runners
+npx sandagent-benchmark compare
+```
+
+### Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `ANTHROPIC_API_KEY` | Yes | API key for Claude Agent SDK |
+| `E2B_API_KEY` | For E2B | API key for E2B sandbox |
+| `DOCKER_HOST` | For Sandock | Docker host URL (optional) |
+
+---
+
 ## Documentation
 
 | Document | Description |
