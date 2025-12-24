@@ -89,7 +89,8 @@ sandagent/
 │  ├─ sdk/                 # Next.js / server passthrough helpers
 │  ├─ sandbox-sandock/     # Sandock adapter
 │  ├─ sandbox-e2b/         # E2B adapter
-│  └─ runner-claude/       # Claude Agent SDK runtime
+│  ├─ runner-claude/       # Claude Agent SDK runtime
+│  └─ benchmark/           # GAIA benchmark for comparing agent CLIs
 ├─ examples/
 │  └─ nextjs-app/
 └─ README.md
