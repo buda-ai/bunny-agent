@@ -61,11 +61,13 @@ export interface RunnerSpec {
   kind: "claude-agent-sdk";
   /** The model to use */
   model: string;
-  /** Optional system prompt override */
+  /** Template to use (e.g., "default", "coder", "analyst", "researcher") */
+  template?: string;
+  /** Optional system prompt override (overrides template's CLAUDE.md) */
   systemPrompt?: string;
   /** Maximum number of conversation turns */
   maxTurns?: number;
-  /** Allowed tools (undefined means all tools) */
+  /** Allowed tools (undefined means all tools, or use template's settings) */
   allowedTools?: string[];
 }
 

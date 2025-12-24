@@ -1,0 +1,16 @@
+{
+  "$schema": "https://modelcontextprotocol.io/schemas/mcp.json",
+  "description": "Analyst template MCP configuration",
+  "servers": {
+    "filesystem": {
+      "command": "mcp-server-filesystem",
+      "args": ["/workspace"],
+      "description": "File system access for data files"
+    },
+    "sqlite": {
+      "command": "mcp-server-sqlite",
+      "args": ["/workspace/data.db"],
+      "description": "SQLite database access"
+    }
+  }
+}

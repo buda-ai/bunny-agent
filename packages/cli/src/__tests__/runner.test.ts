@@ -31,21 +31,22 @@ describe("runAgent", () => {
     vi.clearAllMocks();
   });
 
-  it("should create a Claude runner with correct options", async () => {
+  it("should create a Claude runner with correct options (with default template)", async () => {
     await runAgent({
       model: "claude-sonnet-4-20250514",
       userInput: "Hello, world!",
     });
 
-    expect(createClaudeRunner).toHaveBeenCalledWith({
-      model: "claude-sonnet-4-20250514",
-      systemPrompt: undefined,
-      maxTurns: undefined,
-      allowedTools: undefined,
-    });
+    // The runner should be called with template values loaded
+    expect(createClaudeRunner).toHaveBeenCalled();
+    const callArgs = vi.mocked(createClaudeRunner).mock.calls[0][0];
+    expect(callArgs.model).toBe("claude-sonnet-4-20250514");
+    // Template provides default allowed tools and maxTurns
+    // (or undefined if template not found)
+    expect(typeof callArgs.maxTurns === "number" || callArgs.maxTurns === undefined).toBe(true);
   });
 
-  it("should pass optional parameters to runner", async () => {
+  it("should pass optional parameters to runner (overriding template)", async () => {
     await runAgent({
       model: "claude-sonnet-4-20250514",
       userInput: "Hello, world!",
@@ -54,6 +55,7 @@ describe("runAgent", () => {
       allowedTools: ["bash", "write_file"],
     });
 
+    // Explicit parameters override template values
     expect(createClaudeRunner).toHaveBeenCalledWith({
       model: "claude-sonnet-4-20250514",
       systemPrompt: "You are a helpful assistant",

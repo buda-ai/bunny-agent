@@ -1,6 +1,6 @@
 import { createAgentHandler } from "@sandagent/sdk";
 import { SandAgent } from "@sandagent/core";
-import { SandockSandbox } from "@sandagent/sandbox-sandock";
+import { E2BSandbox } from "@sandagent/sandbox-e2b";
 
 /**
  * POST /api/ai
@@ -21,10 +21,11 @@ export const POST = createAgentHandler({
   createAgent: ({ sessionId }) =>
     new SandAgent({
       id: sessionId,
-      sandbox: new SandockSandbox(),
+      sandbox: new E2BSandbox(),  // E2B is the recommended default
       runner: {
         kind: "claude-agent-sdk",
         model: "claude-sonnet-4-20250514",
+        template: "default",  // Use default template
       },
     }),
 });

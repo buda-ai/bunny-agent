@@ -42,14 +42,16 @@ All at the same time.
 
 ```text
 SandAgent instance
-  ├─ Isolated sandbox (Sandock / E2B)
+  ├─ Isolated sandbox (E2B recommended / Sandock)
   ├─ Dedicated filesystem volume
   ├─ Anthropic Claude SDK (@anthropic-ai/sdk)
+  ├─ Agent Template (system prompt, skills, MCP config)
   └─ AI SDK–compatible message stream
 ```
 
 * Creating a `SandAgent` attaches to a sandbox
 * The sandbox owns the filesystem
+* Templates provide pre-configured agent behavior
 * The CLI inside the sandbox **streams AI SDK UI messages**
 * The server **passes them through unchanged**
 
@@ -88,9 +90,14 @@ sandagent/
 │  ├─ cli/                 # Agent runner CLI (AI SDK UI passthrough)
 │  ├─ sdk/                 # Next.js / server passthrough helpers
 │  ├─ sandbox-sandock/     # Sandock adapter
-│  ├─ sandbox-e2b/         # E2B adapter
+│  ├─ sandbox-e2b/         # E2B adapter (recommended)
 │  ├─ runner-claude/       # Claude Agent SDK runtime
 │  └─ benchmark/           # GAIA benchmark for comparing agent CLIs
+├─ templates/
+│  ├─ default/             # General-purpose agent template
+│  ├─ coder/               # Software development focused
+│  ├─ analyst/             # Data analysis optimized
+│  └─ researcher/          # Web research capabilities
 ├─ examples/
 │  └─ nextjs-app/
 └─ README.md
@@ -104,19 +111,21 @@ sandagent/
 
 ```ts
 import { SandAgent } from "@sandagent/core";
-import { SandockSandbox } from "@sandagent/sandbox-sandock";
+import { E2BSandbox } from "@sandagent/sandbox-e2b";
 
 const agent = new SandAgent({
   id: "user-123-project-a",
-  sandbox: new SandockSandbox(),
+  sandbox: new E2BSandbox(),  // Recommended default
   runner: {
     kind: "claude-agent-sdk",
-    model: "claude-3-5-sonnet",
+    model: "claude-sonnet-4-20250514",
+    template: "coder",  // Use the coder template
   },
 });
 ```
 
 * `id` identifies the sandbox and filesystem
+* `template` loads pre-configured system prompt and settings
 * Reusing the same `id` resumes the environment
 
 ---
@@ -145,23 +154,71 @@ No reinterpretation.
 
 ---
 
+## Agent Templates
+
+Templates provide pre-configured agent behavior including system prompts, skills, and MCP configurations.
+
+### Available Templates
+
+| Template | Description | Best For |
+|----------|-------------|----------|
+| `default` | General-purpose assistant | Starting point |
+| `coder` | Software development focused | Coding, debugging, refactoring |
+| `analyst` | Data analysis optimized | Data processing, SQL, visualization |
+| `researcher` | Web research capabilities | Information gathering, summarization |
+
+### Template Structure
+
+```text
+template-name/
+├─ .claude/
+│  ├─ settings.json      # Claude-specific settings
+│  └─ mcp.json           # MCP server configuration
+├─ CLAUDE.md             # System instructions for the agent
+└─ skills/               # Pre-defined skill files
+   ├── code-review.md
+   └── debugging.md
+```
+
+### Using Templates
+
+```ts
+// Use the coder template
+runner: {
+  kind: "claude-agent-sdk",
+  model: "claude-sonnet-4-20250514",
+  template: "coder",
+}
+```
+
+Or via CLI:
+
+```bash
+sandagent run --template coder -- "Build a REST API"
+```
+
+See [templates/README.md](./templates/README.md) for creating custom templates.
+
+---
+
 ## Next.js + AI SDK Example
 
 ### `/app/api/ai/route.ts`
 
 ```ts
 import { SandAgent } from "@sandagent/core";
-import { SandockSandbox } from "@sandagent/sandbox-sandock";
+import { E2BSandbox } from "@sandagent/sandbox-e2b";
 
 export async function POST(req: Request) {
   const { messages, sessionId } = await req.json();
 
   const agent = new SandAgent({
     id: sessionId,
-    sandbox: new SandockSandbox(),
+    sandbox: new E2BSandbox(),
     runner: {
       kind: "claude-agent-sdk",
-      model: "claude-3-5-sonnet",
+      model: "claude-sonnet-4-20250514",
+      template: "default",
     },
   });
 
@@ -189,10 +246,22 @@ The CLI runs **inside the sandbox** and outputs **AI SDK UI messages**.
 
 ```bash
 sandagent run \
-  --model claude-3-5-sonnet \
+  --model claude-sonnet-4-20250514 \
+  --template coder \
   --cwd /workspace \
   -- "Create a weather script and run it"
 ```
+
+### CLI Options
+
+| Option | Description |
+|--------|-------------|
+| `-m, --model` | Model to use (default: claude-sonnet-4-20250514) |
+| `-T, --template` | Template to use (default, coder, analyst, researcher) |
+| `-c, --cwd` | Working directory (default: /workspace) |
+| `-s, --system-prompt` | Custom system prompt (overrides template) |
+| `-t, --max-turns` | Maximum conversation turns |
+| `-a, --allowed-tools` | Comma-separated list of allowed tools |
 
 ### CLI guarantees
 
@@ -248,6 +317,8 @@ This is a conscious design decision.
 
 ## Roadmap
 
+- [x] Agent Templates (default, coder, analyst, researcher)
+- [x] GAIA Benchmark for comparing agent CLIs
 - [ ] Optional JSONL transcript export (debugging / replay)
 - [ ] Multiple UI stream profiles (web / terminal)
 - [ ] Additional agent runtimes
@@ -275,6 +346,7 @@ SandAgent is opinionated by design.
 | [Sandbox Adapters](./spec/SANDBOX_ADAPTERS.md) | Configuring sandbox environments |
 | [API Reference](./spec/API_REFERENCE.md) | Complete API documentation |
 | [Technical Specification](./spec/TECHNICAL_SPEC.md) | Full architecture details |
+| [Templates Guide](./templates/README.md) | Creating and using agent templates |
 
 ---
 

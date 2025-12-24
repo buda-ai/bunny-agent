@@ -26,9 +26,9 @@ importers:
       '@sandagent/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@sandagent/sandbox-sandock':
+      '@sandagent/sandbox-e2b':
         specifier: workspace:*
-        version: link:../../packages/sandbox-sandock
+        version: link:../../packages/sandbox-e2b
       '@sandagent/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk

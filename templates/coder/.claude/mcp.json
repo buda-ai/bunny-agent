@@ -1,0 +1,16 @@
+{
+  "$schema": "https://modelcontextprotocol.io/schemas/mcp.json",
+  "description": "Coder template MCP configuration",
+  "servers": {
+    "filesystem": {
+      "command": "mcp-server-filesystem",
+      "args": ["/workspace"],
+      "description": "File system access for the workspace"
+    },
+    "git": {
+      "command": "mcp-server-git",
+      "args": ["/workspace"],
+      "description": "Git operations for version control"
+    }
+  }
+}

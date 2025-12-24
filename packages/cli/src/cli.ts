@@ -18,6 +18,7 @@ import { runAgent } from "./runner.js";
 interface ParsedArgs {
   model: string;
   cwd: string;
+  template: string;
   systemPrompt?: string;
   maxTurns?: number;
   allowedTools?: string[];
@@ -36,6 +37,11 @@ function parseCliArgs(): ParsedArgs {
         type: "string",
         short: "c",
         default: process.env.SANDAGENT_WORKSPACE ?? "/workspace",
+      },
+      template: {
+        type: "string",
+        short: "T",
+        default: process.env.SANDAGENT_TEMPLATE ?? "default",
       },
       "system-prompt": {
         type: "string",
@@ -89,6 +95,7 @@ function parseCliArgs(): ParsedArgs {
   return {
     model: values.model!,
     cwd: values.cwd!,
+    template: values.template!,
     systemPrompt: values["system-prompt"],
     maxTurns: values["max-turns"] ? parseInt(values["max-turns"], 10) : undefined,
     allowedTools: values["allowed-tools"]?.split(",").map((t) => t.trim()),
@@ -106,7 +113,9 @@ Usage:
 Options:
   -m, --model <model>          Model to use (default: claude-sonnet-4-20250514)
   -c, --cwd <path>             Working directory (default: /workspace)
-  -s, --system-prompt <prompt> Custom system prompt
+  -T, --template <name>        Template to use (default: default)
+                               Available: default, coder, analyst, researcher
+  -s, --system-prompt <prompt> Custom system prompt (overrides template)
   -t, --max-turns <n>          Maximum conversation turns
   -a, --allowed-tools <tools>  Comma-separated list of allowed tools
   -h, --help                   Show this help message
@@ -114,12 +123,20 @@ Options:
 Environment Variables:
   ANTHROPIC_API_KEY           Anthropic API key (required)
   SANDAGENT_WORKSPACE         Default workspace path
+  SANDAGENT_TEMPLATE          Default template to use
   SANDAGENT_LOG_LEVEL         Logging level (debug, info, warn, error)
+
+Templates:
+  default     General-purpose assistant
+  coder       Optimized for software development
+  analyst     Optimized for data analysis
+  researcher  Optimized for research tasks
 
 Examples:
   sandagent run -- "Create a hello world script"
-  sandagent run --model claude-3-5-sonnet -- "Build a weather app"
-  sandagent run --cwd /project -- "Fix the bug in main.ts"
+  sandagent run --template coder -- "Build a REST API with Express"
+  sandagent run --template analyst -- "Analyze sales.csv and create a report"
+  sandagent run --model claude-3-5-sonnet -- "Fix the bug in main.ts"
 `);
 }
 
@@ -132,6 +149,7 @@ async function main(): Promise<void> {
   // Run the agent and stream output to stdout
   await runAgent({
     model: args.model,
+    template: args.template,
     userInput: args.userInput,
     systemPrompt: args.systemPrompt,
     maxTurns: args.maxTurns,

@@ -1,0 +1,12 @@
+{
+  "max_tokens": 8096,
+  "temperature": 0.5,
+  "allowed_tools": [
+    "bash",
+    "read_file",
+    "write_file"
+  ],
+  "timeout_ms": 600000,
+  "max_turns": 100,
+  "streaming": true
+}

@@ -57,6 +57,10 @@ export class SandAgent {
     const workspacePath = input.workspace?.path ?? "/workspace";
     cmd.push("--cwd", workspacePath);
 
+    // Add template (defaults to "default")
+    const template = this.runner.template ?? "default";
+    cmd.push("--template", template);
+
     // Add optional system prompt
     if (this.runner.systemPrompt) {
       cmd.push("--system-prompt", this.runner.systemPrompt);
