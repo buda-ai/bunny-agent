@@ -284,7 +284,7 @@ pnpm test -- --watch
 |----------|----------|-------------|
 | `ANTHROPIC_API_KEY` | Yes | API key for Claude Agent SDK |
 | `E2B_API_KEY` | For E2B | API key for E2B cloud sandbox |
-| `DOCKER_HOST` | For Sandock | Docker host URL (optional) |
+| `SANDOCK_API_KEY` | For Sandock | API key for Sandock cloud sandbox (get at [sandock.ai](https://sandock.ai)) |
 
 ---
 

@@ -24,9 +24,11 @@ interface SandboxHandle {
 
 ## Available Adapters
 
-### 1. Sandock (Docker-based)
+### 1. Sandock (Cloud Docker Service)
 
-**Best for**: Local development, self-hosted deployments, full control over environment.
+**Best for**: Production deployments with Docker, managed cloud sandboxes.
+
+Sandock is a cloud-based Docker sandbox service. Uses the official [Sandock SDK](https://www.npmjs.com/package/sandock).
 
 ```bash
 pnpm add @sandagent/sandbox-sandock
@@ -36,23 +38,26 @@ pnpm add @sandagent/sandbox-sandock
 import { SandockSandbox } from "@sandagent/sandbox-sandock";
 
 const sandbox = new SandockSandbox({
+  // Sandock API key (required)
+  apiKey: process.env.SANDOCK_API_KEY,
+  
+  // API base URL (optional, defaults to https://sandock.ai)
+  baseUrl: "https://sandock.ai",
+  
   // Docker image to use
-  image: "node:20-slim",
+  image: "sandockai/sandock-code:latest",
   
-  // Where to store persistent volumes
-  volumePrefix: "/var/sandagent/volumes",
+  // Working directory
+  workdir: "/workspace",
   
-  // Enable network access in sandbox
-  networkEnabled: true,
+  // Memory limit in MB
+  memoryLimitMb: 1024,
   
-  // Memory limit (e.g., "512m", "2g")
-  memoryLimit: "1g",
+  // CPU shares
+  cpuShares: 512,
   
-  // CPU limit (number of cores)
-  cpuLimit: 2,
-  
-  // Container startup timeout (ms)
-  timeout: 30000,
+  // Keep sandbox running after execution
+  keep: true,
 });
 ```
 
@@ -60,30 +65,29 @@ const sandbox = new SandockSandbox({
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `image` | `string` | `"node:20-slim"` | Docker image to use |
-| `volumePrefix` | `string` | `"/tmp/sandagent"` | Host path for volumes |
-| `networkEnabled` | `boolean` | `true` | Allow network access |
-| `memoryLimit` | `string` | `"1g"` | Container memory limit |
-| `cpuLimit` | `number` | `2` | CPU core limit |
-| `timeout` | `number` | `30000` | Startup timeout (ms) |
+| `apiKey` | `string` | `env.SANDOCK_API_KEY` | Sandock API key |
+| `baseUrl` | `string` | `"https://sandock.ai"` | Sandock API URL |
+| `image` | `string` | `"sandockai/sandock-code:latest"` | Docker image |
+| `workdir` | `string` | `"/workspace"` | Working directory |
+| `memoryLimitMb` | `number` | - | Memory limit in MB |
+| `cpuShares` | `number` | - | CPU shares |
+| `keep` | `boolean` | `true` | Keep sandbox after execution |
 
-#### Volume Storage
+#### API Endpoints Used
 
-Volumes are stored at `{volumePrefix}/{agentId}` on the host:
-
-```
-/var/sandagent/volumes/
-├── user-123-project-a/
-│   └── workspace/
-├── user-456-project-b/
-│   └── workspace/
-```
+| Endpoint | Description |
+|----------|-------------|
+| `POST /api/sandbox` | Create a new sandbox |
+| `POST /api/sandbox/{id}/start` | Start the sandbox |
+| `POST /api/sandbox/{id}/shell` | Execute shell commands |
+| `POST /api/sandbox/{id}/fs/write` | Write files |
+| `POST /api/sandbox/{id}/stop` | Stop the sandbox |
+| `DELETE /api/sandbox/{id}` | Delete the sandbox |
 
 #### Requirements
 
-- Docker installed and running
-- Sufficient disk space for volumes
-- Docker daemon accessible (socket or TCP)
+- Sandock API key (get one at [sandock.ai](https://sandock.ai))
+- Internet access from your server
 
 ---
 
@@ -206,12 +210,14 @@ export class MyCustomSandbox implements SandboxAdapter {
 
 | Feature | Sandock | E2B |
 |---------|---------|-----|
-| Setup | Docker required | API key only |
-| Cost | Free (self-hosted) | Pay per use |
-| Latency | Low (local) | Medium (network) |
-| Scalability | Limited by host | Highly scalable |
-| Persistence | File-based volumes | Managed by E2B |
-| Customization | Full (any Docker image) | Limited to templates |
+| Setup | API key | API key |
+| Hosting | Cloud (sandock.ai) | Cloud (e2b.dev) |
+| Cost | Pay per use | Pay per use |
+| Latency | Medium (network) | Medium (network) |
+| Scalability | Highly scalable | Highly scalable |
+| Persistence | Managed by Sandock | Managed by E2B |
+| Customization | Any Docker image | Limited to templates |
+| SDK | `sandock` | `e2b` |
 
 ---
 
@@ -261,21 +267,21 @@ find /var/sandagent/volumes -type d -mtime +7 -exec rm -rf {} \;
 
 ## Troubleshooting
 
-### Sandock: Docker Permission Denied
+### Sandock: API Key Invalid
 
 ```
-Error: permission denied while trying to connect to Docker daemon
+Error: SANDOCK_API_KEY not set
 ```
 
-**Solution**: Add your user to the docker group or run with sudo.
+**Solution**: Get an API key at [sandock.ai](https://sandock.ai) and set it.
 
-### Sandock: Image Pull Failed
+### Sandock: Sandbox Creation Failed
 
 ```
-Error: pull access denied for custom-image
+Error: Failed to create sandbox
 ```
 
-**Solution**: Login to your container registry or use a public image.
+**Solution**: Check your API key and network connectivity.
 
 ### E2B: API Key Invalid
 
