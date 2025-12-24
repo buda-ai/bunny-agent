@@ -124,9 +124,11 @@ export class SandAgent {
     });
 
     // Return a Response with the stream and appropriate headers
+    // Use configurable content type for flexibility with different AI SDK versions
+    const contentType = input.contentType ?? "text/event-stream";
     return new Response(readableStream, {
       headers: {
-        "Content-Type": "text/event-stream",
+        "Content-Type": contentType,
         "Cache-Control": "no-cache",
         Connection: "keep-alive",
         "X-Accel-Buffering": "no",

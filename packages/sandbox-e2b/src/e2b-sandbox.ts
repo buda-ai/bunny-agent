@@ -38,6 +38,12 @@ interface E2BSandboxConstructor {
   create(opts?: { apiKey?: string; template?: string; timeout?: number }): Promise<E2BSandboxInstance>;
 }
 
+// Module registry for optional dependencies
+// This allows us to dynamically load modules without security risks
+const OPTIONAL_MODULES: Record<string, string> = {
+  "e2b-code-interpreter": "@e2b/code-interpreter",
+};
+
 /**
  * E2B-based sandbox implementation.
  *
@@ -80,9 +86,10 @@ export class E2BSandbox implements SandboxAdapter {
 
   private async loadE2B(): Promise<E2BSandboxConstructor> {
     try {
-      // Use dynamic import with a variable to avoid TypeScript static analysis
-      const moduleName = "@e2b/code-interpreter";
-      const module = await (Function('moduleName', 'return import(moduleName)')(moduleName) as Promise<Record<string, unknown>>);
+      // Use a registry pattern for safer dynamic imports
+      const modulePath = OPTIONAL_MODULES["e2b-code-interpreter"];
+      // Dynamic import is safe here as the module path comes from a fixed registry
+      const module = await import(/* webpackIgnore: true */ modulePath);
       return (module.Sandbox ?? module.default) as E2BSandboxConstructor;
     } catch {
       throw new Error(

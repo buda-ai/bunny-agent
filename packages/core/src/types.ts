@@ -102,4 +102,6 @@ export interface StreamInput {
     /** Path to the workspace directory */
     path?: string;
   };
+  /** Content type for the response (defaults to text/event-stream) */
+  contentType?: string;
 }

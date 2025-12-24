@@ -217,16 +217,23 @@ class SandockHandle implements SandboxHandle {
   ): Promise<void> {
     for (const file of files) {
       const fullPath = `${targetDir}/${file.path}`;
-      const content =
-        typeof file.content === "string"
-          ? file.content
-          : Buffer.from(file.content).toString("utf-8");
 
-      await this.execCommand([
-        "sh",
-        "-c",
-        `mkdir -p $(dirname "${fullPath}") && cat > "${fullPath}"`,
-      ], content);
+      // Use base64 encoding for binary content to avoid corruption
+      if (typeof file.content === "string") {
+        await this.execCommand([
+          "sh",
+          "-c",
+          `mkdir -p $(dirname "${fullPath}") && cat > "${fullPath}"`,
+        ], file.content);
+      } else {
+        // For binary content, use base64 encoding to preserve data integrity
+        const base64Content = Buffer.from(file.content).toString("base64");
+        await this.execCommand([
+          "sh",
+          "-c",
+          `mkdir -p $(dirname "${fullPath}") && echo "${base64Content}" | base64 -d > "${fullPath}"`,
+        ]);
+      }
     }
   }
 

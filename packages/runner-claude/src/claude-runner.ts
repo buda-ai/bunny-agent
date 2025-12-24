@@ -78,11 +78,18 @@ export function createClaudeRunner(options: ClaudeRunnerOptions): ClaudeRunner {
   };
 }
 
+// Module registry for optional dependencies
+// This allows us to dynamically load modules without security risks
+const OPTIONAL_MODULES: Record<string, string> = {
+  "claude-agent-sdk": "@anthropic-ai/claude-code",
+};
+
 async function loadClaudeAgentSDK(): Promise<ClaudeAgentSDK | null> {
   try {
-    // Use dynamic import with a variable to avoid TypeScript static analysis
-    const moduleName = "@anthropic-ai/claude-code";
-    const module = await (Function('moduleName', 'return import(moduleName)')(moduleName) as Promise<unknown>);
+    // Use a registry pattern for safer dynamic imports
+    const modulePath = OPTIONAL_MODULES["claude-agent-sdk"];
+    // Dynamic import is safe here as the module path comes from a fixed registry
+    const module = await import(/* webpackIgnore: true */ modulePath);
     return module as ClaudeAgentSDK;
   } catch {
     // SDK not installed, return null

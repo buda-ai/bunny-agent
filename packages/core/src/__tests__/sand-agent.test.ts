@@ -3,13 +3,32 @@ import { SandAgent } from "../sand-agent.js";
 import type { SandboxAdapter, SandboxHandle, ExecOptions } from "../types.js";
 
 /**
+ * Create an async iterable from data
+ */
+function createAsyncIterable<T>(data: T[]): AsyncIterable<T> {
+  return {
+    [Symbol.asyncIterator]: () => {
+      let index = 0;
+      return {
+        async next(): Promise<IteratorResult<T>> {
+          if (index < data.length) {
+            return { value: data[index++], done: false };
+          }
+          return { value: undefined, done: true };
+        },
+      };
+    },
+  };
+}
+
+/**
  * Mock sandbox adapter for testing
  */
 function createMockSandbox(): SandboxAdapter & { handle: SandboxHandle } {
   const handle: SandboxHandle = {
-    exec: vi.fn().mockImplementation(function* () {
-      yield new TextEncoder().encode("test output");
-    }),
+    exec: vi.fn().mockReturnValue(
+      createAsyncIterable([new TextEncoder().encode("test output")])
+    ),
     upload: vi.fn().mockResolvedValue(undefined),
     destroy: vi.fn().mockResolvedValue(undefined),
   };
@@ -128,12 +147,10 @@ describe("SandAgent", () => {
       const testData = "test streaming data";
       const sandbox = createMockSandbox();
 
-      // Override exec to return test data
-      sandbox.handle.exec = vi.fn().mockReturnValue({
-        [Symbol.asyncIterator]: async function* () {
-          yield new TextEncoder().encode(testData);
-        },
-      });
+      // Override exec to return test data using proper async iterable
+      sandbox.handle.exec = vi.fn().mockReturnValue(
+        createAsyncIterable([new TextEncoder().encode(testData)])
+      );
 
       const agent = new SandAgent({
         id: "test-agent",
