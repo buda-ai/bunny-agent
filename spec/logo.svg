@@ -1,0 +1,120 @@
+<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- SandAgent Logo - Animated -->
+  <defs>
+    <!-- Main gradient - Sand/Gold to Blue (sandbox + agent) -->
+    <linearGradient id="sandGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f59e0b;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#3b82f6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#8b5cf6;stop-opacity:1" />
+    </linearGradient>
+    
+    <!-- Stream gradient -->
+    <linearGradient id="streamGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#10b981;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#06b6d4;stop-opacity:1" />
+    </linearGradient>
+    
+    <!-- Glow effect -->
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    
+    <!-- Sandbox shadow -->
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="100" cy="100" r="95" fill="url(#sandGradient)" opacity="0.1"/>
+  
+  <!-- Sandbox container (rounded rectangle representing container/isolation) -->
+  <rect x="55" y="55" width="90" height="90" rx="12" ry="12" 
+        fill="url(#sandGradient)" 
+        filter="url(#glow)" 
+        opacity="0.9">
+    <animate attributeName="opacity" values="0.85;1;0.85" dur="3s" repeatCount="indefinite"/>
+  </rect>
+  
+  <!-- Inner sandbox pattern (grid representing filesystem) -->
+  <g stroke="white" stroke-width="1" opacity="0.2">
+    <line x1="85" y1="65" x2="85" y2="135"/>
+    <line x1="115" y1="65" x2="115" y2="135"/>
+    <line x1="65" y1="85" x2="135" y2="85"/>
+    <line x1="65" y1="115" x2="135" y2="115"/>
+  </g>
+  
+  <!-- Streaming data lines (passthrough visualization) -->
+  <!-- Top stream -->
+  <line x1="100" y1="15" x2="100" y2="45" stroke="url(#streamGradient)" stroke-width="3" stroke-linecap="round">
+    <animate attributeName="stroke-dasharray" values="0,40;40,0" dur="1.5s" repeatCount="indefinite"/>
+  </line>
+  
+  <!-- Bottom stream -->
+  <line x1="100" y1="155" x2="100" y2="185" stroke="url(#streamGradient)" stroke-width="3" stroke-linecap="round">
+    <animate attributeName="stroke-dasharray" values="0,40;40,0" dur="1.5s" begin="0.5s" repeatCount="indefinite"/>
+  </line>
+  
+  <!-- Left stream -->
+  <line x1="15" y1="100" x2="45" y2="100" stroke="url(#streamGradient)" stroke-width="3" stroke-linecap="round">
+    <animate attributeName="stroke-dasharray" values="0,40;40,0" dur="1.5s" begin="0.25s" repeatCount="indefinite"/>
+  </line>
+  
+  <!-- Right stream -->
+  <line x1="155" y1="100" x2="185" y2="100" stroke="url(#streamGradient)" stroke-width="3" stroke-linecap="round">
+    <animate attributeName="stroke-dasharray" values="0,40;40,0" dur="1.5s" begin="0.75s" repeatCount="indefinite"/>
+  </line>
+  
+  <!-- Agent nodes (representing agent capabilities) -->
+  <!-- Top node -->
+  <circle cx="100" cy="25" r="6" fill="#10b981" opacity="0.9">
+    <animate attributeName="r" values="5;7;5" dur="2s" repeatCount="indefinite"/>
+  </circle>
+  
+  <!-- Right node -->
+  <circle cx="175" cy="100" r="6" fill="#06b6d4" opacity="0.9">
+    <animate attributeName="r" values="5;7;5" dur="2s" begin="0.5s" repeatCount="indefinite"/>
+  </circle>
+  
+  <!-- Bottom node -->
+  <circle cx="100" cy="175" r="6" fill="#10b981" opacity="0.9">
+    <animate attributeName="r" values="5;7;5" dur="2s" begin="1s" repeatCount="indefinite"/>
+  </circle>
+  
+  <!-- Left node -->
+  <circle cx="25" cy="100" r="6" fill="#06b6d4" opacity="0.9">
+    <animate attributeName="r" values="5;7;5" dur="2s" begin="1.5s" repeatCount="indefinite"/>
+  </circle>
+  
+  <!-- Corner nodes (representing templates/tools) -->
+  <circle cx="35" cy="35" r="4" fill="#f59e0b" opacity="0.7">
+    <animate attributeName="opacity" values="0.5;1;0.5" dur="2s" begin="0.3s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="165" cy="35" r="4" fill="#8b5cf6" opacity="0.7">
+    <animate attributeName="opacity" values="0.5;1;0.5" dur="2s" begin="0.6s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="165" cy="165" r="4" fill="#f59e0b" opacity="0.7">
+    <animate attributeName="opacity" values="0.5;1;0.5" dur="2s" begin="0.9s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="35" cy="165" r="4" fill="#8b5cf6" opacity="0.7">
+    <animate attributeName="opacity" values="0.5;1;0.5" dur="2s" begin="1.2s" repeatCount="indefinite"/>
+  </circle>
+  
+  <!-- Center "S" symbol -->
+  <text x="100" y="115" font-family="Arial, sans-serif" font-size="42" font-weight="bold" fill="white" text-anchor="middle">S</text>
+  
+  <!-- Orbit ring (representing the passthrough flow) -->
+  <circle cx="100" cy="100" r="75" stroke="url(#streamGradient)" stroke-width="2" fill="none" opacity="0.3" stroke-dasharray="8,8">
+    <animateTransform
+      attributeName="transform"
+      type="rotate"
+      from="0 100 100"
+      to="360 100 100"
+      dur="30s"
+      repeatCount="indefinite"/>
+  </circle>
+</svg>
