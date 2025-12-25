@@ -205,7 +205,24 @@ cd templates/coder
 npx sandagent-runner run -- "Build a REST API with Express"
 ```
 
-### Option D: Run Tests
+### Option D: Use Claude Code Directly
+
+Since SandAgent templates are compatible with Claude Code, you can use them directly:
+
+```bash
+# Install Claude Code CLI (if not already installed)
+npm install -g @anthropic-ai/claude-code
+
+# Navigate to a template directory
+cd templates/coder
+
+# Run Claude Code with the template's configuration
+claude "Build a REST API with Express"
+```
+
+The template's `CLAUDE.md` and `.claude/` configuration will be automatically picked up by Claude Code.
+
+### Option E: Run Tests
 
 Verify everything works without needing API keys:
 
