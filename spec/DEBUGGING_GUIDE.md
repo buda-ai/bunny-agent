@@ -1,6 +1,19 @@
-# SandAgent Debugging Guide
+# Debugging Guide
 
-This guide covers how to debug SandAgent applications, analyze transcripts, and troubleshoot common issues.
+**Troubleshoot and debug your SandAgent applications**
+
+When things don't work as expected, this guide helps you figure out what's going on.
+
+## Quick Troubleshooting
+
+| Problem | Likely Cause | Solution |
+|---------|--------------|----------|
+| "API key not found" | Missing environment variable | Set `ANTHROPIC_API_KEY` |
+| "Failed to create sandbox" | Missing sandbox API key | Set `E2B_API_KEY` or `SANDOCK_API_KEY` |
+| Agent outputs nothing | Stream not consumed | Ensure you're reading the response body |
+| Files not persisting | Different agent ID | Use consistent `id` across sessions |
+
+---
 
 ## Table of Contents
 

@@ -1,22 +1,27 @@
 # Persistence Guide
 
-**How to maintain state across agent runs with SandAgent**
+**Keep your agent's work across sessions**
+
+One of SandAgent's key features is **persistent sessions** — your agent remembers files it created, code it wrote, and data it processed. This guide explains how to use this effectively.
 
 ---
 
-## Overview
+## Why Persistence Matters
 
-SandAgent is designed around **persistent identity**. Each agent instance is tied to a unique `id` that determines:
+Without persistence, every conversation starts from scratch. With SandAgent:
+- ✅ Agent can continue working on a project across multiple sessions
+- ✅ Files created in one session are available in the next
+- ✅ Users can come back days later and pick up where they left off
+
+---
+
+## How It Works
+
+SandAgent uses a simple **identity model**. Each agent instance is tied to a unique `id` that determines:
 
 1. Which sandbox to attach to
 2. Which filesystem volume to mount
 3. What execution context to resume
-
-This guide explains how persistence works and best practices for managing agent state.
-
----
-
-## How Persistence Works
 
 ### The Identity Model
 

@@ -1,8 +1,15 @@
 # Agent Templates
 
-This directory contains pre-configured agent templates for SandAgent.
-Each template provides a complete environment setup including Claude configuration,
-MCP servers, skills, and system prompts.
+**Templates are the heart of SandAgent** — they turn a general-purpose coding agent into a specialized Super Agent for your use case.
+
+## Why Templates?
+
+Instead of writing SDK code, tool definitions, and memory management, you just write markdown files that describe:
+- Who your agent is
+- What it specializes in
+- How it should approach tasks
+
+**That's it.** The underlying coding agent (Claude Code) handles everything else.
 
 ## Available Templates
 
@@ -12,6 +19,7 @@ MCP servers, skills, and system prompts.
 | `coder` | Software development focused | Coding, debugging, refactoring |
 | `analyst` | Data analysis optimized | Data processing, SQL, visualization |
 | `researcher` | Web research capabilities | Information gathering, summarization |
+| `seo-agent` | SEO optimization | Keyword research, content optimization |
 
 ## Template Structure
 
@@ -19,15 +27,59 @@ Each template follows this structure:
 
 ```
 template-name/
+├── CLAUDE.md              # System instructions for the agent (required)
 ├── .claude/
-│   ├── settings.json      # Claude-specific settings
-│   └── mcp.json           # MCP server configuration
-├── CLAUDE.md              # System instructions for the agent
+│   ├── settings.json      # Claude-specific settings (optional)
+│   └── mcp.json           # MCP server configuration (optional)
 ├── skills/                # Pre-defined skill files (optional)
 │   ├── skill1.md
 │   └── skill2.md
 └── workspace/             # Initial workspace files (optional)
     └── .gitkeep
+```
+
+### CLAUDE.md (Required)
+
+The main system instructions file. This defines:
+- Agent personality and behavior
+- Domain expertise and capabilities
+- Task-specific guidance and workflows
+
+**This is the most important file** — it's what transforms a general coding agent into your specialized Super Agent.
+
+### skills/ (Optional)
+
+Skill files are markdown documents that provide domain-specific knowledge. They're loaded as context when the agent starts.
+
+Examples:
+- `sql-patterns.md` — Common SQL query patterns
+- `api-design.md` — REST API best practices
+- `data-viz.md` — Visualization guidelines
+
+### .claude/settings.json (Optional)
+
+Model configuration:
+```json
+{
+  "max_tokens": 8096,
+  "temperature": 0.7,
+  "allowed_tools": ["bash", "read_file", "write_file"],
+  "timeout_ms": 300000
+}
+```
+
+### .claude/mcp.json (Optional)
+
+MCP (Model Context Protocol) server configuration for additional capabilities:
+```json
+{
+  "servers": {
+    "filesystem": {
+      "command": "mcp-server-filesystem",
+      "args": ["/workspace"]
+    }
+  }
+}
 ```
 
 ## Using Templates
@@ -44,7 +96,7 @@ const agent = new SandAgent({
   runner: {
     kind: "claude-agent-sdk",
     model: "claude-sonnet-4-20250514",
-    template: "coder",  // Use the coder template
+    template: "analyst",  // Use the analyst template
   },
 });
 ```
@@ -52,77 +104,81 @@ const agent = new SandAgent({
 ### With CLI
 
 ```bash
-sandagent run --template coder --model claude-sonnet-4-20250514 -- "Build a REST API"
+# Use a built-in template
+sandagent run --template coder -- "Build a REST API"
+
+# Use a custom template path
+sandagent run --template ./my-custom-agent -- "Analyze this data"
 ```
 
-## Creating Custom Templates
+## Creating Your Own Template
 
-1. Copy an existing template directory:
-   ```bash
-   cp -r templates/default templates/my-custom
-   ```
+Creating a custom agent is as simple as creating a folder with markdown files:
 
-2. Modify the files to suit your needs:
-   - Update `CLAUDE.md` with custom system instructions
-   - Configure MCP servers in `.claude/mcp.json`
-   - Add skills in the `skills/` directory
+```
+my-agent/
+├── CLAUDE.md              # System instructions (who is this agent?)
+├── skills/                # Domain knowledge files (optional)
+│   ├── skill1.md
+│   └── skill2.md
+└── .claude/
+    └── settings.json      # Model configuration (optional)
+```
 
-3. Use your custom template:
-   ```typescript
-   runner: {
-     kind: "claude-agent-sdk",
-     model: "claude-sonnet-4-20250514",
-     template: "my-custom",
-   }
-   ```
+### Example: Creating a "Customer Support" Agent
 
-## Template Components
+1. Create a new folder:
+```bash
+mkdir templates/support-agent
+```
 
-### CLAUDE.md
+2. Create `CLAUDE.md`:
+```markdown
+# Customer Support Agent
 
-The main system instructions file. This is read by Claude at startup and defines:
-- Agent personality and behavior
-- Available capabilities
-- Constraints and limitations
-- Task-specific guidance
+You are an expert customer support agent for a SaaS product.
 
-### .claude/settings.json
+## Your Expertise
+- Troubleshooting technical issues
+- Explaining features clearly to non-technical users
+- De-escalating frustrated customers
+- Finding solutions in documentation
 
-Claude-specific settings:
-```json
-{
-  "max_tokens": 8096,
-  "temperature": 0.7,
-  "allowed_tools": ["bash", "read_file", "write_file"],
-  "timeout_ms": 300000
+## Your Approach
+1. Always acknowledge the customer's frustration first
+2. Ask clarifying questions before jumping to solutions
+3. Provide step-by-step instructions with screenshots when possible
+4. Follow up to ensure the issue is resolved
+
+## Tone
+- Friendly and empathetic
+- Professional but not robotic
+- Patient with repeated questions
+```
+
+3. Use your template:
+```typescript
+runner: {
+  kind: "claude-agent-sdk",
+  model: "claude-sonnet-4-20250514",
+  template: "support-agent",
 }
 ```
 
-### .claude/mcp.json
+**That's it!** No SDK code. No tool definitions. No memory management.
 
-MCP (Model Context Protocol) server configuration:
-```json
-{
-  "servers": {
-    "filesystem": {
-      "command": "mcp-server-filesystem",
-      "args": ["/workspace"]
-    }
-  }
-}
-```
+## Tips for Great Templates
 
-### skills/
+1. **Be specific about expertise** — "You are an expert in PostgreSQL optimization" is better than "You know databases"
 
-Skill files are markdown documents that provide Claude with specific knowledge
-or capabilities. They are loaded as context when the agent starts.
+2. **Define workflows** — Tell the agent how to approach tasks step-by-step
 
-## Default Template Details
+3. **Set boundaries** — What should the agent NOT do?
 
-The `default` template provides:
-- General-purpose system prompt
-- Basic file system tools (bash, read_file, write_file)
-- No pre-configured MCP servers (can be added as needed)
-- Balanced settings for various tasks
+4. **Include examples** — Show the agent what good output looks like
 
-See individual template directories for specific configurations.
+5. **Add domain knowledge** — Use skill files for reference material the agent should know
+
+---
+
+See individual template directories for specific configurations and examples.

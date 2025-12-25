@@ -1,6 +1,14 @@
 # SandAgent Technical Specification
 
-**Passthrough AI SDK UI Streaming**
+**For developers who want to understand how SandAgent works under the hood**
+
+---
+
+## Overview
+
+SandAgent enables you to transform powerful coding agents (like Claude Code) into specialized Super Agents for any vertical use case — without rebuilding the agent from scratch.
+
+This document covers the technical architecture. If you just want to use SandAgent, see the [Quick Start Guide](./QUICK_START.md).
 
 ---
 

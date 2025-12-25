@@ -5,17 +5,97 @@
   
   ### 🏖️ Turn powerful coding agents into universal Super Agents
   
-  **Sandboxed agent runtime with AI SDK UI passthrough streaming**  
-  Run Claude Agent SDK in isolated sandboxes with real filesystems
+  **Transform Claude Code, Codex CLI, and other coding agents into domain-specific Super Agents**  
+  No SDK integration. No context engineering. Just templates.
   
   [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
   [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg?style=flat-square)](https://www.typescriptlang.org/)
   [![AI SDK](https://img.shields.io/badge/AI_SDK-v6-purple.svg?style=flat-square)](https://sdk.vercel.ai/)
   [![pnpm](https://img.shields.io/badge/pnpm-9.0+-orange.svg?style=flat-square)](https://pnpm.io/)
   
-  [Quick Start](#-quick-start) · [Features](#-features) · [Architecture](#-architecture) · [Documentation](#-documentation)
+  [Quick Start](#-quick-start) · [Why SandAgent](#-why-sandagent) · [Use Cases](#-use-cases) · [Documentation](#-documentation)
   
 </div>
+
+---
+
+## 🎯 Why SandAgent?
+
+### 🌟 The Problem: Building Agents is Hard
+
+Building production-ready AI agents with traditional SDK approaches is **painful**:
+
+| Challenge | What You Have to Do |
+|-----------|---------------------|
+| 🧠 Memory | Implement conversation history, context windows, summarization |
+| 🔧 Tool Integration | Write tool definitions, handle responses, manage state |
+| 🔌 MCP Servers | Configure, connect, and maintain MCP server integrations |
+| 📝 Prompt Engineering | Craft system prompts, handle edge cases, iterate endlessly |
+| 🏗️ Infrastructure | Set up sandboxes, manage filesystems, handle persistence |
+
+**Result:** Months of work before you can even start on your actual use case.
+
+### ✅ SandAgent's Solution: Reuse Coding Agents
+
+**What if you could skip all that complexity?**
+
+Coding agents like **Claude Code** and **Codex CLI** have already solved these problems:
+- ✅ Sophisticated memory and context management
+- ✅ Battle-tested tool implementations (bash, file operations, web search)
+- ✅ MCP server ecosystem
+- ✅ Refined prompts from millions of interactions
+
+**SandAgent lets you harness this power for ANY vertical use case.**
+
+<table>
+<tr>
+<td>
+
+### ❌ Traditional SDK Approach
+```
+6+ months of development:
+├── Memory system
+├── Tool implementations  
+├── MCP integrations
+├── Prompt engineering
+├── Sandbox infrastructure
+└── Still debugging edge cases...
+```
+
+</td>
+<td>
+
+### ✅ With SandAgent
+```
+1 day to production:
+├── Pick a template (coder/analyst/researcher)
+├── Customize CLAUDE.md prompt
+├── Deploy
+└── Done! 🎉
+```
+
+</td>
+</tr>
+</table>
+
+**The insight:** Don't rebuild the agent — just redirect it.
+
+---
+
+## 🚀 Use Cases
+
+SandAgent transforms coding agents into specialized Super Agents:
+
+| Use Case | Template | What It Does |
+|----------|----------|--------------|
+| 🔬 **Data Analyst** | `analyst` | SQL queries, data cleaning, visualization, report generation |
+| 🔍 **Research Assistant** | `researcher` | Web research, source evaluation, summarization, fact-checking |
+| 💻 **Code Assistant** | `coder` | Code review, debugging, refactoring, documentation |
+| 📈 **SEO Agent** | `seo-agent` | Keyword research, content optimization, competitor analysis |
+| 🎨 **Content Creator** | Custom | Blog writing, social media, copywriting |
+| 📊 **Business Analyst** | Custom | Market research, financial modeling, competitive analysis |
+
+**Create your own:** Just write a `CLAUDE.md` file describing your agent's role and skills.
 
 ---
 
@@ -25,85 +105,36 @@
 <tr>
 <td width="50%">
 
+### 🎯 Template-Based Agents
+Define agents with simple markdown files — no code required
+
 ### 🏖️ Sandboxed Execution
-Isolated E2B or Sandock containers with real filesystems
+Isolated containers with real filesystems for safe execution
 
-### 🔄 Zero Translation
-AI SDK UI messages stream directly from agent to UI
+### 💾 Persistent Sessions
+Resume agent sessions with full filesystem continuity
 
-### 🤖 Claude Agent SDK
-Official `@anthropic-ai/claude-agent-sdk` integration
-
-### 📦 Agent Templates
-Pre-configured coder, analyst, researcher templates
-
-### 💾 Persistent State
-Resume agent sessions with filesystem continuity
+### 📦 Pre-built Templates
+Ready-to-use coder, analyst, researcher, SEO templates
 
 </td>
 <td width="50%">
 
-### 🚀 Passthrough Streaming
-Server never parses or mutates the stream
-
-### 🎯 GAIA Benchmark
-Compare agents: sandagent, gemini-cli, claudecode, codex-cli
-
-### 📝 Transcript Export
-JSONL recording for debugging and replay
-
 ### ⚙️ Swappable Sandboxes
-E2B cloud or Sandock (Docker) with one line
+E2B cloud or Sandock (Docker) — switch with one line
 
 ### 🌐 Web + CLI
 Complete Next.js app and terminal-based runners
 
-</td>
-</tr>
-</table>
+### 🎯 GAIA Benchmark
+Compare performance across different agent CLIs
 
----
-
-## 🎯 Why SandAgent?
-
-### 🌟 The Problem
-
-Most agent systems have two disconnected worlds:
-
-| Runtime World | UI World |
-|---------------|----------|
-| Tools, sandboxes, execution | Messages, cards, streams |
-| Custom event formats | AI SDK UI protocol |
-| Translation layers | Impedance mismatch |
-
-### ✅ SandAgent's Solution
-
-**The agent speaks the UI protocol directly.**
-
-<table>
-<tr>
-<td>
-
-### ❌ Traditional Approach
-- Agent outputs custom events
-- Server translates to UI format
-- Protocol adapters everywhere
-- Debugging across layers
-
-</td>
-<td>
-
-### ✅ With SandAgent
-- Agent outputs **AI SDK UI messages**
-- Server does **pure passthrough**
-- **Zero protocol translation**
-- Debug **end-to-end**
+### 📝 Debug Tools
+JSONL transcript recording for debugging and replay
 
 </td>
 </tr>
 </table>
-
-**Result:** What the agent outputs is **exactly** what the UI renders.
 
 ---
 
@@ -185,40 +216,34 @@ pnpm test  # 93 tests
 
 ---
 
-## 🏗️ Architecture
+## 🏗️ How It Works
 
 ```
-┌────────────┐
-│   Web UI   │
-│ (AI SDK)   │
-└─────▲──────┘
-      │  AI SDK stream (unchanged)
-      │
-┌─────┴──────┐
-│  Server    │
-│ (Next.js)  │
-│ passthrough│
-└─────▲──────┘
-      │ stdout (stream)
-      │
-┌─────┴──────┐
-│  Sandbox   │
-│ (E2B/Sandock)│
-└─────▲──────┘
-      │ exec
-      │
-┌─────┴──────┐
-│   CLI      │
-│ sandagent  │
-└─────▲──────┘
-      │
-┌─────┴──────┐
-│ Claude     │
-│ Agent SDK  │
-└────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│  Your Template (CLAUDE.md + skills/)                        │
+│  "You are a data analyst specializing in SQL and Python..." │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│  Coding Agent (Claude Code / Codex CLI)                     │
+│  Memory ✓  Tools ✓  MCP ✓  Prompts ✓                        │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│  Sandbox (E2B / Sandock)                                    │
+│  Isolated filesystem, persistent state, safe execution      │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│  Your App (Web UI / CLI / API)                              │
+│  AI SDK compatible streaming                                │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-**Invariant:** Whatever the CLI writes to `stdout` **must be a valid AI SDK UI stream**.
+**You focus on the template. SandAgent handles everything else.**
 
 ---
 
@@ -289,26 +314,48 @@ What happens:
 
 ## 🎨 Agent Templates
 
-| Template | Description | Skills |
-|----------|-------------|--------|
-| `default` | General-purpose assistant | - |
-| `coder` | Software development | Code review, Debugging |
-| `analyst` | Data analysis | Data cleaning |
-| `researcher` | Web research | Source evaluation |
+Templates are the heart of SandAgent — they turn a general coding agent into a specialized Super Agent.
 
-Each template includes:
-- `.claude/settings.json` - Model configuration
-- `.claude/mcp.json` - MCP server configuration
-- `CLAUDE.md` - System instructions
-- `skills/` - Pre-defined skill files
+| Template | Description | Example Tasks |
+|----------|-------------|---------------|
+| `default` | General-purpose assistant | Any task |
+| `coder` | Software development | Code review, debugging, refactoring |
+| `analyst` | Data analysis | SQL queries, data cleaning, visualization |
+| `researcher` | Web research | Information gathering, fact-checking |
+| `seo-agent` | SEO optimization | Keyword research, content optimization |
 
-```typescript
-runner: {
-  kind: "claude-agent-sdk",
-  model: "claude-sonnet-4-20250514",
-  template: "coder",  // Use the coder template
-}
+### Creating Your Own Template
+
+It's just a folder with markdown files:
+
 ```
+my-agent/
+├── CLAUDE.md              # System instructions (who is this agent?)
+├── skills/                # Domain knowledge files
+│   ├── sql-patterns.md
+│   └── data-viz-guide.md
+└── .claude/
+    └── settings.json      # Model configuration
+```
+
+**Example CLAUDE.md:**
+
+```markdown
+# Data Analyst Agent
+
+You are an expert data analyst specializing in:
+- SQL query optimization
+- Python data analysis (pandas, numpy)
+- Data visualization (matplotlib, plotly)
+
+## Your Workflow
+1. Understand the data structure first
+2. Write clean, documented SQL/Python
+3. Always validate results before presenting
+4. Create clear visualizations with proper labels
+```
+
+That's it. No SDK code. No tool definitions. No memory management.
 
 📖 **[Templates Guide →](./templates/README.md)**
 
@@ -454,25 +501,27 @@ When PRs are merged to `main` or `develop`:
 
 ---
 
-## ⚖️ Design Trade-offs
+## ⚖️ Design Philosophy
 
-SandAgent intentionally chooses:
+SandAgent is built on one key insight:
 
-| Choice | Result |
-|--------|--------|
-| ✅ Passthrough | Maximum simplicity |
-| ✅ UI-native | Tight AI SDK coupling |
-| ✅ No abstraction | Faster iteration |
+> **Don't rebuild the agent — redirect it.**
 
-This makes SandAgent:
-- **Extremely easy to integrate**
-- **Ideal for AI SDK–based products**
+| Principle | What It Means |
+|-----------|---------------|
+| 🎯 Templates over Code | Define agents with markdown, not SDK integrations |
+| 🔄 Reuse over Rebuild | Leverage existing coding agents instead of building from scratch |
+| 🏖️ Isolation by Default | Every agent runs in a sandboxed environment |
+| 📝 Simplicity over Flexibility | Optimized for the 90% use case |
 
-But also means:
-- SandAgent is tightly coupled to AI SDK UI
-- Non-UI consumers should build their own adapters
+**Best for:**
+- Teams who want to ship AI features fast
+- Developers familiar with Claude Code or similar tools
+- Products built on AI SDK / Vercel AI
 
-**This is a conscious design decision.**
+**Not ideal for:**
+- Highly custom agent architectures
+- Non-Claude agent runtimes (coming soon)
 
 ---
 
@@ -485,5 +534,5 @@ Apache License 2.0
 <div align="center">
   <p>Made with 🏖️ for the AI community</p>
   
-  **SandAgent is a sandboxed Super Agent runtime that speaks AI SDK UI natively.**
+  **Turn powerful coding agents into Super Agents for any use case.**
 </div>

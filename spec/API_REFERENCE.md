@@ -2,6 +2,33 @@
 
 **Complete API documentation for SandAgent**
 
+This reference is for developers integrating SandAgent into their applications. If you're just getting started, see the [Quick Start Guide](./QUICK_START.md) first.
+
+---
+
+## Quick Example
+
+```typescript
+import { SandAgent } from "@sandagent/core";
+import { E2BSandbox } from "@sandagent/sandbox-e2b";
+
+// Create a specialized agent with one template
+const agent = new SandAgent({
+  id: "user-123-session",
+  sandbox: new E2BSandbox(),
+  runner: {
+    kind: "claude-agent-sdk",
+    model: "claude-sonnet-4-20250514",
+    template: "analyst",  // Data analyst agent
+  },
+});
+
+// Stream a task - returns AI SDK compatible response
+const response = await agent.stream({
+  messages: [{ role: "user", content: "Analyze this CSV data" }],
+});
+```
+
 ---
 
 ## @sandagent/core

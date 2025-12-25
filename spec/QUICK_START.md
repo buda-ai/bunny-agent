@@ -1,6 +1,15 @@
 # Quick Start Guide
 
-**Get SandAgent running in 5 minutes**
+**Get your first Super Agent running in 5 minutes**
+
+---
+
+## What You'll Build
+
+By the end of this guide, you'll have:
+- A working AI agent that can execute code, analyze data, or research topics
+- A web UI or CLI to interact with your agent
+- Understanding of how to customize agents for your use case
 
 ---
 
@@ -8,23 +17,48 @@
 
 - Node.js 20+
 - pnpm 9+
-- Docker (for Sandock sandbox) or E2B API key
+- An Anthropic API key ([get one here](https://console.anthropic.com/))
+- (Optional) E2B API key for cloud sandboxes ([get one here](https://e2b.dev/))
 
 ---
 
-## Installation
+## Option 1: Try the Web UI (Easiest)
 
-### 1. Install the packages
+The fastest way to experience SandAgent:
+
+```bash
+# Clone and setup
+git clone https://github.com/vikadata/sandagent.git
+cd sandagent
+pnpm install && pnpm build
+
+# Start the example app
+cd apps/sandagent-example
+pnpm dev
+```
+
+1. Open http://localhost:3000
+2. Click **Settings** → Enter your Anthropic API key
+3. Select a template (try "coder" or "analyst")
+4. Start chatting!
+
+**Example prompts to try:**
+- "Create a Python script that analyzes CSV data"
+- "Build a simple REST API with Express"
+- "Research the latest trends in AI agents"
+
+---
+
+## Option 2: Use as a Library
+
+### Install the packages
 
 ```bash
 # Install core and sandbox adapter
-pnpm add @sandagent/core @sandagent/sandbox-sandock
-
-# Or with E2B
 pnpm add @sandagent/core @sandagent/sandbox-e2b
 ```
 
-### 2. Set up environment variables
+### Set up environment variables
 
 Create a `.env.local` file:
 
@@ -44,14 +78,15 @@ E2B_API_KEY=e2b_...
 
 ```ts
 import { SandAgent } from "@sandagent/core";
-import { SandockSandbox } from "@sandagent/sandbox-sandock";
+import { E2BSandbox } from "@sandagent/sandbox-e2b";
 
 const agent = new SandAgent({
   id: "my-first-agent",
-  sandbox: new SandockSandbox(),
+  sandbox: new E2BSandbox(),
   runner: {
     kind: "claude-agent-sdk",
     model: "claude-sonnet-4-20250514",
+    template: "coder",  // Use a pre-built template
   },
 });
 ```
