@@ -37,7 +37,7 @@ jobs:
         run: pnpm typecheck
 
       - name: Lint
-        run: pnpm lint
+        run: pnpm biome check .
 
       - name: Test
         run: pnpm test

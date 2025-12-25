@@ -3,7 +3,7 @@ import type {
   SandboxAdapter,
   SandboxHandle,
 } from "@sandagent/core";
-import { createSandockClient, type SandockClient } from "sandock";
+import { type SandockClient, createSandockClient } from "sandock";
 
 /**
  * Options for creating a SandockSandbox instance
@@ -47,11 +47,11 @@ export class SandockSandbox implements SandboxAdapter {
 
   constructor(options: SandockSandboxOptions = {}) {
     const apiKey = options.apiKey ?? process.env.SANDOCK_API_KEY;
-    
+
     if (!apiKey) {
       console.warn(
         "SANDOCK_API_KEY not set. Sandock API calls will fail.\n" +
-        "Get your API key at https://sandock.ai"
+          "Get your API key at https://sandock.ai",
       );
     }
 
@@ -72,7 +72,7 @@ export class SandockSandbox implements SandboxAdapter {
    */
   async attach(id: string): Promise<SandboxHandle> {
     // Create sandbox via Sandock API
-    const createResult = await this.client.POST("/api/sandbox", {
+    const createResult = (await this.client.POST("/api/sandbox", {
       body: {
         actorUserId: id,
         image: this.image,
@@ -81,10 +81,12 @@ export class SandockSandbox implements SandboxAdapter {
         cpuShares: this.cpuShares,
         keep: this.keep,
       },
-    }) as ApiResponse<{ data: { id: string } }>;
+    })) as ApiResponse<{ data: { id: string } }>;
 
     if (createResult.error) {
-      throw new Error(`Failed to create sandbox: ${JSON.stringify(createResult.error)}`);
+      throw new Error(
+        `Failed to create sandbox: ${JSON.stringify(createResult.error)}`,
+      );
     }
 
     const sandboxId = createResult.data?.data.id;
@@ -93,12 +95,14 @@ export class SandockSandbox implements SandboxAdapter {
     }
 
     // Start the sandbox
-    const startResult = await this.client.POST("/api/sandbox/{id}/start", {
+    const startResult = (await this.client.POST("/api/sandbox/{id}/start", {
       params: { path: { id: sandboxId } },
-    }) as ApiResponse<{ data: { id: string; started: boolean } }>;
+    })) as ApiResponse<{ data: { id: string; started: boolean } }>;
 
     if (startResult.error) {
-      throw new Error(`Failed to start sandbox: ${JSON.stringify(startResult.error)}`);
+      throw new Error(
+        `Failed to start sandbox: ${JSON.stringify(startResult.error)}`,
+      );
     }
 
     return new SandockHandle(this.client, sandboxId, this.workdir);
@@ -113,7 +117,11 @@ class SandockHandle implements SandboxHandle {
   private readonly sandboxId: string;
   private readonly defaultWorkdir: string;
 
-  constructor(client: SandockClient, sandboxId: string, defaultWorkdir: string) {
+  constructor(
+    client: SandockClient,
+    sandboxId: string,
+    defaultWorkdir: string,
+  ) {
     this.client = client;
     this.sandboxId = sandboxId;
     this.defaultWorkdir = defaultWorkdir;
@@ -131,7 +139,7 @@ class SandockHandle implements SandboxHandle {
         const cmd = command.length === 1 ? command[0] : command;
 
         // Execute shell command via Sandock API
-        const result = await self.client.POST("/api/sandbox/{id}/shell", {
+        const result = (await self.client.POST("/api/sandbox/{id}/shell", {
           params: { path: { id: self.sandboxId } },
           body: {
             cmd,
@@ -139,7 +147,7 @@ class SandockHandle implements SandboxHandle {
             env: opts?.env,
             timeoutMs: opts?.timeout ? opts.timeout * 1000 : undefined,
           },
-        }) as ApiResponse<{
+        })) as ApiResponse<{
           data: {
             stdout: string;
             stderr: string;
@@ -150,7 +158,9 @@ class SandockHandle implements SandboxHandle {
         }>;
 
         if (result.error) {
-          throw new Error(`Shell command failed: ${JSON.stringify(result.error)}`);
+          throw new Error(
+            `Shell command failed: ${JSON.stringify(result.error)}`,
+          );
         }
 
         const data = result.data?.data;
@@ -189,22 +199,25 @@ class SandockHandle implements SandboxHandle {
   ): Promise<void> {
     for (const file of files) {
       const fullPath = `${targetDir}/${file.path}`;
-      
-      // Convert content to string
-      const content = typeof file.content === "string"
-        ? file.content
-        : new TextDecoder().decode(file.content);
 
-      const result = await this.client.POST("/api/sandbox/{id}/fs/write", {
+      // Convert content to string
+      const content =
+        typeof file.content === "string"
+          ? file.content
+          : new TextDecoder().decode(file.content);
+
+      const result = (await this.client.POST("/api/sandbox/{id}/fs/write", {
         params: { path: { id: this.sandboxId } },
         body: {
           path: fullPath,
           content,
         },
-      }) as ApiResponse<{ data: boolean }>;
+      })) as ApiResponse<{ data: boolean }>;
 
       if (result.error) {
-        throw new Error(`Failed to write file ${fullPath}: ${JSON.stringify(result.error)}`);
+        throw new Error(
+          `Failed to write file ${fullPath}: ${JSON.stringify(result.error)}`,
+        );
       }
     }
   }
@@ -219,12 +232,14 @@ class SandockHandle implements SandboxHandle {
     });
 
     // Then delete it
-    const result = await this.client.DELETE("/api/sandbox/{id}", {
+    const result = (await this.client.DELETE("/api/sandbox/{id}", {
       params: { path: { id: this.sandboxId } },
-    }) as ApiResponse<{ data: { id: string; deleted: boolean } }>;
+    })) as ApiResponse<{ data: { id: string; deleted: boolean } }>;
 
     if (result.error) {
-      throw new Error(`Failed to delete sandbox: ${JSON.stringify(result.error)}`);
+      throw new Error(
+        `Failed to delete sandbox: ${JSON.stringify(result.error)}`,
+      );
     }
   }
 }

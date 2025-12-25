@@ -80,7 +80,7 @@ describe("SandockSandbox", () => {
       const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
       new SandockSandbox();
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining("SANDOCK_API_KEY not set")
+        expect.stringContaining("SANDOCK_API_KEY not set"),
       );
       consoleSpy.mockRestore();
     });
@@ -95,7 +95,7 @@ describe("SandockSandbox", () => {
     it("should return a handle with required methods", async () => {
       const sandbox = new SandockSandbox();
       const handle = await sandbox.attach("test-user-123");
-      
+
       expect(typeof handle.exec).toBe("function");
       expect(typeof handle.upload).toBe("function");
       expect(typeof handle.destroy).toBe("function");
@@ -112,12 +112,12 @@ describe("SandockSandbox", () => {
     it("should execute commands and return output", async () => {
       const sandbox = new SandockSandbox();
       const handle = await sandbox.attach("test-user-123");
-      
+
       const chunks: Uint8Array[] = [];
       for await (const chunk of handle.exec(["echo", "hello"])) {
         chunks.push(chunk);
       }
-      
+
       expect(chunks.length).toBeGreaterThan(0);
       const output = new TextDecoder().decode(chunks[0]);
       expect(output).toBe("command output");
@@ -126,10 +126,10 @@ describe("SandockSandbox", () => {
     it("should upload files via API", async () => {
       const sandbox = new SandockSandbox();
       const handle = await sandbox.attach("test-user-123");
-      
+
       await handle.upload(
         [{ path: "test.txt", content: "Hello, World!" }],
-        "/workspace"
+        "/workspace",
       );
       // No error means success
     });
@@ -137,7 +137,7 @@ describe("SandockSandbox", () => {
     it("should destroy sandbox via API", async () => {
       const sandbox = new SandockSandbox();
       const handle = await sandbox.attach("test-user-123");
-      
+
       await handle.destroy();
       // No error means success
     });
