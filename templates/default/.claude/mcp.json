@@ -1,0 +1,5 @@
+{
+  "$schema": "https://modelcontextprotocol.io/schemas/mcp.json",
+  "description": "Default MCP configuration for SandAgent",
+  "servers": {}
+}

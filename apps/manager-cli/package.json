@@ -1,0 +1,43 @@
+{
+  "name": "@sandagent/manager-cli",
+  "version": "0.1.0",
+  "description": "SandAgent Manager CLI - Manage sandboxes, run agents with templates, and control sessions from the command line",
+  "type": "module",
+  "bin": {
+    "sandagent": "./dist/cli.js"
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit",
+    "lint": "echo 'no lint configured'",
+    "test": "vitest run --passWithNoTests"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vikadata/sandagent.git",
+    "directory": "apps/manager-cli"
+  },
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@sandagent/core": "workspace:*",
+    "@sandagent/sandbox-e2b": "workspace:*",
+    "@sandagent/sandbox-sandock": "workspace:*",
+    "@sandagent/runner-claude": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.0",
+    "vitest": "^1.6.1"
+  }
+}

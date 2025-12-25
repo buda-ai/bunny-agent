@@ -1,0 +1,16 @@
+{
+  "$schema": "https://modelcontextprotocol.io/schemas/mcp.json",
+  "description": "Researcher template MCP configuration",
+  "servers": {
+    "filesystem": {
+      "command": "mcp-server-filesystem",
+      "args": ["/workspace"],
+      "description": "File system access for documents and notes"
+    },
+    "fetch": {
+      "command": "mcp-server-fetch",
+      "args": [],
+      "description": "HTTP fetch for downloading resources"
+    }
+  }
+}

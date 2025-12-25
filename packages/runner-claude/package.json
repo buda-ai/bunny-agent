@@ -1,0 +1,42 @@
+{
+  "name": "@sandagent/runner-claude",
+  "version": "0.1.0",
+  "description": "Claude Agent SDK runtime for SandAgent",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit",
+    "lint": "echo 'no lint configured'",
+    "test": "vitest run --passWithNoTests"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vikadata/sandagent.git",
+    "directory": "packages/runner-claude"
+  },
+  "license": "Apache-2.0",
+  "peerDependencies": {
+    "@anthropic-ai/claude-agent-sdk": ">=0.1.70"
+  },
+  "peerDependenciesMeta": {
+    "@anthropic-ai/claude-agent-sdk": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.0",
+    "vitest": "^1.6.1"
+  }
+}
