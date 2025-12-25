@@ -1,7 +1,7 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport, type UIMessage } from "ai";
+import type { UIMessage } from "ai";
 import {
   Conversation,
   ConversationContent,
@@ -41,17 +41,30 @@ export default function Home() {
   const [selectedTemplate, setSelectedTemplate] = useState("default");
   const [clientConfig, setClientConfig] = useState<Record<string, string>>({});
 
-  // Check configuration status from localStorage on mount
+  // Check configuration status from localStorage on mount and when config changes
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      const config = saved ? JSON.parse(saved) : {};
-      setClientConfig(config);
-      const allRequiredSet = REQUIRED_KEYS.every((key) => !!config[key]);
-      setConfigReady(allRequiredSet);
-    } catch {
-      setConfigReady(false);
-    }
+    const loadConfig = () => {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        const config = saved ? JSON.parse(saved) : {};
+        setClientConfig(config);
+        const allRequiredSet = REQUIRED_KEYS.every((key) => !!config[key]);
+        setConfigReady(allRequiredSet);
+      } catch {
+        setConfigReady(false);
+      }
+    };
+
+    // Load config on mount
+    loadConfig();
+
+    // Listen for config updates from settings page
+    const handleConfigUpdate = () => loadConfig();
+    window.addEventListener("sandagent-config-updated", handleConfigUpdate);
+    
+    return () => {
+      window.removeEventListener("sandagent-config-updated", handleConfigUpdate);
+    };
   }, []);
 
   const templates = [
@@ -65,33 +78,86 @@ export default function Home() {
     { id: "researcher", name: "Researcher", description: "Web research" },
   ];
 
-  const transport = useMemo(
-    () =>
-      new DefaultChatTransport({
-        api: "/api/ai",
-        body: {
+  // Simple state management without useChat
+  const [messages, setMessages] = useState<UIMessage[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+
+  const handleSubmit = async (message: { text: string }) => {
+    if (!message.text.trim() || isLoading) return;
+
+    const userMessage: UIMessage = {
+      id: `${Date.now()}-user`,
+      role: "user",
+      parts: [{ type: "text", text: message.text }],
+    };
+
+    setMessages((prev) => [...prev, userMessage]);
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/ai', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           sessionId,
           template: selectedTemplate,
-          // Pass client-side config (API keys, sandbox provider, etc.)
           ...clientConfig,
-        },
-      }),
-    [sessionId, selectedTemplate, clientConfig],
-  );
-
-  const { messages, sendMessage, status, error } = useChat({ transport });
-
-  const isLoading = status === "streaming" || status === "submitted";
-  const hasError = status === "error" && error;
-
-  const handleSubmit = (message: { text: string }) => {
-    if (message.text.trim() && !isLoading) {
-      sendMessage({
-        role: "user",
-        parts: [{ type: "text", text: message.text }],
+          messages: [...messages, userMessage].map(m => ({
+            role: m.role,
+            content: m.parts.filter(p => p.type === 'text').map((p: any) => p.text).join(''),
+          })),
+        }),
       });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+
+      if (!response.body) {
+        throw new Error('No response body');
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let assistantText = '';
+      const assistantMessage: UIMessage = {
+        id: `${Date.now()}-assistant`,
+        role: 'assistant',
+        parts: [{ type: 'text', text: '' }],
+      };
+
+      setMessages((prev) => [...prev, assistantMessage]);
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        assistantText += chunk;
+
+        setMessages((prev) => {
+          const updated = [...prev];
+          const lastMsg = updated[updated.length - 1];
+          if (lastMsg && lastMsg.role === 'assistant') {
+            lastMsg.parts = [{ type: 'text', text: assistantText }];
+          }
+          return updated;
+        });
+      }
+    } catch (err) {
+      setError(err as Error);
+    } finally {
+      setIsLoading(false);
     }
   };
+
+  const hasError = error !== null;
+  const status: 'error' | 'streaming' | 'submitted' | 'ready' = isLoading ? 'streaming' : (hasError ? 'error' : 'ready');
 
   return (
     <main className="flex h-screen flex-col bg-background">

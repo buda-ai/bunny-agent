@@ -82,6 +82,9 @@ importers:
       ai:
         specifier: beta
         version: 6.0.0-beta.169(zod@4.2.1)
+      e2b:
+        specifier: ^2.9.0
+        version: 2.9.0
       kui:
         specifier: workspace:*
         version: link:../../packages/kui

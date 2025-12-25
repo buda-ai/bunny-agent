@@ -11,9 +11,10 @@ import { E2BSandbox } from "@sandagent/sandbox-e2b";
  *   sessionId: string,
  *   messages: [{ role: "user" | "assistant", content: string }],
  *   template?: string,
- *   ANTHROPIC_API_KEY?: string,  // Client-provided API key
- *   E2B_API_KEY?: string,        // Client-provided E2B key
- *   SANDBOX_PROVIDER?: string,   // 'e2b' or 'sandock'
+ *   ANTHROPIC_API_KEY?: string,     // Client-provided API key
+ *   ANTHROPIC_BASE_URL?: string,    // Client-provided base URL (optional)
+ *   E2B_API_KEY?: string,           // Client-provided E2B key
+ *   SANDBOX_PROVIDER?: string,      // 'e2b' or 'sandock'
  *   workspace?: { path?: string }
  * }
  *
@@ -27,9 +28,15 @@ export async function POST(request: Request) {
     messages,
     template = "default",
     ANTHROPIC_API_KEY,
+    ANTHROPIC_BASE_URL,
     E2B_API_KEY,
     SANDBOX_PROVIDER = "e2b",
   } = body;
+
+  // Debug logging (remove in production)
+  console.log("[API] Request body keys:", Object.keys(body));
+  console.log("[API] Has ANTHROPIC_API_KEY:", !!ANTHROPIC_API_KEY);
+  console.log("[API] Has E2B_API_KEY:", !!E2B_API_KEY);
 
   // Validate required fields
   if (!sessionId) {
@@ -81,6 +88,7 @@ export async function POST(request: Request) {
     // Pass environment variables to the sandbox
     env: {
       ANTHROPIC_API_KEY,
+      ...(ANTHROPIC_BASE_URL && { ANTHROPIC_BASE_URL }),
     },
   });
 
