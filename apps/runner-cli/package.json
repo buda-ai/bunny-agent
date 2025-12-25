@@ -4,7 +4,7 @@
   "description": "SandAgent Runner CLI - Like gemini-cli or claude-code, runs in your local terminal with AI SDK UI streaming",
   "type": "module",
   "bin": {
-    "sandagent-runner": "./dist/cli.js"
+    "sandagent": "./dist/cli.js"
   },
   "main": "./dist/index.js",
   "module": "./dist/index.js",

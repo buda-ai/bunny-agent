@@ -1,5 +1,5 @@
 /**
- * sandagent list command
+ * sandagent-manager list command
  *
  * List running sandboxes.
  */
@@ -21,10 +21,10 @@ export async function listCommand(args: string[]): Promise<void> {
 
   if (values.help) {
     console.log(`
-sandagent list - List running sandboxes
+sandagent-manager list - List running sandboxes
 
 Usage:
-  sandagent list
+  sandagent-manager list
 
 This command shows all currently running sandboxes.
 Note: Sandbox state is managed by the sandbox provider (E2B or Docker).
@@ -43,6 +43,6 @@ Note: Sandbox state is managed by the sandbox provider (E2B or Docker).
   console.log("  Run: docker ps --filter 'label=sandagent'");
   console.log("");
   console.log(
-    "Tip: Use 'sandagent stop <session-id>' to stop a specific sandbox.",
+    "Tip: Use 'sandagent-manager stop <session-id>' to stop a specific sandbox.",
   );
 }

@@ -145,8 +145,8 @@ JSONL transcript recording for debugging and replay
 | App | What it is | Best for |
 |-----|------------|----------|
 | **sandagent-example** | Complete Next.js web app with AI chat UI | First-time users, web integration |
-| **manager-cli** | Command-line sandbox management | DevOps, server-side orchestration |
-| **runner-cli** | Terminal-based agent (like claude-code, gemini-cli) | Local development, CLI enthusiasts |
+| **manager-cli** | Command-line sandbox management (`sandagent-manager`) | DevOps, server-side orchestration |
+| **runner-cli** | Terminal-based agent (`sandagent`, like claude-code, gemini-cli) | Local development, CLI enthusiasts |
 
 ### Option A: Web UI (Recommended)
 
@@ -182,13 +182,13 @@ export ANTHROPIC_API_KEY=your_key
 export E2B_API_KEY=your_e2b_key
 
 # Run an agent task
-npx sandagent run "Create a hello world script"
+npx sandagent-manager run "Create a hello world script"
 
 # Run with a specific template
-npx sandagent run --template coder "Build a REST API"
+npx sandagent-manager run --template coder "Build a REST API"
 
 # List available templates
-npx sandagent templates
+npx sandagent-manager templates
 ```
 
 ### Option C: Runner CLI
@@ -202,7 +202,7 @@ export ANTHROPIC_API_KEY=your_key
 
 # Run from a template directory
 cd templates/coder
-npx sandagent-runner run -- "Build a REST API with Express"
+npx sandagent run -- "Build a REST API with Express"
 ```
 
 ### Option D: Use Claude Code Directly
@@ -281,8 +281,8 @@ pnpm test  # 93 tests
 sandagent/
 ├─ apps/
 │  ├─ sandagent-example/   # Complete Next.js app with AI chat UI
-│  ├─ manager-cli/         # sandagent command - manage sandboxes
-│  └─ runner-cli/          # sandagent-runner - like gemini-cli
+│  ├─ manager-cli/         # sandagent-manager command - manage sandboxes
+│  └─ runner-cli/          # sandagent command - terminal agent runner
 ├─ packages/
 │  ├─ core/                # SandAgent lifecycle & sandbox binding
 │  ├─ sdk/                 # Next.js / server passthrough helpers
@@ -555,8 +555,8 @@ When PRs are merged to `main` or `develop`:
 - [x] Agent Templates (default, coder, analyst, researcher)
 - [x] GAIA Benchmark for comparing agent CLIs
 - [x] JSONL transcript export (debugging / replay)
-- [x] Manager CLI (sandagent command)
-- [x] Runner CLI (sandagent-runner command)
+- [x] Manager CLI (sandagent-manager command)
+- [x] Runner CLI (sandagent command)
 - [x] Sandock SDK integration
 - [x] Vercel deployment workflow
 - [ ] Multiple UI stream profiles (web / terminal)

@@ -4,7 +4,7 @@
   "description": "SandAgent Manager CLI - Manage sandboxes, run agents with templates, and control sessions from the command line",
   "type": "module",
   "bin": {
-    "sandagent": "./dist/cli.js"
+    "sandagent-manager": "./dist/cli.js"
   },
   "main": "./dist/index.js",
   "module": "./dist/index.js",
