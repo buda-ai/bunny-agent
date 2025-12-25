@@ -63,7 +63,9 @@ Templates define the agent's behavior, system prompt, and available skills.
   console.log("Usage:");
   console.log('  sandagent-manager run --template coder "Build a REST API"');
   console.log('  sandagent-manager run --template analyst "Analyze sales.csv"');
-  console.log('  sandagent-manager run --template researcher "Research AI trends"');
+  console.log(
+    '  sandagent-manager run --template researcher "Research AI trends"',
+  );
   console.log("");
   console.log("Template Structure:");
   console.log("  templates/<name>/");

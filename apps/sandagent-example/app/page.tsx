@@ -61,9 +61,12 @@ export default function Home() {
     // Listen for config updates from settings page
     const handleConfigUpdate = () => loadConfig();
     window.addEventListener("sandagent-config-updated", handleConfigUpdate);
-    
+
     return () => {
-      window.removeEventListener("sandagent-config-updated", handleConfigUpdate);
+      window.removeEventListener(
+        "sandagent-config-updated",
+        handleConfigUpdate,
+      );
     };
   }, []);
 
@@ -97,38 +100,43 @@ export default function Home() {
     setError(null);
 
     try {
-      const response = await fetch('/api/ai', {
-        method: 'POST',
+      const response = await fetch("/api/ai", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           sessionId,
           template: selectedTemplate,
           ...clientConfig,
-          messages: [...messages, userMessage].map(m => ({
+          messages: [...messages, userMessage].map((m) => ({
             role: m.role,
-            content: m.parts.filter(p => p.type === 'text').map((p: any) => p.text).join(''),
+            content: m.parts
+              .filter((p) => p.type === "text")
+              .map((p) => (p as { type: string; text: string }).text)
+              .join(""),
           })),
         }),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        throw new Error(
+          errorData.error || `HTTP error! status: ${response.status}`,
+        );
       }
 
       if (!response.body) {
-        throw new Error('No response body');
+        throw new Error("No response body");
       }
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
-      let assistantText = '';
+      let assistantText = "";
       const assistantMessage: UIMessage = {
         id: `${Date.now()}-assistant`,
-        role: 'assistant',
-        parts: [{ type: 'text', text: '' }],
+        role: "assistant",
+        parts: [{ type: "text", text: "" }],
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
@@ -143,8 +151,8 @@ export default function Home() {
         setMessages((prev) => {
           const updated = [...prev];
           const lastMsg = updated[updated.length - 1];
-          if (lastMsg && lastMsg.role === 'assistant') {
-            lastMsg.parts = [{ type: 'text', text: assistantText }];
+          if (lastMsg && lastMsg.role === "assistant") {
+            lastMsg.parts = [{ type: "text", text: assistantText }];
           }
           return updated;
         });
@@ -157,7 +165,11 @@ export default function Home() {
   };
 
   const hasError = error !== null;
-  const status: 'error' | 'streaming' | 'submitted' | 'ready' = isLoading ? 'streaming' : (hasError ? 'error' : 'ready');
+  const status: "error" | "streaming" | "submitted" | "ready" = isLoading
+    ? "streaming"
+    : hasError
+      ? "error"
+      : "ready";
 
   return (
     <main className="flex h-screen flex-col bg-background">
