@@ -10,11 +10,11 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@ai-sdk/react": "beta",
+    "@ai-sdk/react": "^3.0.3",
     "@sandagent/core": "workspace:*",
     "@sandagent/sdk": "workspace:*",
     "@sandagent/sandbox-e2b": "workspace:*",
-    "ai": "beta",
+    "ai": "^6.0.3",
     "kui": "workspace:*",
     "lucide-react": "^0.556.0",
     "next": "16.0.10",

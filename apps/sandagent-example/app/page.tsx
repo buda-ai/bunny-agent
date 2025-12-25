@@ -30,7 +30,7 @@ import {
   UserIcon,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { STORAGE_KEY } from "./settings/page";
 
 const REQUIRED_KEYS = ["ANTHROPIC_API_KEY", "E2B_API_KEY"];
@@ -39,7 +39,7 @@ export default function Home() {
   const [sessionId] = useState(() => `session-${Date.now()}`);
   const [configReady, setConfigReady] = useState<boolean | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState("default");
-  const [clientConfig, setClientConfig] = useState<Record<string, string>>({});
+  const [clientConfig, setClientConfig] = useState<Record<string, string> | null>(null);
 
   // Check configuration status from localStorage on mount
   useEffect(() => {
@@ -65,21 +65,22 @@ export default function Home() {
     { id: "researcher", name: "Researcher", description: "Web research" },
   ];
 
-  const transport = useMemo(
-    () =>
-      new DefaultChatTransport({
-        api: "/api/ai",
-        body: {
-          sessionId,
-          template: selectedTemplate,
-          // Pass client-side config (API keys, sandbox provider, etc.)
-          ...clientConfig,
-        },
-      }),
-    [sessionId, selectedTemplate, clientConfig],
-  );
+  // Use a ref to always get the latest clientConfig
+  const clientConfigRef = useRef(clientConfig);
+  useEffect(() => {
+    clientConfigRef.current = clientConfig;
+  }, [clientConfig]);
 
-  const { messages, sendMessage, status, error } = useChat({ transport });
+  const { messages, sendMessage, status, error } = useChat({
+    transport: new DefaultChatTransport({
+      api: "/api/ai",
+      body: () => ({
+        sessionId,
+        template: selectedTemplate,
+        ...(clientConfigRef.current || {}),
+      }),
+    }),
+  });
 
   const isLoading = status === "streaming" || status === "submitted";
   const hasError = status === "error" && error;
