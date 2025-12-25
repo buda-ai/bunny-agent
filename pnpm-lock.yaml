@@ -68,7 +68,7 @@ importers:
   apps/sandagent-example:
     dependencies:
       '@ai-sdk/react':
-        specifier: beta
+        specifier: ^3.0.3
         version: 3.0.3(react@19.2.3)(zod@4.2.1)
       '@sandagent/core':
         specifier: workspace:*
@@ -76,11 +76,8 @@ importers:
       '@sandagent/sandbox-e2b':
         specifier: workspace:*
         version: link:../../packages/sandbox-e2b
-      '@sandagent/sdk':
-        specifier: workspace:*
-        version: link:../../packages/sdk
       ai:
-        specifier: beta
+        specifier: ^6.0.3
         version: 6.0.3(zod@4.2.1)
       kui:
         specifier: workspace:*
