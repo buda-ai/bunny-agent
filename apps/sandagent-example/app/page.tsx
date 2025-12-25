@@ -39,7 +39,7 @@ export default function Home() {
   const [sessionId] = useState(() => `session-${Date.now()}`);
   const [configReady, setConfigReady] = useState<boolean | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState("default");
-  const [clientConfig, setClientConfig] = useState<Record<string, string> | null>(null);
+  const [clientConfig, setClientConfig] = useState<Record<string, string>>({});
 
   // Check configuration status from localStorage on mount and when config changes
   useEffect(() => {
