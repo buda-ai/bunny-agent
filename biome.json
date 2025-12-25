@@ -39,6 +39,7 @@
     "indentWidth": 2
   },
   "files": {
-    "ignore": ["node_modules", "dist", "*.d.ts", "pnpm-lock.yaml"]
+    "include": ["**/*.ts", "**/*.tsx"],
+    "ignore": ["node_modules", "dist", "*.d.ts", "*.js", "*.jsx", "*.mjs", "*.cjs", "pnpm-lock.yaml"]
   }
 }
