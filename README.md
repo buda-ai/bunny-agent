@@ -380,6 +380,26 @@ Supported runners: `sandagent`, `gemini-cli`, `claudecode`, `codex-cli`
 | `pnpm lint` | Run linters |
 | `pnpm typecheck` | Type-check all packages |
 | `pnpm clean` | Clean build artifacts |
+| `pnpm changeset` | Create a changeset for version bumps |
+| `pnpm version` | Update versions based on changesets |
+| `pnpm release` | Build and publish to npm |
+
+### Releasing Packages
+
+This project uses [Changesets](https://github.com/changesets/changesets) for version management and npm publishing.
+
+```bash
+# 1. Create a changeset when you make changes
+pnpm changeset
+
+# 2. Follow prompts to select packages and bump type (major/minor/patch)
+
+# 3. Commit the changeset file and push to your PR
+```
+
+When PRs are merged to `main` or `develop`:
+1. GitHub Action creates a "Version Packages" PR
+2. Merging that PR publishes packages to npm
 
 ### Environment Variables
 
