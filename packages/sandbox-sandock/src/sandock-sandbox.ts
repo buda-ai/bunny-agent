@@ -1,142 +1,122 @@
-import { spawn } from "child_process";
 import type {
   ExecOptions,
   SandboxAdapter,
   SandboxHandle,
 } from "@sandagent/core";
+import { createSandockClient, type SandockClient } from "sandock";
 
 /**
  * Options for creating a SandockSandbox instance
  */
 export interface SandockSandboxOptions {
+  /** Sandock API base URL (defaults to https://sandock.ai) */
+  baseUrl?: string;
+  /** Sandock API key for authentication */
+  apiKey?: string;
   /** Docker image to use for the sandbox */
   image?: string;
-  /** Volume prefix for persistent storage */
-  volumePrefix?: string;
-  /** Network mode for the container */
-  networkMode?: "none" | "bridge" | "host";
-  /** Additional Docker run arguments */
-  dockerArgs?: string[];
+  /** Working directory inside the sandbox */
+  workdir?: string;
+  /** Memory limit in MB */
+  memoryLimitMb?: number;
+  /** CPU shares */
+  cpuShares?: number;
+  /** Keep sandbox running after execution */
+  keep?: boolean;
+}
+
+// Type for API response with data and error
+interface ApiResponse<T> {
+  data?: T;
+  error?: unknown;
 }
 
 /**
  * Sandock-based sandbox implementation.
  *
- * Uses Docker containers for isolation and persistent volumes
- * for filesystem state.
+ * Uses the official Sandock SDK (https://sandock.ai) for cloud-based
+ * Docker sandbox execution with persistent filesystems.
  */
 export class SandockSandbox implements SandboxAdapter {
+  private readonly client: SandockClient;
   private readonly image: string;
-  private readonly volumePrefix: string;
-  private readonly networkMode: string;
-  private readonly dockerArgs: string[];
+  private readonly workdir: string;
+  private readonly memoryLimitMb?: number;
+  private readonly cpuShares?: number;
+  private readonly keep: boolean;
 
   constructor(options: SandockSandboxOptions = {}) {
-    this.image = options.image ?? "node:20-slim";
-    this.volumePrefix = options.volumePrefix ?? "sandagent";
-    this.networkMode = options.networkMode ?? "bridge";
-    this.dockerArgs = options.dockerArgs ?? [];
+    const apiKey = options.apiKey ?? process.env.SANDOCK_API_KEY;
+    
+    if (!apiKey) {
+      console.warn(
+        "SANDOCK_API_KEY not set. Sandock API calls will fail.\n" +
+        "Get your API key at https://sandock.ai"
+      );
+    }
+
+    this.client = createSandockClient({
+      baseUrl: options.baseUrl ?? "https://sandock.ai",
+      headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : undefined,
+    });
+
+    this.image = options.image ?? "sandockai/sandock-code:latest";
+    this.workdir = options.workdir ?? "/workspace";
+    this.memoryLimitMb = options.memoryLimitMb;
+    this.cpuShares = options.cpuShares;
+    this.keep = options.keep ?? true;
   }
 
   /**
    * Attach to or create a sandbox with the given ID
    */
   async attach(id: string): Promise<SandboxHandle> {
-    const volumeName = `${this.volumePrefix}-${id}`;
-    const containerName = `${this.volumePrefix}-${id}`;
+    // Create sandbox via Sandock API
+    const createResult = await this.client.POST("/api/sandbox", {
+      body: {
+        actorUserId: id,
+        image: this.image,
+        workdir: this.workdir,
+        memoryLimitMb: this.memoryLimitMb,
+        cpuShares: this.cpuShares,
+        keep: this.keep,
+      },
+    }) as ApiResponse<{ data: { id: string } }>;
 
-    // Ensure volume exists
-    await this.ensureVolume(volumeName);
-
-    // Check if container exists and is running
-    const containerExists = await this.containerExists(containerName);
-
-    if (!containerExists) {
-      // Start a new container
-      await this.startContainer(containerName, volumeName);
+    if (createResult.error) {
+      throw new Error(`Failed to create sandbox: ${JSON.stringify(createResult.error)}`);
     }
 
-    return new SandockHandle(containerName);
-  }
+    const sandboxId = createResult.data?.data.id;
+    if (!sandboxId) {
+      throw new Error("No sandbox ID returned from Sandock API");
+    }
 
-  private async ensureVolume(volumeName: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const proc = spawn("docker", ["volume", "create", volumeName], {
-        stdio: "pipe",
-      });
+    // Start the sandbox
+    const startResult = await this.client.POST("/api/sandbox/{id}/start", {
+      params: { path: { id: sandboxId } },
+    }) as ApiResponse<{ data: { id: string; started: boolean } }>;
 
-      proc.on("close", (code) => {
-        if (code === 0) {
-          resolve();
-        } else {
-          reject(new Error(`Failed to create volume: ${volumeName}`));
-        }
-      });
+    if (startResult.error) {
+      throw new Error(`Failed to start sandbox: ${JSON.stringify(startResult.error)}`);
+    }
 
-      proc.on("error", reject);
-    });
-  }
-
-  private async containerExists(containerName: string): Promise<boolean> {
-    return new Promise((resolve) => {
-      const proc = spawn("docker", ["container", "inspect", containerName], {
-        stdio: "pipe",
-      });
-
-      proc.on("close", (code) => {
-        resolve(code === 0);
-      });
-
-      proc.on("error", () => {
-        resolve(false);
-      });
-    });
-  }
-
-  private async startContainer(
-    containerName: string,
-    volumeName: string,
-  ): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const args = [
-        "run",
-        "-d",
-        "--name",
-        containerName,
-        "--network",
-        this.networkMode,
-        "-v",
-        `${volumeName}:/workspace`,
-        ...this.dockerArgs,
-        this.image,
-        "tail",
-        "-f",
-        "/dev/null", // Keep container running
-      ];
-
-      const proc = spawn("docker", args, { stdio: "pipe" });
-
-      proc.on("close", (code) => {
-        if (code === 0) {
-          resolve();
-        } else {
-          reject(new Error(`Failed to start container: ${containerName}`));
-        }
-      });
-
-      proc.on("error", reject);
-    });
+    return new SandockHandle(this.client, sandboxId, this.workdir);
   }
 }
 
 /**
- * Handle for an active Sandock container
+ * Handle for an active Sandock sandbox
  */
 class SandockHandle implements SandboxHandle {
-  private readonly containerName: string;
+  private readonly client: SandockClient;
+  private readonly sandboxId: string;
+  private readonly defaultWorkdir: string;
 
-  constructor(containerName: string) {
-    this.containerName = containerName;
+  constructor(client: SandockClient, sandboxId: string, defaultWorkdir: string) {
+    this.client = client;
+    this.sandboxId = sandboxId;
+    this.defaultWorkdir = defaultWorkdir;
   }
 
   /**
@@ -146,59 +126,56 @@ class SandockHandle implements SandboxHandle {
     const self = this;
 
     return {
-      [Symbol.asyncIterator](): AsyncIterator<Uint8Array> {
-        const args = ["exec"];
+      async *[Symbol.asyncIterator](): AsyncIterator<Uint8Array> {
+        // Build command string
+        const cmd = command.length === 1 ? command[0] : command;
 
-        // Add working directory if specified
-        if (opts?.cwd) {
-          args.push("-w", opts.cwd);
-        }
-
-        // Add environment variables if specified
-        if (opts?.env) {
-          for (const [key, value] of Object.entries(opts.env)) {
-            args.push("-e", `${key}=${value}`);
-          }
-        }
-
-        args.push(self.containerName, ...command);
-
-        const proc = spawn("docker", args, {
-          stdio: ["ignore", "pipe", "pipe"],
-        });
-
-        const stdout = proc.stdout;
-
-        return {
-          async next(): Promise<IteratorResult<Uint8Array>> {
-            return new Promise((resolve, reject) => {
-              const onData = (chunk: Buffer) => {
-                cleanup();
-                resolve({ value: new Uint8Array(chunk), done: false });
-              };
-
-              const onEnd = () => {
-                cleanup();
-                resolve({ value: undefined, done: true });
-              };
-
-              const onError = (err: Error) => {
-                cleanup();
-                reject(err);
-              };
-
-              const cleanup = () => {
-                stdout.removeListener("data", onData);
-                stdout.removeListener("end", onEnd);
-                stdout.removeListener("error", onError);
-              };
-
-              stdout.once("data", onData);
-              stdout.once("end", onEnd);
-              stdout.once("error", onError);
-            });
+        // Execute shell command via Sandock API
+        const result = await self.client.POST("/api/sandbox/{id}/shell", {
+          params: { path: { id: self.sandboxId } },
+          body: {
+            cmd,
+            workdir: opts?.cwd ?? self.defaultWorkdir,
+            env: opts?.env,
+            timeoutMs: opts?.timeout ? opts.timeout * 1000 : undefined,
           },
-        };
+        }) as ApiResponse<{
+          data: {
+            stdout: string;
+            stderr: string;
+            exitCode: number | null;
+            timedOut: boolean;
+            durationMs: number;
+          };
+        }>;
+
+        if (result.error) {
+          throw new Error(`Shell command failed: ${JSON.stringify(result.error)}`);
+        }
+
+        const data = result.data?.data;
+        if (!data) {
+          return;
+        }
+
+        // Yield stdout
+        if (data.stdout) {
+          yield new TextEncoder().encode(data.stdout);
+        }
+
+        // Yield stderr (if any)
+        if (data.stderr) {
+          yield new TextEncoder().encode(data.stderr);
+        }
+
+        // Check exit code
+        if (data.exitCode !== 0 && data.exitCode !== null) {
+          console.warn(`Command exited with code ${data.exitCode}`);
+        }
+
+        if (data.timedOut) {
+          throw new Error(`Command timed out after ${data.durationMs}ms`);
+        }
       },
     };
   }
@@ -212,73 +189,42 @@ class SandockHandle implements SandboxHandle {
   ): Promise<void> {
     for (const file of files) {
       const fullPath = `${targetDir}/${file.path}`;
+      
+      // Convert content to string
+      const content = typeof file.content === "string"
+        ? file.content
+        : new TextDecoder().decode(file.content);
 
-      // Use base64 encoding for binary content to avoid corruption
-      if (typeof file.content === "string") {
-        await this.execCommand(
-          [
-            "sh",
-            "-c",
-            `mkdir -p $(dirname "${fullPath}") && cat > "${fullPath}"`,
-          ],
-          file.content,
-        );
-      } else {
-        // For binary content, use base64 encoding to preserve data integrity
-        const base64Content = Buffer.from(file.content).toString("base64");
-        await this.execCommand([
-          "sh",
-          "-c",
-          `mkdir -p $(dirname "${fullPath}") && echo "${base64Content}" | base64 -d > "${fullPath}"`,
-        ]);
+      const result = await this.client.POST("/api/sandbox/{id}/fs/write", {
+        params: { path: { id: this.sandboxId } },
+        body: {
+          path: fullPath,
+          content,
+        },
+      }) as ApiResponse<{ data: boolean }>;
+
+      if (result.error) {
+        throw new Error(`Failed to write file ${fullPath}: ${JSON.stringify(result.error)}`);
       }
     }
-  }
-
-  private async execCommand(command: string[], stdin?: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const args = ["exec", "-i", this.containerName, ...command];
-      const proc = spawn("docker", args, {
-        stdio: ["pipe", "pipe", "pipe"],
-      });
-
-      if (stdin) {
-        proc.stdin.write(stdin);
-        proc.stdin.end();
-      }
-
-      proc.on("close", (code) => {
-        if (code === 0) {
-          resolve();
-        } else {
-          reject(new Error(`Command failed with code ${code}`));
-        }
-      });
-
-      proc.on("error", reject);
-    });
   }
 
   /**
    * Destroy the sandbox and release resources
    */
   async destroy(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const proc = spawn("docker", ["rm", "-f", this.containerName], {
-        stdio: "pipe",
-      });
-
-      proc.on("close", (code) => {
-        if (code === 0) {
-          resolve();
-        } else {
-          reject(
-            new Error(`Failed to destroy container: ${this.containerName}`),
-          );
-        }
-      });
-
-      proc.on("error", reject);
+    // Stop the sandbox first
+    await this.client.POST("/api/sandbox/{id}/stop", {
+      params: { path: { id: this.sandboxId } },
     });
+
+    // Then delete it
+    const result = await this.client.DELETE("/api/sandbox/{id}", {
+      params: { path: { id: this.sandboxId } },
+    }) as ApiResponse<{ data: { id: string; deleted: boolean } }>;
+
+    if (result.error) {
+      throw new Error(`Failed to delete sandbox: ${JSON.stringify(result.error)}`);
+    }
   }
 }
