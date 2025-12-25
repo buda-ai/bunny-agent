@@ -9,11 +9,11 @@
  * This is the CLI equivalent of the sandagent-example web app.
  *
  * Commands:
- *   sandagent run [options]      - Run an agent task in a sandbox
- *   sandagent list               - List running sandboxes
- *   sandagent stop <id>          - Stop a sandbox
- *   sandagent templates          - List available templates
- *   sandagent info               - Show environment and configuration
+ *   sandagent-manager run [options]      - Run an agent task in a sandbox
+ *   sandagent-manager list               - List running sandboxes
+ *   sandagent-manager stop <id>          - Stop a sandbox
+ *   sandagent-manager templates          - List available templates
+ *   sandagent-manager info               - Show environment and configuration
  */
 
 import * as fs from "node:fs";
@@ -35,7 +35,7 @@ Turn powerful coding agents into universal Super Agents.
 Run AI agents in sandboxed environments with AI SDK UI streaming.
 
 Usage:
-  sandagent <command> [options]
+  sandagent-manager <command> [options]
 
 Commands:
   run          Run an agent task in a sandbox
@@ -46,29 +46,29 @@ Commands:
 
 Quick Start:
   # Run a task with the default template
-  sandagent run "Create a hello world script"
+  sandagent-manager run "Create a hello world script"
 
   # Run with a specific template
-  sandagent run --template coder "Build a REST API"
+  sandagent-manager run --template coder "Build a REST API"
 
   # Run in a specific workspace
-  sandagent run --workspace ./my-project "Fix the bug in main.ts"
+  sandagent-manager run --workspace ./my-project "Fix the bug in main.ts"
 
 Options:
   -h, --help       Show this help message
   -v, --version    Show version number
 
 Examples:
-  sandagent run "Create a weather script"
-  sandagent run --template coder "Build a REST API with Express"
-  sandagent run --template analyst "Analyze sales.csv and create a report"
-  sandagent run --template researcher "Research the latest AI trends"
-  sandagent run --sandbox e2b "Deploy this to production"
-  sandagent run --sandbox sandock "Run unit tests"
-  sandagent list
-  sandagent stop session-123
-  sandagent templates
-  sandagent info
+  sandagent-manager run "Create a weather script"
+  sandagent-manager run --template coder "Build a REST API with Express"
+  sandagent-manager run --template analyst "Analyze sales.csv and create a report"
+  sandagent-manager run --template researcher "Research the latest AI trends"
+  sandagent-manager run --sandbox e2b "Deploy this to production"
+  sandagent-manager run --sandbox sandock "Run unit tests"
+  sandagent-manager list
+  sandagent-manager stop session-123
+  sandagent-manager templates
+  sandagent-manager info
 
 Environment Variables:
   ANTHROPIC_API_KEY    Anthropic API key (required)

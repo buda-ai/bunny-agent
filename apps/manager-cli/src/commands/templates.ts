@@ -1,5 +1,5 @@
 /**
- * sandagent templates command
+ * sandagent-manager templates command
  *
  * List available agent templates.
  */
@@ -23,10 +23,10 @@ export async function templatesCommand(args: string[]): Promise<void> {
 
   if (values.help) {
     console.log(`
-sandagent templates - List available agent templates
+sandagent-manager templates - List available agent templates
 
 Usage:
-  sandagent templates
+  sandagent-manager templates
 
 Templates define the agent's behavior, system prompt, and available skills.
 `);
@@ -61,9 +61,11 @@ Templates define the agent's behavior, system prompt, and available skills.
   );
   console.log("");
   console.log("Usage:");
-  console.log('  sandagent run --template coder "Build a REST API"');
-  console.log('  sandagent run --template analyst "Analyze sales.csv"');
-  console.log('  sandagent run --template researcher "Research AI trends"');
+  console.log('  sandagent-manager run --template coder "Build a REST API"');
+  console.log('  sandagent-manager run --template analyst "Analyze sales.csv"');
+  console.log(
+    '  sandagent-manager run --template researcher "Research AI trends"',
+  );
   console.log("");
   console.log("Template Structure:");
   console.log("  templates/<name>/");

@@ -1,5 +1,5 @@
 /**
- * sandagent info command
+ * sandagent-manager info command
  *
  * Show environment and configuration information.
  */
@@ -23,10 +23,10 @@ export async function infoCommand(args: string[]): Promise<void> {
 
   if (values.help) {
     console.log(`
-sandagent info - Show environment and configuration
+sandagent-manager info - Show environment and configuration
 
 Usage:
-  sandagent info
+  sandagent-manager info
 
 This command displays your SandAgent configuration and environment status.
 `);
@@ -80,7 +80,7 @@ This command displays your SandAgent configuration and environment status.
   }
 
   console.log("Quick Start:");
-  console.log('  sandagent run "Create a hello world script"');
+  console.log('  sandagent-manager run "Create a hello world script"');
   console.log("");
   console.log("Documentation:");
   console.log("  https://github.com/vikadata/sandagent");

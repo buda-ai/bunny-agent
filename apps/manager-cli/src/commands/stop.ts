@@ -1,5 +1,5 @@
 /**
- * sandagent stop command
+ * sandagent-manager stop command
  *
  * Stop a sandbox by ID.
  */
@@ -21,14 +21,14 @@ export async function stopCommand(args: string[]): Promise<void> {
 
   if (values.help) {
     console.log(`
-sandagent stop - Stop a sandbox by ID
+sandagent-manager stop - Stop a sandbox by ID
 
 Usage:
-  sandagent stop <session-id>
+  sandagent-manager stop <session-id>
 
 Examples:
-  sandagent stop session-123
-  sandagent stop my-project-sandbox
+  sandagent-manager stop session-123
+  sandagent-manager stop my-project-sandbox
 `);
     return;
   }
@@ -37,7 +37,7 @@ Examples:
 
   if (!sessionId) {
     console.error("❌ Error: Session ID is required");
-    console.error("Usage: sandagent stop <session-id>");
+    console.error("Usage: sandagent-manager stop <session-id>");
     process.exit(1);
   }
 

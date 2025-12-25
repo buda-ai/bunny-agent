@@ -7,7 +7,7 @@
  * Streams AI SDK UI messages directly to stdout.
  *
  * Usage:
- *   sandagent-runner run [options] -- "<user input>"
+ *   sandagent run [options] -- "<user input>"
  *
  * The CLI is designed to be executed in a specific working directory
  * (e.g., a template directory) and outputs AI SDK UI messages directly.
@@ -73,7 +73,7 @@ function parseCliArgs(): ParsedArgs {
   // Check for "run" command
   if (positionals[0] !== "run") {
     console.error('Error: Expected "run" command');
-    console.error('Usage: sandagent-runner run [options] -- "<user input>"');
+    console.error('Usage: sandagent run [options] -- "<user input>"');
     process.exit(1);
   }
 
@@ -89,7 +89,7 @@ function parseCliArgs(): ParsedArgs {
 
   if (!userInput) {
     console.error("Error: User input is required");
-    console.error('Usage: sandagent-runner run [options] -- "<user input>"');
+    console.error('Usage: sandagent run [options] -- "<user input>"');
     process.exit(1);
   }
 
@@ -114,11 +114,11 @@ Like gemini-cli or claude-code - runs locally in your terminal.
 Streams AI SDK UI messages directly to stdout.
 
 Usage:
-  sandagent-runner run [options] -- "<user input>"
+  sandagent run [options] -- "<user input>"
 
   # Or run from a template directory:
   cd templates/coder
-  sandagent-runner run -- "Build a REST API"
+  sandagent run -- "Build a REST API"
 
 Options:
   -m, --model <model>          Model to use (default: claude-sonnet-4-20250514)
@@ -144,17 +144,17 @@ Templates:
 
 Examples:
   # Run with default template
-  sandagent-runner run -- "Create a hello world script"
+  sandagent run -- "Create a hello world script"
 
   # Run from a template directory (recommended)
   cd templates/coder
-  sandagent-runner run -- "Build a REST API with Express"
+  sandagent run -- "Build a REST API with Express"
 
   # Use a specific template
-  sandagent-runner run --template analyst -- "Analyze sales.csv"
+  sandagent run --template analyst -- "Analyze sales.csv"
 
   # Specify working directory
-  sandagent-runner run --cwd ./my-project -- "Fix the bug in main.ts"
+  sandagent run --cwd ./my-project -- "Fix the bug in main.ts"
 `);
 }
 

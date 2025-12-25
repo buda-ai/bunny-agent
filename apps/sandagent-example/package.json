@@ -12,7 +12,6 @@
   "dependencies": {
     "@ai-sdk/react": "^3.0.3",
     "@sandagent/core": "workspace:*",
-    "@sandagent/sdk": "workspace:*",
     "@sandagent/sandbox-e2b": "workspace:*",
     "ai": "^6.0.3",
     "kui": "workspace:*",

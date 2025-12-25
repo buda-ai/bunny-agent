@@ -30,6 +30,15 @@ const ENV_CONFIGS: EnvConfig[] = [
     isSecret: true,
   },
   {
+    name: "Anthropic Base URL",
+    key: "ANTHROPIC_BASE_URL",
+    description:
+      "Optional. Custom base URL for Anthropic API (e.g., for proxy or alternative endpoints)",
+    required: false,
+    category: "api",
+    placeholder: "https://api.anthropic.com",
+  },
+  {
     name: "E2B API Key",
     key: "E2B_API_KEY",
     description: "Required for E2B cloud sandbox. Get one at https://e2b.dev",
@@ -98,6 +107,8 @@ export default function SettingsPage() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
+      // Dispatch custom event to notify other components
+      window.dispatchEvent(new CustomEvent("sandagent-config-updated"));
     } catch {
       alert("Failed to save configuration");
     }
@@ -107,6 +118,8 @@ export default function SettingsPage() {
     if (confirm("Clear all configuration? This cannot be undone.")) {
       setConfig({});
       localStorage.removeItem(STORAGE_KEY);
+      // Dispatch custom event to notify other components
+      window.dispatchEvent(new CustomEvent("sandagent-config-updated"));
     }
   };
 
