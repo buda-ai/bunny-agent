@@ -34,11 +34,21 @@ jobs:
       - name: Install Vercel CLI
         run: pnpm add -g vercel@latest
 
-      - name: Pull Vercel Environment Information
+      - name: Pull Vercel Environment Information (Preview)
+        if: github.ref == 'refs/heads/develop'
         run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
 
-      - name: Build Project with Vercel
+      - name: Pull Vercel Environment Information (Production)
+        if: github.ref == 'refs/heads/main'
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build Project with Vercel (Preview)
+        if: github.ref == 'refs/heads/develop'
         run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build Project with Vercel (Production)
+        if: github.ref == 'refs/heads/main'
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
 
       # Deploy to Preview for develop branch
       - name: Deploy Preview to Vercel
