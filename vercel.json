@@ -1,0 +1,7 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "pnpm build",
+  "outputDirectory": "apps/sandagent-example/.next",
+  "framework": "nextjs",
+  "installCommand": "pnpm install"
+}
