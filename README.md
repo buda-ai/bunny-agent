@@ -207,20 +207,31 @@ npx sandagent-runner run -- "Build a REST API with Express"
 
 ### Option D: Use Claude Code Directly
 
-Since SandAgent templates are compatible with Claude Code, you can use them directly:
+Since SandAgent templates are fully compatible with Claude Code, you can use them directly without any wrapper:
 
 ```bash
-# Install Claude Code CLI (if not already installed)
-npm install -g @anthropic-ai/claude-code
-
 # Navigate to a template directory
 cd templates/coder
 
-# Run Claude Code with the template's configuration
+# Run Claude Code - it automatically picks up the template configuration
 claude "Build a REST API with Express"
 ```
 
-The template's `CLAUDE.md` and `.claude/` configuration will be automatically picked up by Claude Code.
+**What Claude Code reads from the template:**
+
+| File/Folder | Purpose |
+|-------------|---------|
+| `CLAUDE.md` | System instructions — defines who the agent is |
+| `.claude/settings.json` | Model settings, allowed tools, timeouts |
+| `.claude/mcp.json` | MCP server integrations (databases, APIs, etc.) |
+| `skills/` | Agent Skills — modular capabilities with `SKILL.md` files |
+
+**This is the power of SandAgent:** Your templates work with Claude Code out of the box. No vendor lock-in.
+
+📖 **Official Claude Code Docs:**
+- [Agent Skills](https://code.claude.com/docs/en/skills) — Package expertise into discoverable capabilities
+- [MCP Configuration](https://docs.claude.com/en/docs/claude-code/cli-reference) — Extend Claude with external tools
+- [CLAUDE.md Guide](https://docs.claude.com/en/docs/claude-code) — Project-specific instructions
 
 ### Option E: Run Tests
 
@@ -341,21 +352,22 @@ Templates are the heart of SandAgent — they turn a general coding agent into a
 | `researcher` | Web research | Information gathering, fact-checking |
 | `seo-agent` | SEO optimization | Keyword research, content optimization |
 
-### Creating Your Own Template
-
-It's just a folder with markdown files:
+### Template Structure
 
 ```
 my-agent/
 ├── CLAUDE.md              # System instructions (who is this agent?)
-├── skills/                # Domain knowledge files
-│   ├── sql-patterns.md
-│   └── data-viz-guide.md
+├── skills/                # Agent Skills — modular capabilities
+│   ├── sql-expert/
+│   │   └── SKILL.md       # SQL query patterns and best practices
+│   └── data-viz/
+│       └── SKILL.md       # Visualization guidelines
 └── .claude/
-    └── settings.json      # Model configuration
+    ├── settings.json      # Model configuration, allowed tools
+    └── mcp.json           # MCP server integrations
 ```
 
-**Example CLAUDE.md:**
+### CLAUDE.md — Define Your Agent
 
 ```markdown
 # Data Analyst Agent
@@ -372,9 +384,45 @@ You are an expert data analyst specializing in:
 4. Create clear visualizations with proper labels
 ```
 
-That's it. No SDK code. No tool definitions. No memory management.
+### skills/ — Add Modular Capabilities
 
-📖 **[Templates Guide →](./templates/README.md)**
+Skills are auto-discovered by Claude when relevant. Each skill has a `SKILL.md`:
+
+```markdown
+---
+description: "SQL query optimization patterns. Use when writing or reviewing SQL queries."
+---
+
+# SQL Expert Skill
+
+## Query Optimization Patterns
+- Always use indexes on WHERE clauses
+- Prefer JOINs over subqueries for large datasets
+- Use EXPLAIN ANALYZE to verify query plans
+```
+
+### .claude/mcp.json — Integrate External Tools
+
+Connect to databases, APIs, and other services:
+
+```json
+{
+  "mcpServers": {
+    "postgres": {
+      "command": "mcp-server-postgres",
+      "args": ["postgresql://localhost/mydb"]
+    },
+    "filesystem": {
+      "command": "mcp-server-filesystem",
+      "args": ["/workspace"]
+    }
+  }
+}
+```
+
+**No SDK code. No tool definitions. No memory management.**
+
+📖 **[Templates Guide →](./templates/README.md)** | **[Claude Code Skills Docs →](https://code.claude.com/docs/en/skills)**
 
 ---
 
