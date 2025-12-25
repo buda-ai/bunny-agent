@@ -40,6 +40,25 @@
   },
   "files": {
     "include": ["**/*.ts", "**/*.tsx"],
-    "ignore": ["node_modules", "dist", "*.d.ts", "*.js", "*.jsx", "*.mjs", "*.cjs", "pnpm-lock.yaml"]
+    "ignore": [
+      "node_modules",
+      "**/node_modules",
+      "dist",
+      "**/dist",
+      ".next",
+      "**/.next",
+      ".turbo",
+      "**/.turbo",
+      ".vercel",
+      "**/.vercel",
+      "coverage",
+      "**/coverage",
+      "*.d.ts",
+      "*.js",
+      "*.jsx",
+      "*.mjs",
+      "*.cjs",
+      "pnpm-lock.yaml"
+    ]
   }
 }
