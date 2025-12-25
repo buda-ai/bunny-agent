@@ -1,5 +1,8 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { createClaudeRunner, type ClaudeRunnerOptions } from "../claude-runner.js";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  type ClaudeRunnerOptions,
+  createClaudeRunner,
+} from "../claude-runner.js";
 
 describe("createClaudeRunner", () => {
   const originalEnv = process.env;

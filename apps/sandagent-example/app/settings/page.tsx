@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { ArrowLeft, Box, Bug, Check, Info, Key, X } from "lucide-react";
 import Link from "next/link";
-import { ArrowLeft, Check, X, Info, Key, Box, Bug } from "lucide-react";
+import { useEffect, useState } from "react";
 
 /**
  * Environment variable configuration (client-side)
@@ -22,7 +22,8 @@ const ENV_CONFIGS: EnvConfig[] = [
   {
     name: "Anthropic API Key",
     key: "ANTHROPIC_API_KEY",
-    description: "Required for Claude Agent SDK. Get one at https://console.anthropic.com",
+    description:
+      "Required for Claude Agent SDK. Get one at https://console.anthropic.com",
     required: true,
     category: "api",
     placeholder: "sk-ant-...",
@@ -40,7 +41,8 @@ const ENV_CONFIGS: EnvConfig[] = [
   {
     name: "Sandbox Provider",
     key: "SANDBOX_PROVIDER",
-    description: "Choose sandbox: 'e2b' (cloud, recommended) or 'sandock' (local Docker). Default: e2b",
+    description:
+      "Choose sandbox: 'e2b' (cloud, recommended) or 'sandock' (local Docker). Default: e2b",
     required: false,
     category: "sandbox",
     placeholder: "e2b",
@@ -48,7 +50,8 @@ const ENV_CONFIGS: EnvConfig[] = [
   {
     name: "Docker Host",
     key: "DOCKER_HOST",
-    description: "Docker host URL for Sandock adapter. Only needed if using 'sandock' provider",
+    description:
+      "Docker host URL for Sandock adapter. Only needed if using 'sandock' provider",
     required: false,
     category: "sandbox",
     placeholder: "unix:///var/run/docker.sock",
@@ -108,25 +111,25 @@ export default function SettingsPage() {
   };
 
   // Check if all required fields are filled
-  const requiredConfigs = ENV_CONFIGS.filter(c => c.required);
-  const allRequiredSet = requiredConfigs.every(c => !!config[c.key]);
-  const missingRequired = requiredConfigs.filter(c => !config[c.key]);
+  const requiredConfigs = ENV_CONFIGS.filter((c) => c.required);
+  const allRequiredSet = requiredConfigs.every((c) => !!config[c.key]);
+  const missingRequired = requiredConfigs.filter((c) => !config[c.key]);
 
   const categories = {
-    api: { 
-      title: "API Keys", 
+    api: {
+      title: "API Keys",
       icon: <Key className="size-5" />,
-      configs: ENV_CONFIGS.filter(c => c.category === "api"),
+      configs: ENV_CONFIGS.filter((c) => c.category === "api"),
     },
-    sandbox: { 
-      title: "Sandbox Configuration", 
+    sandbox: {
+      title: "Sandbox Configuration",
       icon: <Box className="size-5" />,
-      configs: ENV_CONFIGS.filter(c => c.category === "sandbox"),
+      configs: ENV_CONFIGS.filter((c) => c.category === "sandbox"),
     },
-    debug: { 
-      title: "Debug Options", 
+    debug: {
+      title: "Debug Options",
       icon: <Bug className="size-5" />,
-      configs: ENV_CONFIGS.filter(c => c.category === "debug"),
+      configs: ENV_CONFIGS.filter((c) => c.category === "debug"),
     },
   };
 
@@ -135,8 +138,8 @@ export default function SettingsPage() {
       <div className="mx-auto max-w-3xl">
         {/* Header */}
         <div className="mb-8">
-          <Link 
-            href="/" 
+          <Link
+            href="/"
             className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-4"
           >
             <ArrowLeft className="size-4" />
@@ -144,29 +147,36 @@ export default function SettingsPage() {
           </Link>
           <h1 className="text-3xl font-bold text-foreground">Settings</h1>
           <p className="text-muted-foreground mt-2">
-            Configure your SandAgent environment. These values are stored in your browser and passed to the API.
+            Configure your SandAgent environment. These values are stored in
+            your browser and passed to the API.
           </p>
         </div>
 
         {/* Status Banner */}
-        <div className={`mb-8 rounded-lg p-4 ${
-          allRequiredSet 
-            ? "bg-green-500/10 border border-green-500/20" 
-            : "bg-yellow-500/10 border border-yellow-500/20"
-        }`}>
+        <div
+          className={`mb-8 rounded-lg p-4 ${
+            allRequiredSet
+              ? "bg-green-500/10 border border-green-500/20"
+              : "bg-yellow-500/10 border border-yellow-500/20"
+          }`}
+        >
           {allRequiredSet ? (
             <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
               <Check className="size-5" />
-              <span className="font-medium">Ready to go! All required fields are configured.</span>
+              <span className="font-medium">
+                Ready to go! All required fields are configured.
+              </span>
             </div>
           ) : (
             <div>
               <div className="flex items-center gap-2 text-yellow-600 dark:text-yellow-400">
                 <X className="size-5" />
-                <span className="font-medium">Missing required configuration</span>
+                <span className="font-medium">
+                  Missing required configuration
+                </span>
               </div>
               <p className="text-sm text-muted-foreground mt-2">
-                Please fill in: {missingRequired.map(c => c.name).join(", ")}
+                Please fill in: {missingRequired.map((c) => c.name).join(", ")}
               </p>
             </div>
           )}
@@ -179,44 +189,47 @@ export default function SettingsPage() {
             <div>
               <p className="font-medium text-foreground">How it works</p>
               <p className="text-sm text-muted-foreground mt-1">
-                Configuration is stored in your browser&apos;s localStorage and sent with each API request.
-                Your API keys never leave your browser except when making requests to the SandAgent API.
+                Configuration is stored in your browser&apos;s localStorage and
+                sent with each API request. Your API keys never leave your
+                browser except when making requests to the SandAgent API.
               </p>
             </div>
           </div>
         </div>
 
         {/* Environment Variables by Category */}
-        {Object.entries(categories).map(([key, { title, icon, configs: categoryConfigs }]) => (
-          <div key={key} className="mb-8">
-            <h2 className="flex items-center gap-2 text-xl font-semibold text-foreground mb-4">
-              {icon}
-              {title}
-            </h2>
-            <div className="space-y-4">
-              {categoryConfigs.map((envConfig) => {
-                const hasValue = !!config[envConfig.key];
-                return (
-                  <div 
-                    key={envConfig.key}
-                    className="rounded-lg border border-border bg-card p-4"
-                  >
-                    <div className="flex items-start justify-between gap-4 mb-3">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-foreground">{envConfig.name}</span>
-                          {envConfig.required ? (
-                            hasValue ? (
-                              <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-green-500/20 text-green-600 dark:text-green-400">
-                                <Check className="size-3" /> Set
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-red-500/20 text-red-600 dark:text-red-400">
-                                Required
-                              </span>
-                            )
-                          ) : (
-                            hasValue ? (
+        {Object.entries(categories).map(
+          ([key, { title, icon, configs: categoryConfigs }]) => (
+            <div key={key} className="mb-8">
+              <h2 className="flex items-center gap-2 text-xl font-semibold text-foreground mb-4">
+                {icon}
+                {title}
+              </h2>
+              <div className="space-y-4">
+                {categoryConfigs.map((envConfig) => {
+                  const hasValue = !!config[envConfig.key];
+                  return (
+                    <div
+                      key={envConfig.key}
+                      className="rounded-lg border border-border bg-card p-4"
+                    >
+                      <div className="flex items-start justify-between gap-4 mb-3">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-foreground">
+                              {envConfig.name}
+                            </span>
+                            {envConfig.required ? (
+                              hasValue ? (
+                                <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-green-500/20 text-green-600 dark:text-green-400">
+                                  <Check className="size-3" /> Set
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-red-500/20 text-red-600 dark:text-red-400">
+                                  Required
+                                </span>
+                              )
+                            ) : hasValue ? (
                               <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-green-500/20 text-green-600 dark:text-green-400">
                                 <Check className="size-3" /> Set
                               </span>
@@ -224,27 +237,35 @@ export default function SettingsPage() {
                               <span className="text-xs px-2 py-0.5 rounded bg-muted text-muted-foreground">
                                 Optional
                               </span>
-                            )
-                          )}
+                            )}
+                          </div>
+                          <code className="text-sm text-muted-foreground">
+                            {envConfig.key}
+                          </code>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            {envConfig.description}
+                          </p>
                         </div>
-                        <code className="text-sm text-muted-foreground">{envConfig.key}</code>
-                        <p className="text-sm text-muted-foreground mt-1">{envConfig.description}</p>
                       </div>
+
+                      <input
+                        type={envConfig.isSecret ? "password" : "text"}
+                        placeholder={
+                          envConfig.placeholder || `Enter ${envConfig.name}`
+                        }
+                        value={config[envConfig.key] || ""}
+                        onChange={(e) =>
+                          handleChange(envConfig.key, e.target.value)
+                        }
+                        className="w-full px-3 py-2 rounded-md border border-border bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
                     </div>
-                    
-                    <input
-                      type={envConfig.isSecret ? "password" : "text"}
-                      placeholder={envConfig.placeholder || `Enter ${envConfig.name}`}
-                      value={config[envConfig.key] || ""}
-                      onChange={(e) => handleChange(envConfig.key, e.target.value)}
-                      className="w-full px-3 py-2 rounded-md border border-border bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                    />
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        ))}
+          ),
+        )}
 
         {/* Action Buttons */}
         <div className="flex items-center gap-4 mb-8">
@@ -267,12 +288,22 @@ export default function SettingsPage() {
           <h3 className="font-medium text-foreground mb-4">Get API Keys</h3>
           <ul className="space-y-2 text-sm">
             <li>
-              <a href="https://console.anthropic.com" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+              <a
+                href="https://console.anthropic.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline"
+              >
                 Anthropic Console → Get Claude API Key
               </a>
             </li>
             <li>
-              <a href="https://e2b.dev" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+              <a
+                href="https://e2b.dev"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline"
+              >
                 E2B Dashboard → Get E2B API Key
               </a>
             </li>

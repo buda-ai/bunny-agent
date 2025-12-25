@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { categorizeTask, filterTasks } from "../evaluator.js";
-import type { GaiaTask, BenchmarkConfig } from "../types.js";
+import type { BenchmarkConfig, GaiaTask } from "../types.js";
 
 describe("categorizeTask", () => {
   const createTask = (question: string, hasFiles = false): GaiaTask => ({
@@ -8,7 +8,9 @@ describe("categorizeTask", () => {
     question,
     level: 1,
     answer: "test answer",
-    files: hasFiles ? [{ name: "test.txt", path: "/test.txt", type: "text/plain" }] : undefined,
+    files: hasFiles
+      ? [{ name: "test.txt", path: "/test.txt", type: "text/plain" }]
+      : undefined,
   });
 
   it("should categorize tasks with files as 'files'", () => {
@@ -69,7 +71,9 @@ describe("filterTasks", () => {
     { id: "task-4", question: "Another level 1", level: 1, answer: "answer4" },
   ];
 
-  const createConfig = (overrides: Partial<BenchmarkConfig> = {}): BenchmarkConfig => ({
+  const createConfig = (
+    overrides: Partial<BenchmarkConfig> = {},
+  ): BenchmarkConfig => ({
     dataset: "validation",
     outputDir: "./results",
     verbose: false,
@@ -102,7 +106,9 @@ describe("filterTasks", () => {
   it("should throw error for non-existent task ID", () => {
     const tasks = createTasks();
     const config = createConfig({ taskId: "non-existent" });
-    expect(() => filterTasks(tasks, config)).toThrow('Task with ID "non-existent" not found');
+    expect(() => filterTasks(tasks, config)).toThrow(
+      'Task with ID "non-existent" not found',
+    );
   });
 
   it("should limit number of tasks", () => {

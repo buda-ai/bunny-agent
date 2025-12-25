@@ -3,14 +3,14 @@
 import { CheckIcon, CopyIcon } from "lucide-react";
 import {
   type ComponentProps,
-  createContext,
   type HTMLAttributes,
+  createContext,
   useContext,
   useEffect,
   useRef,
   useState,
 } from "react";
-import { type BundledLanguage, codeToHtml, type ShikiTransformer } from "shiki";
+import { type BundledLanguage, type ShikiTransformer, codeToHtml } from "shiki";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
 
@@ -54,7 +54,9 @@ export async function highlightCode(
   language: BundledLanguage,
   showLineNumbers = false,
 ) {
-  const transformers: ShikiTransformer[] = showLineNumbers ? [lineNumberTransformer] : [];
+  const transformers: ShikiTransformer[] = showLineNumbers
+    ? [lineNumberTransformer]
+    : [];
 
   return await Promise.all([
     codeToHtml(code, {
@@ -117,7 +119,9 @@ export const CodeBlock = ({
             dangerouslySetInnerHTML={{ __html: darkHtml }}
           />
           {children && (
-            <div className="absolute top-2 right-2 flex items-center gap-2">{children}</div>
+            <div className="absolute top-2 right-2 flex items-center gap-2">
+              {children}
+            </div>
           )}
         </div>
       </div>

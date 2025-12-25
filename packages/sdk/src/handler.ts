@@ -1,4 +1,4 @@
-import { SandAgent, type SandAgentOptions, type Message } from "@sandagent/core";
+import type { Message, SandAgent, SandAgentOptions } from "@sandagent/core";
 
 /**
  * Configuration for creating a SandAgent from request
@@ -50,7 +50,7 @@ export interface AgentRequestBody {
  * ```
  */
 export function createAgentHandler(
-  config: CreateAgentFromRequestConfig
+  config: CreateAgentFromRequestConfig,
 ): (req: Request) => Promise<Response> {
   return async (req: Request): Promise<Response> => {
     try {
@@ -62,7 +62,7 @@ export function createAgentHandler(
           {
             status: 400,
             headers: { "Content-Type": "application/json" },
-          }
+          },
         );
       }
 
@@ -72,7 +72,7 @@ export function createAgentHandler(
           {
             status: 400,
             headers: { "Content-Type": "application/json" },
-          }
+          },
         );
       }
 
@@ -84,17 +84,14 @@ export function createAgentHandler(
         messages: body.messages,
         workspace: body.workspace,
       });
-      
+
       return response;
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
-      return new Response(
-        JSON.stringify({ error: message }),
-        {
-          status: 500,
-          headers: { "Content-Type": "application/json" },
-        }
-      );
+      return new Response(JSON.stringify({ error: message }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      });
     }
   };
 }

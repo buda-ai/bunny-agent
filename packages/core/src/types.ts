@@ -20,10 +20,7 @@ export interface SandboxHandle {
    * @param opts - Execution options
    * @returns An async iterable of stdout chunks
    */
-  exec(
-    command: string[],
-    opts?: ExecOptions
-  ): AsyncIterable<Uint8Array>;
+  exec(command: string[], opts?: ExecOptions): AsyncIterable<Uint8Array>;
 
   /**
    * Upload files to the sandbox
@@ -32,7 +29,7 @@ export interface SandboxHandle {
    */
   upload(
     files: Array<{ path: string; content: Uint8Array | string }>,
-    targetDir: string
+    targetDir: string,
   ): Promise<void>;
 
   /**

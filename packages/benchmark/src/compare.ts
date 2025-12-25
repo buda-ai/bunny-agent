@@ -4,7 +4,13 @@
  * Compare benchmark results across multiple agent runners
  */
 
-import { existsSync, readFileSync, readdirSync, writeFileSync, mkdirSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import type {
   AgentRunner,
@@ -21,7 +27,7 @@ import type {
 export function loadRunnerResults(
   outputDir: string,
   runner: AgentRunner,
-  dataset: "validation" | "test"
+  dataset: "validation" | "test",
 ): BenchmarkReport | null {
   const latestPath = join(outputDir, `${runner}-${dataset}-latest.json`);
 
@@ -42,7 +48,7 @@ export function loadRunnerResults(
  */
 export function loadAllRunnerResults(
   outputDir: string,
-  dataset: "validation" | "test"
+  dataset: "validation" | "test",
 ): Map<AgentRunner, BenchmarkReport> {
   const runners: AgentRunner[] = [
     "sandagent",
@@ -67,7 +73,7 @@ export function loadAllRunnerResults(
  * Compare results across runners
  */
 export function compareResults(
-  reports: Map<AgentRunner, BenchmarkReport>
+  reports: Map<AgentRunner, BenchmarkReport>,
 ): ComparisonResult[] {
   // Collect all unique task IDs
   const allTaskIds = new Set<string>();
@@ -111,7 +117,7 @@ export function compareResults(
  * Generate comparison summary statistics
  */
 export function generateComparisonSummary(
-  comparisons: ComparisonResult[]
+  comparisons: ComparisonResult[],
 ): ComparisonSummary {
   const runners: AgentRunner[] = [
     "sandagent",
@@ -130,16 +136,16 @@ export function generateComparisonSummary(
   // Calculate per-runner statistics
   for (const runner of runners) {
     const runnerResults = comparisons.filter(
-      (c) => c.runners[runner] !== undefined
+      (c) => c.runners[runner] !== undefined,
     );
 
     if (runnerResults.length > 0) {
       const correct = runnerResults.filter(
-        (c) => c.runners[runner]?.correct
+        (c) => c.runners[runner]?.correct,
       ).length;
       const totalDuration = runnerResults.reduce(
         (sum, c) => sum + (c.runners[runner]?.durationMs ?? 0),
-        0
+        0,
       );
 
       summary.runners[runner] = {
@@ -159,12 +165,12 @@ export function generateComparisonSummary(
 
     for (const runner of runners) {
       const runnerLevelResults = levelComparisons.filter(
-        (c) => c.runners[runner] !== undefined
+        (c) => c.runners[runner] !== undefined,
       );
 
       if (runnerLevelResults.length > 0) {
         const correct = runnerLevelResults.filter(
-          (c) => c.runners[runner]?.correct
+          (c) => c.runners[runner]?.correct,
         ).length;
 
         summary.byLevel[level]![runner] = {
@@ -202,7 +208,7 @@ export function displayComparisonTable(summary: ComparisonSummary): void {
       "Total".padEnd(10) +
       "Correct".padEnd(10) +
       "Accuracy".padEnd(12) +
-      "Avg Time"
+      "Avg Time",
   );
   console.log("-".repeat(80));
 
@@ -213,7 +219,7 @@ export function displayComparisonTable(summary: ComparisonSummary): void {
         String(stats.total).padEnd(10) +
         String(stats.correct).padEnd(10) +
         `${stats.accuracy.toFixed(2)}%`.padEnd(12) +
-        `${(stats.avgDurationMs / 1000).toFixed(2)}s`
+        `${(stats.avgDurationMs / 1000).toFixed(2)}s`,
     );
   }
 
@@ -226,7 +232,11 @@ export function displayComparisonTable(summary: ComparisonSummary): void {
     if (levelStats && Object.keys(levelStats).length > 0) {
       console.log(`\nLevel ${level}:`);
       console.log(
-        "  " + "Runner".padEnd(15) + "Total".padEnd(10) + "Correct".padEnd(10) + "Accuracy"
+        "  " +
+          "Runner".padEnd(15) +
+          "Total".padEnd(10) +
+          "Correct".padEnd(10) +
+          "Accuracy",
       );
 
       for (const runner of runners) {
@@ -237,7 +247,7 @@ export function displayComparisonTable(summary: ComparisonSummary): void {
               runner.padEnd(15) +
               String(stats.total).padEnd(10) +
               String(stats.correct).padEnd(10) +
-              `${stats.accuracy.toFixed(2)}%`
+              `${stats.accuracy.toFixed(2)}%`,
           );
         }
       }
@@ -252,7 +262,7 @@ export function displayComparisonTable(summary: ComparisonSummary): void {
  */
 export function generateMarkdownReport(
   summary: ComparisonSummary,
-  comparisons: ComparisonResult[]
+  comparisons: ComparisonResult[],
 ): string {
   const runners = Object.keys(summary.runners) as AgentRunner[];
   let md = "";
@@ -331,7 +341,7 @@ export function generateMarkdownReport(
 export function saveComparisonReport(
   summary: ComparisonSummary,
   comparisons: ComparisonResult[],
-  outputDir: string
+  outputDir: string,
 ): void {
   if (!existsSync(outputDir)) {
     mkdirSync(outputDir, { recursive: true });
@@ -341,10 +351,7 @@ export function saveComparisonReport(
 
   // Save JSON
   const jsonPath = join(outputDir, `comparison-${timestamp}.json`);
-  writeFileSync(
-    jsonPath,
-    JSON.stringify({ summary, comparisons }, null, 2)
-  );
+  writeFileSync(jsonPath, JSON.stringify({ summary, comparisons }, null, 2));
   console.log(`💾 JSON report saved to: ${jsonPath}`);
 
   // Save Markdown

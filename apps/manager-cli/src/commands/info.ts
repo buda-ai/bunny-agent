@@ -4,9 +4,9 @@
  * Show environment and configuration information.
  */
 
-import { parseArgs } from "node:util";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { parseArgs } from "node:util";
 
 export async function infoCommand(args: string[]): Promise<void> {
   const { values } = parseArgs({
@@ -45,15 +45,23 @@ This command displays your SandAgent configuration and environment status.
   console.log(`  Working Directory: ${process.cwd()}`);
   console.log("");
   console.log("API Keys:");
-  console.log(`  ANTHROPIC_API_KEY: ${hasAnthropicKey ? "✅ Set" : "❌ Not set (required)"}`);
-  console.log(`  E2B_API_KEY:       ${hasE2BKey ? "✅ Set" : "⚠️  Not set (required for E2B sandbox)"}`);
+  console.log(
+    `  ANTHROPIC_API_KEY: ${hasAnthropicKey ? "✅ Set" : "❌ Not set (required)"}`,
+  );
+  console.log(
+    `  E2B_API_KEY:       ${hasE2BKey ? "✅ Set" : "⚠️  Not set (required for E2B sandbox)"}`,
+  );
   console.log("");
   console.log("Sandbox Configuration:");
-  console.log(`  Default Sandbox:   ${process.env.SANDAGENT_SANDBOX || "e2b (default)"}`);
+  console.log(
+    `  Default Sandbox:   ${process.env.SANDAGENT_SANDBOX || "e2b (default)"}`,
+  );
   console.log(`  Docker Host:       ${dockerHost}`);
   console.log("");
   console.log("Template Configuration:");
-  console.log(`  Default Template:  ${process.env.SANDAGENT_TEMPLATE || "default"}`);
+  console.log(
+    `  Default Template:  ${process.env.SANDAGENT_TEMPLATE || "default"}`,
+  );
   console.log(`  Templates Dir:     ${findTemplatesDir() || "Not found"}`);
   console.log("");
 

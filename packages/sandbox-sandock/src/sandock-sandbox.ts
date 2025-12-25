@@ -1,9 +1,9 @@
+import { spawn } from "child_process";
 import type {
+  ExecOptions,
   SandboxAdapter,
   SandboxHandle,
-  ExecOptions,
 } from "@sandagent/core";
-import { spawn } from "child_process";
 
 /**
  * Options for creating a SandockSandbox instance
@@ -79,11 +79,9 @@ export class SandockSandbox implements SandboxAdapter {
 
   private async containerExists(containerName: string): Promise<boolean> {
     return new Promise((resolve) => {
-      const proc = spawn(
-        "docker",
-        ["container", "inspect", containerName],
-        { stdio: "pipe" }
-      );
+      const proc = spawn("docker", ["container", "inspect", containerName], {
+        stdio: "pipe",
+      });
 
       proc.on("close", (code) => {
         resolve(code === 0);
@@ -97,7 +95,7 @@ export class SandockSandbox implements SandboxAdapter {
 
   private async startContainer(
     containerName: string,
-    volumeName: string
+    volumeName: string,
   ): Promise<void> {
     return new Promise((resolve, reject) => {
       const args = [
@@ -144,10 +142,7 @@ class SandockHandle implements SandboxHandle {
   /**
    * Execute a command in the sandbox and stream the output
    */
-  exec(
-    command: string[],
-    opts?: ExecOptions
-  ): AsyncIterable<Uint8Array> {
+  exec(command: string[], opts?: ExecOptions): AsyncIterable<Uint8Array> {
     const self = this;
 
     return {
@@ -213,18 +208,21 @@ class SandockHandle implements SandboxHandle {
    */
   async upload(
     files: Array<{ path: string; content: Uint8Array | string }>,
-    targetDir: string
+    targetDir: string,
   ): Promise<void> {
     for (const file of files) {
       const fullPath = `${targetDir}/${file.path}`;
 
       // Use base64 encoding for binary content to avoid corruption
       if (typeof file.content === "string") {
-        await this.execCommand([
-          "sh",
-          "-c",
-          `mkdir -p $(dirname "${fullPath}") && cat > "${fullPath}"`,
-        ], file.content);
+        await this.execCommand(
+          [
+            "sh",
+            "-c",
+            `mkdir -p $(dirname "${fullPath}") && cat > "${fullPath}"`,
+          ],
+          file.content,
+        );
       } else {
         // For binary content, use base64 encoding to preserve data integrity
         const base64Content = Buffer.from(file.content).toString("base64");
@@ -237,10 +235,7 @@ class SandockHandle implements SandboxHandle {
     }
   }
 
-  private async execCommand(
-    command: string[],
-    stdin?: string
-  ): Promise<void> {
+  private async execCommand(command: string[], stdin?: string): Promise<void> {
     return new Promise((resolve, reject) => {
       const args = ["exec", "-i", this.containerName, ...command];
       const proc = spawn("docker", args, {
@@ -269,17 +264,17 @@ class SandockHandle implements SandboxHandle {
    */
   async destroy(): Promise<void> {
     return new Promise((resolve, reject) => {
-      const proc = spawn(
-        "docker",
-        ["rm", "-f", this.containerName],
-        { stdio: "pipe" }
-      );
+      const proc = spawn("docker", ["rm", "-f", this.containerName], {
+        stdio: "pipe",
+      });
 
       proc.on("close", (code) => {
         if (code === 0) {
           resolve();
         } else {
-          reject(new Error(`Failed to destroy container: ${this.containerName}`));
+          reject(
+            new Error(`Failed to destroy container: ${this.containerName}`),
+          );
         }
       });
 

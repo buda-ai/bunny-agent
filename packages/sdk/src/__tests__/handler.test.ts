@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock @sandagent/core
 vi.mock("@sandagent/core", () => ({
@@ -6,7 +6,7 @@ vi.mock("@sandagent/core", () => ({
     stream: vi.fn().mockResolvedValue(
       new Response("test stream", {
         headers: { "Content-Type": "text/event-stream" },
-      })
+      }),
     ),
   })),
 }));
@@ -18,7 +18,7 @@ describe("createAgentHandler", () => {
     stream: vi.fn().mockResolvedValue(
       new Response("test stream", {
         headers: { "Content-Type": "text/event-stream" },
-      })
+      }),
     ),
   }));
 
@@ -58,7 +58,10 @@ describe("createAgentHandler", () => {
 
   it("should return 400 if messages is not an array", async () => {
     const handler = createAgentHandler({ createAgent: mockCreateAgent });
-    const req = createMockRequest({ sessionId: "test-session", messages: "not an array" });
+    const req = createMockRequest({
+      sessionId: "test-session",
+      messages: "not an array",
+    });
 
     const response = await handler(req);
 
@@ -76,12 +79,16 @@ describe("createAgentHandler", () => {
 
     await handler(req);
 
-    expect(mockCreateAgent).toHaveBeenCalledWith({ sessionId: "my-session-123" });
+    expect(mockCreateAgent).toHaveBeenCalledWith({
+      sessionId: "my-session-123",
+    });
   });
 
   it("should call agent.stream with messages", async () => {
     const mockStream = vi.fn().mockResolvedValue(
-      new Response("test", { headers: { "Content-Type": "text/event-stream" } })
+      new Response("test", {
+        headers: { "Content-Type": "text/event-stream" },
+      }),
     );
     const mockAgent = { stream: mockStream };
     const createAgent = vi.fn().mockReturnValue(mockAgent);
@@ -102,7 +109,9 @@ describe("createAgentHandler", () => {
 
   it("should pass workspace configuration", async () => {
     const mockStream = vi.fn().mockResolvedValue(
-      new Response("test", { headers: { "Content-Type": "text/event-stream" } })
+      new Response("test", {
+        headers: { "Content-Type": "text/event-stream" },
+      }),
     );
     const mockAgent = { stream: mockStream };
     const createAgent = vi.fn().mockReturnValue(mockAgent);

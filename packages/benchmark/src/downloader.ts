@@ -5,9 +5,9 @@
  * and processes tasks for evaluation.
  */
 
-import { existsSync, readFileSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { GaiaTask, GaiaLevel } from "./types.js";
+import type { GaiaLevel, GaiaTask } from "./types.js";
 
 /**
  * Custom MIME type mapping for files not recognized by mime-types library
@@ -99,8 +99,8 @@ async function downloadDatasetSnapshot(cacheDir: string): Promise<string> {
  */
 async function loadParquetData(
   snapshotDir: string,
-  dataDir: string = "2023",
-  split: "validation" | "test" = "test"
+  dataDir = "2023",
+  split: "validation" | "test" = "test",
 ): Promise<GaiaTask[]> {
   const dataPath = join(snapshotDir, dataDir, split);
   const parquetFile = join(dataPath, "metadata.parquet");
@@ -116,7 +116,7 @@ async function loadParquetData(
   const buffer = readFileSync(parquetFile);
   const arrayBuffer = buffer.buffer.slice(
     buffer.byteOffset,
-    buffer.byteOffset + buffer.byteLength
+    buffer.byteOffset + buffer.byteLength,
   );
 
   const tasks: GaiaTask[] = [];
@@ -129,7 +129,7 @@ async function loadParquetData(
       for (const row of typedRows) {
         const levelNum = Number.parseInt(
           String(row.Level ?? row.level ?? "1"),
-          10
+          10,
         );
         const level = (
           levelNum >= 1 && levelNum <= 3 ? levelNum : 1
@@ -166,7 +166,8 @@ async function loadParquetData(
               {
                 name: fileName,
                 path: filePath,
-                type: getCustomContentType(fileName) ?? "application/octet-stream",
+                type:
+                  getCustomContentType(fileName) ?? "application/octet-stream",
               },
             ];
           }
@@ -189,7 +190,7 @@ async function loadParquetData(
  */
 export async function downloadGaiaDataset(
   dataset: "validation" | "test" = "validation",
-  cacheDir?: string
+  cacheDir?: string,
 ): Promise<GaiaTask[]> {
   const cache = cacheDir ?? join(process.cwd(), ".gaia-cache");
 
@@ -204,14 +205,16 @@ export async function downloadGaiaDataset(
 
     const tasksWithFiles = tasks.filter((t) => t.files && t.files.length > 0);
     console.log(
-      `✅ Loaded ${tasks.length} tasks (${tasksWithFiles.length} with files)`
+      `✅ Loaded ${tasks.length} tasks (${tasksWithFiles.length} with files)`,
     );
 
     // Log level distribution
     const level1 = tasks.filter((t) => t.level === 1).length;
     const level2 = tasks.filter((t) => t.level === 2).length;
     const level3 = tasks.filter((t) => t.level === 3).length;
-    console.log(`   Level distribution: L1=${level1}, L2=${level2}, L3=${level3}`);
+    console.log(
+      `   Level distribution: L1=${level1}, L2=${level2}, L3=${level3}`,
+    );
 
     return tasks;
   } catch (error) {
@@ -219,7 +222,7 @@ export async function downloadGaiaDataset(
     if (error instanceof Error && error.message.includes("401")) {
       console.error(
         "   Please set HUGGINGFACE_TOKEN in your .env file.\n" +
-          "   Get your token from: https://huggingface.co/settings/tokens"
+          "   Get your token from: https://huggingface.co/settings/tokens",
       );
     }
     throw error;
@@ -231,7 +234,7 @@ export async function downloadGaiaDataset(
  */
 export async function saveTasksToJson(
   tasks: GaiaTask[],
-  outputPath: string
+  outputPath: string,
 ): Promise<void> {
   // Don't include file data in the JSON, just paths
   const tasksForSave = tasks.map((task) => ({

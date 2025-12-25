@@ -1,1 +1,4 @@
-export { SandockSandbox, type SandockSandboxOptions } from "./sandock-sandbox.js";
+export {
+  SandockSandbox,
+  type SandockSandboxOptions,
+} from "./sandock-sandbox.js";

@@ -46,8 +46,12 @@ Examples:
   console.log("Note: Sandbox stopping is provider-specific.");
   console.log("");
   console.log("For E2B sandboxes:");
-  console.log("  The sandbox will automatically terminate when the session ends.");
-  console.log("  Visit https://e2b.dev/dashboard to force-stop running sandboxes.");
+  console.log(
+    "  The sandbox will automatically terminate when the session ends.",
+  );
+  console.log(
+    "  Visit https://e2b.dev/dashboard to force-stop running sandboxes.",
+  );
   console.log("");
   console.log("For Docker (Sandock) sandboxes:");
   console.log(`  Run: docker stop sandagent-${sessionId}`);

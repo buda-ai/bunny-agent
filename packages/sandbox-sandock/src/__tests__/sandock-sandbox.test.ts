@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SandockSandbox } from "../sandock-sandbox.js";
 
 // Mock child_process
@@ -53,7 +53,7 @@ describe("SandockSandbox", () => {
 
     it("should return a handle with required methods", async () => {
       const sandbox = new SandockSandbox();
-      
+
       // The attach method depends on Docker, so we just verify the interface
       // In a real environment, this would create/attach to a container
       try {
@@ -94,11 +94,7 @@ describe("SandockSandbox Configuration", () => {
 
   it("should support custom Docker args", () => {
     const sandbox = new SandockSandbox({
-      dockerArgs: [
-        "--memory=2g",
-        "--cpus=2",
-        "--env=NODE_ENV=production",
-      ],
+      dockerArgs: ["--memory=2g", "--cpus=2", "--env=NODE_ENV=production"],
     });
     expect(sandbox).toBeInstanceOf(SandockSandbox);
   });

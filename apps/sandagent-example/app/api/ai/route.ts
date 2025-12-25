@@ -22,9 +22,9 @@ import { E2BSandbox } from "@sandagent/sandbox-e2b";
  */
 export async function POST(request: Request) {
   const body = await request.json();
-  const { 
-    sessionId, 
-    messages, 
+  const {
+    sessionId,
+    messages,
     template = "default",
     ANTHROPIC_API_KEY,
     E2B_API_KEY,
@@ -40,17 +40,29 @@ export async function POST(request: Request) {
   }
 
   if (!ANTHROPIC_API_KEY) {
-    return new Response(JSON.stringify({ error: "ANTHROPIC_API_KEY is required. Please configure it in Settings." }), {
-      status: 400,
-      headers: { "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({
+        error:
+          "ANTHROPIC_API_KEY is required. Please configure it in Settings.",
+      }),
+      {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
   }
 
   if (SANDBOX_PROVIDER === "e2b" && !E2B_API_KEY) {
-    return new Response(JSON.stringify({ error: "E2B_API_KEY is required when using E2B sandbox. Please configure it in Settings." }), {
-      status: 400,
-      headers: { "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({
+        error:
+          "E2B_API_KEY is required when using E2B sandbox. Please configure it in Settings.",
+      }),
+      {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
   }
 
   // Create sandbox with client-provided API key

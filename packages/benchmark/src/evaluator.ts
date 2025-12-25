@@ -4,19 +4,19 @@
  * Runs benchmarks and evaluates agent performance
  */
 
-import { existsSync, mkdirSync, writeFileSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { normalizeAnswer, runTask } from "./runner.js";
 import type {
-  GaiaTask,
-  BenchmarkConfig,
-  BenchmarkResult,
-  BenchmarkReport,
-  BenchmarkMetadata,
-  RunnerConfig,
   AgentRunner,
+  BenchmarkConfig,
+  BenchmarkMetadata,
+  BenchmarkReport,
+  BenchmarkResult,
+  GaiaTask,
+  RunnerConfig,
   TaskCategory,
 } from "./types.js";
-import { runTask, normalizeAnswer } from "./runner.js";
 
 /**
  * Categorize a task based on its content and files
@@ -84,7 +84,7 @@ export function categorizeTask(task: GaiaTask): TaskCategory[] {
  */
 export function filterTasks(
   tasks: GaiaTask[],
-  config: BenchmarkConfig
+  config: BenchmarkConfig,
 ): GaiaTask[] {
   let filtered = [...tasks];
 
@@ -101,7 +101,9 @@ export function filterTasks(
   // Filter by level
   if (config.level) {
     filtered = filtered.filter((t) => t.level === config.level);
-    console.log(`🔍 Filtered to ${filtered.length} tasks (Level ${config.level})`);
+    console.log(
+      `🔍 Filtered to ${filtered.length} tasks (Level ${config.level})`,
+    );
   }
 
   // Filter by category
@@ -110,14 +112,18 @@ export function filterTasks(
       const categories = categorizeTask(t);
       return categories.includes(config.category!);
     });
-    console.log(`🔍 Filtered to ${filtered.length} tasks (Category: ${config.category})`);
+    console.log(
+      `🔍 Filtered to ${filtered.length} tasks (Category: ${config.category})`,
+    );
   }
 
   // Random selection
   if (config.random) {
     const randomIndex = Math.floor(Math.random() * filtered.length);
     const selected = filtered[randomIndex];
-    console.log(`🎲 Randomly selected: ${selected.id} (Level ${selected.level})`);
+    console.log(
+      `🎲 Randomly selected: ${selected.id} (Level ${selected.level})`,
+    );
     return [selected];
   }
 
@@ -136,12 +142,9 @@ export function filterTasks(
 export function loadCheckpoint(
   outputDir: string,
   runner: AgentRunner,
-  dataset: string
+  dataset: string,
 ): { results: BenchmarkResult[]; completedIds: Set<string> } | null {
-  const checkpointPath = join(
-    outputDir,
-    `${runner}-${dataset}-latest.json`
-  );
+  const checkpointPath = join(outputDir, `${runner}-${dataset}-latest.json`);
 
   if (!existsSync(checkpointPath)) {
     return null;
@@ -156,7 +159,9 @@ export function loadCheckpoint(
     }
 
     const completedIds = new Set(report.results.map((r) => r.taskId));
-    console.log(`📂 Loaded checkpoint with ${report.results.length} completed tasks`);
+    console.log(
+      `📂 Loaded checkpoint with ${report.results.length} completed tasks`,
+    );
 
     return {
       results: report.results,
@@ -175,7 +180,7 @@ export function saveResults(
   results: BenchmarkResult[],
   runner: AgentRunner,
   config: BenchmarkConfig,
-  incremental: boolean = false
+  incremental = false,
 ): void {
   // Ensure output directory exists
   if (!existsSync(config.outputDir)) {
@@ -204,7 +209,7 @@ export function saveResults(
   // Save latest results
   const latestPath = join(
     config.outputDir,
-    `${runner}-${config.dataset}-latest.json`
+    `${runner}-${config.dataset}-latest.json`,
   );
   writeFileSync(latestPath, JSON.stringify(report, null, 2));
 
@@ -213,7 +218,7 @@ export function saveResults(
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
     const timestampedPath = join(
       config.outputDir,
-      `${runner}-${config.dataset}-${timestamp}.json`
+      `${runner}-${config.dataset}-${timestamp}.json`,
     );
     writeFileSync(timestampedPath, JSON.stringify(report, null, 2));
     console.log(`💾 Results saved to: ${timestampedPath}`);
@@ -225,7 +230,7 @@ export function saveResults(
  */
 export function displaySummary(
   results: BenchmarkResult[],
-  runner: AgentRunner
+  runner: AgentRunner,
 ): void {
   const correct = results.filter((r) => r.correct).length;
   const total = results.length;
@@ -258,7 +263,7 @@ export function displaySummary(
       const levelCorrect = levelResults.filter((r) => r.correct).length;
       const levelAccuracy = (levelCorrect / levelResults.length) * 100;
       console.log(
-        `  Level ${level}: ${levelCorrect}/${levelResults.length} (${levelAccuracy.toFixed(2)}%)`
+        `  Level ${level}: ${levelCorrect}/${levelResults.length} (${levelAccuracy.toFixed(2)}%)`,
       );
     }
   }
@@ -272,7 +277,7 @@ export function displaySummary(
 export async function runBenchmark(
   tasks: GaiaTask[],
   runnerConfig: RunnerConfig,
-  config: BenchmarkConfig
+  config: BenchmarkConfig,
 ): Promise<BenchmarkResult[]> {
   const runner = runnerConfig.runner;
 
@@ -286,7 +291,7 @@ export async function runBenchmark(
     if (checkpoint) {
       results = checkpoint.results;
       filteredTasks = filteredTasks.filter(
-        (t) => !checkpoint.completedIds.has(t.id)
+        (t) => !checkpoint.completedIds.has(t.id),
       );
       console.log(`🔄 Resuming: ${filteredTasks.length} tasks remaining`);
     }
@@ -314,11 +319,11 @@ export async function runBenchmark(
     if (config.verbose) {
       console.log(`   Answer: ${result.answer.substring(0, 80)}...`);
       console.log(
-        `   Result: ${result.correct ? "✅ CORRECT" : "❌ INCORRECT"} (${(result.durationMs / 1000).toFixed(2)}s)`
+        `   Result: ${result.correct ? "✅ CORRECT" : "❌ INCORRECT"} (${(result.durationMs / 1000).toFixed(2)}s)`,
       );
     } else {
       console.log(
-        `   ${result.correct ? "✅" : "❌"} ${(result.durationMs / 1000).toFixed(2)}s`
+        `   ${result.correct ? "✅" : "❌"} ${(result.durationMs / 1000).toFixed(2)}s`,
       );
     }
 

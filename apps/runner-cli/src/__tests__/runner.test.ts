@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock @sandagent/runner-claude
 vi.mock("@sandagent/runner-claude", () => ({
@@ -9,8 +9,8 @@ vi.mock("@sandagent/runner-claude", () => ({
   }),
 }));
 
-import { runAgent } from "../runner.js";
 import { createClaudeRunner } from "@sandagent/runner-claude";
+import { runAgent } from "../runner.js";
 
 describe("runAgent", () => {
   let originalWrite: typeof process.stdout.write;
@@ -43,7 +43,9 @@ describe("runAgent", () => {
     expect(callArgs.model).toBe("claude-sonnet-4-20250514");
     // Template provides default allowed tools and maxTurns
     // (or undefined if template not found)
-    expect(typeof callArgs.maxTurns === "number" || callArgs.maxTurns === undefined).toBe(true);
+    expect(
+      typeof callArgs.maxTurns === "number" || callArgs.maxTurns === undefined,
+    ).toBe(true);
   });
 
   it("should pass optional parameters to runner (overriding template)", async () => {

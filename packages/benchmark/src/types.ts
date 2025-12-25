@@ -12,12 +12,21 @@ export type GaiaLevel = 1 | 2 | 3;
 /**
  * Task category based on capabilities required
  */
-export type TaskCategory = "files" | "code" | "search" | "browser" | "reasoning";
+export type TaskCategory =
+  | "files"
+  | "code"
+  | "search"
+  | "browser"
+  | "reasoning";
 
 /**
  * Supported agent CLI runners
  */
-export type AgentRunner = "sandagent" | "gemini-cli" | "claudecode" | "codex-cli";
+export type AgentRunner =
+  | "sandagent"
+  | "gemini-cli"
+  | "claudecode"
+  | "codex-cli";
 
 /**
  * File attachment for a GAIA task

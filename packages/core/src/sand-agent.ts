@@ -1,10 +1,10 @@
 import type {
+  Message,
+  RunnerSpec,
   SandAgentOptions,
   SandboxAdapter,
   SandboxHandle,
-  RunnerSpec,
   StreamInput,
-  Message,
 } from "./types.js";
 
 /**
@@ -203,7 +203,7 @@ export class SandAgent {
    */
   async uploadFiles(
     files: Array<{ path: string; content: Uint8Array | string }>,
-    targetDir: string = "/workspace"
+    targetDir = "/workspace",
   ): Promise<void> {
     const handle = await this.ensureAttached();
     await handle.upload(files, targetDir);

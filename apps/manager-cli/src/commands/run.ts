@@ -59,7 +59,9 @@ export async function runCommand(args: string[]): Promise<void> {
 
   // Check for API key
   if (!process.env.ANTHROPIC_API_KEY) {
-    console.error("❌ Error: ANTHROPIC_API_KEY environment variable is required");
+    console.error(
+      "❌ Error: ANTHROPIC_API_KEY environment variable is required",
+    );
     console.error("");
     console.error("Set it with:");
     console.error("  export ANTHROPIC_API_KEY=your_api_key");
@@ -83,7 +85,9 @@ export async function runCommand(args: string[]): Promise<void> {
   let sandboxAdapter;
   if (values.sandbox === "e2b") {
     if (!process.env.E2B_API_KEY) {
-      console.error("❌ Error: E2B_API_KEY environment variable is required for E2B sandbox");
+      console.error(
+        "❌ Error: E2B_API_KEY environment variable is required for E2B sandbox",
+      );
       console.error("");
       console.error("Set it with:");
       console.error("  export E2B_API_KEY=your_e2b_api_key");

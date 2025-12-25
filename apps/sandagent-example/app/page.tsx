@@ -2,16 +2,13 @@
 
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
-import { AlertCircleIcon } from "lucide-react";
-import { useState, useMemo, useEffect } from "react";
-import Link from "next/link";
-import { BotIcon, UserIcon, Settings, AlertCircle, CheckCircle } from "lucide-react";
 import {
   Conversation,
   ConversationContent,
   ConversationEmptyState,
   ConversationScrollButton,
 } from "kui/ai-elements/conversation";
+import { Loader } from "kui/ai-elements/loader";
 import {
   Message,
   MessageContent,
@@ -19,12 +16,21 @@ import {
 } from "kui/ai-elements/message";
 import {
   PromptInput,
-  PromptInputTextarea,
   PromptInputFooter,
-  PromptInputTools,
   PromptInputSubmit,
+  PromptInputTextarea,
+  PromptInputTools,
 } from "kui/ai-elements/prompt-input";
-import { Loader } from "kui/ai-elements/loader";
+import { AlertCircleIcon } from "lucide-react";
+import {
+  AlertCircle,
+  BotIcon,
+  CheckCircle,
+  Settings,
+  UserIcon,
+} from "lucide-react";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import { STORAGE_KEY } from "./settings/page";
 
 const REQUIRED_KEYS = ["ANTHROPIC_API_KEY", "E2B_API_KEY"];
@@ -41,7 +47,7 @@ export default function Home() {
       const saved = localStorage.getItem(STORAGE_KEY);
       const config = saved ? JSON.parse(saved) : {};
       setClientConfig(config);
-      const allRequiredSet = REQUIRED_KEYS.every(key => !!config[key]);
+      const allRequiredSet = REQUIRED_KEYS.every((key) => !!config[key]);
       setConfigReady(allRequiredSet);
     } catch {
       setConfigReady(false);
@@ -49,7 +55,11 @@ export default function Home() {
   }, []);
 
   const templates = [
-    { id: "default", name: "Default", description: "General-purpose assistant" },
+    {
+      id: "default",
+      name: "Default",
+      description: "General-purpose assistant",
+    },
     { id: "coder", name: "Coder", description: "Software development" },
     { id: "analyst", name: "Analyst", description: "Data analysis" },
     { id: "researcher", name: "Researcher", description: "Web research" },
@@ -59,14 +69,14 @@ export default function Home() {
     () =>
       new DefaultChatTransport({
         api: "/api/ai",
-        body: { 
+        body: {
           sessionId,
           template: selectedTemplate,
           // Pass client-side config (API keys, sandbox provider, etc.)
           ...clientConfig,
         },
       }),
-    [sessionId, selectedTemplate, clientConfig]
+    [sessionId, selectedTemplate, clientConfig],
   );
 
   const { messages, sendMessage, status, error } = useChat({ transport });
@@ -88,8 +98,10 @@ export default function Home() {
       <header className="border-b border-border px-4 py-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <h1 className="text-lg font-semibold text-foreground">SandAgent Chat</h1>
-            
+            <h1 className="text-lg font-semibold text-foreground">
+              SandAgent Chat
+            </h1>
+
             {/* Template Selector */}
             <select
               value={selectedTemplate}
@@ -103,7 +115,7 @@ export default function Home() {
               ))}
             </select>
           </div>
-          
+
           <div className="flex items-center gap-3">
             {/* Configuration Status Indicator */}
             {configReady !== null && (
@@ -121,9 +133,9 @@ export default function Home() {
                 )}
               </div>
             )}
-            
+
             {/* Settings Link */}
-            <Link 
+            <Link
               href="/settings"
               className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md border border-border hover:bg-muted text-sm text-muted-foreground hover:text-foreground"
             >
@@ -207,7 +219,7 @@ function ChatMessage({ message }: { message: UIMessage }) {
           {message.parts.map((part, i) =>
             part.type === "text" ? (
               <MessageResponse key={i}>{part.text}</MessageResponse>
-            ) : null
+            ) : null,
           )}
         </MessageContent>
       </div>

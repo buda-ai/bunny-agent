@@ -13,10 +13,10 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type {
   AgentRunner,
-  RunnerConfig,
-  GaiaTask,
   BenchmarkResult,
   GaiaLevel,
+  GaiaTask,
+  RunnerConfig,
 } from "./types.js";
 
 /**
@@ -51,7 +51,7 @@ const DEFAULT_RUNNER_CONFIGS: Record<AgentRunner, Partial<RunnerConfig>> = {
 function buildRunnerCommand(
   runner: AgentRunner,
   task: GaiaTask,
-  config: RunnerConfig
+  config: RunnerConfig,
 ): { command: string; args: string[] } {
   const baseCommand = config.command ?? DEFAULT_RUNNER_CONFIGS[runner].command!;
   const baseArgs = config.args ?? DEFAULT_RUNNER_CONFIGS[runner].args ?? [];
@@ -108,7 +108,7 @@ function executeCommand(
     env?: Record<string, string>;
     cwd?: string;
     timeout?: number;
-  } = {}
+  } = {},
 ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
   return new Promise((resolve, reject) => {
     const proc = spawn(command, args, {
@@ -159,7 +159,7 @@ export function normalizeAnswer(answer: string): string {
  */
 export function checkAnswer(
   agentAnswer: string,
-  expectedAnswer: string
+  expectedAnswer: string,
 ): boolean {
   const normalizedAgent = normalizeAnswer(agentAnswer);
   const normalizedExpected = normalizeAnswer(expectedAnswer);
@@ -212,7 +212,7 @@ function extractFinalAnswer(output: string): string {
  */
 export async function runTask(
   task: GaiaTask,
-  config: RunnerConfig
+  config: RunnerConfig,
 ): Promise<BenchmarkResult> {
   const startTime = Date.now();
   const { command, args } = buildRunnerCommand(config.runner, task, config);
@@ -260,9 +260,7 @@ export async function runTask(
 /**
  * Check if a runner is available on the system
  */
-export async function isRunnerAvailable(
-  runner: AgentRunner
-): Promise<boolean> {
+export async function isRunnerAvailable(runner: AgentRunner): Promise<boolean> {
   const command = DEFAULT_RUNNER_CONFIGS[runner].command!;
 
   try {
@@ -299,7 +297,7 @@ export async function getAvailableRunners(): Promise<AgentRunner[]> {
  */
 export function createRunnerConfig(
   runner: AgentRunner,
-  overrides?: Partial<RunnerConfig>
+  overrides?: Partial<RunnerConfig>,
 ): RunnerConfig {
   return {
     runner,

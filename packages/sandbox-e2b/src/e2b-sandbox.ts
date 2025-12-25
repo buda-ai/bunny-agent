@@ -1,7 +1,7 @@
 import type {
+  ExecOptions,
   SandboxAdapter,
   SandboxHandle,
-  ExecOptions,
 } from "@sandagent/core";
 
 /**
@@ -31,7 +31,7 @@ interface E2BSandboxInstance {
         onStdout?: (data: string) => void;
         onStderr?: (data: string) => void;
         timeout?: number;
-      }
+      },
     ): Promise<{
       exitCode: number;
       stdout: string;
@@ -54,7 +54,7 @@ interface E2BSandboxStatic {
   }): Promise<E2BSandboxInstance>;
   connect(
     sandboxId: string,
-    opts?: { apiKey?: string }
+    opts?: { apiKey?: string },
   ): Promise<E2BSandboxInstance>;
 }
 
@@ -101,7 +101,7 @@ export class E2BSandbox implements SandboxAdapter {
     // Check for API key
     if (!this.apiKey) {
       throw new Error(
-        "E2B API key not found. Please set E2B_API_KEY environment variable or pass apiKey option."
+        "E2B API key not found. Please set E2B_API_KEY environment variable or pass apiKey option.",
       );
     }
 
@@ -111,7 +111,7 @@ export class E2BSandbox implements SandboxAdapter {
     if (!instance) {
       // Dynamically import E2B SDK
       const E2BSandboxClass = await this.loadE2B();
-      
+
       // Create a new sandbox with metadata to identify it
       instance = await E2BSandboxClass.create({
         apiKey: this.apiKey,
@@ -119,7 +119,7 @@ export class E2BSandbox implements SandboxAdapter {
         timeoutMs: this.timeout,
         metadata: { sandagentId: id },
       });
-      
+
       this.instances.set(id, instance);
     }
 
@@ -136,7 +136,7 @@ export class E2BSandbox implements SandboxAdapter {
     } catch (error) {
       throw new Error(
         "E2B SDK not found. Please install e2b: npm install e2b\n" +
-          "Documentation: https://e2b.dev/docs"
+          "Documentation: https://e2b.dev/docs",
       );
     }
   }
@@ -243,7 +243,7 @@ class E2BHandle implements SandboxHandle {
    */
   async upload(
     files: Array<{ path: string; content: Uint8Array | string }>,
-    targetDir: string
+    targetDir: string,
   ): Promise<void> {
     for (const file of files) {
       const fullPath = `${targetDir}/${file.path}`;
@@ -263,7 +263,7 @@ class E2BHandle implements SandboxHandle {
         file.content instanceof Uint8Array
           ? (file.content.buffer.slice(
               file.content.byteOffset,
-              file.content.byteOffset + file.content.byteLength
+              file.content.byteOffset + file.content.byteLength,
             ) as ArrayBuffer)
           : file.content;
 

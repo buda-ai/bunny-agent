@@ -34,25 +34,22 @@ import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { config } from "dotenv";
 import {
-  downloadGaiaDataset,
-  saveTasksToJson,
-  loadTasksFromJson,
-} from "./downloader.js";
-import { runBenchmark } from "./evaluator.js";
-import {
-  loadAllRunnerResults,
   compareResults,
-  generateComparisonSummary,
   displayComparisonTable,
+  generateComparisonSummary,
+  loadAllRunnerResults,
   saveComparisonReport,
 } from "./compare.js";
 import {
-  createRunnerConfig,
-  getAvailableRunners,
-} from "./runner.js";
+  downloadGaiaDataset,
+  loadTasksFromJson,
+  saveTasksToJson,
+} from "./downloader.js";
+import { runBenchmark } from "./evaluator.js";
+import { createRunnerConfig, getAvailableRunners } from "./runner.js";
 import type {
-  BenchmarkConfig,
   AgentRunner,
+  BenchmarkConfig,
   GaiaLevel,
   TaskCategory,
 } from "./types.js";
@@ -147,8 +144,12 @@ async function handleRun(args: {
   // Check if runner is available
   const availableRunners = await getAvailableRunners();
   if (!availableRunners.includes(args.runner)) {
-    console.error(`❌ Runner "${args.runner}" is not available on this system.`);
-    console.error(`   Available runners: ${availableRunners.join(", ") || "none"}`);
+    console.error(
+      `❌ Runner "${args.runner}" is not available on this system.`,
+    );
+    console.error(
+      `   Available runners: ${availableRunners.join(", ") || "none"}`,
+    );
     console.error(`   Please install the runner CLI and try again.`);
     process.exit(1);
   }
@@ -215,7 +216,9 @@ async function handleCompare(args: {
 
   if (reports.size === 0) {
     console.log("❌ No benchmark results found.");
-    console.log(`   Run benchmarks first with: sandagent-benchmark run --runner <runner>`);
+    console.log(
+      `   Run benchmarks first with: sandagent-benchmark run --runner <runner>`,
+    );
     return;
   }
 
@@ -306,17 +309,21 @@ async function main(): Promise<void> {
     case "run":
       if (!values.runner) {
         console.error("❌ Error: --runner is required for run command");
-        console.error("   Available runners: sandagent, gemini-cli, claudecode, codex-cli");
+        console.error(
+          "   Available runners: sandagent, gemini-cli, claudecode, codex-cli",
+        );
         process.exit(1);
       }
       await handleRun({
         runner: values.runner as AgentRunner,
         dataset: values.dataset as "validation" | "test",
         level: values.level
-          ? (parseInt(values.level as string, 10) as GaiaLevel)
+          ? (Number.parseInt(values.level as string, 10) as GaiaLevel)
           : undefined,
         category: values.category as TaskCategory | undefined,
-        limit: values.limit ? parseInt(values.limit as string, 10) : undefined,
+        limit: values.limit
+          ? Number.parseInt(values.limit as string, 10)
+          : undefined,
         random: values.random as boolean,
         taskId: values["task-id"] as string | undefined,
         output: values.output as string,

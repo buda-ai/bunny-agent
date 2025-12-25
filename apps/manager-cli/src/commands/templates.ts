@@ -4,9 +4,9 @@
  * List available agent templates.
  */
 
-import { parseArgs } from "node:util";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { parseArgs } from "node:util";
 
 export async function templatesCommand(args: string[]): Promise<void> {
   const { values } = parseArgs({
@@ -35,14 +35,30 @@ Templates define the agent's behavior, system prompt, and available skills.
 
   console.log("📋 Available Agent Templates");
   console.log("");
-  console.log("┌─────────────┬─────────────────────────────────────────┬─────────────────────────────┐");
-  console.log("│ Template    │ Description                             │ Best For                    │");
-  console.log("├─────────────┼─────────────────────────────────────────┼─────────────────────────────┤");
-  console.log("│ default     │ General-purpose assistant               │ Starting point              │");
-  console.log("│ coder       │ Software development focused            │ Coding, debugging, refactor │");
-  console.log("│ analyst     │ Data analysis optimized                 │ Data processing, SQL, viz   │");
-  console.log("│ researcher  │ Web research capabilities               │ Research, summarization     │");
-  console.log("└─────────────┴─────────────────────────────────────────┴─────────────────────────────┘");
+  console.log(
+    "┌─────────────┬─────────────────────────────────────────┬─────────────────────────────┐",
+  );
+  console.log(
+    "│ Template    │ Description                             │ Best For                    │",
+  );
+  console.log(
+    "├─────────────┼─────────────────────────────────────────┼─────────────────────────────┤",
+  );
+  console.log(
+    "│ default     │ General-purpose assistant               │ Starting point              │",
+  );
+  console.log(
+    "│ coder       │ Software development focused            │ Coding, debugging, refactor │",
+  );
+  console.log(
+    "│ analyst     │ Data analysis optimized                 │ Data processing, SQL, viz   │",
+  );
+  console.log(
+    "│ researcher  │ Web research capabilities               │ Research, summarization     │",
+  );
+  console.log(
+    "└─────────────┴─────────────────────────────────────────┴─────────────────────────────┘",
+  );
   console.log("");
   console.log("Usage:");
   console.log('  sandagent run --template coder "Build a REST API"');

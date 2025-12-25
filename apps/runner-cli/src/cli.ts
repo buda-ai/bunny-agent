@@ -98,7 +98,9 @@ function parseCliArgs(): ParsedArgs {
     cwd: values.cwd!,
     template: values.template!,
     systemPrompt: values["system-prompt"],
-    maxTurns: values["max-turns"] ? parseInt(values["max-turns"], 10) : undefined,
+    maxTurns: values["max-turns"]
+      ? Number.parseInt(values["max-turns"], 10)
+      : undefined,
     allowedTools: values["allowed-tools"]?.split(",").map((t) => t.trim()),
     userInput,
   };

@@ -1,6 +1,9 @@
-import { createClaudeRunner, type ClaudeRunnerOptions } from "@sandagent/runner-claude";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import {
+  type ClaudeRunnerOptions,
+  createClaudeRunner,
+} from "@sandagent/runner-claude";
 
 /**
  * Options for running the agent
@@ -79,7 +82,9 @@ function loadTemplate(templateName: string): {
   if (!fs.existsSync(templateDir)) {
     // Template doesn't exist, try default
     if (templateName !== "default") {
-      console.error(`Warning: Template "${templateName}" not found, using default`);
+      console.error(
+        `Warning: Template "${templateName}" not found, using default`,
+      );
       return loadTemplate("default");
     }
     return {};
@@ -101,8 +106,11 @@ function loadTemplate(templateName: string): {
       const settingsContent = fs.readFileSync(settingsPath, "utf-8");
       settings = JSON.parse(settingsContent) as TemplateSettings;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      console.error(`Warning: Failed to parse ${settingsPath}: ${errorMessage}`);
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+      console.error(
+        `Warning: Failed to parse ${settingsPath}: ${errorMessage}`,
+      );
     }
   }
 
@@ -110,22 +118,30 @@ function loadTemplate(templateName: string): {
   const skillsDir = path.join(templateDir, "skills");
   if (fs.existsSync(skillsDir)) {
     try {
-      const skillFiles = fs.readdirSync(skillsDir).filter(f => f.endsWith(".md"));
+      const skillFiles = fs
+        .readdirSync(skillsDir)
+        .filter((f) => f.endsWith(".md"));
       if (skillFiles.length > 0) {
         const skillsContent = skillFiles
-          .map(file => {
-            const content = fs.readFileSync(path.join(skillsDir, file), "utf-8");
+          .map((file) => {
+            const content = fs.readFileSync(
+              path.join(skillsDir, file),
+              "utf-8",
+            );
             return `\n---\n\n${content}`;
           })
           .join("\n");
-        
+
         if (systemPrompt) {
           systemPrompt += `\n\n## Skills\n${skillsContent}`;
         }
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      console.error(`Warning: Failed to load skills from ${skillsDir}: ${errorMessage}`);
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+      console.error(
+        `Warning: Failed to load skills from ${skillsDir}: ${errorMessage}`,
+      );
     }
   }
 

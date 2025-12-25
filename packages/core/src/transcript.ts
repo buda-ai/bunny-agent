@@ -1,5 +1,5 @@
-import type { TranscriptEntry, TranscriptWriter } from "./types.js";
 import * as fs from "node:fs";
+import type { TranscriptEntry, TranscriptWriter } from "./types.js";
 
 /**
  * JSONL Transcript Writer
@@ -33,10 +33,7 @@ export class JsonlTranscriptWriter implements TranscriptWriter {
    * @param filePath - Path to write the JSONL file
    * @param options - Writer options
    */
-  constructor(
-    filePath: string,
-    options: { append?: boolean } = {}
-  ) {
+  constructor(filePath: string, options: { append?: boolean } = {}) {
     this.filePath = filePath;
     this.stream = fs.createWriteStream(filePath, {
       flags: options.append ? "a" : "w",
@@ -158,11 +155,11 @@ export class ConsoleTranscriptWriter implements TranscriptWriter {
       console.log(`${this.prefix} ${timestamp} ${type} ${entry.text}`);
     } else if (entry.type === "error") {
       console.error(
-        `${this.prefix} ${timestamp} ${type} ${entry.text ?? entry.data}`
+        `${this.prefix} ${timestamp} ${type} ${entry.text ?? entry.data}`,
       );
     } else if (entry.metadata) {
       console.log(
-        `${this.prefix} ${timestamp} ${type} ${JSON.stringify(entry.metadata)}`
+        `${this.prefix} ${timestamp} ${type} ${JSON.stringify(entry.metadata)}`,
       );
     } else {
       console.log(`${this.prefix} ${timestamp} ${type}`);
@@ -195,7 +192,7 @@ export class MultiTranscriptWriter implements TranscriptWriter {
 
   async close(): Promise<void> {
     await Promise.all(
-      this.writers.map((w) => (w.close ? w.close() : Promise.resolve()))
+      this.writers.map((w) => (w.close ? w.close() : Promise.resolve())),
     );
   }
 }

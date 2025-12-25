@@ -7,9 +7,17 @@ import { ScrollArea, ScrollBar } from "../ui/scroll-area";
 
 export type SuggestionsProps = ComponentProps<typeof ScrollArea>;
 
-export const Suggestions = ({ className, children, ...props }: SuggestionsProps) => (
+export const Suggestions = ({
+  className,
+  children,
+  ...props
+}: SuggestionsProps) => (
   <ScrollArea className="w-full overflow-x-auto pb-2" {...props}>
-    <div className={cn("flex w-max flex-nowrap items-start gap-2 pb-1", className)}>{children}</div>
+    <div
+      className={cn("flex w-max flex-nowrap items-start gap-2 pb-1", className)}
+    >
+      {children}
+    </div>
     <ScrollBar orientation="horizontal" className="h-2" />
   </ScrollArea>
 );

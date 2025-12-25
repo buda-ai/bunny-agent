@@ -1,9 +1,5 @@
-import { describe, it, expect } from "vitest";
-import {
-  normalizeAnswer,
-  checkAnswer,
-  createRunnerConfig,
-} from "../runner.js";
+import { describe, expect, it } from "vitest";
+import { checkAnswer, createRunnerConfig, normalizeAnswer } from "../runner.js";
 
 describe("normalizeAnswer", () => {
   it("should lowercase the answer", () => {

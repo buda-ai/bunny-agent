@@ -42,5 +42,7 @@ Note: Sandbox state is managed by the sandbox provider (E2B or Docker).
   console.log("For Docker (Sandock) sandboxes:");
   console.log("  Run: docker ps --filter 'label=sandagent'");
   console.log("");
-  console.log("Tip: Use 'sandagent stop <session-id>' to stop a specific sandbox.");
+  console.log(
+    "Tip: Use 'sandagent stop <session-id>' to stop a specific sandbox.",
+  );
 }

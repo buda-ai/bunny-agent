@@ -4,10 +4,23 @@ import { type LucideIcon, Plus, Search } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { Button } from "./button";
 import { ButtonGroup } from "./button-group";
-import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "./empty";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "./empty";
 import { Input } from "./input";
 import { StatsCard } from "./stats-card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "./table";
 
 /**
  * Generic configuration for list view filters
@@ -120,8 +133,12 @@ export function TableListView<
   emptyDescription = "Try adjusting your search or filters to find what you're looking for.",
 }: TableListViewProps<TItem, TTypeFilter, TStatusFilter>) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [typeFilter, setTypeFilter] = useState<TTypeFilter | "all">("all" as const);
-  const [statusFilter, setStatusFilter] = useState<TStatusFilter | "all">("all" as const);
+  const [typeFilter, setTypeFilter] = useState<TTypeFilter | "all">(
+    "all" as const,
+  );
+  const [statusFilter, setStatusFilter] = useState<TStatusFilter | "all">(
+    "all" as const,
+  );
 
   // Filter items based on search and filters
   const filteredItems = items.filter((item) => {
@@ -137,7 +154,9 @@ export function TableListView<
       });
 
     const matchesType =
-      !typeFilters || typeFilter === "all" || (item as Record<string, unknown>).type === typeFilter;
+      !typeFilters ||
+      typeFilter === "all" ||
+      (item as Record<string, unknown>).type === typeFilter;
 
     const matchesStatus =
       !statusFilters ||
@@ -167,7 +186,9 @@ export function TableListView<
         {/* Stats */}
         <div
           className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
-          style={{ gridTemplateColumns: `repeat(${Math.min(stats.length, 4)}, minmax(0, 1fr))` }}
+          style={{
+            gridTemplateColumns: `repeat(${Math.min(stats.length, 4)}, minmax(0, 1fr))`,
+          }}
         >
           {stats.map((stat) => (
             <StatsCard
@@ -204,7 +225,9 @@ export function TableListView<
                   key={filter.id}
                   variant={typeFilter === filter.id ? "default" : "outline"}
                   size="sm"
-                  onClick={() => setTypeFilter(filter.id as TTypeFilter | "all")}
+                  onClick={() =>
+                    setTypeFilter(filter.id as TTypeFilter | "all")
+                  }
                 >
                   {filter.label}
                 </Button>
@@ -220,7 +243,9 @@ export function TableListView<
                   key={filter.id}
                   variant={statusFilter === filter.id ? "default" : "outline"}
                   size="sm"
-                  onClick={() => setStatusFilter(filter.id as TStatusFilter | "all")}
+                  onClick={() =>
+                    setStatusFilter(filter.id as TStatusFilter | "all")
+                  }
                 >
                   {filter.label}
                 </Button>
@@ -251,7 +276,9 @@ export function TableListView<
                   className={onRowClick ? "cursor-pointer" : ""}
                 >
                   {columns.map((column) => (
-                    <TableCell key={column.key}>{column.render(item)}</TableCell>
+                    <TableCell key={column.key}>
+                      {column.render(item)}
+                    </TableCell>
                   ))}
                 </TableRow>
               ))}

@@ -116,7 +116,7 @@ export function createClaudeRunner(options: ClaudeRunnerOptions): ClaudeRunner {
           "[SandAgent] Warning: ANTHROPIC_API_KEY not set. Using mock response.\n" +
             "To use the real Claude Agent SDK:\n" +
             "1. Set ANTHROPIC_API_KEY environment variable\n" +
-            "2. Install the SDK: npm install @anthropic-ai/claude-agent-sdk"
+            "2. Install the SDK: npm install @anthropic-ai/claude-agent-sdk",
         );
         yield* runMockAgent(options, userInput);
         return;
@@ -132,7 +132,7 @@ export function createClaudeRunner(options: ClaudeRunnerOptions): ClaudeRunner {
         // Fallback to mock implementation
         console.error(
           "[SandAgent] Warning: @anthropic-ai/claude-agent-sdk not installed. Using mock response.\n" +
-            "Install the SDK: npm install @anthropic-ai/claude-agent-sdk"
+            "Install the SDK: npm install @anthropic-ai/claude-agent-sdk",
         );
         yield* runMockAgent(options, userInput);
       }
@@ -159,7 +159,7 @@ async function loadClaudeAgentSDK(): Promise<ClaudeAgentSDKModule | null> {
 async function* runWithClaudeAgentSDK(
   sdk: ClaudeAgentSDKModule,
   options: ClaudeRunnerOptions,
-  userInput: string
+  userInput: string,
 ): AsyncIterable<string> {
   const sdkOptions: ClaudeAgentSDKOptions = {
     model: options.model,
@@ -211,7 +211,7 @@ function convertSDKMessageToAISDKUI(message: SDKMessage): string[] {
       // System initialization messages - emit as text for visibility
       if (message.subtype === "init") {
         chunks.push(
-          `0:${JSON.stringify(`[System initialized: ${message.model ?? "unknown model"}]\n`)}\n`
+          `0:${JSON.stringify(`[System initialized: ${message.model ?? "unknown model"}]\n`)}\n`,
         );
       }
       break;
@@ -232,7 +232,7 @@ function convertSDKMessageToAISDKUI(message: SDKMessage): string[] {
           toolCallId: toolUseMsg.tool_use_id,
           toolName: toolUseMsg.tool_name,
           args: toolUseMsg.tool_input,
-        })}\n`
+        })}\n`,
       );
       break;
 
@@ -243,7 +243,7 @@ function convertSDKMessageToAISDKUI(message: SDKMessage): string[] {
         `a:${JSON.stringify({
           toolCallId: toolResultMsg.tool_use_id,
           result: toolResultMsg.output,
-        })}\n`
+        })}\n`,
       );
       break;
 
@@ -271,7 +271,7 @@ function convertSDKMessageToAISDKUI(message: SDKMessage): string[] {
  */
 async function* runMockAgent(
   options: ClaudeRunnerOptions,
-  userInput: string
+  userInput: string,
 ): AsyncIterable<string> {
   // Output a helpful response in AI SDK UI format
   const response =

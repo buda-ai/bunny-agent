@@ -53,7 +53,9 @@ export function StatsCard({
           <Icon className={`h-6 w-6 ${styles.iconColor}`} />
         </div>
         <div>
-          <p className="text-xs text-muted-foreground font-medium mb-1">{label}</p>
+          <p className="text-xs text-muted-foreground font-medium mb-1">
+            {label}
+          </p>
           <div className="text-foreground">{value}</div>
         </div>
       </CardContent>

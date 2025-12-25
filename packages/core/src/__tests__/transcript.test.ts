@@ -1,7 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  MemoryTranscriptWriter,
   ConsoleTranscriptWriter,
+  MemoryTranscriptWriter,
   MultiTranscriptWriter,
 } from "../transcript.js";
 import type { TranscriptEntry } from "../types.js";
@@ -140,9 +140,7 @@ describe("Transcript Writers", () => {
     });
 
     it("should log errors to console.error", () => {
-      const errorSpy = vi
-        .spyOn(console, "error")
-        .mockImplementation(() => {});
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
       const writer = new ConsoleTranscriptWriter();
 
       writer.write({

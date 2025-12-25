@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { E2BSandbox } from "../e2b-sandbox.js";
 
 describe("E2BSandbox", () => {
@@ -50,12 +50,12 @@ describe("E2BSandbox", () => {
 
       // Should throw an error about missing API key
       await expect(sandbox.attach("test-id")).rejects.toThrow(
-        /E2B API key not found/
+        /E2B API key not found/,
       );
 
       console.log(
         "[Test Info] E2B_API_KEY not set - this test verifies proper error handling.\n" +
-          "To run integration tests with E2B, set E2B_API_KEY environment variable."
+          "To run integration tests with E2B, set E2B_API_KEY environment variable.",
       );
     });
 
@@ -70,7 +70,7 @@ describe("E2BSandbox", () => {
         await sandbox.attach("test-id");
         // If we get here, the SDK is installed - that's also valid
         console.log(
-          "[Test Info] E2B SDK is installed. Integration tests would run with valid API key."
+          "[Test Info] E2B SDK is installed. Integration tests would run with valid API key.",
         );
       } catch (error) {
         expect(error).toBeDefined();
@@ -80,7 +80,7 @@ describe("E2BSandbox", () => {
         // Either SDK not found or API error is expected
         console.log(
           `[Test Info] Expected error: ${errorMessage}\n` +
-            "Install e2b package to enable E2B sandbox: npm install e2b"
+            "Install e2b package to enable E2B sandbox: npm install e2b",
         );
       }
     });

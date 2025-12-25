@@ -14,7 +14,11 @@ import {
   CardHeader,
   CardTitle,
 } from "../ui/card";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../ui/collapsible";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "../ui/collapsible";
 import { Shimmer } from "./shimmer";
 
 type PlanContextValue = {
@@ -35,7 +39,12 @@ export type PlanProps = ComponentProps<typeof Collapsible> & {
   isStreaming?: boolean;
 };
 
-export const Plan = ({ className, isStreaming = false, children, ...props }: PlanProps) => (
+export const Plan = ({
+  className,
+  isStreaming = false,
+  children,
+  ...props
+}: PlanProps) => (
   <PlanContext.Provider value={{ isStreaming }}>
     <Collapsible asChild data-slot="plan" {...props}>
       <Card className={cn("shadow-none", className)}>{children}</Card>
@@ -53,7 +62,10 @@ export const PlanHeader = ({ className, ...props }: PlanHeaderProps) => (
   />
 );
 
-export type PlanTitleProps = Omit<ComponentProps<typeof CardTitle>, "children"> & {
+export type PlanTitleProps = Omit<
+  ComponentProps<typeof CardTitle>,
+  "children"
+> & {
   children: string;
 };
 
@@ -67,11 +79,18 @@ export const PlanTitle = ({ children, ...props }: PlanTitleProps) => {
   );
 };
 
-export type PlanDescriptionProps = Omit<ComponentProps<typeof CardDescription>, "children"> & {
+export type PlanDescriptionProps = Omit<
+  ComponentProps<typeof CardDescription>,
+  "children"
+> & {
   children: string;
 };
 
-export const PlanDescription = ({ className, children, ...props }: PlanDescriptionProps) => {
+export const PlanDescription = ({
+  className,
+  children,
+  ...props
+}: PlanDescriptionProps) => {
   const { isStreaming } = usePlan();
 
   return (
@@ -105,7 +124,10 @@ export const PlanFooter = (props: PlanFooterProps) => (
   <CardFooter data-slot="plan-footer" {...props} />
 );
 
-export type PlanTriggerProps = Omit<ComponentProps<typeof Button>, "size" | "variant">;
+export type PlanTriggerProps = Omit<
+  ComponentProps<typeof Button>,
+  "size" | "variant"
+>;
 
 export const PlanTrigger = ({ className, ...props }: PlanTriggerProps) => (
   <CollapsibleTrigger asChild>

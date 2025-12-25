@@ -16,14 +16,14 @@
  *   sandagent info               - Show environment and configuration
  */
 
-import { parseArgs } from "node:util";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { runCommand } from "./commands/run.js";
+import { parseArgs } from "node:util";
+import { infoCommand } from "./commands/info.js";
 import { listCommand } from "./commands/list.js";
+import { runCommand } from "./commands/run.js";
 import { stopCommand } from "./commands/stop.js";
 import { templatesCommand } from "./commands/templates.js";
-import { infoCommand } from "./commands/info.js";
 
 const VERSION = "0.1.0";
 

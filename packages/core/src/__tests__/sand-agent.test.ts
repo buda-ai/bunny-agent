@@ -1,6 +1,6 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { SandAgent } from "../sand-agent.js";
-import type { SandboxAdapter, SandboxHandle, ExecOptions } from "../types.js";
+import type { ExecOptions, SandboxAdapter, SandboxHandle } from "../types.js";
 
 /**
  * Create an async iterable from data
@@ -26,9 +26,11 @@ function createAsyncIterable<T>(data: T[]): AsyncIterable<T> {
  */
 function createMockSandbox(): SandboxAdapter & { handle: SandboxHandle } {
   const handle: SandboxHandle = {
-    exec: vi.fn().mockReturnValue(
-      createAsyncIterable([new TextEncoder().encode("test output")])
-    ),
+    exec: vi
+      .fn()
+      .mockReturnValue(
+        createAsyncIterable([new TextEncoder().encode("test output")]),
+      ),
     upload: vi.fn().mockResolvedValue(undefined),
     destroy: vi.fn().mockResolvedValue(undefined),
   };
@@ -96,7 +98,7 @@ describe("SandAgent", () => {
 
       expect(sandbox.handle.exec).toHaveBeenCalledWith(
         expect.arrayContaining(["--cwd", "/workspace"]),
-        expect.objectContaining({ cwd: "/workspace" })
+        expect.objectContaining({ cwd: "/workspace" }),
       );
     });
 
@@ -118,7 +120,7 @@ describe("SandAgent", () => {
 
       expect(sandbox.handle.exec).toHaveBeenCalledWith(
         expect.arrayContaining(["--cwd", "/custom/path"]),
-        expect.objectContaining({ cwd: "/custom/path" })
+        expect.objectContaining({ cwd: "/custom/path" }),
       );
     });
 
@@ -139,7 +141,7 @@ describe("SandAgent", () => {
 
       expect(sandbox.handle.exec).toHaveBeenCalledWith(
         expect.arrayContaining(["Create a file"]),
-        expect.any(Object)
+        expect.any(Object),
       );
     });
 
@@ -148,9 +150,11 @@ describe("SandAgent", () => {
       const sandbox = createMockSandbox();
 
       // Override exec to return test data using proper async iterable
-      sandbox.handle.exec = vi.fn().mockReturnValue(
-        createAsyncIterable([new TextEncoder().encode(testData)])
-      );
+      sandbox.handle.exec = vi
+        .fn()
+        .mockReturnValue(
+          createAsyncIterable([new TextEncoder().encode(testData)]),
+        );
 
       const agent = new SandAgent({
         id: "test-agent",
@@ -185,13 +189,11 @@ describe("SandAgent", () => {
         },
       });
 
-      await agent.uploadFiles([
-        { path: "test.txt", content: "Hello, World!" },
-      ]);
+      await agent.uploadFiles([{ path: "test.txt", content: "Hello, World!" }]);
 
       expect(sandbox.handle.upload).toHaveBeenCalledWith(
         [{ path: "test.txt", content: "Hello, World!" }],
-        "/workspace"
+        "/workspace",
       );
     });
 
@@ -208,12 +210,12 @@ describe("SandAgent", () => {
 
       await agent.uploadFiles(
         [{ path: "test.txt", content: "Hello, World!" }],
-        "/custom/dir"
+        "/custom/dir",
       );
 
       expect(sandbox.handle.upload).toHaveBeenCalledWith(
         [{ path: "test.txt", content: "Hello, World!" }],
-        "/custom/dir"
+        "/custom/dir",
       );
     });
   });
