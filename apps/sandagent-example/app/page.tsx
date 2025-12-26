@@ -44,14 +44,14 @@ export default function Home() {
   // Check configuration status from localStorage on mount and when config changes
   useEffect(() => {
     try {
-        const saved = localStorage.getItem(STORAGE_KEY);
-        const config = saved ? JSON.parse(saved) : {};
-        setClientConfig(config);
-        const allRequiredSet = REQUIRED_KEYS.every((key) => !!config[key]);
-        setConfigReady(allRequiredSet);
-      } catch {
-        setConfigReady(false);
-      }
+      const saved = localStorage.getItem(STORAGE_KEY);
+      const config = saved ? JSON.parse(saved) : {};
+      setClientConfig(config);
+      const allRequiredSet = REQUIRED_KEYS.every((key) => !!config[key]);
+      setConfigReady(allRequiredSet);
+    } catch {
+      setConfigReady(false);
+    }
   }, []);
 
   const templates = [
@@ -64,13 +64,13 @@ export default function Home() {
     { id: "analyst", name: "Analyst", description: "Data analysis" },
     { id: "researcher", name: "Researcher", description: "Web research" },
   ];
- // Use a ref to always get the latest clientConfig
+  // Use a ref to always get the latest clientConfig
   const clientConfigRef = useRef(clientConfig);
   useEffect(() => {
     clientConfigRef.current = clientConfig;
   }, [clientConfig]);
-  
-    const { messages, sendMessage, status, error } = useChat({
+
+  const { messages, sendMessage, status, error } = useChat({
     transport: new DefaultChatTransport({
       api: "/api/ai",
       body: () => ({
@@ -84,16 +84,13 @@ export default function Home() {
   const hasError = status === "error" && error;
 
   const handleSubmit = async (message: { text: string }) => {
-      if (message.text.trim() && !isLoading) {
-         sendMessage({
-            role: "user",
-            parts: [{ type: "text", text: message.text }],
-         });
-      }
-    
+    if (message.text.trim() && !isLoading) {
+      sendMessage({
+        role: "user",
+        parts: [{ type: "text", text: message.text }],
+      });
+    }
   };
-
- 
 
   return (
     <main className="flex h-screen flex-col bg-background">
