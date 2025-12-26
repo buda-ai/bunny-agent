@@ -1,5 +1,11 @@
+import path from "node:path";
 import { SandAgent } from "@sandagent/core";
 import { E2BSandbox } from "@sandagent/sandbox-e2b";
+
+// Resolve paths relative to the monorepo root
+const MONOREPO_ROOT = path.resolve(process.cwd(), "../..");
+const RUNNER_BUNDLE_PATH = path.join(MONOREPO_ROOT, "apps/runner-cli/dist/bundle.mjs");
+const TEMPLATES_PATH = path.join(MONOREPO_ROOT, "templates");
 
 /**
  * POST /api/ai
@@ -72,9 +78,28 @@ export async function POST(request: Request) {
     );
   }
 
+  // Convert AI SDK message format to simple format
+  // AI SDK: { role, parts: [{ type: 'text', text: '...' }] }
+  // Simple: { role, content: '...' }
+  const normalizedMessages = (messages || []).map((msg: any) => {
+    if (typeof msg.content === 'string') {
+      return msg;
+    }
+    if (Array.isArray(msg.parts)) {
+      const textPart = msg.parts.find((p: any) => p.type === 'text');
+      return {
+        role: msg.role,
+        content: textPart?.text || '',
+      };
+    }
+    return msg;
+  });
+
   // Create sandbox with client-provided API key
   const sandbox = new E2BSandbox({
     apiKey: E2B_API_KEY,
+    runnerBundlePath: RUNNER_BUNDLE_PATH,
+    templatesPath: TEMPLATES_PATH,
   });
 
   const agent = new SandAgent({
@@ -93,7 +118,7 @@ export async function POST(request: Request) {
   });
 
   return agent.stream({
-    messages,
-    workspace: { path: "/workspace" },
+    messages: normalizedMessages,
+    workspace: { path: "/home/user" },
   });
 }

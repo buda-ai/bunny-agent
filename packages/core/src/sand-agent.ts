@@ -50,7 +50,7 @@ export class SandAgent {
    * Build the CLI command to execute
    */
   private buildCommand(input: StreamInput): string[] {
-    const cmd: string[] = ["sandagent", "run"];
+    const cmd: string[] = ["node", "/sandagent/runner/bundle.mjs", "run"];
 
     // Add model
     cmd.push("--model", this.runner.model);
@@ -109,6 +109,7 @@ export class SandAgent {
    */
   async stream(input: StreamInput): Promise<Response> {
     const handle = await this.ensureAttached();
+
     const command = this.buildCommand(input);
 
     const workspacePath = input.workspace?.path ?? "/workspace";
