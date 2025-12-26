@@ -1,10 +1,14 @@
 import path from "node:path";
 import { SandAgent } from "@sandagent/core";
 import { E2BSandbox } from "@sandagent/sandbox-e2b";
+import type { UIMessage } from "ai";
 
 // Resolve paths relative to the monorepo root
 const MONOREPO_ROOT = path.resolve(process.cwd(), "../..");
-const RUNNER_BUNDLE_PATH = path.join(MONOREPO_ROOT, "apps/runner-cli/dist/bundle.mjs");
+const RUNNER_BUNDLE_PATH = path.join(
+  MONOREPO_ROOT,
+  "apps/runner-cli/dist/bundle.mjs",
+);
 const TEMPLATES_PATH = path.join(MONOREPO_ROOT, "templates");
 
 /**
@@ -80,16 +84,12 @@ export async function POST(request: Request) {
 
   // Convert AI SDK message format to simple format
   // AI SDK: { role, parts: [{ type: 'text', text: '...' }] }
-  // Simple: { role, content: '...' }
-  const normalizedMessages = (messages || []).map((msg: any) => {
-    if (typeof msg.content === 'string') {
-      return msg;
-    }
+  const normalizedMessages = (messages || []).map((msg: UIMessage) => {
     if (Array.isArray(msg.parts)) {
-      const textPart = msg.parts.find((p: any) => p.type === 'text');
+      const textPart = msg.parts.find((p) => p.type === "text");
       return {
         role: msg.role,
-        content: textPart?.text || '',
+        content: textPart?.text || "",
       };
     }
     return msg;

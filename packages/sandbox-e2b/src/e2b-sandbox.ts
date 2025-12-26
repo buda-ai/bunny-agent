@@ -123,8 +123,12 @@ export class E2BSandbox implements SandboxAdapter {
     return handle;
   }
 
-  private async initializeSandbox(handle: E2BHandle, id: string): Promise<void> {
-    const filesToUpload: Array<{ path: string; content: Uint8Array | string }> = [];
+  private async initializeSandbox(
+    handle: E2BHandle,
+    id: string,
+  ): Promise<void> {
+    const filesToUpload: Array<{ path: string; content: Uint8Array | string }> =
+      [];
 
     // Upload runner bundle
     if (this.runnerBundlePath && fs.existsSync(this.runnerBundlePath)) {
@@ -134,29 +138,42 @@ export class E2BSandbox implements SandboxAdapter {
         path: `runner/${bundleFileName}`,
         content: bundleContent,
       });
-      console.log(`[E2B] Uploading runner bundle (${bundleFileName}) to sandbox ${id}`);
+      console.log(
+        `[E2B] Uploading runner bundle (${bundleFileName}) to sandbox ${id}`,
+      );
     }
 
     // Upload templates
     if (this.templatesPath && fs.existsSync(this.templatesPath)) {
       const templateFiles = this.collectFiles(this.templatesPath, "templates");
       filesToUpload.push(...templateFiles);
-      console.log(`[E2B] Uploading ${templateFiles.length} template files to sandbox ${id}`);
+      console.log(
+        `[E2B] Uploading ${templateFiles.length} template files to sandbox ${id}`,
+      );
     }
 
     if (filesToUpload.length > 0) {
       await handle.upload(filesToUpload, "/sandagent");
-      
+
       // Install claude-agent-sdk in sandbox
-      console.log(`[E2B] Installing @anthropic-ai/claude-agent-sdk in sandbox ${id}`);
-      const installResult = await handle.runCommand("npm install -g @anthropic-ai/claude-agent-sdk");
+      console.log(
+        `[E2B] Installing @anthropic-ai/claude-agent-sdk in sandbox ${id}`,
+      );
+      const installResult = await handle.runCommand(
+        "npm install -g @anthropic-ai/claude-agent-sdk",
+      );
       if (installResult.exitCode !== 0) {
-        console.error(`[E2B] Failed to install claude-agent-sdk: ${installResult.stderr}`);
+        console.error(
+          `[E2B] Failed to install claude-agent-sdk: ${installResult.stderr}`,
+        );
       }
     }
   }
 
-  private collectFiles(dir: string, prefix: string): Array<{ path: string; content: Uint8Array | string }> {
+  private collectFiles(
+    dir: string,
+    prefix: string,
+  ): Array<{ path: string; content: Uint8Array | string }> {
     const files: Array<{ path: string; content: Uint8Array | string }> = [];
     const entries = fs.readdirSync(dir, { withFileTypes: true });
 
@@ -210,7 +227,9 @@ class E2BHandle implements SandboxHandle {
   /**
    * Run a command and wait for completion (used internally)
    */
-  async runCommand(cmd: string): Promise<{ exitCode: number; stdout: string; stderr: string }> {
+  async runCommand(
+    cmd: string,
+  ): Promise<{ exitCode: number; stdout: string; stderr: string }> {
     return this.instance.commands.run(cmd);
   }
 
