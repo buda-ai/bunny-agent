@@ -15,9 +15,14 @@
       "types": "./dist/index.d.ts"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc",
+    "build:bundle": "tsc && pnpm bundle",
+    "bundle": "esbuild src/cli.ts --bundle --platform=node --format=esm --outfile=dist/bundle.mjs --external:@anthropic-ai/claude-agent-sdk",
+    "dev": "tsc --watch",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit",
     "lint": "echo 'no lint configured'",
@@ -34,6 +39,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
+    "esbuild": "^0.27.2",
     "typescript": "^5.3.0",
     "vitest": "^1.6.1"
   }
