@@ -242,6 +242,14 @@ class E2BHandle implements SandboxHandle {
       NODE_PATH: "/sandagent/node_modules",
     };
 
+    // Debug: log environment variables being passed to sandbox
+    console.log("[E2B] Executing command:", command.join(" "));
+    console.log("[E2B] Environment variables:", Object.keys(envWithNodePath));
+    console.log("[E2B] ANTHROPIC_API_KEY present:", !!envWithNodePath.ANTHROPIC_API_KEY);
+    if (envWithNodePath.ANTHROPIC_API_KEY) {
+      console.log("[E2B] ANTHROPIC_API_KEY prefix:", envWithNodePath.ANTHROPIC_API_KEY.substring(0, 10) + "...");
+    }
+
     return {
       [Symbol.asyncIterator](): AsyncIterator<Uint8Array> {
         const chunks: Uint8Array[] = [];
@@ -252,6 +260,7 @@ class E2BHandle implements SandboxHandle {
         const commandPromise = self.instance.commands.run(command.join(" "), {
           cwd: opts?.cwd,
           envs: envWithNodePath,
+          timeout: opts?.timeout ?? 300000, // Default 5 minutes for LLM operations
           onStdout: (data: string) => {
             const chunk = new TextEncoder().encode(data);
             chunks.push(chunk);
@@ -266,7 +275,10 @@ class E2BHandle implements SandboxHandle {
         });
 
         commandPromise
-          .then(() => {
+          .then((result) => {
+            console.log("[E2B] Command completed with exit code:", result.exitCode);
+            if (result.stdout) console.log("[E2B] stdout:", result.stdout.substring(0, 500));
+            if (result.stderr) console.log("[E2B] stderr:", result.stderr.substring(0, 500));
             finished = true;
             if (resolveNext) {
               resolveNext();

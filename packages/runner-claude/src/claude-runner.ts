@@ -11,11 +11,12 @@
  * @see https://platform.claude.com/docs/en/agent-sdk/typescript-v2-preview
  */
 
-import type {
-  SDKAssistantMessage,
-  SDKMessage,
-  SDKResultMessage,
-  SDKSystemMessage,
+import {
+  tool,
+  type SDKAssistantMessage,
+  type SDKMessage,
+  type SDKResultMessage,
+  type SDKSystemMessage,
 } from "@anthropic-ai/claude-agent-sdk";
 
 /**
@@ -218,25 +219,57 @@ async function* runWithClaudeAgentSDK(
     env: options.env,
   };
 
+  // Network connectivity test
+  const baseUrl = process.env.ANTHROPIC_BASE_URL || "https://api.anthropic.com";
+  console.error(`[SandAgent] Testing network connectivity to ${baseUrl}...`);
   try {
-    for await (const message of sdk.query({
+    const testStart = Date.now();
+    const response = await fetch(`${baseUrl}/v1/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+      signal: AbortSignal.timeout(10000), // 10 second timeout
+    });
+    console.error(`[SandAgent] Network test completed in ${Date.now() - testStart}ms, status: ${response.status}`);
+  } catch (netError) {
+    console.error("[SandAgent] Network test FAILED:", netError instanceof Error ? netError.message : netError);
+    console.error("[SandAgent] ANTHROPIC_BASE_URL:", baseUrl);
+    console.error("[SandAgent] This URL may not be accessible from the E2B sandbox (e.g., localhost or internal network)");
+  }
+
+  try {
+    console.error("[SandAgent] Starting sdk.query with options:", JSON.stringify(sdkOptions, null, 2));
+    console.error("[SandAgent] User input:", userInput);
+    
+    const queryIterator = sdk.query({
       prompt: userInput,
       options: sdkOptions,
-    })) {
-      // console.log("claude return message", JSON.stringify(message, null, 2));
+    });
+    
+    console.error("[SandAgent] Query iterator created, starting iteration...");
+    
+    for await (const message of queryIterator) {
+      console.error("[SandAgent] Received message type:", message.type);
+      console.log("claude return message", JSON.stringify(message, null, 2));
+
       // Convert SDK messages to AI SDK UI format
       const chunks = convertSDKMessageToAISDKUI(message);
       for (const chunk of chunks) {
         yield chunk;
       }
-    }
 
+    }
     // Send stream termination marker
     yield `data: [DONE]\n\n`;
   } catch (error) {
     // Stream error as AI SDK UI format
+    console.error("[SandAgent] SDK query error:", error);
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error occurred";
+    const errorStack = error instanceof Error ? error.stack : "";
+    console.error("[SandAgent] Error message:", errorMessage);
+    console.error("[SandAgent] Error stack:", errorStack);
+    
     yield formatDataStream({ type: "error", error: errorMessage });
     yield formatDataStream({
       type: "finish-message",
@@ -265,18 +298,19 @@ function convertSDKMessageToAISDKUI(message: SDKMessage): string[] {
 
   switch (message.type) {
     case "system": {
-      // System initialization messages - emit as text for visibility
+      // System initialization messages - emit start
       const sysMsg = message as SDKSystemMessage;
       if (sysMsg.subtype === "init") {
         chunks.push(
           formatDataStream({
             type: "start",
             messageId: sysMsg.session_id,
-            metadata: {
-              tools: sysMsg.tools,
-              model: sysMsg.model,
-              sessionId: sysMsg.session_id,
-            },
+          }),
+        );
+        chunks.push(
+          formatDataStream({
+            type: "message-metadata",
+            messageMetadata: { tools: sysMsg.tools, model: sysMsg.model },
           }),
         );
       }
@@ -401,47 +435,23 @@ function convertSDKMessageToAISDKUI(message: SDKMessage): string[] {
     // }
 
     case "result": {
+      console.log("result message", JSON.stringify(message, null, 2));
       // Result message - indicates completion
       const resultMsg = message as SDKResultMessage;
 
-      // Handle errors
-      if (resultMsg.is_error) {
-        if (resultMsg.subtype === "success") {
-          chunks.push(
-            formatDataStream({
-              type: "finish",
-              finishReason: "error",
-              rawFinishReason: resultMsg.result,
-              totalUsage: {
-                inputTokens: resultMsg.usage.input_tokens,
-                inputTokenDetails: {
-                  noCacheTokens:
-                    resultMsg.usage.input_tokens -
-                    resultMsg.usage.cache_read_input_tokens,
-                  cacheReadTokens: resultMsg.usage.cache_read_input_tokens,
-                  cacheWriteTokens: resultMsg.usage.cache_creation_input_tokens,
-                },
-                outputTokens: resultMsg.usage.output_tokens,
-                outputTokenDetails: {
-                  textTokens: resultMsg.usage.output_tokens,
-                  reasoningTokens: 0,
-                },
-              },
-            }),
-          );
-        }
-      }
-
-      // // Finish message with metadata
-      // chunks.push(formatDataStream({
-      //   type: "finish-message",
-      //   finishReason: resultMsg.is_error ? "error" :
-      //     resultMsg.subtype === "interrupted" ? "stop" : "stop",
-      //   usage: {
-      //     promptTokens: 0,
-      //     completionTokens: 0,
-      //   },
-      // }));
+      // Always emit finish, with appropriate finishReason and usage in messageMetadata
+      chunks.push(
+        formatDataStream({
+          type: "finish",
+          finishReason: resultMsg.is_error ? "error" : "stop",
+          messageMetadata: {
+            usage: resultMsg.usage,
+            duration_ms: resultMsg.duration_ms,
+            num_turns: resultMsg.num_turns,
+            total_cost_usd: resultMsg.total_cost_usd,
+          },
+        }),
+      );
       break;
     }
 
