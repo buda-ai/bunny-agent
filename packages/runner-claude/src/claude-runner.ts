@@ -11,6 +11,13 @@
  * @see https://platform.claude.com/docs/en/agent-sdk/typescript-v2-preview
  */
 
+import type {
+  SDKAssistantMessage,
+  SDKMessage,
+  SDKResultMessage,
+  SDKSystemMessage,
+} from "@anthropic-ai/claude-agent-sdk";
+
 /**
  * Options for creating a Claude runner
  */
@@ -45,42 +52,76 @@ export interface ClaudeRunner {
  * Type definitions for Claude Agent SDK
  * Based on @anthropic-ai/claude-agent-sdk
  */
-interface SDKMessage {
+// interface SDKMessage {
+//   type: string;
+//   subtype?: string;
+//   [key: string]: unknown;
+// }
+
+// interface SDKResultMessage extends SDKMessage {
+//   type: "result";
+//   subtype: "success" | "error" | "interrupted";
+//   is_error?: boolean;
+//   result?: string;
+//   duration_ms?: number;
+//   num_turns?: number;
+//   total_cost_usd?: number;
+//   permission_denials?: string[];
+//   errors?: string[];
+//   structured_output?: unknown;
+// }
+
+interface SDKAssistantMessageContent {
   type: string;
-  subtype?: string;
-  [key: string]: unknown;
+  text?: string;
+  id?: string;
+  name?: string;
+  input?: unknown;
 }
 
-interface SDKResultMessage extends SDKMessage {
-  type: "result";
-  subtype: "success" | "error" | "interrupted";
-  is_error?: boolean;
-  duration_ms?: number;
-  num_turns?: number;
-  total_cost_usd?: number;
-  permission_denials?: number;
-  errors?: string[];
-  structured_output?: unknown;
+interface SDKAssistantMessageData {
+  id: string;
+  model: string;
+  role: string;
+  stop_reason: string;
+  type: string;
+  content: SDKAssistantMessageContent[];
+  usage?: {
+    input_tokens: number;
+    output_tokens: number;
+    [key: string]: unknown;
+  };
 }
 
-interface SDKAssistantMessage extends SDKMessage {
-  type: "assistant";
-  message: string;
-}
+// interface SDKAssistantMessage extends SDKMessage {
+//   type: "assistant";
+//   message: SDKAssistantMessageData | string;
+//   error?: string;
+//   session_id?: string;
+// }
 
-interface SDKToolUseMessage extends SDKMessage {
-  type: "tool_use";
-  tool_name: string;
-  tool_input: unknown;
-  tool_use_id: string;
-}
+// interface SDKToolUseMessage extends SDKMessage {
+//   type: "tool_use";
+//   tool_name: string;
+//   tool_input: unknown;
+//   tool_use_id: string;
+// }
 
-interface SDKToolResultMessage extends SDKMessage {
-  type: "tool_result";
-  tool_use_id: string;
-  output: string;
-  is_error?: boolean;
-}
+// interface SDKToolResultMessage extends SDKMessage {
+//   type: "tool_result";
+//   tool_use_id: string;
+//   output: string;
+//   is_error?: boolean;
+// }
+
+// interface SDKSystemMessage extends SDKMessage {
+//   type: "system";
+//   subtype?: string;
+//   model?: string;
+//   cwd?: string;
+//   session_id?: string;
+//   tools?: string[];
+// }
 
 interface ClaudeAgentSDKOptions {
   model?: string;
@@ -109,6 +150,13 @@ const OPTIONAL_MODULES: Record<string, string> = {
 export function createClaudeRunner(options: ClaudeRunnerOptions): ClaudeRunner {
   return {
     async *run(userInput: string): AsyncIterable<string> {
+      // Debug: log all environment variables (redacted)
+      console.error("[SandAgent] Environment check:");
+      console.error(
+        `  ANTHROPIC_API_KEY: ${process.env.ANTHROPIC_API_KEY ? `set (${process.env.ANTHROPIC_API_KEY.substring(0, 10)}...)` : "NOT SET"}`,
+      );
+      console.error(`  All env keys: ${Object.keys(process.env).join(", ")}`);
+
       // Check for API key
       const apiKey = process.env.ANTHROPIC_API_KEY;
       if (!apiKey) {
@@ -175,6 +223,7 @@ async function* runWithClaudeAgentSDK(
       prompt: userInput,
       options: sdkOptions,
     })) {
+      // console.log("claude return message", JSON.stringify(message, null, 2));
       // Convert SDK messages to AI SDK UI format
       const chunks = convertSDKMessageToAISDKUI(message);
       for (const chunk of chunks) {
@@ -182,85 +231,245 @@ async function* runWithClaudeAgentSDK(
       }
     }
 
-    // Send finish message
-    yield `d:{"finishReason":"stop"}\n`;
+    // Send stream termination marker
+    yield `data: [DONE]\n\n`;
   } catch (error) {
     // Stream error as AI SDK UI format
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error occurred";
-    yield `3:${JSON.stringify(errorMessage)}\n`;
-    yield `d:{"finishReason":"error"}\n`;
+    yield formatDataStream({ type: "error", error: errorMessage });
+    yield formatDataStream({
+      type: "finish-message",
+      finishReason: "error",
+      usage: { promptTokens: 0, completionTokens: 0 },
+    });
+    yield `data: [DONE]\n\n`;
   }
 }
 
 /**
- * Convert Claude Agent SDK message to AI SDK UI format
+ * Convert Claude Agent SDK message to AI SDK UI format (SSE-based Data Stream Protocol)
  *
- * AI SDK UI message types:
- * - 0: text content
- * - 3: error
- * - 9: tool call
- * - a: tool result
- * - d: finish
+ * AI SDK UI Data Stream Protocol uses Server-Sent Events format:
+ * - message-start: Beginning of a new message
+ * - text-start/text-delta/text-end: Text content streaming
+ * - tool-call-start/tool-call-delta/tool-call-end: Tool calls
+ * - tool-result: Tool execution results
+ * - error: Error messages
+ * - finish-message: Message completion
+ *
+ * @see https://ai-sdk.dev/docs/ai-sdk-ui/stream-protocol
  */
 function convertSDKMessageToAISDKUI(message: SDKMessage): string[] {
   const chunks: string[] = [];
 
   switch (message.type) {
-    case "system":
+    case "system": {
       // System initialization messages - emit as text for visibility
-      if (message.subtype === "init") {
+      const sysMsg = message as SDKSystemMessage;
+      if (sysMsg.subtype === "init") {
         chunks.push(
-          `0:${JSON.stringify(`[System initialized: ${message.model ?? "unknown model"}]\n`)}\n`,
+          formatDataStream({
+            type: "start",
+            messageId: sysMsg.session_id,
+            metadata: {
+              tools: sysMsg.tools,
+              model: sysMsg.model,
+              sessionId: sysMsg.session_id,
+            },
+          }),
         );
       }
       break;
+    }
 
-    case "assistant":
-      // Assistant text response
+    case "assistant": {
+      // Assistant response - can contain text and tool_use content blocks
       const assistantMsg = message as SDKAssistantMessage;
+
+      // Check for error in the message
+      if (assistantMsg.error) {
+        const errorDetail = message.message.content
+          .map((c: { type: string; text: string }) => c.text)
+          .join("\n");
+        chunks.push(
+          formatDataStream({
+            type: "error",
+            errorText: `${assistantMsg.error}: ${errorDetail}`,
+          }),
+        );
+        break;
+      }
+
+      // Handle message content
       if (assistantMsg.message) {
-        chunks.push(`0:${JSON.stringify(assistantMsg.message)}\n`);
+        // If message is a string (simple text response)
+        if (typeof assistantMsg.message === "string") {
+          const textId = generateId();
+          chunks.push(formatDataStream({ type: "text-start", id: textId }));
+          chunks.push(
+            formatDataStream({
+              type: "text-delta",
+              id: textId,
+              delta: assistantMsg.message,
+            }),
+          );
+          chunks.push(formatDataStream({ type: "text-end", id: textId }));
+        }
+        // If message is an object with content array
+        else if (
+          assistantMsg.message.content &&
+          Array.isArray(assistantMsg.message.content)
+        ) {
+          for (const block of assistantMsg.message.content) {
+            if (block.type === "text" && block.text) {
+              const textId = generateId();
+              chunks.push(formatDataStream({ type: "text-start", id: textId }));
+              chunks.push(
+                formatDataStream({
+                  type: "text-delta",
+                  id: textId,
+                  delta: block.text,
+                }),
+              );
+              chunks.push(formatDataStream({ type: "text-end", id: textId }));
+            } else if (block.type === "tool_use") {
+              const toolCallId = block.id || generateId();
+              chunks.push(
+                formatDataStream({
+                  type: "tool-call-start",
+                  id: toolCallId,
+                  name: block.name,
+                }),
+              );
+              if (block.input) {
+                chunks.push(
+                  formatDataStream({
+                    type: "tool-call-delta",
+                    id: toolCallId,
+                    delta: JSON.stringify(block.input),
+                  }),
+                );
+              }
+              chunks.push(
+                formatDataStream({
+                  type: "tool-call-end",
+                  id: toolCallId,
+                }),
+              );
+            }
+          }
+        }
       }
       break;
+    }
 
-    case "tool_use":
-      // Tool call
-      const toolUseMsg = message as SDKToolUseMessage;
-      chunks.push(
-        `9:${JSON.stringify({
-          toolCallId: toolUseMsg.tool_use_id,
-          toolName: toolUseMsg.tool_name,
-          args: toolUseMsg.tool_input,
-        })}\n`,
-      );
-      break;
+    // case "tool_use": {
+    //   // Standalone tool call message
+    //   const toolUseMsg = message as SDKToolUseMessage;
+    //   const toolCallId = toolUseMsg.tool_use_id || generateId();
 
-    case "tool_result":
-      // Tool result
-      const toolResultMsg = message as SDKToolResultMessage;
-      chunks.push(
-        `a:${JSON.stringify({
-          toolCallId: toolResultMsg.tool_use_id,
-          result: toolResultMsg.output,
-        })}\n`,
-      );
-      break;
+    //   chunks.push(formatDataStream({
+    //     type: "tool-call-start",
+    //     id: toolCallId,
+    //     name: toolUseMsg.tool_name,
+    //   }));
+    //   if (toolUseMsg.tool_input) {
+    //     chunks.push(formatDataStream({
+    //       type: "tool-call-delta",
+    //       id: toolCallId,
+    //       delta: JSON.stringify(toolUseMsg.tool_input),
+    //     }));
+    //   }
+    //   chunks.push(formatDataStream({
+    //     type: "tool-call-end",
+    //     id: toolCallId,
+    //   }));
+    //   break;
+    // }
 
-    case "result":
+    // case "tool_result": {
+    //   // Tool result
+    //   const toolResultMsg = message as SDKToolResultMessage;
+    //   chunks.push(formatDataStream({
+    //     type: "tool-result",
+    //     id: toolResultMsg.tool_use_id,
+    //     result: toolResultMsg.output,
+    //     isError: toolResultMsg.is_error ?? false,
+    //   }));
+    //   break;
+    // }
+
+    case "result": {
       // Result message - indicates completion
       const resultMsg = message as SDKResultMessage;
-      if (resultMsg.is_error && resultMsg.errors) {
-        chunks.push(`3:${JSON.stringify(resultMsg.errors.join(", "))}\n`);
+
+      // Handle errors
+      if (resultMsg.is_error) {
+        if (resultMsg.subtype === "success") {
+          chunks.push(
+            formatDataStream({
+              type: "finish",
+              finishReason: "error",
+              rawFinishReason: resultMsg.result,
+              totalUsage: {
+                inputTokens: resultMsg.usage.input_tokens,
+                inputTokenDetails: {
+                  noCacheTokens:
+                    resultMsg.usage.input_tokens -
+                    resultMsg.usage.cache_read_input_tokens,
+                  cacheReadTokens: resultMsg.usage.cache_read_input_tokens,
+                  cacheWriteTokens: resultMsg.usage.cache_creation_input_tokens,
+                },
+                outputTokens: resultMsg.usage.output_tokens,
+                outputTokenDetails: {
+                  textTokens: resultMsg.usage.output_tokens,
+                  reasoningTokens: 0,
+                },
+              },
+            }),
+          );
+        }
       }
+
+      // // Finish message with metadata
+      // chunks.push(formatDataStream({
+      //   type: "finish-message",
+      //   finishReason: resultMsg.is_error ? "error" :
+      //     resultMsg.subtype === "interrupted" ? "stop" : "stop",
+      //   usage: {
+      //     promptTokens: 0,
+      //     completionTokens: 0,
+      //   },
+      // }));
       break;
+    }
 
     default:
       // Other message types (user, thinking, etc.) - skip for now
+      console.error(
+        `[SandAgent] Unhandled message type: ${message.type}`,
+        message,
+      );
       break;
   }
 
   return chunks;
+}
+
+/**
+ * Format a message as AI SDK UI Data Stream format
+ * Format: data: {json}\n\n
+ */
+function formatDataStream(data: Record<string, unknown>): string {
+  return `data: ${JSON.stringify(data)}\n\n`;
+}
+
+/**
+ * Generate a unique ID for message parts
+ */
+function generateId(): string {
+  return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 }
 
 /**
@@ -285,14 +494,33 @@ async function* runMockAgent(
     `2. Install the SDK: npm install @anthropic-ai/claude-agent-sdk\n\n` +
     `Documentation: https://platform.claude.com/docs/en/agent-sdk/typescript-v2-preview`;
 
+  const textId = generateId();
+
+  // Start text block
+  yield formatDataStream({ type: "text-start", id: textId });
+
   // Simulate streaming by yielding chunks
   const words = response.split(" ");
   for (const word of words) {
-    yield `0:${JSON.stringify(word + " ")}\n`;
+    yield formatDataStream({
+      type: "text-delta",
+      id: textId,
+      delta: word + " ",
+    });
     // Small delay to simulate streaming
     await new Promise((resolve) => setTimeout(resolve, 20));
   }
 
-  // End of message
-  yield `d:{"finishReason":"stop"}\n`;
+  // End text block
+  yield formatDataStream({ type: "text-end", id: textId });
+
+  // Finish message
+  yield formatDataStream({
+    type: "finish-message",
+    finishReason: "stop",
+    usage: { promptTokens: 0, completionTokens: 0 },
+  });
+
+  // Stream termination
+  yield `data: [DONE]\n\n`;
 }

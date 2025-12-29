@@ -160,7 +160,7 @@ export class E2BSandbox implements SandboxAdapter {
         `[E2B] Installing @anthropic-ai/claude-agent-sdk in sandbox ${id}`,
       );
       const installResult = await handle.runCommand(
-        "npm install -g @anthropic-ai/claude-agent-sdk",
+        "npm install --prefix /sandagent @anthropic-ai/claude-agent-sdk",
       );
       if (installResult.exitCode !== 0) {
         console.error(
@@ -236,6 +236,12 @@ class E2BHandle implements SandboxHandle {
   exec(command: string[], opts?: ExecOptions): AsyncIterable<Uint8Array> {
     const self = this;
 
+    // Add NODE_PATH so Node can find packages installed in /sandagent
+    const envWithNodePath = {
+      ...opts?.env,
+      NODE_PATH: "/sandagent/node_modules",
+    };
+
     return {
       [Symbol.asyncIterator](): AsyncIterator<Uint8Array> {
         const chunks: Uint8Array[] = [];
@@ -245,7 +251,7 @@ class E2BHandle implements SandboxHandle {
 
         const commandPromise = self.instance.commands.run(command.join(" "), {
           cwd: opts?.cwd,
-          envs: opts?.env,
+          envs: envWithNodePath,
           onStdout: (data: string) => {
             const chunk = new TextEncoder().encode(data);
             chunks.push(chunk);
