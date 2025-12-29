@@ -238,7 +238,6 @@ async function* runWithClaudeAgentSDK(
   }
 
   try {
-    console.error("[SandAgent] Starting sdk.query with options:", JSON.stringify(sdkOptions, null, 2));
     console.error("[SandAgent] User input:", userInput);
     
     const queryIterator = sdk.query({
@@ -246,11 +245,10 @@ async function* runWithClaudeAgentSDK(
       options: sdkOptions,
     });
     
-    console.error("[SandAgent] Query iterator created, starting iteration...");
+    // console.error("[SandAgent] Query iterator created, starting iteration...");
     
     for await (const message of queryIterator) {
-      console.error("[SandAgent] Received message type:", message.type);
-      console.log("claude return message", JSON.stringify(message, null, 2));
+      // console.log("claude return message", JSON.stringify(message, null, 2));
 
       // Convert SDK messages to AI SDK UI format
       const chunks = convertSDKMessageToAISDKUI(message);
@@ -259,23 +257,22 @@ async function* runWithClaudeAgentSDK(
       }
 
     }
-    // Send stream termination marker
-    yield `data: [DONE]\n\n`;
   } catch (error) {
     // Stream error as AI SDK UI format
-    console.error("[SandAgent] SDK query error:", error);
+    // console.error("[SandAgent] SDK query error:", error);
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error occurred";
     const errorStack = error instanceof Error ? error.stack : "";
     console.error("[SandAgent] Error message:", errorMessage);
     console.error("[SandAgent] Error stack:", errorStack);
     
-    yield formatDataStream({ type: "error", error: errorMessage });
+    yield formatDataStream({ type: "error", errorText: errorMessage });
     yield formatDataStream({
       type: "finish-message",
       finishReason: "error",
       usage: { promptTokens: 0, completionTokens: 0 },
     });
+  } finally {
     yield `data: [DONE]\n\n`;
   }
 }
