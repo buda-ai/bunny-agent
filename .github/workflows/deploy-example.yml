@@ -1,10 +1,50 @@
+# =============================================================================
+# Deploy SandAgent Example to Vercel
+# =============================================================================
+#
+# Architecture:
+#   Browser -> Vercel (Next.js) -> E2B Sandbox -> runner-cli -> Claude Agent SDK
+#
+# Current Status: DEV MODE
+# -------------------------
+# runner-cli 和 runner-claude 尚未发布到 npm，因此：
+# 1. 本地构建 bundle.mjs（包含 runner-cli + runner-claude + 依赖）
+# 2. Vercel 部署时包含 bundle.mjs
+# 3. 运行时 E2BSandbox 将 bundle.mjs 上传到沙箱
+# 4. 沙箱内安装 @anthropic-ai/claude-agent-sdk 后执行
+#
+# After npm Publish: PRODUCTION MODE
+# ----------------------------------
+# 发布 @sandagent/runner-cli 到 npm 后，可以：
+#
+# Option A: 创建预装 E2B 模板（推荐，最快启动）
+#   1. 创建 E2B 模板，预装 @sandagent/runner-cli
+#   2. 修改 E2BSandbox 使用该模板 ID
+#   3. 删除 bundle 上传逻辑
+#   4. 本工作流只需构建 example app
+#
+# Option B: 动态安装（简单，但启动慢）
+#   1. 沙箱启动时 npm install -g @sandagent/runner-cli
+#   2. 无需自定义模板
+#
+# Required Secrets:
+#   - VERCEL_TOKEN: Vercel 部署令牌
+#   - VERCEL_ORG_ID: Vercel 组织 ID
+#   - VERCEL_PROJECT_ID: Vercel 项目 ID
+#
+# Client Configuration (Settings 页面):
+#   - ANTHROPIC_API_KEY: Claude API 密钥
+#   - E2B_API_KEY: E2B 沙箱 API 密钥
+#
+# =============================================================================
+
 name: Deploy SandAgent Example to Vercel
 
 on:
   push:
     branches:
       - main
-      - develop
+  workflow_dispatch: # 允许手动触发
 
 env:
   VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
@@ -28,9 +68,37 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Build packages
+      # =========================================
+      # DEV MODE: Build local packages
+      # =========================================
+      - name: Build all packages (TypeScript)
         run: pnpm build
 
+      - name: Build runner-cli bundle
+        run: pnpm --filter @sandagent/runner-cli build:bundle
+
+      - name: Verify runner bundle
+        run: |
+          if [ ! -f "apps/runner-cli/dist/bundle.mjs" ]; then
+            echo "❌ Error: bundle.mjs not found"
+            exit 1
+          fi
+          echo "✅ bundle.mjs: $(du -h apps/runner-cli/dist/bundle.mjs | cut -f1)"
+
+      # =========================================
+      # PRODUCTION MODE (发布 npm 后启用)
+      # =========================================
+      # 取消下面注释，注释掉上面的 DEV MODE 部分
+      #
+      # - name: Build example app only
+      #   run: |
+      #     pnpm --filter @sandagent/core build
+      #     pnpm --filter @sandagent/sandbox-e2b build
+      #     pnpm --filter @sandagent/example build
+
+      # =========================================
+      # Deploy to Vercel
+      # =========================================
       - name: Install Vercel CLI
         run: pnpm add -g vercel@latest
 
