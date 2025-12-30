@@ -12,11 +12,11 @@
  */
 
 import {
-  tool,
   type SDKAssistantMessage,
   type SDKMessage,
   type SDKResultMessage,
   type SDKSystemMessage,
+  tool,
 } from "@anthropic-ai/claude-agent-sdk";
 
 /**
@@ -230,23 +230,30 @@ async function* runWithClaudeAgentSDK(
       body: "{}",
       signal: AbortSignal.timeout(10000), // 10 second timeout
     });
-    console.error(`[SandAgent] Network test completed in ${Date.now() - testStart}ms, status: ${response.status}`);
+    console.error(
+      `[SandAgent] Network test completed in ${Date.now() - testStart}ms, status: ${response.status}`,
+    );
   } catch (netError) {
-    console.error("[SandAgent] Network test FAILED:", netError instanceof Error ? netError.message : netError);
+    console.error(
+      "[SandAgent] Network test FAILED:",
+      netError instanceof Error ? netError.message : netError,
+    );
     console.error("[SandAgent] ANTHROPIC_BASE_URL:", baseUrl);
-    console.error("[SandAgent] This URL may not be accessible from the E2B sandbox (e.g., localhost or internal network)");
+    console.error(
+      "[SandAgent] This URL may not be accessible from the E2B sandbox (e.g., localhost or internal network)",
+    );
   }
 
   try {
     console.error("[SandAgent] User input:", userInput);
-    
+
     const queryIterator = sdk.query({
       prompt: userInput,
       options: sdkOptions,
     });
-    
+
     // console.error("[SandAgent] Query iterator created, starting iteration...");
-    
+
     for await (const message of queryIterator) {
       // console.log("claude return message", JSON.stringify(message, null, 2));
 
@@ -255,7 +262,6 @@ async function* runWithClaudeAgentSDK(
       for (const chunk of chunks) {
         yield chunk;
       }
-
     }
   } catch (error) {
     // Stream error as AI SDK UI format
@@ -265,7 +271,7 @@ async function* runWithClaudeAgentSDK(
     const errorStack = error instanceof Error ? error.stack : "";
     console.error("[SandAgent] Error message:", errorMessage);
     console.error("[SandAgent] Error stack:", errorStack);
-    
+
     yield formatDataStream({ type: "error", errorText: errorMessage });
     yield formatDataStream({
       type: "finish-message",
