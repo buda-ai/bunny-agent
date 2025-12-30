@@ -237,7 +237,7 @@ class E2BHandle implements SandboxHandle {
     const self = this;
 
     // Add NODE_PATH so Node can find packages installed in /sandagent
-    const envWithNodePath = {
+    const envWithNodePath: Record<string, string> = {
       ...opts?.env,
       NODE_PATH: "/sandagent/node_modules",
     };
