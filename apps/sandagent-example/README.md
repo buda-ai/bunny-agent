@@ -16,9 +16,22 @@ pnpm install
 ```bash
 # For local development (creates bundle.mjs for uploading to sandbox)
 pnpm --filter @sandagent/runner-cli build:bundle
+# Run directly with node
+node apps/runner-cli/dist/cli.js run --template coder
+
 
 # For npm publish (only compiles TypeScript)
 pnpm --filter @sandagent/runner-cli build
+
+## Or
+# Build CLI
+pnpm --filter @sandagent/runner-cli build
+
+# Global link (optional, allows using sandagent command directly)
+cd apps/runner-cli && pnpm link --global && cd ../..
+
+# Run built-in template
+sandagent run --template coder
 ```
 
 ### 3. Configure API keys

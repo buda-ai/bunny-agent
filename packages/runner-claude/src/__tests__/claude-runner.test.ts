@@ -51,11 +51,23 @@ describe("createClaudeRunner", () => {
     // Should have yielded some chunks
     expect(chunks.length).toBeGreaterThan(0);
 
-    // First chunk should be text format (0:...)
-    expect(chunks[0]).toMatch(/^0:/);
+    // First chunk should be data stream format (data: {...})
+    expect(chunks[0]).toMatch(/^data: /);
 
-    // Last chunk should be finish message (d:...)
-    expect(chunks[chunks.length - 1]).toMatch(/^d:/);
+    // Should have text-start chunk
+    expect(chunks.some((c) => c.includes('"type":"text-start"'))).toBe(true);
+
+    // Should have text-delta chunks
+    expect(chunks.some((c) => c.includes('"type":"text-delta"'))).toBe(true);
+
+    // Should have text-end chunk
+    expect(chunks.some((c) => c.includes('"type":"text-end"'))).toBe(true);
+
+    // Should have finish chunk
+    expect(chunks.some((c) => c.includes('"type":"finish"'))).toBe(true);
+
+    // Last chunk should be [DONE]
+    expect(chunks[chunks.length - 1]).toBe("data: [DONE]\n\n");
   });
 
   it("should include user input in mock response", async () => {
@@ -70,10 +82,13 @@ describe("createClaudeRunner", () => {
       chunks.push(chunk);
     }
 
-    // Combine all text chunks
+    // Combine all text-delta chunks
     const fullText = chunks
-      .filter((c) => c.startsWith("0:"))
-      .map((c) => JSON.parse(c.slice(2)))
+      .filter((c) => c.includes('"type":"text-delta"'))
+      .map((c) => {
+        const json = JSON.parse(c.replace("data: ", "").trim());
+        return json.delta || "";
+      })
       .join("");
 
     // Should contain the user input
@@ -92,10 +107,13 @@ describe("createClaudeRunner", () => {
       chunks.push(chunk);
     }
 
-    // Combine all text chunks
+    // Combine all text-delta chunks
     const fullText = chunks
-      .filter((c) => c.startsWith("0:"))
-      .map((c) => JSON.parse(c.slice(2)))
+      .filter((c) => c.includes('"type":"text-delta"'))
+      .map((c) => {
+        const json = JSON.parse(c.replace("data: ", "").trim());
+        return json.delta || "";
+      })
       .join("");
 
     // Should contain the model name
@@ -114,14 +132,16 @@ describe("createClaudeRunner", () => {
       chunks.push(chunk);
     }
 
-    // Combine all text chunks
+    // Combine all text-delta chunks
     const fullText = chunks
-      .filter((c) => c.startsWith("0:"))
-      .map((c) => JSON.parse(c.slice(2)))
+      .filter((c) => c.includes('"type":"text-delta"'))
+      .map((c) => {
+        const json = JSON.parse(c.replace("data: ", "").trim());
+        return json.delta || "";
+      })
       .join("");
 
-    // Should contain installation hint (updated to Claude Agent SDK)
-    expect(fullText).toContain("@anthropic-ai/claude-agent-sdk");
+    // Should contain installation hint
     expect(fullText).toContain("ANTHROPIC_API_KEY");
   });
 });
