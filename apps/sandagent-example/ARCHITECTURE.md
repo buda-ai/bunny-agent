@@ -1,6 +1,6 @@
-# SandAgent 架构
+# SandAgent Architecture
 
-## 整体流程
+## Overall Flow
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -18,18 +18,18 @@
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                        @sandagent/core (SandAgent)                          │
 │                                                                             │
-│   route.ts 创建:                                                            │
+│   route.ts creates:                                                         │
 │   ┌─────────────────────────────────────────────────────────────────────┐  │
 │   │  const sandbox = new E2BSandbox({ apiKey, runnerBundlePath })       │  │
 │   │  const agent = new SandAgent({ id, sandbox, runner, env })          │  │
 │   │  return agent.stream({ messages, workspace })                       │  │
 │   └─────────────────────────────────────────────────────────────────────┘  │
 │                                              │                              │
-│   SandAgent.stream() 做了什么:                                              │
-│   1. handle = await sandbox.attach(id)  // 连接到沙箱                       │
-│   2. command = buildCommand()           // 构建 CLI 命令                    │
-│   3. stdout = handle.exec(command)      // 在沙箱内执行                     │
-│   4. return Response(stream)            // 直接透传 stdout                  │
+│   What SandAgent.stream() does:                                             │
+│   1. handle = await sandbox.attach(id)  // Connect to sandbox               │
+│   2. command = buildCommand()           // Build CLI command                │
+│   3. stdout = handle.exec(command)      // Execute in sandbox               │
+│   4. return Response(stream)            // Passthrough stdout directly      │
 └─────────────────────────────────────────────────────────────────────────────┘
                                               │
                                               ▼
@@ -37,45 +37,45 @@
 │                     @sandagent/sandbox-e2b (E2BSandbox)                     │
 │                                                                             │
 │   attach(id):                                                               │
-│   1. E2B SDK 创建云端沙箱实例                                                │
-│   2. 上传 runner bundle.mjs 到 /sandagent/runner/                           │
-│   3. 上传 templates/ 到 /sandagent/templates/                               │
+│   1. E2B SDK creates cloud sandbox instance                                 │
+│   2. Upload runner bundle.mjs to /sandagent/runner/                         │
+│   3. Upload templates/ to /sandagent/templates/                             │
 │   4. npm install @anthropic-ai/claude-agent-sdk                            │
-│   5. 返回 E2BHandle                                                         │
+│   5. Return E2BHandle                                                       │
 │                                                                             │
 │   E2BHandle.exec(command):                                                  │
-│   - 在沙箱内执行: node /sandagent/runner/bundle.mjs run --model ... -- "prompt"│
-│   - 流式返回 stdout (AI SDK UI 格式)                                        │
+│   - Execute in sandbox: node /sandagent/runner/bundle.mjs run --model ... -- "prompt"│
+│   - Stream stdout (AI SDK UI format)                                        │
 └─────────────────────────────────────────────────────────────────────────────┘
                                               │
                                               ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                    E2B Cloud Sandbox (远程隔离环境)                          │
+│                    E2B Cloud Sandbox (Remote Isolated Environment)          │
 │                                                                             │
-│   执行命令:                                                                  │
+│   Execute command:                                                          │
 │   node /sandagent/runner/bundle.mjs run \                                   │
 │     --model claude-sonnet-4-20250514 \                                      │
 │     --cwd /home/user \                                                      │
 │     --template default \                                                    │
-│     -- "用户的问题"                                                          │
+│     -- "user's question"                                                    │
 │                                              │                              │
 │                                              ▼                              │
 │   ┌─────────────────────────────────────────────────────────────────────┐  │
 │   │              @sandagent/runner-cli (runner.ts)                      │  │
 │   │                                                                     │  │
-│   │   1. loadTemplate("default")  // 加载 CLAUDE.md + settings.json    │  │
+│   │   1. loadTemplate("default")  // Load CLAUDE.md + settings.json    │  │
 │   │   2. createClaudeRunner({ model, systemPrompt, ... })              │  │
 │   │   3. for await (chunk of runner.run(userInput))                    │  │
-│   │        process.stdout.write(chunk)  // 输出 AI SDK UI 流           │  │
+│   │        process.stdout.write(chunk)  // Output AI SDK UI stream     │  │
 │   └─────────────────────────────────────────────────────────────────────┘  │
 │                                              │                              │
 │                                              ▼                              │
 │   ┌─────────────────────────────────────────────────────────────────────┐  │
 │   │            @sandagent/runner-claude (claude-runner.ts)             │  │
 │   │                                                                     │  │
-│   │   1. 加载 @anthropic-ai/claude-agent-sdk                           │  │
+│   │   1. Load @anthropic-ai/claude-agent-sdk                           │  │
 │   │   2. sdk.query({ prompt, options })                                │  │
-│   │   3. 转换 SDK 消息 → AI SDK UI 格式                                 │  │
+│   │   3. Convert SDK messages → AI SDK UI format                       │  │
 │   │      - assistant → 0:text                                          │  │
 │   │      - tool_use  → 9:toolCall                                      │  │
 │   │      - tool_result → a:toolResult                                  │  │
@@ -87,32 +87,32 @@
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-## 包依赖关系
+## Package Dependencies
 
 ```
-服务端运行：
-apps/sandagent-example (Next.js 前端)
+Server-side:
+apps/sandagent-example (Next.js frontend)
     └── @sandagent/core
-            └── @sandagent/sandbox-e2b (E2B 沙箱适配器)
+            └── @sandagent/sandbox-e2b (E2B sandbox adapter)
 
-沙箱内运行：
-apps/runner-cli (沙箱内运行的 CLI)
-    └── @sandagent/runner-claude (Claude Agent SDK 封装)
-            └── @anthropic-ai/claude-agent-sdk (官方 SDK)
+Inside sandbox:
+apps/runner-cli (CLI running inside sandbox)
+    └── @sandagent/runner-claude (Claude Agent SDK wrapper)
+            └── @anthropic-ai/claude-agent-sdk (Official SDK)
 ```
 
-## Runner 调用链详解
+## Runner Call Chain Details
 
 ```
-runner-cli/src/cli.ts          # CLI 入口，解析命令行参数
+runner-cli/src/cli.ts          # CLI entry point, parses command line arguments
         │
         ▼
-runner-cli/src/runner.ts       # 加载模板，调用 claude-runner
+runner-cli/src/runner.ts       # Loads template, calls claude-runner
         │
         │  import { createClaudeRunner } from "@sandagent/runner-claude"
         │
         ▼
-runner-claude/src/claude-runner.ts   # 封装 Claude Agent SDK
+runner-claude/src/claude-runner.ts   # Wraps Claude Agent SDK
         │
         │  import @anthropic-ai/claude-agent-sdk
         │
@@ -120,57 +120,57 @@ runner-claude/src/claude-runner.ts   # 封装 Claude Agent SDK
 Claude API (Anthropic)
 ```
 
-### runner-cli 职责
-- 解析命令行参数（model、template、cwd 等）
-- 加载模板配置（读取 `CLAUDE.md` 作为 system prompt）
-- 调用 `createClaudeRunner()` 执行任务
-- 把结果以 AI SDK UI 格式写到 stdout
+### runner-cli Responsibilities
+- Parse command line arguments (model, template, cwd, etc.)
+- Load template configuration (read `CLAUDE.md` as system prompt)
+- Call `createClaudeRunner()` to execute tasks
+- Write results to stdout in AI SDK UI format
 
-### runner-claude 职责
-- 封装 `@anthropic-ai/claude-agent-sdk`
-- 把 SDK 的消息格式转换成 AI SDK UI 格式
-- 处理 API key 缺失时的 mock 响应
+### runner-claude Responsibilities
+- Wrap `@anthropic-ai/claude-agent-sdk`
+- Convert SDK message format to AI SDK UI format
+- Handle mock responses when API key is missing
 
-### 为什么分成两个包？
-设计上是为了支持多种 runner（比如以后加 `runner-openai`、`runner-gemini`），runner-cli 作为统一入口，根据配置调用不同的 runner 实现。
+### Why Split Into Two Packages?
+The design supports multiple runners (e.g., future `runner-openai`, `runner-gemini`). runner-cli serves as a unified entry point that calls different runner implementations based on configuration.
 
-如果只用 Claude，可以合并成一个包简化结构。
+If only using Claude, the packages could be merged to simplify the structure.
 
-### 打包方式
-runner-cli 使用 esbuild 打包成单文件 `bundle.mjs`，会把 runner-claude 的代码一起打包进去：
+### Bundling Approach
+runner-cli uses esbuild to bundle into a single `bundle.mjs` file, including runner-claude code:
 ```bash
 esbuild src/cli.ts --bundle --platform=node --format=esm --outfile=dist/bundle.mjs
 ```
 
-所以实际上传到沙箱的只有一个 `bundle.mjs` 文件，不需要单独发布 runner-claude 到 npm。
+So only one `bundle.mjs` file is uploaded to the sandbox - no need to publish runner-claude to npm separately.
 
-## 关键设计点
+## Key Design Points
 
-### 1. 流式透传
-从 Claude API 到前端，整个链路都是流式的，服务端不解析/修改内容。
+### 1. Streaming Passthrough
+The entire chain from Claude API to frontend is streaming - the server doesn't parse or modify content.
 
-### 2. 沙箱隔离
-代码执行在 E2B 云端沙箱，与服务器完全隔离，安全可控。
+### 2. Sandbox Isolation
+Code execution happens in E2B cloud sandbox, completely isolated from the server, secure and controllable.
 
-### 3. 模板系统
-通过 `templates/` 目录配置不同 agent 的 system prompt 和工具权限：
+### 3. Template System
+Configure different agent system prompts and tool permissions via `templates/` directory:
 - `CLAUDE.md` - System prompt
-- `.claude/settings.json` - 工具权限、max_turns 等配置
-- `skills/*.md` - 额外技能说明
+- `.claude/settings.json` - Tool permissions, max_turns, etc.
+- `skills/*.md` - Additional skill descriptions
 
-### 4. AI SDK UI 协议
-统一使用 Vercel AI SDK 的流格式，前端可直接用 `useChat()` 消费：
-- `0:` - 文本内容
-- `9:` - 工具调用
-- `a:` - 工具结果
-- `d:` - 完成信号
+### 4. AI SDK UI Protocol
+Uses Vercel AI SDK stream format uniformly, frontend can consume directly with `useChat()`:
+- `0:` - Text content
+- `9:` - Tool call
+- `a:` - Tool result
+- `d:` - Finish signal
 
-## 文件对应
+## File Mapping
 
-| 层级 | 文件 | 职责 |
-|------|------|------|
-| API Route | `app/api/ai/route.ts` | 接收请求，创建 SandAgent，返回流 |
-| Core | `packages/core/src/sand-agent.ts` | 编排沙箱和 runner，构建命令 |
-| Sandbox | `packages/sandbox-e2b/src/e2b-sandbox.ts` | E2B 沙箱生命周期管理 |
-| Runner CLI | `apps/runner-cli/src/runner.ts` | 加载模板，调用 claude-runner |
-| Runner | `packages/runner-claude/src/claude-runner.ts` | 封装 Claude Agent SDK，输出 AI SDK UI 流 |
+| Layer | File | Responsibility |
+|-------|------|----------------|
+| API Route | `app/api/ai/route.ts` | Receive request, create SandAgent, return stream |
+| Core | `packages/core/src/sand-agent.ts` | Orchestrate sandbox and runner, build command |
+| Sandbox | `packages/sandbox-e2b/src/e2b-sandbox.ts` | E2B sandbox lifecycle management |
+| Runner CLI | `apps/runner-cli/src/runner.ts` | Load template, call claude-runner |
+| Runner | `packages/runner-claude/src/claude-runner.ts` | Wrap Claude Agent SDK, output AI SDK UI stream |
