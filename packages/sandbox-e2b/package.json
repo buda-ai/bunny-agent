@@ -28,15 +28,8 @@
   },
   "license": "Apache-2.0",
   "dependencies": {
-    "@sandagent/core": "workspace:*"
-  },
-  "peerDependencies": {
-    "e2b": ">=2.0.0"
-  },
-  "peerDependenciesMeta": {
-    "e2b": {
-      "optional": true
-    }
+    "@sandagent/core": "workspace:*",
+    "e2b": "^2.9.0"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",

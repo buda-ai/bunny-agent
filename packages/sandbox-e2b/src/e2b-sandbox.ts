@@ -5,6 +5,7 @@ import type {
   SandboxAdapter,
   SandboxHandle,
 } from "@sandagent/core";
+import { Sandbox as E2BSandboxClass } from "e2b";
 
 /**
  * Options for creating an E2BSandbox instance
@@ -63,10 +64,6 @@ interface E2BSandboxStatic {
   ): Promise<E2BSandboxInstance>;
 }
 
-const OPTIONAL_MODULES: Record<string, string> = {
-  e2b: "e2b",
-};
-
 /**
  * E2B-based sandbox implementation.
  */
@@ -98,13 +95,11 @@ export class E2BSandbox implements SandboxAdapter {
     let needsInit = false;
 
     if (!instance) {
-      const E2BSandboxClass = await this.loadE2B();
-      instance = await E2BSandboxClass.create({
+      instance = (await E2BSandboxClass.create(this.template, {
         apiKey: this.apiKey,
-        template: this.template,
         timeoutMs: this.timeout,
         metadata: { sandagentId: id },
-      });
+      })) as unknown as E2BSandboxInstance;
       this.instances.set(id, instance);
       needsInit = true;
     }
@@ -196,19 +191,6 @@ export class E2BSandbox implements SandboxAdapter {
     }
 
     return files;
-  }
-
-  private async loadE2B(): Promise<E2BSandboxStatic> {
-    try {
-      const modulePath = OPTIONAL_MODULES["e2b"];
-      const module = await import(/* webpackIgnore: true */ modulePath);
-      return (module.Sandbox ?? module.default) as E2BSandboxStatic;
-    } catch (error) {
-      throw new Error(
-        "E2B SDK not found. Please install e2b: npm install e2b\n" +
-          "Documentation: https://e2b.dev/docs",
-      );
-    }
   }
 }
 
