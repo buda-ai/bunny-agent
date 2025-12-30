@@ -95,11 +95,11 @@ export class E2BSandbox implements SandboxAdapter {
     let needsInit = false;
 
     if (!instance) {
-      instance = await E2BSandboxClass.create(this.template, {
+      instance = (await E2BSandboxClass.create(this.template, {
         apiKey: this.apiKey,
         timeoutMs: this.timeout,
         metadata: { sandagentId: id },
-      }) as unknown as E2BSandboxInstance;
+      })) as unknown as E2BSandboxInstance;
       this.instances.set(id, instance);
       needsInit = true;
     }
