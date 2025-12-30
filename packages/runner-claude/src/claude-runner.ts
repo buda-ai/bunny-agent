@@ -16,6 +16,7 @@ import {
   type SDKMessage,
   type SDKResultMessage,
   type SDKSystemMessage,
+  type SDKUserMessage,
   tool,
 } from "@anthropic-ai/claude-agent-sdk";
 
@@ -374,26 +375,23 @@ function convertSDKMessageToAISDKUI(message: SDKMessage): string[] {
               const toolCallId = block.id || generateId();
               chunks.push(
                 formatDataStream({
-                  type: "tool-call-start",
-                  id: toolCallId,
-                  name: block.name,
+                  type: "tool-input-start",
+                  toolCallId,
+                  toolName: block.name,
+                  dynamic: true,
                 }),
               );
               if (block.input) {
                 chunks.push(
                   formatDataStream({
-                    type: "tool-call-delta",
-                    id: toolCallId,
-                    delta: JSON.stringify(block.input),
+                    type: "tool-input-available",
+                    toolCallId,
+                    toolName: block.name,
+                    dynamic: true,
+                    input: block.input,
                   }),
                 );
               }
-              chunks.push(
-                formatDataStream({
-                  type: "tool-call-end",
-                  id: toolCallId,
-                }),
-              );
             }
           }
         }
@@ -438,7 +436,7 @@ function convertSDKMessageToAISDKUI(message: SDKMessage): string[] {
     // }
 
     case "result": {
-      console.log("result message", JSON.stringify(message, null, 2));
+      // console.log("result message", JSON.stringify(message, null, 2));
       // Result message - indicates completion
       const resultMsg = message as SDKResultMessage;
 
@@ -455,6 +453,37 @@ function convertSDKMessageToAISDKUI(message: SDKMessage): string[] {
           },
         }),
       );
+      break;
+    }
+    case "user": {
+      const usrMsg = message as SDKUserMessage;
+      // this is a tool use result
+      if (usrMsg.tool_use_result) {
+        const toolResult = usrMsg.message.content;
+        if (Array.isArray(toolResult)) {
+          for (const tool of toolResult) {
+            if (tool.is_error) {
+              chunks.push(
+                formatDataStream({
+                  type: "tool-output-error",
+                  toolCallId: tool.tool_use_id,
+                  errorText: tool.content,
+                  dynamic: true,
+                }),
+              );
+            } else {
+              chunks.push(
+                formatDataStream({
+                  type: "tool-output-available",
+                  toolCallId: tool.tool_use_id,
+                  output: tool.content,
+                  dynamic: true,
+                }),
+              );
+            }
+          }
+        }
+      }
       break;
     }
 
