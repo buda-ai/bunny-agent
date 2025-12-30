@@ -558,9 +558,8 @@ async function* runMockAgent(
 
   // Finish message
   yield formatDataStream({
-    type: "finish-message",
+    type: "finish",
     finishReason: "stop",
-    usage: { promptTokens: 0, completionTokens: 0 },
   });
 
   // Stream termination
