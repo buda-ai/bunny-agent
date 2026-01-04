@@ -164,6 +164,48 @@ Results are saved in JSON format:
 | `OPENAI_API_KEY` | Required for codex-cli runner |
 | `GOOGLE_API_KEY` | Required for gemini-cli runner |
 
+
+## Developer Guide
+
+### Setup
+```bash
+pnpm install && pnpm build
+```
+
+### Environment Setup
+
+Create a `.env` file in the project root:
+
+Copy the example file
+
+```bash
+cp .env.example .env
+```
+
+Add Your API Keys
+
+```bash
+# Required for dataset download
+HUGGINGFACE_TOKEN=hf_...
+
+# Required for your chosen runner
+ANTHROPIC_API_KEY=sk-ant-...    # For claudecode
+OPENAI_API_KEY=sk-...           # For codex-cli
+GOOGLE_API_KEY=...              # For gemini-cli
+```
+
+### First Run Example
+
+```bash
+# Run a random Level 1 task with verbose output
+pnpm benchmark:run --runner sandagent --level 1 --random --verbose
+
+# Compare results after running multiple agents
+pnpm benchmark:compare
+```
+
+> **Note**: Use the appropriate runner after ensuring the required API keys are correctly configured and the corresponding CLI tools are installed.
+
 ## License
 
 Apache 2.0
