@@ -125,6 +125,11 @@ interface SDKAssistantMessageData {
 //   tools?: string[];
 // }
 
+enum SettingSource {
+  user = 'user',
+  project = 'project',
+}
+
 interface ClaudeAgentSDKOptions {
   model?: string;
   systemPrompt?: string;
@@ -132,6 +137,9 @@ interface ClaudeAgentSDKOptions {
   allowedTools?: string[];
   cwd?: string;
   env?: Record<string, string>;
+  resume?: string,
+  // file system
+  settingSources?: SettingSource[],
 }
 
 interface ClaudeAgentSDKModule {
