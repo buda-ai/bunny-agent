@@ -119,6 +119,14 @@ async function handleDownload(args: {
 
   // Save to JSON for offline use
   const outputPath = join(args.output, `gaia-${args.dataset}-tasks.json`);
+
+  // Ensure output directory exists
+  const { mkdirSync } = await import("node:fs");
+  const outputDir = join(args.output);
+  if (!existsSync(outputDir)) {
+    mkdirSync(outputDir, { recursive: true });
+  }
+  
   await saveTasksToJson(tasks, outputPath);
 
   console.log(`\n✅ Download complete!`);
