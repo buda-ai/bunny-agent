@@ -37,6 +37,7 @@ export async function POST(request: Request) {
     sessionId,
     messages,
     template = "default",
+    resume,
     ANTHROPIC_API_KEY,
     ANTHROPIC_BASE_URL,
     E2B_API_KEY,
@@ -120,5 +121,6 @@ export async function POST(request: Request) {
   return agent.stream({
     messages: normalizedMessages,
     workspace: { path: "/home/user" },
+    resume,
   });
 }
