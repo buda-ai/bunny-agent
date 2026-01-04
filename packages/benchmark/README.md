@@ -162,7 +162,9 @@ Results are saved in JSON format:
 | `HUGGINGFACE_TOKEN` | Hugging Face API token for dataset access |
 | `ANTHROPIC_API_KEY` | Required for claudecode runner |
 | `OPENAI_API_KEY` | Required for codex-cli runner |
-| `GOOGLE_API_KEY` | Required for gemini-cli runner |
+| `GEMINI_API_KEY` | Required for gemini-cli runner (Option 1) |
+| `GOOGLE_API_KEY` | Required for gemini-cli with Vertex AI (Option 2) |
+| `GOOGLE_GENAI_USE_VERTEXAI` | Set to `true` when using `GOOGLE_API_KEY` |
 
 
 ## Developer Guide
@@ -191,7 +193,13 @@ HUGGINGFACE_TOKEN=hf_...
 # Required for your chosen runner
 ANTHROPIC_API_KEY=sk-ant-...    # For claudecode
 OPENAI_API_KEY=sk-...           # For codex-cli
-GOOGLE_API_KEY=...              # For gemini-cli
+
+# For gemini-cli (choose one option):
+# Option 1: Using Gemini API Key
+GEMINI_API_KEY=...
+# Option 2: Using Vertex AI
+GOOGLE_API_KEY=...
+GOOGLE_GENAI_USE_VERTEXAI=true
 ```
 
 ### First Run Example
