@@ -278,6 +278,56 @@ export async function isRunnerAvailable(runner: AgentRunner): Promise<boolean> {
 }
 
 /**
+ * Ensure codex-cli is logged in with OPENAI_API_KEY
+ */
+export async function ensureCodexLogin(): Promise<boolean> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    console.warn("⚠️  OPENAI_API_KEY not set, codex-cli may fail to authenticate");
+    return false;
+  }
+
+  // Check if already logged in
+  const statusResult = await executeCommand("codex", ["login", "status"], { timeout: 5000 });
+  if (statusResult.exitCode === 0) {
+    return true; // Already logged in
+  }
+
+  // Login with API key via stdin using spawn directly
+  console.log("🔑 Logging in to codex-cli with OPENAI_API_KEY...");
+  
+  return new Promise((resolve) => {
+    const proc = spawn("codex", ["login", "--with-api-key"], {
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+
+    let stderr = "";
+    proc.stderr.on("data", (data) => {
+      stderr += data.toString();
+    });
+
+    proc.on("close", (code) => {
+      if (code === 0) {
+        console.log("✅ codex-cli login successful");
+        resolve(true);
+      } else {
+        console.error("❌ codex-cli login failed:", stderr);
+        resolve(false);
+      }
+    });
+
+    proc.on("error", (err) => {
+      console.error("❌ codex-cli login error:", err.message);
+      resolve(false);
+    });
+
+    // Write API key to stdin and close it
+    proc.stdin.write(apiKey);
+    proc.stdin.end();
+  });
+}
+
+/**
  * Get available runners on the system
  */
 export async function getAvailableRunners(): Promise<AgentRunner[]> {
