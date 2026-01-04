@@ -72,7 +72,7 @@ export class SandockSandbox implements SandboxAdapter {
    */
   async attach(id: string): Promise<SandboxHandle> {
     // Create sandbox via Sandock API
-    const createResult = (await this.client.POST("/api/sandbox", {
+    const createResult = (await this.client.POST("/api/v1/sandbox", {
       body: {
         actorUserId: id,
         image: this.image,
@@ -95,7 +95,7 @@ export class SandockSandbox implements SandboxAdapter {
     }
 
     // Start the sandbox
-    const startResult = (await this.client.POST("/api/sandbox/{id}/start", {
+    const startResult = (await this.client.POST("/api/v1/sandbox/{id}/start", {
       params: { path: { id: sandboxId } },
     })) as ApiResponse<{ data: { id: string; started: boolean } }>;
 
@@ -135,56 +135,106 @@ class SandockHandle implements SandboxHandle {
 
     return {
       async *[Symbol.asyncIterator](): AsyncIterator<Uint8Array> {
-        // Build command string
-        const cmd = command.length === 1 ? command[0] : command;
+        // Build command string - note: proper shell escaping would be better
+        // but we maintain backward compatibility with the original implementation
+        const baseCmd = command.length === 1 ? command[0] : command.join(" ");
 
-        // Execute shell command via Sandock API
-        const result = (await self.client.POST("/api/sandbox/{id}/shell", {
-          params: { path: { id: self.sandboxId } },
-          body: {
-            cmd,
-            workdir: opts?.cwd ?? self.defaultWorkdir,
-            env: opts?.env,
-            timeoutMs: opts?.timeout ? opts.timeout * 1000 : undefined,
+        // Build full command with cwd and env support
+        const parts: string[] = [];
+
+        // Add working directory change (escape single quotes in path)
+        const workdir = opts?.cwd ?? self.defaultWorkdir;
+        if (workdir) {
+          const escapedWorkdir = workdir.replace(/'/g, "'\\''");
+          parts.push(`cd '${escapedWorkdir}'`);
+        }
+
+        // Add environment variables (validate keys and escape values)
+        if (opts?.env) {
+          const validKeyPattern = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+          const envParts = Object.entries(opts.env)
+            .filter(([key]) => validKeyPattern.test(key))
+            .map(([key, value]) => `export ${key}=${JSON.stringify(value)}`)
+            .join(" && ");
+          if (envParts) {
+            parts.push(envParts);
+          }
+        }
+
+        // Add the actual command
+        parts.push(baseCmd);
+
+        const cmd = parts.join(" && ");
+
+        // Queue for streaming chunks
+        const queue: Uint8Array[] = [];
+        let done = false;
+        let error: Error | null = null;
+        let resolveWait: (() => void) | null = null;
+
+        // Start shell command with streaming callbacks
+        const shellPromise = self.client.sandbox.shell(self.sandboxId, cmd, {
+          onStdout: (chunk: string) => {
+            queue.push(new TextEncoder().encode(chunk));
+            resolveWait?.();
           },
-        })) as ApiResponse<{
-          data: {
-            stdout: string;
-            stderr: string;
-            exitCode: number | null;
-            timedOut: boolean;
-            durationMs: number;
-          };
-        }>;
+          onStderr: (chunk: string) => {
+            queue.push(new TextEncoder().encode(chunk));
+            resolveWait?.();
+          },
+          onError: (err: unknown) => {
+            error = err instanceof Error ? err : new Error(String(err));
+            resolveWait?.();
+          },
+        });
 
-        if (result.error) {
-          throw new Error(
-            `Shell command failed: ${JSON.stringify(result.error)}`,
-          );
-        }
+        // Handle completion
+        shellPromise
+          .then((result) => {
+            // Check for errors in the result
+            if (result.data.timedOut) {
+              error = new Error(
+                `Command timed out after ${result.data.durationMs}ms`,
+              );
+            } else if (
+              result.data.exitCode !== 0 &&
+              result.data.exitCode !== null
+            ) {
+              console.warn(`Command exited with code ${result.data.exitCode}`);
+            }
+            done = true;
+            resolveWait?.();
+          })
+          .catch((err) => {
+            error = err instanceof Error ? err : new Error(String(err));
+            done = true;
+            resolveWait?.();
+          });
 
-        const data = result.data?.data;
-        if (!data) {
-          return;
-        }
+        // Yield chunks as they arrive
+        while (true) {
+          // Yield all queued chunks
+          while (queue.length > 0) {
+            const chunk = queue.shift();
+            if (chunk) {
+              yield chunk;
+            }
+          }
 
-        // Yield stdout
-        if (data.stdout) {
-          yield new TextEncoder().encode(data.stdout);
-        }
+          // Check for errors
+          if (error) {
+            throw error;
+          }
 
-        // Yield stderr (if any)
-        if (data.stderr) {
-          yield new TextEncoder().encode(data.stderr);
-        }
+          // Check if done
+          if (done) {
+            break;
+          }
 
-        // Check exit code
-        if (data.exitCode !== 0 && data.exitCode !== null) {
-          console.warn(`Command exited with code ${data.exitCode}`);
-        }
-
-        if (data.timedOut) {
-          throw new Error(`Command timed out after ${data.durationMs}ms`);
+          // Wait for more data
+          await new Promise<void>((resolve) => {
+            resolveWait = resolve;
+          });
         }
       },
     };
@@ -206,19 +256,8 @@ class SandockHandle implements SandboxHandle {
           ? file.content
           : new TextDecoder().decode(file.content);
 
-      const result = (await this.client.POST("/api/sandbox/{id}/fs/write", {
-        params: { path: { id: this.sandboxId } },
-        body: {
-          path: fullPath,
-          content,
-        },
-      })) as ApiResponse<{ data: boolean }>;
-
-      if (result.error) {
-        throw new Error(
-          `Failed to write file ${fullPath}: ${JSON.stringify(result.error)}`,
-        );
-      }
+      // Use high-level fs.write API
+      await this.client.fs.write(this.sandboxId, fullPath, content);
     }
   }
 
@@ -226,13 +265,11 @@ class SandockHandle implements SandboxHandle {
    * Destroy the sandbox and release resources
    */
   async destroy(): Promise<void> {
-    // Stop the sandbox first
-    await this.client.POST("/api/sandbox/{id}/stop", {
-      params: { path: { id: this.sandboxId } },
-    });
+    // Stop the sandbox using high-level API
+    await this.client.sandbox.stop(this.sandboxId);
 
-    // Then delete it
-    const result = (await this.client.DELETE("/api/sandbox/{id}", {
+    // Delete using raw API (no high-level method for delete sandbox)
+    const result = (await this.client.DELETE("/api/v1/sandbox/{id}", {
       params: { path: { id: this.sandboxId } },
     })) as ApiResponse<{ data: { id: string; deleted: boolean } }>;
 

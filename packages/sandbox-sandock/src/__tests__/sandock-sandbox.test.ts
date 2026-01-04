@@ -5,38 +5,15 @@ import { SandockSandbox } from "../sandock-sandbox.js";
 vi.mock("sandock", () => ({
   createSandockClient: vi.fn(() => ({
     POST: vi.fn().mockImplementation((path) => {
-      if (path === "/api/sandbox") {
+      if (path === "/api/v1/sandbox") {
         return Promise.resolve({
           data: { data: { id: "sandbox-123" } },
           error: null,
         });
       }
-      if (path === "/api/sandbox/{id}/start") {
+      if (path === "/api/v1/sandbox/{id}/start") {
         return Promise.resolve({
           data: { data: { id: "sandbox-123", started: true } },
-          error: null,
-        });
-      }
-      if (path === "/api/sandbox/{id}/shell") {
-        return Promise.resolve({
-          data: {
-            data: {
-              stdout: "command output",
-              stderr: "",
-              exitCode: 0,
-              timedOut: false,
-              durationMs: 100,
-            },
-          },
-          error: null,
-        });
-      }
-      if (path === "/api/sandbox/{id}/fs/write") {
-        return Promise.resolve({ data: { data: true }, error: null });
-      }
-      if (path === "/api/sandbox/{id}/stop") {
-        return Promise.resolve({
-          data: { data: { id: "sandbox-123", stopped: true } },
           error: null,
         });
       }
@@ -46,6 +23,46 @@ vi.mock("sandock", () => ({
       data: { data: { id: "sandbox-123", deleted: true } },
       error: null,
     }),
+    // High-level sandbox API with streaming support
+    sandbox: {
+      shell: vi.fn().mockImplementation(
+        (
+          _sandboxId: string,
+          _command: string,
+          callbacks?: {
+            onStdout?: (chunk: string) => void;
+            onStderr?: (chunk: string) => void;
+            onError?: (error: unknown) => void;
+          },
+        ) => {
+          // Simulate streaming output
+          if (callbacks?.onStdout) {
+            callbacks.onStdout("command output");
+          }
+          return Promise.resolve({
+            success: true,
+            data: {
+              stdout: "command output",
+              stderr: "",
+              exitCode: 0,
+              timedOut: false,
+              durationMs: 100,
+            },
+          });
+        },
+      ),
+      stop: vi.fn().mockResolvedValue({
+        success: true,
+        data: { id: "sandbox-123", stopped: true },
+      }),
+    },
+    // High-level fs API
+    fs: {
+      write: vi.fn().mockResolvedValue({
+        success: true,
+        data: true,
+      }),
+    },
   })),
 }));
 
