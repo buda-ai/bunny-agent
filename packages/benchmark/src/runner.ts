@@ -164,6 +164,11 @@ export function checkAnswer(
   const normalizedAgent = normalizeAnswer(agentAnswer);
   const normalizedExpected = normalizeAnswer(expectedAnswer);
 
+  // Empty agent answer is always incorrect
+  if (normalizedAgent.length === 0) {
+    return false;
+  }
+
   // Exact match
   if (normalizedAgent === normalizedExpected) {
     return true;
@@ -227,7 +232,8 @@ export async function runTask(
     const durationMs = Date.now() - startTime;
     const rawOutput = result.stdout;
     const answer = extractFinalAnswer(rawOutput);
-    const correct = checkAnswer(answer, task.answer);
+    // If command failed (non-zero exit code), mark as incorrect
+    const correct = result.exitCode === 0 && checkAnswer(answer, task.answer);
 
     return {
       taskId: task.id,
