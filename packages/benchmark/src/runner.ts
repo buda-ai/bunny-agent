@@ -40,7 +40,7 @@ const DEFAULT_RUNNER_CONFIGS: Record<AgentRunner, Partial<RunnerConfig>> = {
   },
   "codex-cli": {
     command: "codex",
-    args: [],
+    args: ["exec", "--full-auto", "--color", "never"],
     timeout: 300000,
   },
 };
@@ -88,9 +88,11 @@ function buildRunnerCommand(
 
     case "codex-cli":
       // Codex CLI format: codex "prompt"
+      // Escape single quotes in prompt and wrap with single quotes for shell
+      const escapedPrompt = prompt.replace(/'/g, "'\\''");
       return {
         command: baseCommand,
-        args: [...baseArgs, prompt],
+        args: [...baseArgs, `'${escapedPrompt}'`],
       };
 
     default:
