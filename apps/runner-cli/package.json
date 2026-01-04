@@ -19,7 +19,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc && pnpm bundle",
+    "build": "tsc",
     "build:bundle": "tsc && pnpm bundle",
     "bundle": "esbuild src/cli.ts --bundle --platform=node --format=esm --outfile=dist/bundle.mjs",
     "dev": "tsc --watch",
