@@ -26,6 +26,8 @@ export interface RunAgentOptions {
   maxTurns?: number;
   /** Allowed tools */
   allowedTools?: string[];
+  /** Resume session ID for multi-turn conversation */
+  resume?: string;
 }
 
 /**
@@ -177,6 +179,8 @@ export async function runAgent(options: RunAgentOptions): Promise<void> {
     maxTurns: options.maxTurns ?? template.settings?.max_turns,
     // Explicit allowedTools overrides template
     allowedTools: options.allowedTools ?? template.settings?.allowed_tools,
+    // Resume session for multi-turn conversation
+    resume: options.resume,
   };
 
   const runner = createClaudeRunner(runnerOptions);

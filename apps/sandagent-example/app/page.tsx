@@ -70,16 +70,31 @@ export default function Home() {
     clientConfigRef.current = clientConfig;
   }, [clientConfig]);
 
+  // Use a ref to track messages for accessing in body callback
+  const messagesRef = useRef<UIMessage[]>([]);
+
   const { messages, sendMessage, status, error } = useChat({
     transport: new DefaultChatTransport({
       api: "/api/ai",
-      body: () => ({
-        sessionId,
-        template: selectedTemplate,
-        ...(clientConfigRef.current || {}),
-      }),
+      body: () => {
+        const lastMessage = messagesRef.current[messagesRef.current.length - 1];
+        const metadata = lastMessage?.metadata as
+          | { sessionId?: string }
+          | undefined;
+        return {
+          sessionId,
+          resume: metadata?.sessionId,
+          template: selectedTemplate,
+          ...(clientConfigRef.current || {}),
+        };
+      },
     }),
   });
+
+  // Keep messagesRef in sync with messages
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
   const isLoading = status === "streaming" || status === "submitted";
   const hasError = status === "error" && error;
 

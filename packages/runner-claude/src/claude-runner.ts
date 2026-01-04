@@ -36,6 +36,8 @@ export interface ClaudeRunnerOptions {
   cwd?: string;
   /** Environment variables to pass to the agent */
   env?: Record<string, string>;
+  /** Resume session ID for multi-turn conversation */
+  resume?: string;
 }
 
 /**
@@ -125,6 +127,11 @@ interface SDKAssistantMessageData {
 //   tools?: string[];
 // }
 
+enum SettingSource {
+  user = "user",
+  project = "project",
+}
+
 interface ClaudeAgentSDKOptions {
   model?: string;
   systemPrompt?: string;
@@ -132,6 +139,9 @@ interface ClaudeAgentSDKOptions {
   allowedTools?: string[];
   cwd?: string;
   env?: Record<string, string>;
+  resume?: string;
+  // file system
+  settingSources?: SettingSource[];
 }
 
 interface ClaudeAgentSDKModule {
@@ -218,6 +228,7 @@ async function* runWithClaudeAgentSDK(
     allowedTools: options.allowedTools,
     cwd: options.cwd,
     env: options.env,
+    resume: options.resume,
   };
 
   // Network connectivity test
@@ -308,13 +319,17 @@ function convertSDKMessageToAISDKUI(message: SDKMessage): string[] {
         chunks.push(
           formatDataStream({
             type: "start",
-            messageId: sysMsg.session_id,
+            messageId: "msg_" + generateId(),
           }),
         );
         chunks.push(
           formatDataStream({
             type: "message-metadata",
-            messageMetadata: { tools: sysMsg.tools, model: sysMsg.model },
+            messageMetadata: {
+              tools: sysMsg.tools,
+              model: sysMsg.model,
+              sessionId: sysMsg.session_id,
+            },
           }),
         );
       }

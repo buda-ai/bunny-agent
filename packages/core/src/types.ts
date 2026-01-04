@@ -107,6 +107,8 @@ export interface StreamInput {
   contentType?: string;
   /** Transcript writer for recording all streamed data (optional) */
   transcriptWriter?: TranscriptWriter;
+  /** Runner session ID to resume a previous conversation (from assistant message metadata) */
+  resume?: string;
 }
 
 /**

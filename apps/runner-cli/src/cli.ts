@@ -23,6 +23,7 @@ interface ParsedArgs {
   systemPrompt?: string;
   maxTurns?: number;
   allowedTools?: string[];
+  resume?: string;
   userInput: string;
 }
 
@@ -55,6 +56,10 @@ function parseCliArgs(): ParsedArgs {
       "allowed-tools": {
         type: "string",
         short: "a",
+      },
+      resume: {
+        type: "string",
+        short: "r",
       },
       help: {
         type: "boolean",
@@ -102,6 +107,7 @@ function parseCliArgs(): ParsedArgs {
       ? Number.parseInt(values["max-turns"], 10)
       : undefined,
     allowedTools: values["allowed-tools"]?.split(",").map((t) => t.trim()),
+    resume: values.resume,
     userInput,
   };
 }
@@ -172,6 +178,7 @@ async function main(): Promise<void> {
     systemPrompt: args.systemPrompt,
     maxTurns: args.maxTurns,
     allowedTools: args.allowedTools,
+    resume: args.resume,
   });
 }
 
