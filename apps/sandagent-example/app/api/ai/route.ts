@@ -100,7 +100,7 @@ export async function POST(request: Request) {
   const sandbox = new E2BSandbox({
     apiKey: E2B_API_KEY,
     runnerBundlePath: RUNNER_BUNDLE_PATH,
-    templatesPath: TEMPLATES_PATH,
+    templatesPath: path.join(TEMPLATES_PATH, template),
   });
 
   const agent = new SandAgent({
@@ -120,7 +120,7 @@ export async function POST(request: Request) {
 
   return agent.stream({
     messages: normalizedMessages,
-    workspace: { path: "/home/user" },
+    workspace: { path: "/sandagent" },
     resume,
   });
 }

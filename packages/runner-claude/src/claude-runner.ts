@@ -229,6 +229,8 @@ async function* runWithClaudeAgentSDK(
     cwd: options.cwd,
     env: options.env,
     resume: options.resume,
+    // SDK uses cwd as project directory, loads CLAUDE.md and .claude/skills/*.skill.md
+    settingSources: [SettingSource.project],
   };
 
   // Network connectivity test

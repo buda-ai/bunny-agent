@@ -19,7 +19,7 @@ export interface E2BSandboxOptions {
   timeout?: number;
   /** Path to runner bundle.js (required for running sandagent) */
   runnerBundlePath?: string;
-  /** Path to templates directory */
+  /** Path to template directory to upload */
   templatesPath?: string;
 }
 
@@ -247,12 +247,16 @@ export class E2BSandbox implements SandboxAdapter {
       );
     }
 
-    // Upload templates
+    // Upload template from specified path to /sandagent root
     if (this.templatesPath && fs.existsSync(this.templatesPath)) {
-      const templateFiles = this.collectFiles(this.templatesPath, "templates");
+      const templateFiles = this.collectFiles(this.templatesPath, "");
       filesToUpload.push(...templateFiles);
       console.log(
-        `[E2B] Uploading ${templateFiles.length} template files to sandbox ${id}`,
+        `[E2B] Uploading ${templateFiles.length} files from '${this.templatesPath}' to sandbox ${id}`,
+      );
+    } else if (this.templatesPath) {
+      console.warn(
+        `[E2B] Template path not found: ${this.templatesPath}, skipping`,
       );
     }
 
@@ -283,11 +287,11 @@ export class E2BSandbox implements SandboxAdapter {
 
     for (const entry of entries) {
       const fullPath = path.join(dir, entry.name);
-      const relativePath = `${prefix}/${entry.name}`;
+      const relativePath = prefix ? `${prefix}/${entry.name}` : entry.name;
 
       if (entry.isDirectory()) {
-        // Skip node_modules and hidden directories
-        if (entry.name === "node_modules" || entry.name.startsWith(".")) {
+        // Skip node_modules and .git only
+        if (entry.name === "node_modules" || entry.name === ".git") {
           continue;
         }
         files.push(...this.collectFiles(fullPath, relativePath));
