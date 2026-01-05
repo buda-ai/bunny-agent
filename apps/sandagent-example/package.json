@@ -15,6 +15,7 @@
     "@ai-sdk/react": "^3.0.3",
     "@sandagent/core": "workspace:*",
     "@sandagent/sandbox-e2b": "workspace:*",
+    "@sandagent/sandbox-sandock": "workspace:*",
     "ai": "^6.0.3",
     "kui": "workspace:*",
     "lucide-react": "^0.556.0",

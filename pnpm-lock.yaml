@@ -79,6 +79,9 @@ importers:
       '@sandagent/sandbox-e2b':
         specifier: workspace:*
         version: link:../../packages/sandbox-e2b
+      '@sandagent/sandbox-sandock':
+        specifier: workspace:*
+        version: link:../../packages/sandbox-sandock
       ai:
         specifier: ^6.0.3
         version: 6.0.3(zod@4.2.1)
