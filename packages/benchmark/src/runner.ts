@@ -46,6 +46,14 @@ const DEFAULT_RUNNER_CONFIGS: Record<AgentRunner, Partial<RunnerConfig>> = {
 };
 
 /**
+ * Escape a string for safe use in shell with single quotes
+ */
+function escapeForShell(str: string): string {
+  // Escape single quotes: replace ' with '\''
+  return `'${str.replace(/'/g, "'\\''")}'`;
+}
+
+/**
  * Build the command arguments for a specific runner
  */
 function buildRunnerCommand(
@@ -65,34 +73,35 @@ function buildRunnerCommand(
     prompt = `${fileInfo}\n\n${task.question}`;
   }
 
+  // Escape prompt for shell since we use shell: true in spawn
+  const escapedPrompt = escapeForShell(prompt);
+
   switch (runner) {
     case "sandagent":
       return {
         command: baseCommand,
-        args: [...baseArgs, prompt],
+        args: [...baseArgs, escapedPrompt],
       };
 
     case "gemini-cli":
       // Gemini CLI format: gemini "prompt"
       return {
         command: baseCommand,
-        args: [...baseArgs, prompt],
+        args: [...baseArgs, escapedPrompt],
       };
 
     case "claudecode":
       // Claude Code format: claude --print "prompt"
       return {
         command: baseCommand,
-        args: ["--print", ...baseArgs, prompt],
+        args: ["--print", ...baseArgs, escapedPrompt],
       };
 
     case "codex-cli":
-      // Codex CLI format: codex "prompt"
-      // Escape single quotes in prompt and wrap with single quotes for shell
-      const escapedPrompt = prompt.replace(/'/g, "'\\''");
+      // Codex CLI format: codex exec --full-auto "prompt"
       return {
         command: baseCommand,
-        args: [...baseArgs, `'${escapedPrompt}'`],
+        args: [...baseArgs, escapedPrompt],
       };
 
     default:
