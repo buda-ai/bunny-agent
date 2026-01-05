@@ -97,9 +97,12 @@ function buildRunnerCommand(
         args: [
           "-p",
           prompt,
-          "--output-format", "json",
-          "--tools", "default",
+          "--output-format",
+          "text",
+          "--tools",
+          "default",
           "--dangerously-skip-permissions",
+          "--no-session-persistence",
         ],
       };
 
@@ -133,8 +136,12 @@ function executeCommand(
     const proc = spawn(command, args, {
       env: { ...process.env, ...options.env },
       cwd: options.cwd,
+      stdio: ['pipe', 'pipe', 'pipe'], // Explicitly pipe all stdio streams
       // Note: No shell: true - pass args directly to avoid escaping issues
     });
+    
+    // Close stdin immediately since we don't need to provide input
+    proc.stdin?.end();
 
     let stdout = "";
     let stderr = "";
