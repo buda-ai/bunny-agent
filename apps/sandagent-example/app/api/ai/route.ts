@@ -144,7 +144,7 @@ export async function POST(request: Request) {
 
   return agent.stream({
     messages: normalizedMessages,
-    workspace: { path: "/home/user" },
+    workspace: { path: "/sandagent" },
     resume,
   });
 }

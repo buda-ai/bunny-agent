@@ -63,12 +63,23 @@ export default function Home() {
     { id: "coder", name: "Coder", description: "Software development" },
     { id: "analyst", name: "Analyst", description: "Data analysis" },
     { id: "researcher", name: "Researcher", description: "Web research" },
+    {
+      id: "seo-agent",
+      name: "SEO",
+      description: "SEO Optimization",
+    },
   ];
   // Use a ref to always get the latest clientConfig
   const clientConfigRef = useRef(clientConfig);
   useEffect(() => {
     clientConfigRef.current = clientConfig;
   }, [clientConfig]);
+
+  // Use a ref to always get the latest selectedTemplate
+  const selectedTemplateRef = useRef(selectedTemplate);
+  useEffect(() => {
+    selectedTemplateRef.current = selectedTemplate;
+  }, [selectedTemplate]);
 
   // Use a ref to track messages for accessing in body callback
   const messagesRef = useRef<UIMessage[]>([]);
@@ -84,7 +95,7 @@ export default function Home() {
         return {
           sessionId,
           resume: metadata?.sessionId,
-          template: selectedTemplate,
+          template: selectedTemplateRef.current,
           ...(clientConfigRef.current || {}),
         };
       },
