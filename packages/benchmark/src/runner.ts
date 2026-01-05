@@ -90,7 +90,7 @@ function buildRunnerCommand(
       };
 
     case "claudecode":
-      // Claude Code: claude -p <prompt> --output-format json --dangerously-skip-permissions
+      // Claude Code: claude -p <prompt> --output-format json --tools default --dangerously-skip-permissions
       // Reference: claude_code_agent.py
       return {
         command: baseCommand,
@@ -98,6 +98,7 @@ function buildRunnerCommand(
           "-p",
           prompt,
           "--output-format", "json",
+          "--tools", "default",
           "--dangerously-skip-permissions",
         ],
       };
