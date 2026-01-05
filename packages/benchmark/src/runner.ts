@@ -6,6 +6,11 @@
  * - gemini-cli: Google Gemini CLI
  * - claudecode: Anthropic Claude Code CLI
  * - codex-cli: OpenAI Codex CLI
+ *
+ * Reference implementations:
+ * - claude_code_agent.py: Uses -p --output-format json --dangerously-skip-permissions
+ * - codex_agent.py: Uses exec --full-auto --output-last-message
+ * - gemini_agent.py: Uses -p --output-format json
  */
 
 import { spawn } from "node:child_process";
@@ -21,6 +26,7 @@ import type {
 
 /**
  * Default configurations for each runner
+ * Reference: Python agent implementations
  */
 const DEFAULT_RUNNER_CONFIGS: Record<AgentRunner, Partial<RunnerConfig>> = {
   sandagent: {
@@ -29,16 +35,19 @@ const DEFAULT_RUNNER_CONFIGS: Record<AgentRunner, Partial<RunnerConfig>> = {
     timeout: 300000, // 5 minutes
   },
   "gemini-cli": {
+    // gemini -p <prompt> --output-format json
     command: "gemini",
-    args: [],
+    args: ["-p"],
     timeout: 300000,
   },
   claudecode: {
+    // claude -p <prompt> --output-format json --dangerously-skip-permissions
     command: "claude",
-    args: [],
+    args: ["-p"],
     timeout: 300000,
   },
   "codex-cli": {
+    // codex exec --full-auto --color never <prompt>
     command: "codex",
     args: ["exec", "--full-auto", "--color", "never"],
     timeout: 300000,
@@ -46,15 +55,8 @@ const DEFAULT_RUNNER_CONFIGS: Record<AgentRunner, Partial<RunnerConfig>> = {
 };
 
 /**
- * Escape a string for safe use in shell with single quotes
- */
-function escapeForShell(str: string): string {
-  // Escape single quotes: replace ' with '\''
-  return `'${str.replace(/'/g, "'\\''")}'`;
-}
-
-/**
  * Build the command arguments for a specific runner
+ * No shell escaping needed since we don't use shell: true
  */
 function buildRunnerCommand(
   runner: AgentRunner,
@@ -62,7 +64,6 @@ function buildRunnerCommand(
   config: RunnerConfig,
 ): { command: string; args: string[] } {
   const baseCommand = config.command ?? DEFAULT_RUNNER_CONFIGS[runner].command!;
-  const baseArgs = config.args ?? DEFAULT_RUNNER_CONFIGS[runner].args ?? [];
 
   // Build prompt with file context if present
   let prompt = task.question;
@@ -73,35 +74,40 @@ function buildRunnerCommand(
     prompt = `${fileInfo}\n\n${task.question}`;
   }
 
-  // Escape prompt for shell since we use shell: true in spawn
-  const escapedPrompt = escapeForShell(prompt);
-
   switch (runner) {
     case "sandagent":
       return {
         command: baseCommand,
-        args: [...baseArgs, escapedPrompt],
+        args: ["run", "--", prompt],
       };
 
     case "gemini-cli":
-      // Gemini CLI format: gemini "prompt"
+      // Gemini CLI: gemini -p <prompt> --output-format json
+      // Reference: gemini_agent.py
       return {
         command: baseCommand,
-        args: [...baseArgs, escapedPrompt],
+        args: ["-p", prompt, "--output-format", "json"],
       };
 
     case "claudecode":
-      // Claude Code format: claude --print "prompt"
+      // Claude Code: claude -p <prompt> --output-format json --dangerously-skip-permissions
+      // Reference: claude_code_agent.py
       return {
         command: baseCommand,
-        args: ["--print", ...baseArgs, escapedPrompt],
+        args: [
+          "-p",
+          prompt,
+          "--output-format", "json",
+          "--dangerously-skip-permissions",
+        ],
       };
 
     case "codex-cli":
-      // Codex CLI format: codex exec --full-auto "prompt"
+      // Codex CLI: codex exec --full-auto --color never <prompt>
+      // Reference: codex_agent.py
       return {
         command: baseCommand,
-        args: [...baseArgs, escapedPrompt],
+        args: ["exec", "--full-auto", "--color", "never", prompt],
       };
 
     default:
@@ -111,6 +117,7 @@ function buildRunnerCommand(
 
 /**
  * Execute a command and capture output
+ * Does NOT use shell: true to avoid escaping issues
  */
 function executeCommand(
   command: string,
@@ -125,12 +132,22 @@ function executeCommand(
     const proc = spawn(command, args, {
       env: { ...process.env, ...options.env },
       cwd: options.cwd,
-      timeout: options.timeout,
-      shell: true,
+      // Note: No shell: true - pass args directly to avoid escaping issues
     });
 
     let stdout = "";
     let stderr = "";
+    let killed = false;
+
+    // Set up timeout manually since we're not using shell
+    const timeoutId = options.timeout
+      ? setTimeout(() => {
+          killed = true;
+          proc.kill("SIGTERM");
+          // Give it a moment, then force kill
+          setTimeout(() => proc.kill("SIGKILL"), 1000);
+        }, options.timeout)
+      : null;
 
     proc.stdout.on("data", (data) => {
       stdout += data.toString();
@@ -141,14 +158,24 @@ function executeCommand(
     });
 
     proc.on("close", (code) => {
-      resolve({
-        stdout,
-        stderr,
-        exitCode: code ?? 0,
-      });
+      if (timeoutId) clearTimeout(timeoutId);
+      if (killed) {
+        resolve({
+          stdout,
+          stderr: stderr + `\nProcess killed after timeout (${options.timeout}ms)`,
+          exitCode: -1,
+        });
+      } else {
+        resolve({
+          stdout,
+          stderr,
+          exitCode: code ?? 0,
+        });
+      }
     });
 
     proc.on("error", (err) => {
+      if (timeoutId) clearTimeout(timeoutId);
       reject(err);
     });
   });
@@ -197,10 +224,82 @@ export function checkAnswer(
 }
 
 /**
+ * Try to parse a string as JSON
+ */
+function tryParseJson(text: string): unknown | null {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Extract content from JSON response (for CLI tools with --output-format json)
+ * Reference: Python agents' _extract_content_from_json methods
+ */
+function extractContentFromJson(payload: unknown): string {
+  if (typeof payload === "string") {
+    return payload;
+  }
+
+  if (typeof payload === "object" && payload !== null) {
+    const obj = payload as Record<string, unknown>;
+
+    // Try common content fields
+    const contentFields = ["content", "text", "output", "message", "response", "result"];
+    for (const field of contentFields) {
+      if (typeof obj[field] === "string") {
+        return obj[field] as string;
+      }
+    }
+
+    // If it's a structured response, stringify it
+    return JSON.stringify(payload);
+  }
+
+  return String(payload);
+}
+
+/**
+ * Detect API errors in output
+ */
+function detectApiError(output: string): string | undefined {
+  const errorPatterns = [
+    /API Error:[^\n]+/i,
+    /Error:.*unauthorized/i,
+    /Error:.*rate limit/i,
+    /Error:.*quota exceeded/i,
+    /violate.*Usage Policy/i,
+    /Missing bearer or basic authentication/i,
+    /401 Unauthorized/i,
+    /ProjectIdRequiredError/i,
+  ];
+
+  for (const pattern of errorPatterns) {
+    const match = output.match(pattern);
+    if (match) {
+      return match[0];
+    }
+  }
+  return undefined;
+}
+
+/**
  * Extract the final answer from agent output
  * Agents often include explanation before the answer
  */
 function extractFinalAnswer(output: string): string {
+  // First try to parse as JSON (for --output-format json responses)
+  const jsonResult = tryParseJson(output);
+  if (jsonResult) {
+    const content = extractContentFromJson(jsonResult);
+    // If content is different from stringified JSON, use it
+    if (content !== JSON.stringify(jsonResult)) {
+      return content.trim();
+    }
+  }
+
   // Look for common answer patterns
   const patterns = [
     /(?:final answer|answer)[:\s]+(.+?)(?:\n|$)/i,
@@ -242,6 +341,24 @@ export async function runTask(
 
     const durationMs = Date.now() - startTime;
     const rawOutput = result.stdout;
+
+    // Check for API errors in stdout or stderr
+    const apiError = detectApiError(rawOutput) || detectApiError(result.stderr);
+    if (apiError) {
+      return {
+        taskId: task.id,
+        question: task.question,
+        level: task.level,
+        files: task.files?.map((f) => f.name),
+        answer: "",
+        expectedAnswer: task.answer,
+        correct: false,
+        durationMs,
+        rawOutput,
+        error: apiError,
+      };
+    }
+
     const answer = extractFinalAnswer(rawOutput);
     // If command failed (non-zero exit code), mark as incorrect
     const correct = result.exitCode === 0 && checkAnswer(answer, task.answer);
