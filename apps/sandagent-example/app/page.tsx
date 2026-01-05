@@ -1,7 +1,11 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport, type UIMessage } from "ai";
+import {
+  DefaultChatTransport,
+  type DynamicToolUIPart,
+  type UIMessage,
+} from "ai";
 import {
   Conversation,
   ConversationContent,
@@ -241,13 +245,106 @@ function ChatMessage({ message }: { message: UIMessage }) {
           )}
         </div>
         <MessageContent>
-          {message.parts.map((part, i) =>
-            part.type === "text" ? (
-              <MessageResponse key={i}>{part.text}</MessageResponse>
-            ) : null,
-          )}
+          {message.parts.map((part, i) => {
+            if (part.type === "text") {
+              return <MessageResponse key={i}>{part.text}</MessageResponse>;
+            }
+            if (part.type === "dynamic-tool") {
+              return <DynamicToolUI key={i} part={part} />;
+            }
+            return null;
+          })}
         </MessageContent>
       </div>
     </Message>
+  );
+}
+
+function DynamicToolUI({ part }: { part: DynamicToolUIPart }) {
+  const toolName = part.toolName;
+  const state = part.state;
+  const input = part.input as Record<string, unknown> | undefined;
+  const output = part.output as string | Record<string, unknown> | undefined;
+  const errorText = part.errorText;
+
+  // Handle AskUserQuestion tool specially
+  if (toolName === "AskUserQuestion" && input?.questions) {
+    const questions = input.questions as Array<{
+      question: string;
+      header?: string;
+      multiSelect?: boolean;
+      options?: Array<{ label: string; description?: string }>;
+    }>;
+
+    return (
+      <div className="my-2 space-y-4">
+        {questions.map((q, idx) => (
+          <div key={idx} className="rounded-lg border border-border p-4">
+            {q.header && (
+              <h4 className="mb-2 font-medium text-foreground">{q.header}</h4>
+            )}
+            <p className="mb-3 text-sm text-muted-foreground">{q.question}</p>
+            {q.options && (
+              <div className="space-y-2">
+                {q.options.map((opt, optIdx) => (
+                  <label
+                    key={optIdx}
+                    className="flex cursor-pointer items-start gap-3 rounded-md border border-border p-3 hover:bg-muted"
+                  >
+                    <input
+                      type={q.multiSelect ? "checkbox" : "radio"}
+                      name={`question-${idx}`}
+                      className="mt-0.5"
+                    />
+                    <div>
+                      <div className="font-medium text-foreground">
+                        {opt.label}
+                      </div>
+                      {opt.description && (
+                        <div className="text-sm text-muted-foreground">
+                          {opt.description}
+                        </div>
+                      )}
+                    </div>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  // Generic tool display
+  return (
+    <div className="my-2 rounded-lg border border-border bg-muted/50 p-3">
+      <div className="flex items-center gap-2 text-sm">
+        <span className="font-medium text-foreground">{toolName}</span>
+        <span className="text-xs text-muted-foreground">
+          {state === "input-streaming" && "输入中..."}
+          {state === "input-available" && "准备执行..."}
+          {state === "output-available" && "完成"}
+          {state === "output-error" && "错误"}
+        </span>
+      </div>
+      {input && (
+        <pre className="mt-2 overflow-auto text-xs text-muted-foreground">
+          {JSON.stringify(input, null, 2)}
+        </pre>
+      )}
+      {errorText && (
+        <div className="mt-2 text-sm text-destructive">{String(errorText)}</div>
+      )}
+      {output && (
+        <div className="mt-2 border-t border-border pt-2">
+          <pre className="overflow-auto text-xs text-muted-foreground">
+            {typeof output === "string"
+              ? output
+              : JSON.stringify(output, null, 2)}
+          </pre>
+        </div>
+      )}
+    </div>
   );
 }
