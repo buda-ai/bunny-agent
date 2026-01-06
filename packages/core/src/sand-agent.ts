@@ -224,16 +224,6 @@ export class SandAgent {
   }
 
   /**
-   * Download files from the sandbox to local directory
-   * @param remotePath - Path in the sandbox to download from
-   * @param localPath - Local directory to download to
-   */
-  async downloadFiles(remotePath: string, localPath: string): Promise<void> {
-    const handle = await this.ensureAttached();
-    await handle.download(remotePath, localPath);
-  }
-
-  /**
    * Destroy the sandbox and release resources
    */
   async destroy(): Promise<void> {
