@@ -105,7 +105,11 @@ export async function* buildSDKUserMessageIterable(
 ): AsyncIterable<SDKUserMessage> {
   if (options.parentToolUseId && options.resume) {
     // This is a tool result submission
-    yield buildSDKUserMessage(userInput, options.parentToolUseId, options.resume);
+    yield buildSDKUserMessage(
+      userInput,
+      options.parentToolUseId,
+      options.resume,
+    );
   } else {
     // This is a regular user message
     yield buildUserMessage(userInput);
@@ -260,7 +264,10 @@ export function createClaudeRunner(options: ClaudeRunnerOptions): ClaudeRunner {
 
       if (sdk) {
         // Build the user message iterable based on options
-        const userMessageIterable = buildSDKUserMessageIterable(userInput, options);
+        const userMessageIterable = buildSDKUserMessageIterable(
+          userInput,
+          options,
+        );
         // Use the real Claude Agent SDK
         yield* runWithClaudeAgentSDK(sdk, options, userMessageIterable);
       } else {
