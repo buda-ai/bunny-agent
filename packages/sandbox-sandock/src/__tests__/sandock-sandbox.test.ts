@@ -4,27 +4,20 @@ import { SandockSandbox } from "../sandock-sandbox.js";
 // Mock the sandock SDK
 vi.mock("sandock", () => ({
   createSandockClient: vi.fn(() => ({
-    POST: vi.fn().mockImplementation((path) => {
-      if (path === "/api/v1/sandbox") {
-        return Promise.resolve({
-          data: { data: { id: "sandbox-123" } },
-          error: null,
-        });
-      }
-      if (path === "/api/v1/sandbox/{id}/start") {
-        return Promise.resolve({
-          data: { data: { id: "sandbox-123", started: true } },
-          error: null,
-        });
-      }
-      return Promise.resolve({ data: null, error: "Unknown path" });
-    }),
     DELETE: vi.fn().mockResolvedValue({
       data: { data: { id: "sandbox-123", deleted: true } },
       error: null,
     }),
     // High-level sandbox API with streaming support
     sandbox: {
+      create: vi.fn().mockResolvedValue({
+        success: true,
+        data: { id: "sandbox-123" },
+      }),
+      start: vi.fn().mockResolvedValue({
+        success: true,
+        data: { id: "sandbox-123", started: true },
+      }),
       shell: vi.fn().mockImplementation(
         (
           _sandboxId: string,

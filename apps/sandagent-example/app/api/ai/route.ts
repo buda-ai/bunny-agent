@@ -120,6 +120,8 @@ export async function POST(request: Request) {
     SANDBOX_PROVIDER === "sandock"
       ? new SandockSandbox({
           apiKey: SANDOCK_API_KEY,
+          runnerBundlePath: RUNNER_BUNDLE_PATH,
+          templatesPath: TEMPLATES_PATH,
         })
       : new E2BSandbox({
           apiKey: E2B_API_KEY,
