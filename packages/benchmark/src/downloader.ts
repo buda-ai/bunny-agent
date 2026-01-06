@@ -236,6 +236,12 @@ export async function saveTasksToJson(
   tasks: GaiaTask[],
   outputPath: string,
 ): Promise<void> {
+  // Ensure output directory exists
+  const dir = outputPath.split("/").slice(0, -1).join("/");
+  if (!existsSync(dir)) {
+    mkdirSync(dir, { recursive: true });
+  }
+
   // Don't include file data in the JSON, just paths
   const tasksForSave = tasks.map((task) => ({
     ...task,

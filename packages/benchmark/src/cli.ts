@@ -46,7 +46,11 @@ import {
   saveTasksToJson,
 } from "./downloader.js";
 import { runBenchmark } from "./evaluator.js";
-import { createRunnerConfig, getAvailableRunners } from "./runner.js";
+import {
+  createRunnerConfig,
+  ensureCodexLogin,
+  getAvailableRunners,
+} from "./runner.js";
 import type {
   AgentRunner,
   BenchmarkConfig,
@@ -183,6 +187,11 @@ async function handleRun(args: {
 
   // Create runner config
   const runnerConfig = createRunnerConfig(args.runner);
+
+  // Ensure codex-cli is logged in if using that runner
+  if (args.runner === "codex-cli") {
+    await ensureCodexLogin();
+  }
 
   // Create benchmark config
   const benchmarkConfig: BenchmarkConfig = {
