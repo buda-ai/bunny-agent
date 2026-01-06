@@ -649,41 +649,43 @@ function convertSDKMessageToAISDKUI(message: SDKMessage): string[] {
         );
         break;
       }
-
+      const contentArray = usrMsg.message.content;
       // this is a tool use result
-      if (usrMsg.tool_use_result) {
-        const toolResult = usrMsg.message.content;
-        if (Array.isArray(toolResult)) {
-          for (const tool of toolResult) {
-            if (tool.is_error) {
-              chunks.push(
-                formatDataStream({
-                  type: "tool-output-error",
-                  toolCallId: tool.tool_use_id,
-                  errorText: tool.content,
-                  dynamic: true,
-                }),
-              );
-            } else {
-              chunks.push(
-                formatDataStream({
-                  type: "tool-output-available",
-                  toolCallId: tool.tool_use_id,
-                  output: tool.tool_use_result || tool.content,
-                  dynamic: true,
-                }),
-              );
-            }
+      if (
+        usrMsg.tool_use_result ||
+        (Array.isArray(contentArray) &&
+          contentArray.some((c) => c.type === "tool_result"))
+      ) {
+        for (const tool of contentArray) {
+          if (tool.is_error) {
+            chunks.push(
+              formatDataStream({
+                type: "tool-output-error",
+                toolCallId: tool.tool_use_id,
+                errorText: tool.content,
+                dynamic: true,
+              }),
+            );
+          } else {
+            chunks.push(
+              formatDataStream({
+                type: "tool-output-available",
+                toolCallId: tool.tool_use_id,
+                output: usrMsg.tool_use_result || tool.content,
+                dynamic: true,
+              }),
+            );
           }
         }
       }
+
       break;
     }
 
     default:
       // Other message types (user, thinking, etc.) - skip for now
       console.error(
-        `[SandAgent] Unhandled message type: ${message.type}`,
+        `[SandAgent] Unhandled message type: $message.type`,
         message,
       );
       break;
@@ -697,7 +699,7 @@ function convertSDKMessageToAISDKUI(message: SDKMessage): string[] {
  * Format: data: {json}\n\n
  */
 function formatDataStream(data: Record<string, unknown>): string {
-  return `data: ${JSON.stringify(data)}\n\n`;
+  return `data: $JSON.stringify(data)\n\n`;
 }
 
 /**
