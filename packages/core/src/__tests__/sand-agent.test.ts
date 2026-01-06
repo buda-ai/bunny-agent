@@ -32,7 +32,6 @@ function createMockSandbox(): SandboxAdapter & { handle: SandboxHandle } {
         createAsyncIterable([new TextEncoder().encode("test output")]),
       ),
     upload: vi.fn().mockResolvedValue(undefined),
-    download: vi.fn().mockResolvedValue(undefined),
     destroy: vi.fn().mockResolvedValue(undefined),
   };
 

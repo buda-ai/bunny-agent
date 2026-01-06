@@ -14,7 +14,8 @@
       "Read(*)",
       "Bash(mkdir:*)",
       "Bash(cat:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(curl:*)"
     ],
     "ask": ["AskUserQuestion"]
   }

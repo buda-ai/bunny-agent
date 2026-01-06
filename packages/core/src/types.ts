@@ -33,13 +33,6 @@ export interface SandboxHandle {
   ): Promise<void>;
 
   /**
-   * Download files from the sandbox to local directory
-   * @param remotePath - Path in the sandbox to download from
-   * @param localPath - Local directory to download to
-   */
-  download(remotePath: string, localPath: string): Promise<void>;
-
-  /**
    * Destroy the sandbox and release resources
    */
   destroy(): Promise<void>;
@@ -109,7 +102,6 @@ export interface StreamInput {
   workspace?: {
     /** Path to the workspace directory */
     path?: string;
-    outputPath?: string;
   };
   /** Content type for the response (defaults to text/event-stream) */
   contentType?: string;

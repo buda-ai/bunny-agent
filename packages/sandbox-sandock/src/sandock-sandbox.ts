@@ -223,15 +223,6 @@ class SandockHandle implements SandboxHandle {
   }
 
   /**
-   * Download files from the sandbox to local directory
-   * Note: Sandock sandbox does not support download yet, this is a no-op
-   */
-  async download(_remotePath: string, _localPath: string): Promise<void> {
-    // TODO: Implement download for Sandock sandbox when API supports it
-    console.warn("[Sandock] Download not implemented yet");
-  }
-
-  /**
    * Destroy the sandbox and release resources
    */
   async destroy(): Promise<void> {

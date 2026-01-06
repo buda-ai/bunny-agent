@@ -457,43 +457,6 @@ class E2BHandle implements SandboxHandle {
     }
   }
 
-  async download(remotePath: string, localPath: string): Promise<void> {
-    console.log(`[E2B] Downloading ${remotePath} to ${localPath}`);
-
-    // Ensure local directory exists
-    if (!fs.existsSync(localPath)) {
-      fs.mkdirSync(localPath, { recursive: true });
-    }
-
-    // List files in remote directory
-    try {
-      const entries = await this.instance.files.list(remotePath);
-
-      for (const entry of entries) {
-        const localFilePath = path.join(localPath, entry.name);
-        const remoteFilePath = entry.path;
-
-        if (entry.type === "dir") {
-          // Recursively download subdirectories
-          await this.download(remoteFilePath, localFilePath);
-        } else {
-          // Download file
-          try {
-            const content = await this.instance.files.read(remoteFilePath);
-            fs.writeFileSync(localFilePath, content);
-            console.log(
-              `[E2B] Downloaded: ${remoteFilePath} -> ${localFilePath}`,
-            );
-          } catch (err) {
-            console.error(`[E2B] Failed to download ${remoteFilePath}:`, err);
-          }
-        }
-      }
-    } catch (err) {
-      console.error(`[E2B] Failed to list ${remotePath}:`, err);
-    }
-  }
-
   async destroy(): Promise<void> {
     await this.instance.kill();
     this.onDestroy();
