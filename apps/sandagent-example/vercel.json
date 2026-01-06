@@ -3,5 +3,10 @@
   "installCommand": "cd ../.. && pnpm install",
   "buildCommand": "cd ../.. && pnpm build",
   "framework": "nextjs",
-  "outputDirectory": ".next"
+  "outputDirectory": ".next",
+  "functions": {
+    "app/api/**/*.ts": {
+      "includeFiles": "../../templates/**/*,../../apps/runner-cli/dist/bundle.mjs"
+    }
+  }
 }
