@@ -97,7 +97,6 @@ describe("runAgent", () => {
  * CLI Argument Parsing Tests
  *
  * Feature: tool-approval-flow, Property 2: CLI 参数解析正确性
- * Validates: Requirements 3.2, 3.3, 3.5
  *
  * These tests verify that CLI argument parsing correctly handles:
  * - --parent-tool-use-id parameter (tool call ID string)
@@ -119,7 +118,6 @@ describe("CLI Argument Parsing - Tool Approval Parameters", () => {
   });
 
   /**
-   * Requirement 3.2: --parent-tool-use-id parameter accepts tool call ID string
    * Runner_CLI should add new optional --parent-tool-use-id parameter
    */
   it("should pass --parent-tool-use-id parameter to runner", async () => {
@@ -137,7 +135,6 @@ describe("CLI Argument Parsing - Tool Approval Parameters", () => {
   });
 
   /**
-   * Requirement 3.3: CLI passes parent-tool-use-id to Runner_Claude
    * Parameter should be passed when resuming after approval
    */
   it("should pass --parent-tool-use-id with --resume together", async () => {
@@ -158,7 +155,6 @@ describe("CLI Argument Parsing - Tool Approval Parameters", () => {
   });
 
   /**
-   * Requirement 3.5: CLI should not delete any existing command line arguments
    * All existing parameters should still work when new parameters are added
    */
   it("should preserve all existing CLI arguments when new parameters are added", async () => {
