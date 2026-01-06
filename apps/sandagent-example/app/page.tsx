@@ -25,6 +25,7 @@ import {
   PromptInputTextarea,
   PromptInputTools,
 } from "kui/ai-elements/prompt-input";
+import { TodoView, isTodoWriteInput } from "kui/ai-elements/todo";
 import { AlertCircleIcon } from "lucide-react";
 import {
   AlertCircle,
@@ -266,6 +267,17 @@ function DynamicToolUI({ part }: { part: DynamicToolUIPart }) {
   const input = part.input as Record<string, unknown> | undefined;
   const output = part.output as string | Record<string, unknown> | undefined;
   const errorText = part.errorText;
+
+  // Handle TodoWrite tool specially
+  if (toolName === "TodoWrite" && input && isTodoWriteInput(input)) {
+    return (
+      <TodoView
+        todos={input.todos}
+        title="任务列表"
+        isStreaming={state === "input-streaming"}
+      />
+    );
+  }
 
   // Handle AskUserQuestion tool specially
   if (toolName === "AskUserQuestion" && input?.questions) {
