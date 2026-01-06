@@ -46,7 +46,11 @@ import {
   saveTasksToJson,
 } from "./downloader.js";
 import { runBenchmark } from "./evaluator.js";
-import { createRunnerConfig, ensureCodexLogin, getAvailableRunners } from "./runner.js";
+import {
+  createRunnerConfig,
+  ensureCodexLogin,
+  getAvailableRunners,
+} from "./runner.js";
 import type {
   AgentRunner,
   BenchmarkConfig,

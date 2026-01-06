@@ -136,10 +136,10 @@ function executeCommand(
     const proc = spawn(command, args, {
       env: { ...process.env, ...options.env },
       cwd: options.cwd,
-      stdio: ['pipe', 'pipe', 'pipe'], // Explicitly pipe all stdio streams
+      stdio: ["pipe", "pipe", "pipe"], // Explicitly pipe all stdio streams
       // Note: No shell: true - pass args directly to avoid escaping issues
     });
-    
+
     // Close stdin immediately since we don't need to provide input
     proc.stdin?.end();
 
@@ -170,7 +170,8 @@ function executeCommand(
       if (killed) {
         resolve({
           stdout,
-          stderr: stderr + `\nProcess killed after timeout (${options.timeout}ms)`,
+          stderr:
+            stderr + `\nProcess killed after timeout (${options.timeout}ms)`,
           exitCode: -1,
         });
       } else {
@@ -255,7 +256,14 @@ function extractContentFromJson(payload: unknown): string {
     const obj = payload as Record<string, unknown>;
 
     // Try common content fields
-    const contentFields = ["content", "text", "output", "message", "response", "result"];
+    const contentFields = [
+      "content",
+      "text",
+      "output",
+      "message",
+      "response",
+      "result",
+    ];
     for (const field of contentFields) {
       if (typeof obj[field] === "string") {
         return obj[field] as string;
@@ -419,19 +427,23 @@ export async function isRunnerAvailable(runner: AgentRunner): Promise<boolean> {
 export async function ensureCodexLogin(): Promise<boolean> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    console.warn("⚠️  OPENAI_API_KEY not set, codex-cli may fail to authenticate");
+    console.warn(
+      "⚠️  OPENAI_API_KEY not set, codex-cli may fail to authenticate",
+    );
     return false;
   }
 
   // Check if already logged in
-  const statusResult = await executeCommand("codex", ["login", "status"], { timeout: 5000 });
+  const statusResult = await executeCommand("codex", ["login", "status"], {
+    timeout: 5000,
+  });
   if (statusResult.exitCode === 0) {
     return true; // Already logged in
   }
 
   // Login with API key via stdin using spawn directly
   console.log("🔑 Logging in to codex-cli with OPENAI_API_KEY...");
-  
+
   return new Promise((resolve) => {
     const proc = spawn("codex", ["login", "--with-api-key"], {
       stdio: ["pipe", "pipe", "pipe"],
