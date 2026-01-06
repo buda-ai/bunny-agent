@@ -699,7 +699,7 @@ function convertSDKMessageToAISDKUI(message: SDKMessage): string[] {
  * Format: data: {json}\n\n
  */
 function formatDataStream(data: Record<string, unknown>): string {
-  return `data: $JSON.stringify(data)\n\n`;
+  return `data: ${JSON.stringify(data)}\n\n`;
 }
 
 /**
