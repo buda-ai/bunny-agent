@@ -51,7 +51,6 @@ export interface ClaudeRunnerOptions {
  * @returns SDKUserMessage formatted for Claude Agent SDK
  * @throws Error if toolOutput JSON is invalid or missing required fields
  *
- * Requirements: 4.2, 4.3
  */
 export function buildSDKUserMessage(
   toolOutput: string,
