@@ -31,8 +31,13 @@ import {
   AlertCircle,
   BotIcon,
   CheckCircle,
+  ChevronRight,
+  Copy,
+  Download,
+  FileText,
   Settings,
   UserIcon,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
@@ -328,6 +333,19 @@ function DynamicToolUI({ part }: { part: DynamicToolUIPart }) {
     );
   }
 
+  // Handle Write tool specially - expandable markdown preview
+  if (toolName === "Write" && input) {
+    return (
+      <WriteToolCard
+        filePath={input.file_path as string}
+        content={input.content as string}
+        state={state}
+        output={output}
+        errorText={errorText}
+      />
+    );
+  }
+
   // Generic tool display
   return (
     <div className="my-2 rounded-lg border border-border bg-muted/50 p-3">
@@ -356,6 +374,172 @@ function DynamicToolUI({ part }: { part: DynamicToolUIPart }) {
               : JSON.stringify(output, null, 2)}
           </pre>
         </div>
+      )}
+    </div>
+  );
+}
+
+// Write tool card with expandable markdown preview
+function WriteToolCard({
+  filePath,
+  content,
+  state,
+  output,
+  errorText,
+}: {
+  filePath: string;
+  content: string;
+  state: string;
+  output?: string | Record<string, unknown>;
+  errorText?: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const isMarkdown = filePath?.endsWith(".md");
+  const fileName = filePath?.split("/").pop() || filePath;
+
+  const handleDownload = () => {
+    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(content);
+  };
+
+  return (
+    <div className="my-2 rounded-lg border border-border bg-muted/50 overflow-hidden">
+      {/* Header - always visible */}
+      <div
+        className="flex items-center justify-between p-3 hover:bg-muted/80 transition-colors cursor-pointer"
+        onClick={() => setIsOpen(true)}
+        onKeyDown={(e) => e.key === "Enter" && setIsOpen(true)}
+        role="button"
+        tabIndex={0}
+      >
+        <div className="flex items-center gap-3">
+          <div className="flex size-8 items-center justify-center rounded-md bg-blue-500/10">
+            <FileText className="size-4 text-blue-500" />
+          </div>
+          <div className="text-left">
+            <div className="flex items-center gap-2">
+              <span className="font-medium text-foreground text-sm">
+                写入文件
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {state === "input-streaming" && "输入中..."}
+                {state === "input-available" && "准备执行..."}
+                {state === "output-available" && "✓ 完成"}
+                {state === "output-error" && "✗ 错误"}
+              </span>
+            </div>
+            <div className="text-xs text-muted-foreground font-mono">
+              {filePath}
+            </div>
+          </div>
+        </div>
+        <ChevronRight className="size-4 text-muted-foreground" />
+      </div>
+
+      {/* Side Panel Overlay */}
+      {isOpen && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black/50 z-40"
+            onClick={() => setIsOpen(false)}
+            onKeyDown={(e) => e.key === "Escape" && setIsOpen(false)}
+            role="button"
+            tabIndex={-1}
+            aria-label="Close panel"
+          />
+          {/* Side Panel */}
+          <div className="fixed top-0 right-0 h-full w-[600px] max-w-[90vw] bg-background border-l border-border shadow-xl z-50 flex flex-col animate-in slide-in-from-right duration-200">
+            {/* Panel Header */}
+            <div className="flex items-center justify-between p-4 border-b border-border shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="flex size-8 items-center justify-center rounded-md bg-blue-500/10">
+                  <FileText className="size-4 text-blue-500" />
+                </div>
+                <div>
+                  <div className="font-medium text-foreground text-sm">
+                    {fileName}
+                  </div>
+                  <div className="text-xs text-muted-foreground font-mono">
+                    {filePath}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleDownload}
+                  className="p-2 rounded-md hover:bg-muted transition-colors"
+                  title="下载文件"
+                >
+                  <Download className="size-4 text-muted-foreground" />
+                </button>
+                <button
+                  onClick={handleCopy}
+                  className="p-2 rounded-md hover:bg-muted transition-colors"
+                  title="复制内容"
+                >
+                  <Copy className="size-4 text-muted-foreground" />
+                </button>
+                <button
+                  onClick={() => setIsOpen(false)}
+                  className="p-2 rounded-md hover:bg-muted transition-colors"
+                  title="收起"
+                >
+                  <X className="size-4 text-muted-foreground" />
+                </button>
+              </div>
+            </div>
+
+            {/* Panel Content */}
+            <div className="flex-1 overflow-auto p-4">
+              <div className="mb-2">
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  {isMarkdown ? "Markdown 预览" : "文件内容"}
+                </span>
+              </div>
+              {isMarkdown ? (
+                <div className="rounded-md border border-border bg-background p-4 prose prose-sm dark:prose-invert max-w-none">
+                  <MessageResponse>{content}</MessageResponse>
+                </div>
+              ) : (
+                <pre className="rounded-md border border-border bg-background p-3 overflow-auto text-xs text-foreground font-mono">
+                  {content}
+                </pre>
+              )}
+
+              {/* Error display */}
+              {errorText && (
+                <div className="mt-4">
+                  <div className="text-sm text-destructive bg-destructive/10 rounded-md p-2">
+                    {String(errorText)}
+                  </div>
+                </div>
+              )}
+
+              {/* Output display */}
+              {output && (
+                <div className="mt-4">
+                  <div className="text-xs text-green-600 dark:text-green-400 bg-green-500/10 rounded-md p-2">
+                    {typeof output === "string"
+                      ? output
+                      : JSON.stringify(output, null, 2)}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

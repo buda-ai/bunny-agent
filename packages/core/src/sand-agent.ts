@@ -164,12 +164,6 @@ export class SandAgent {
             // Passthrough to response
             controller.enqueue(chunk);
           }
-          if (input.workspace?.outputPath) {
-            await handle.download(
-              `${workspacePath}/output`,
-              input.workspace.outputPath,
-            );
-          }
 
           // Write end entry if transcript is enabled
           if (transcriptWriter) {
