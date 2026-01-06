@@ -21,6 +21,8 @@ export interface RunAgentOptions {
   allowedTools?: string[];
   /** Resume session ID for multi-turn conversation */
   resume?: string;
+  /** Parent tool use ID for tool result submission */
+  parentToolUseId?: string;
 }
 
 /**
@@ -42,6 +44,7 @@ export async function runAgent(options: RunAgentOptions): Promise<void> {
     maxTurns: options.maxTurns,
     allowedTools: options.allowedTools,
     resume: options.resume,
+    parentToolUseId: options.parentToolUseId,
   };
 
   const runner = createClaudeRunner(runnerOptions);

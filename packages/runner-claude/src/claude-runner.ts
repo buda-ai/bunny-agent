@@ -38,6 +38,79 @@ export interface ClaudeRunnerOptions {
   env?: Record<string, string>;
   /** Resume session ID for multi-turn conversation */
   resume?: string;
+  /** Parent tool use ID for tool result submission */
+  parentToolUseId?: string;
+}
+
+/**
+ * Build an SDKUserMessage for resuming conversation after tool approval
+ *
+ * @param toolOutput - JSON string containing toolCallId, result, and optional isError
+ * @param parentToolUseId - Parent tool use ID for the tool result
+ * @param sessionId - Session ID for resuming the conversation
+ * @returns SDKUserMessage formatted for Claude Agent SDK
+ * @throws Error if toolOutput JSON is invalid or missing required fields
+ *
+ * Requirements: 4.2, 4.3
+ */
+export function buildSDKUserMessage(
+  toolOutput: string,
+  parentToolUseId: string,
+  sessionId: string,
+): SDKUserMessage {
+  let toolResultContent: string | object = toolOutput;
+  try {
+    toolResultContent = JSON.parse(toolOutput);
+  } catch (error) {
+    // Keep as string if not valid JSON
+  }
+  // Build the SDKUserMessage with tool_use_result flag
+  return {
+    type: "user",
+    message: {
+      role: "user",
+      content: [
+        {
+          type: "tool_result",
+          tool_use_id: parentToolUseId,
+          content: toolResultContent,
+          is_error: false,
+        },
+      ],
+    },
+    tool_use_result: true,
+    parent_tool_use_id: parentToolUseId,
+    session_id: sessionId,
+  };
+}
+
+/**
+ * Build a regular user message (not a tool result)
+ */
+export function buildUserMessage(userInput: string): SDKUserMessage {
+  return {
+    type: "user",
+    message: {
+      role: "user",
+      content: userInput,
+    },
+  } as SDKUserMessage;
+}
+
+/**
+ * Build an AsyncIterable<SDKUserMessage> from options
+ */
+export async function* buildSDKUserMessageIterable(
+  userInput: string,
+  options: ClaudeRunnerOptions,
+): AsyncIterable<SDKUserMessage> {
+  if (options.parentToolUseId && options.resume) {
+    // This is a tool result submission
+    yield buildSDKUserMessage(userInput, options.parentToolUseId, options.resume);
+  } else {
+    // This is a regular user message
+    yield buildUserMessage(userInput);
+  }
 }
 
 /**
@@ -146,7 +219,7 @@ interface ClaudeAgentSDKOptions {
 
 interface ClaudeAgentSDKModule {
   query(params: {
-    prompt: string;
+    prompt: string | AsyncIterable<SDKUserMessage>;
     options?: ClaudeAgentSDKOptions;
   }): AsyncIterable<SDKMessage>;
 }
@@ -178,6 +251,7 @@ export function createClaudeRunner(options: ClaudeRunnerOptions): ClaudeRunner {
             "1. Set ANTHROPIC_API_KEY environment variable\n" +
             "2. Install the SDK: npm install @anthropic-ai/claude-agent-sdk",
         );
+
         yield* runMockAgent(options, userInput);
         return;
       }
@@ -186,8 +260,10 @@ export function createClaudeRunner(options: ClaudeRunnerOptions): ClaudeRunner {
       const sdk = await loadClaudeAgentSDK();
 
       if (sdk) {
+        // Build the user message iterable based on options
+        const userMessageIterable = buildSDKUserMessageIterable(userInput, options);
         // Use the real Claude Agent SDK
-        yield* runWithClaudeAgentSDK(sdk, options, userInput);
+        yield* runWithClaudeAgentSDK(sdk, options, userMessageIterable);
       } else {
         // Fallback to mock implementation
         console.error(
@@ -219,7 +295,7 @@ async function loadClaudeAgentSDK(): Promise<ClaudeAgentSDKModule | null> {
 async function* runWithClaudeAgentSDK(
   sdk: ClaudeAgentSDKModule,
   options: ClaudeRunnerOptions,
-  userInput: string,
+  userInput: string | AsyncIterable<SDKUserMessage>,
 ): AsyncIterable<string> {
   const sdkOptions: ClaudeAgentSDKOptions = {
     model: options.model,
@@ -230,33 +306,8 @@ async function* runWithClaudeAgentSDK(
     env: options.env,
     resume: options.resume,
     // SDK uses cwd as project directory, loads CLAUDE.md and .claude/skills/*.skill.md
-    settingSources: [SettingSource.project],
+    settingSources: [SettingSource.project, SettingSource.user],
   };
-
-  // Network connectivity test
-  const baseUrl = process.env.ANTHROPIC_BASE_URL || "https://api.anthropic.com";
-  console.error(`[SandAgent] Testing network connectivity to ${baseUrl}...`);
-  try {
-    const testStart = Date.now();
-    const response = await fetch(`${baseUrl}/v1/messages`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: "{}",
-      signal: AbortSignal.timeout(10000), // 10 second timeout
-    });
-    console.error(
-      `[SandAgent] Network test completed in ${Date.now() - testStart}ms, status: ${response.status}`,
-    );
-  } catch (netError) {
-    console.error(
-      "[SandAgent] Network test FAILED:",
-      netError instanceof Error ? netError.message : netError,
-    );
-    console.error("[SandAgent] ANTHROPIC_BASE_URL:", baseUrl);
-    console.error(
-      "[SandAgent] This URL may not be accessible from the E2B sandbox (e.g., localhost or internal network)",
-    );
-  }
 
   try {
     console.error("[SandAgent] User input:", userInput);
