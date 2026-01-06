@@ -164,6 +164,12 @@ export class SandAgent {
             // Passthrough to response
             controller.enqueue(chunk);
           }
+          if (input.workspace?.outputPath) {
+            await handle.download(
+              `${workspacePath}/output`,
+              input.workspace.outputPath,
+            );
+          }
 
           // Write end entry if transcript is enabled
           if (transcriptWriter) {
@@ -215,6 +221,16 @@ export class SandAgent {
   ): Promise<void> {
     const handle = await this.ensureAttached();
     await handle.upload(files, targetDir);
+  }
+
+  /**
+   * Download files from the sandbox to local directory
+   * @param remotePath - Path in the sandbox to download from
+   * @param localPath - Local directory to download to
+   */
+  async downloadFiles(remotePath: string, localPath: string): Promise<void> {
+    const handle = await this.ensureAttached();
+    await handle.download(remotePath, localPath);
   }
 
   /**

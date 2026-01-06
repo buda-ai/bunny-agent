@@ -148,10 +148,10 @@ describe("E2BSandbox Instance Caching (Persistence)", () => {
       expect(maxSize).toBe(50);
     });
 
-    it("should have INSTANCE_TTL_MS of 30 minutes", () => {
+    it("should have INSTANCE_TTL_MS of 60 minutes", () => {
       const ttl = (E2BSandbox as unknown as { INSTANCE_TTL_MS: number })
         .INSTANCE_TTL_MS;
-      expect(ttl).toBe(30 * 60 * 1000);
+      expect(ttl).toBe(60 * 60 * 1000);
     });
   });
 

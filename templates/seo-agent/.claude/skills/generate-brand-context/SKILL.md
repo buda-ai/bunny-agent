@@ -5,12 +5,12 @@ description: Interactive wizard to create site/brand context file (siteinfo.md) 
 
 # Generate Brand Context
 
-This skill guides you through creating a brand context file (`/tmp/seo-agent/context/siteinfo.md`) that helps the SEO agent understand your website, product, and content style for more personalized and accurate SEO work.
+This skill guides you through creating a brand context file (`./output/context/siteinfo.md`) that helps the SEO agent understand your website, product, and content style for more personalized and accurate SEO work.
 
 ## When to Use This Skill
 
 - Setting up a new project for SEO optimization
-- When `/tmp/seo-agent/context/siteinfo.md` doesn't exist
+- When `./output/context/siteinfo.md` doesn't exist
 - When you want to update your brand context information
 - Before starting keyword research or content creation
 
@@ -120,7 +120,7 @@ Does this look correct? (yes/no)
 
 ### Step 4: Create the File
 
-If confirmed, create the file at `/tmp/seo-agent/context/siteinfo.md`:
+If confirmed, create the file at `./output/context/siteinfo.md`:
 
 ```markdown
 # Site Information
@@ -144,10 +144,10 @@ If confirmed, create the file at `/tmp/seo-agent/context/siteinfo.md`:
 *Last updated: [current date]*
 ```
 
-**Important**: Ensure the `/workspace/context/` directory exists before creating the file:
+**Important**: Ensure the `./output/context/` directory exists before creating the file:
 
 ```bash
-mkdir -p /workspace/context
+mkdir -p ./output/context
 ```
 
 ### Step 5: Completion Message
@@ -155,7 +155,7 @@ mkdir -p /workspace/context
 ```markdown
 ## ✅ Brand Context Created!
 
-Your brand context has been saved to `/tmp/seo-agent/context/siteinfo.md`.
+Your brand context has been saved to `./output/context/siteinfo.md`.
 
 This information will now be used to:
 - 🔍 Generate more relevant keyword suggestions
@@ -232,7 +232,7 @@ Does this look correct?
 
 **User**: "yes"
 
-**Agent**: Creates `/tmp/seo-agent/context/siteinfo.md` and shows completion message.
+**Agent**: Creates `./output/context/siteinfo.md` and shows completion message.
 
 ## Tips
 

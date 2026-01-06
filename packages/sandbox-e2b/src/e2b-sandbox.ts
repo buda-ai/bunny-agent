@@ -15,7 +15,7 @@ export interface E2BSandboxOptions {
   apiKey?: string;
   /** E2B template to use (default: "base") */
   template?: string;
-  /** Timeout for sandbox operations in milliseconds (default: 300000 = 5 min) */
+  /** Timeout for sandbox operations in milliseconds (default: 0 = no timeout) */
   timeout?: number;
   /** Path to runner bundle.js (required for running sandagent) */
   runnerBundlePath?: string;
@@ -36,7 +36,8 @@ interface E2BSandboxInstance {
         envs?: Record<string, string>;
         onStdout?: (data: string) => void;
         onStderr?: (data: string) => void;
-        timeout?: number;
+        timeoutMs?: number;
+        requestTimeoutMs?: number;
       },
     ): Promise<{
       exitCode: number;
@@ -47,6 +48,10 @@ interface E2BSandboxInstance {
   files: {
     write(path: string, content: string | ArrayBuffer): Promise<void>;
     makeDir(path: string): Promise<void>;
+    read(path: string): Promise<string>;
+    list(
+      path: string,
+    ): Promise<Array<{ name: string; type: "file" | "dir"; path: string }>>;
   };
   kill(): Promise<void>;
 }
@@ -88,15 +93,15 @@ export class E2BSandbox implements SandboxAdapter {
 
   /** Maximum number of cached instances */
   private static readonly MAX_CACHE_SIZE = 50;
-  /** Instance expiration time in milliseconds (default: 30 minutes) */
-  private static readonly INSTANCE_TTL_MS = 30 * 60 * 1000;
+  /** Instance expiration time in milliseconds (default: 60 minutes) */
+  private static readonly INSTANCE_TTL_MS = 60 * 60 * 1000;
   /** Cleanup interval timer (lazy initialized on first cache write) */
   private static cleanupTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(options: E2BSandboxOptions = {}) {
     this.apiKey = options.apiKey ?? process.env.E2B_API_KEY;
     this.template = options.template ?? "base";
-    this.timeout = options.timeout ?? 300000;
+    this.timeout = options.timeout ?? E2BSandbox.INSTANCE_TTL_MS;
     this.runnerBundlePath = options.runnerBundlePath;
     this.templatesPath = options.templatesPath;
   }
@@ -361,7 +366,8 @@ class E2BHandle implements SandboxHandle {
         const commandPromise = self.instance.commands.run(command.join(" "), {
           cwd: opts?.cwd,
           envs: envWithNodePath,
-          timeout: opts?.timeout ?? 300000, // Default 5 minutes for LLM operations
+          timeoutMs: 0, // 0 = no timeout for LLM operations
+          requestTimeoutMs: 0, // 0 = no request timeout
           onStdout: (data: string) => {
             const chunk = new TextEncoder().encode(data);
             chunks.push(chunk);
@@ -448,6 +454,43 @@ class E2BHandle implements SandboxHandle {
             ) as ArrayBuffer)
           : file.content;
       await this.instance.files.write(fullPath, content);
+    }
+  }
+
+  async download(remotePath: string, localPath: string): Promise<void> {
+    console.log(`[E2B] Downloading ${remotePath} to ${localPath}`);
+
+    // Ensure local directory exists
+    if (!fs.existsSync(localPath)) {
+      fs.mkdirSync(localPath, { recursive: true });
+    }
+
+    // List files in remote directory
+    try {
+      const entries = await this.instance.files.list(remotePath);
+
+      for (const entry of entries) {
+        const localFilePath = path.join(localPath, entry.name);
+        const remoteFilePath = entry.path;
+
+        if (entry.type === "dir") {
+          // Recursively download subdirectories
+          await this.download(remoteFilePath, localFilePath);
+        } else {
+          // Download file
+          try {
+            const content = await this.instance.files.read(remoteFilePath);
+            fs.writeFileSync(localFilePath, content);
+            console.log(
+              `[E2B] Downloaded: ${remoteFilePath} -> ${localFilePath}`,
+            );
+          } catch (err) {
+            console.error(`[E2B] Failed to download ${remoteFilePath}:`, err);
+          }
+        }
+      }
+    } catch (err) {
+      console.error(`[E2B] Failed to list ${remotePath}:`, err);
     }
   }
 

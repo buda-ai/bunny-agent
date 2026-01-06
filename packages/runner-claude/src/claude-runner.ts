@@ -11,14 +11,35 @@
  * @see https://platform.claude.com/docs/en/agent-sdk/typescript-v2-preview
  */
 
-import {
-  type SDKAssistantMessage,
-  type SDKMessage,
-  type SDKResultMessage,
-  type SDKSystemMessage,
-  type SDKUserMessage,
-  tool,
+import type {
+  HookCallback,
+  HookCallbackMatcher,
+  HookEvent,
+  HookInput,
+  SDKAssistantMessage,
+  SDKMessage,
+  SDKResultMessage,
+  SDKSystemMessage,
+  SDKUserMessage,
 } from "@anthropic-ai/claude-agent-sdk";
+
+/**
+ * 待审批的工具调用信息
+ */
+type PendingToolApproval = {
+  toolUseId: string;
+  toolName: string;
+  toolInput: unknown;
+  sessionId: string;
+};
+
+/**
+ * 工具审批状态，用于在 hook 和 runner 之间传递数据
+ */
+type ToolApprovalState = {
+  pending: PendingToolApproval | null;
+  shouldStop: boolean;
+};
 
 /**
  * Options for creating a Claude runner
@@ -218,6 +239,7 @@ interface ClaudeAgentSDKOptions {
   resume?: string;
   // file system
   settingSources?: SettingSource[];
+  hooks?: Partial<Record<HookEvent, HookCallbackMatcher[]>>;
 }
 
 interface ClaudeAgentSDKModule {
@@ -236,6 +258,10 @@ const OPTIONAL_MODULES: Record<string, string> = {
  * Create a Claude runner using the official Claude Agent SDK
  */
 export function createClaudeRunner(options: ClaudeRunnerOptions): ClaudeRunner {
+  console.error(
+    "[SandAgent] Creating Claude runner with options:",
+    JSON.stringify(options, null, 2),
+  );
   return {
     async *run(userInput: string): AsyncIterable<string> {
       // Debug: log all environment variables (redacted)
@@ -296,6 +322,47 @@ async function loadClaudeAgentSDK(): Promise<ClaudeAgentSDKModule | null> {
 }
 
 /**
+ * 创建 PreToolUse hook 回调
+ * 当 AskUserQuestion 被调用时，记录工具信息并中断执行
+ */
+function createPreToolUseHook(state: ToolApprovalState): HookCallback {
+  return async (
+    input: HookInput,
+    toolUseID: string | undefined,
+    _options: { signal: AbortSignal },
+  ) => {
+    console.error(
+      "[SandAgent] PreToolUse hook triggered:",
+      JSON.stringify(input, null, 2),
+      "toolUseID:",
+      toolUseID,
+    );
+
+    // 检查是否是 PreToolUse 事件
+    if (input.hook_event_name === "PreToolUse" && toolUseID) {
+      // 记录待审批的工具信息
+      state.pending = {
+        toolUseId: toolUseID,
+        toolName: input.tool_name,
+        toolInput: input.tool_input,
+        sessionId: input.session_id,
+      };
+      state.shouldStop = true;
+    }
+
+    // 返回 deny 让 SDK 停止执行
+    // 使用 PreToolUse 的正确返回格式
+    return {
+      hookSpecificOutput: {
+        hookEventName: "PreToolUse" as const,
+        permissionDecision: "deny" as const,
+        permissionDecisionReason: "User input required. Waiting for approval.",
+      },
+    };
+  };
+}
+
+/**
  * Run with real Claude Agent SDK
  */
 async function* runWithClaudeAgentSDK(
@@ -303,16 +370,30 @@ async function* runWithClaudeAgentSDK(
   options: ClaudeRunnerOptions,
   userInput: string | AsyncIterable<SDKUserMessage>,
 ): AsyncIterable<string> {
+  // 创建审批状态，用于在 hook 和 runner 之间传递数据
+  const approvalState: ToolApprovalState = {
+    pending: null,
+    shouldStop: false,
+  };
+
   const sdkOptions: ClaudeAgentSDKOptions = {
     model: options.model,
     systemPrompt: options.systemPrompt,
     maxTurns: options.maxTurns,
-    allowedTools: options.allowedTools,
+    allowedTools: [...(options.allowedTools ?? []), "Skill"],
     cwd: options.cwd,
     env: options.env,
     resume: options.resume,
     // SDK uses cwd as project directory, loads CLAUDE.md and .claude/skills/*.skill.md
     settingSources: [SettingSource.project, SettingSource.user],
+    hooks: {
+      PreToolUse: [
+        {
+          matcher: "AskUserQuestion",
+          hooks: [createPreToolUseHook(approvalState)],
+        },
+      ],
+    },
   };
 
   try {
@@ -326,12 +407,41 @@ async function* runWithClaudeAgentSDK(
     // console.error("[SandAgent] Query iterator created, starting iteration...");
 
     for await (const message of queryIterator) {
-      // console.log("claude return message", JSON.stringify(message, null, 2));
+      console.log("claude return message", JSON.stringify(message, null, 2));
 
       // Convert SDK messages to AI SDK UI format
       const chunks = convertSDKMessageToAISDKUI(message);
       for (const chunk of chunks) {
         yield chunk;
+      }
+
+      // 检查是否有待审批的工具调用需要发送
+      if (approvalState.shouldStop && approvalState.pending) {
+        const pending = approvalState.pending;
+
+        // 发送 tool-approval-request 事件
+        yield formatDataStream({
+          type: "tool-approval-request",
+          approvalId: pending.toolUseId,
+          toolCallId: pending.toolUseId,
+        });
+
+        // 发送 finish 事件，表示需要等待用户审批
+        yield formatDataStream({
+          type: "finish",
+          finishReason: "tool-calls",
+          messageMetadata: {
+            sessionId: pending.sessionId,
+            toolCallId: pending.toolUseId,
+            toolName: pending.toolName,
+            requiresApproval: true,
+          },
+        });
+
+        // 清除状态，跳出循环
+        approvalState.pending = null;
+        approvalState.shouldStop = false;
+        break;
       }
     }
   } catch (error) {
@@ -531,6 +641,15 @@ function convertSDKMessageToAISDKUI(message: SDKMessage): string[] {
     }
     case "user": {
       const usrMsg = message as SDKUserMessage;
+
+      // Skip synthetic messages (SDK-injected skill content)
+      if ((usrMsg as unknown as { isSynthetic?: boolean }).isSynthetic) {
+        console.log(
+          "[SandAgent] Skipping synthetic user message (skill injection)",
+        );
+        break;
+      }
+
       // this is a tool use result
       if (usrMsg.tool_use_result) {
         const toolResult = usrMsg.message.content;
@@ -550,7 +669,7 @@ function convertSDKMessageToAISDKUI(message: SDKMessage): string[] {
                 formatDataStream({
                   type: "tool-output-available",
                   toolCallId: tool.tool_use_id,
-                  output: tool.content,
+                  output: tool.tool_use_result || tool.content,
                   dynamic: true,
                 }),
               );

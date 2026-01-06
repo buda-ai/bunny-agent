@@ -120,7 +120,10 @@ export async function POST(request: Request) {
 
   return agent.stream({
     messages: normalizedMessages,
-    workspace: { path: "/sandagent" },
+    workspace: {
+      path: "/sandagent",
+      outputPath: path.join(TEMPLATES_PATH, template, "output"),
+    },
     resume,
   });
 }
