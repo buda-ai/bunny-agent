@@ -68,12 +68,15 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Debug - Check .claude folders
+      - name: Debug - Check .claude folders and glob patterns
         run: |
           echo "=== Checking templates/.claude folders ==="
           ls -la templates/*/
           echo "=== Checking .claude contents ==="
           ls -la templates/*/.claude/ || echo "No .claude folders found"
+          echo "=== Testing glob patterns ==="
+          echo "../../templates/**:" && find . -path "./templates/**" | head -20 || echo "Pattern failed"
+          echo "../../templates/**/.claude/**:" && find . -path "./templates/**/.claude/**" || echo "Pattern failed"
 
       # =========================================
       # DEV MODE: Build local packages
@@ -124,6 +127,19 @@ jobs:
       - name: Build Project with Vercel (Production)
         if: github.ref == 'refs/heads/main'
         run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Debug - Check .vercel output for .claude
+        if: github.ref == 'refs/heads/main'
+        run: |
+          echo "=== Checking .vercel/output structure ==="
+          find .vercel/output -name ".claude" -type d 2>/dev/null || echo "No .claude dirs in output"
+          echo "=== Checking functions output ==="
+          ls -la .vercel/output/functions/ 2>/dev/null || echo "No functions dir"
+          find .vercel/output -name "*.claude*" 2>/dev/null || echo "No .claude files"
+          echo "=== Full output tree (first 50 lines) ==="
+          find .vercel/output -type f | head -50
+          echo "=== Checking if templates exist in output ==="
+          find .vercel/output -path "*/templates/*" | head -20
 
       # Deploy to Preview for develop branch
       - name: Deploy Preview to Vercel
