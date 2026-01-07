@@ -210,7 +210,6 @@ export class SandockSandbox implements SandboxAdapter {
 
       // Start the sandbox using high-level API
       await this.client.sandbox.start(sandboxId);
-      console.log(`[Sandock] Started sandbox: ${sandboxId}`);
 
       SandockSandbox.instances.set(id, {
         sandboxId,
@@ -221,8 +220,6 @@ export class SandockSandbox implements SandboxAdapter {
       SandockSandbox.initializedInstances.delete(id);
       needsInit = true;
     }
-
-    console.log(`[Sandock] Attaching to sandbox handle: ${sandboxId} ,id=${id}, needsInit=${needsInit},SandockSandbox.initializedInstances.has(id)=${SandockSandbox.initializedInstances.has(id)}`);
 
     const handle = new SandockHandle(
       this.client,
@@ -237,7 +234,6 @@ export class SandockSandbox implements SandboxAdapter {
 
     // Upload runner and templates on first attach
     if (needsInit && !SandockSandbox.initializedInstances.has(id)) {
-      console.log(`[Sandock] Initializing sandbox ${sandboxId} for user ${id}`);
       await this.initializeSandbox(handle, id);
       SandockSandbox.initializedInstances.add(id);
     }
@@ -252,7 +248,6 @@ export class SandockSandbox implements SandboxAdapter {
     const filesToUpload: Array<{ path: string; content: Uint8Array | string }> =
       [];
 
-    console.log(`[Sandock] Initializing sandbox files for sandbox ${id},runnerBundlePath=${this.runnerBundlePath},templatesPath=${this.templatesPath}`);
     // Upload runner bundle
     if (this.runnerBundlePath && fs.existsSync(this.runnerBundlePath)) {
       const bundleContent = fs.readFileSync(this.runnerBundlePath);
@@ -359,14 +354,18 @@ class SandockHandle implements SandboxHandle {
     let stdout = "";
     let stderr = "";
 
-    const result = await this.client.sandbox.shell(this.sandboxId, cmd, {
-      onStdout: (chunk: string) => {
-        stdout += chunk;
+    const result = await this.client.sandbox.shell(
+      this.sandboxId,
+      { cmd, timeoutMs: this.timeout },
+      {
+        onStdout: (chunk: string) => {
+          stdout += chunk;
+        },
+        onStderr: (chunk: string) => {
+          stderr += chunk;
+        },
       },
-      onStderr: (chunk: string) => {
-        stderr += chunk;
-      },
-    });
+    );
 
     return {
       exitCode: result.data.exitCode ?? 0,
@@ -442,23 +441,26 @@ class SandockHandle implements SandboxHandle {
         let resolveWait: (() => void) | null = null;
 
         // Start shell command with streaming callbacks
-        const shellPromise = self.client.sandbox.shell(self.sandboxId, cmd, {
-          onStdout: (chunk: string) => {
-            console.log("STDOUT CHUNK:", chunk);
-            queue.push(new TextEncoder().encode(chunk));
-            resolveWait?.();
+        const shellPromise = self.client.sandbox.shell(
+          self.sandboxId,
+          { cmd, timeoutMs: self.timeout },
+          {
+            onStdout: (chunk: string) => {
+              queue.push(new TextEncoder().encode(chunk));
+              resolveWait?.();
+            },
+            onStderr: (chunk: string) => {
+              console.log("STDERR CHUNK:", chunk);
+              queue.push(new TextEncoder().encode(chunk));
+              resolveWait?.();
+            },
+            onError: (err: unknown) => {
+              console.log("SHELL ERROR:", err);
+              error = err instanceof Error ? err : new Error(String(err));
+              resolveWait?.();
+            },
           },
-          onStderr: (chunk: string) => {
-            console.log("STDERR CHUNK:", chunk);
-            queue.push(new TextEncoder().encode(chunk));
-            resolveWait?.();
-          },
-          onError: (err: unknown) => {
-            console.log("SHELL ERROR:", err);
-            error = err instanceof Error ? err : new Error(String(err));
-            resolveWait?.();
-          },
-        });
+        );
 
         // Handle completion
         shellPromise
@@ -553,16 +555,8 @@ class SandockHandle implements SandboxHandle {
     // Stop the sandbox using high-level API
     await this.client.sandbox.stop(this.sandboxId);
 
-    // Delete sandbox using raw API (SDK doesn't provide delete method)
-    const result = await this.client.DELETE("/api/v1/sandbox/{id}", {
-      params: { path: { id: this.sandboxId } },
-    });
-
-    if (!result.data) {
-      throw new Error(
-        `Failed to delete sandbox: ${JSON.stringify(result.error ?? "Unknown error")}`,
-      );
-    }
+    // Delete sandbox using high-level API
+    await this.client.sandbox.delete(this.sandboxId);
 
     // Clean up from cache
     this.onDestroy();
