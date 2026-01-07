@@ -325,6 +325,27 @@ class E2BHandle implements SandboxHandle {
   }
 
   /**
+   * Escape a string for safe use in shell commands
+   * Uses single quotes and escapes any single quotes within the string
+   */
+  private shellEscape(arg: string): string {
+    // If the argument contains no special characters, return as-is
+    if (/^[a-zA-Z0-9._\-\/=]+$/.test(arg)) {
+      return arg;
+    }
+    // Wrap in single quotes and escape any single quotes within
+    // Replace ' with '\'' (end quote, escaped quote, start quote)
+    return `'${arg.replace(/'/g, "'\\''")}'`;
+  }
+
+  /**
+   * Build a shell-safe command string from an array of arguments
+   */
+  private buildShellCommand(command: string[]): string {
+    return command.map((arg) => this.shellEscape(arg)).join(" ");
+  }
+
+  /**
    * Run a command and wait for completion (used internally)
    */
   async runCommand(
@@ -342,8 +363,11 @@ class E2BHandle implements SandboxHandle {
       NODE_PATH: "/sandagent/node_modules",
     };
 
+    // Build shell-safe command string with proper escaping
+    const shellCommand = this.buildShellCommand(command);
+
     // Debug: log environment variables being passed to sandbox
-    console.log("[E2B] Executing command:", command.join(" "));
+    console.log("[E2B] Executing command:", shellCommand);
     console.log("[E2B] Environment variables:", Object.keys(envWithNodePath));
     console.log(
       "[E2B] ANTHROPIC_API_KEY present:",
@@ -363,7 +387,7 @@ class E2BHandle implements SandboxHandle {
         let error: Error | null = null;
         let resolveNext: (() => void) | null = null;
 
-        const commandPromise = self.instance.commands.run(command.join(" "), {
+        const commandPromise = self.instance.commands.run(shellCommand, {
           cwd: opts?.cwd,
           envs: envWithNodePath,
           timeoutMs: 0, // 0 = no timeout for LLM operations
