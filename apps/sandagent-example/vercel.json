@@ -6,7 +6,7 @@
   "outputDirectory": ".next",
   "functions": {
     "app/api/**/*.ts": {
-      "includeFiles": "../../templates/**/*,../../apps/runner-cli/dist/bundle.mjs"
+      "includeFiles": "../../templates/**/*,../../templates/**/.claude/**/*,../../templates/**/.*,../../apps/runner-cli/dist/bundle.mjs"
     }
   }
 }
