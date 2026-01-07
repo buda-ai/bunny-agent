@@ -42,28 +42,29 @@ const ENV_CONFIGS: EnvConfig[] = [
     name: "E2B API Key",
     key: "E2B_API_KEY",
     description: "Required for E2B cloud sandbox. Get one at https://e2b.dev",
-    required: true,
+    required: false,
     category: "sandbox",
     placeholder: "e2b_...",
+    isSecret: true,
+  },
+  {
+    name: "Sandock API Key",
+    key: "SANDOCK_API_KEY",
+    description:
+      "Required for Sandock cloud sandbox. Get one at https://sandock.ai",
+    required: false,
+    category: "sandbox",
+    placeholder: "sandock_...",
     isSecret: true,
   },
   {
     name: "Sandbox Provider",
     key: "SANDBOX_PROVIDER",
     description:
-      "Choose sandbox: 'e2b' (cloud, recommended) or 'sandock' (local Docker). Default: e2b",
+      "Choose sandbox: 'e2b' (cloud) or 'sandock' (cloud). Default: e2b",
     required: false,
     category: "sandbox",
     placeholder: "e2b",
-  },
-  {
-    name: "Docker Host",
-    key: "DOCKER_HOST",
-    description:
-      "Docker host URL for Sandock adapter. Only needed if using 'sandock' provider",
-    required: false,
-    category: "sandbox",
-    placeholder: "unix:///var/run/docker.sock",
   },
   {
     name: "Debug Mode",
@@ -318,6 +319,16 @@ export default function SettingsPage() {
                 className="text-primary hover:underline"
               >
                 E2B Dashboard → Get E2B API Key
+              </a>
+            </li>
+            <li>
+              <a
+                href="https://sandock.ai"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline"
+              >
+                Sandock Console → Get Sandock API Key
               </a>
             </li>
           </ul>

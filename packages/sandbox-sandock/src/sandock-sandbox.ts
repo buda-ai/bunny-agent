@@ -1,3 +1,5 @@
+import * as fs from "node:fs";
+import * as path from "node:path";
 import type {
   ExecOptions,
   SandboxAdapter,
@@ -23,12 +25,20 @@ export interface SandockSandboxOptions {
   cpuShares?: number;
   /** Keep sandbox running after execution */
   keep?: boolean;
+  /** Timeout for sandbox operations in milliseconds (default: 300000 = 5 min) */
+  timeout?: number;
+  /** Path to runner bundle.js (required for running sandagent) */
+  runnerBundlePath?: string;
+  /** Path to template directory to upload */
+  templatesPath?: string;
 }
 
-// Type for API response with data and error
-interface ApiResponse<T> {
-  data?: T;
-  error?: unknown;
+/**
+ * Cached sandbox instance with metadata
+ */
+interface CachedInstance {
+  sandboxId: string;
+  lastAccessTime: number;
 }
 
 /**
@@ -44,6 +54,20 @@ export class SandockSandbox implements SandboxAdapter {
   private readonly memoryLimitMb?: number;
   private readonly cpuShares?: number;
   private readonly keep: boolean;
+  private readonly timeout: number;
+  private readonly runnerBundlePath?: string;
+  private readonly templatesPath?: string;
+
+  /** Global cache for sandbox instances (shared across all SandockSandbox instances) */
+  private static readonly instances: Map<string, CachedInstance> = new Map();
+  private static readonly initializedInstances: Set<string> = new Set();
+
+  /** Maximum number of cached instances */
+  private static readonly MAX_CACHE_SIZE = 50;
+  /** Instance expiration time in milliseconds (default: 30 minutes) */
+  private static readonly INSTANCE_TTL_MS = 30 * 60 * 1000;
+  /** Cleanup interval timer (lazy initialized on first cache write) */
+  private static cleanupTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(options: SandockSandboxOptions = {}) {
     const apiKey = options.apiKey ?? process.env.SANDOCK_API_KEY;
@@ -65,47 +89,237 @@ export class SandockSandbox implements SandboxAdapter {
     this.memoryLimitMb = options.memoryLimitMb;
     this.cpuShares = options.cpuShares;
     this.keep = options.keep ?? true;
+    this.timeout = options.timeout ?? 300000;
+    this.runnerBundlePath = options.runnerBundlePath;
+    this.templatesPath = options.templatesPath;
+  }
+
+  /**
+   * Ensure cleanup timer is running (lazy initialization)
+   */
+  private static ensureCleanupTimer(client: SandockClient): void {
+    if (SandockSandbox.cleanupTimer) return;
+
+    SandockSandbox.cleanupTimer = setInterval(
+      () => {
+        SandockSandbox.cleanupExpiredInstances(client);
+      },
+      5 * 60 * 1000,
+    ); // Run every 5 minutes
+
+    // Don't prevent process exit
+    if (SandockSandbox.cleanupTimer.unref) {
+      SandockSandbox.cleanupTimer.unref();
+    }
+  }
+
+  /**
+   * Remove expired instances from cache
+   */
+  private static cleanupExpiredInstances(client: SandockClient): void {
+    const now = Date.now();
+    const expiredIds: string[] = [];
+
+    for (const [id, cached] of SandockSandbox.instances) {
+      if (now - cached.lastAccessTime > SandockSandbox.INSTANCE_TTL_MS) {
+        expiredIds.push(id);
+      }
+    }
+
+    for (const id of expiredIds) {
+      const cached = SandockSandbox.instances.get(id);
+      if (cached) {
+        console.log(`[Sandock] Removing expired sandbox instance: ${id}`);
+        client.sandbox.stop(cached.sandboxId).catch((e) => {
+          console.error(`[Sandock] Error stopping expired sandbox ${id}:`, e);
+        });
+        SandockSandbox.instances.delete(id);
+        SandockSandbox.initializedInstances.delete(id);
+      }
+    }
+  }
+
+  /**
+   * Evict oldest instance if cache is full
+   */
+  private evictOldestIfNeeded(): void {
+    // Lazy start cleanup timer on first cache write
+    SandockSandbox.ensureCleanupTimer(this.client);
+
+    if (SandockSandbox.instances.size < SandockSandbox.MAX_CACHE_SIZE) return;
+
+    let oldestId: string | null = null;
+    let oldestTime = Number.POSITIVE_INFINITY;
+
+    for (const [id, cached] of SandockSandbox.instances) {
+      if (cached.lastAccessTime < oldestTime) {
+        oldestTime = cached.lastAccessTime;
+        oldestId = id;
+      }
+    }
+
+    if (oldestId) {
+      const cached = SandockSandbox.instances.get(oldestId);
+      if (cached) {
+        console.log(`[Sandock] Evicting oldest sandbox instance: ${oldestId}`);
+        this.client.sandbox.stop(cached.sandboxId).catch((e) => {
+          console.error(
+            `[Sandock] Error stopping evicted sandbox ${oldestId}:`,
+            e,
+          );
+        });
+        SandockSandbox.instances.delete(oldestId);
+        SandockSandbox.initializedInstances.delete(oldestId);
+      }
+    }
   }
 
   /**
    * Attach to or create a sandbox with the given ID
    */
   async attach(id: string): Promise<SandboxHandle> {
-    // Create sandbox via Sandock API
-    const createResult = (await this.client.POST("/api/sandbox", {
-      body: {
-        actorUserId: id,
+    const cached = SandockSandbox.instances.get(id);
+    let sandboxId = cached?.sandboxId;
+    let needsInit = false;
+
+    if (sandboxId) {
+      // Update last access time
+      SandockSandbox.instances.set(id, {
+        sandboxId,
+        lastAccessTime: Date.now(),
+      });
+      console.log(`[Sandock] Reusing cached sandbox instance: ${id}`);
+    } else {
+      // Evict oldest if cache is full before adding new instance
+      this.evictOldestIfNeeded();
+
+      // Create sandbox using high-level API
+      const createResult = await this.client.sandbox.create({
         image: this.image,
-        workdir: this.workdir,
-        memoryLimitMb: this.memoryLimitMb,
-        cpuShares: this.cpuShares,
-        keep: this.keep,
+        memory: this.memoryLimitMb,
+        cpu: this.cpuShares,
+      });
+
+      console.log(
+        `[Sandock] Sandbox creation result: ${JSON.stringify(createResult)}`,
+      );
+      sandboxId = createResult.data.id;
+      if (!sandboxId) {
+        throw new Error("No sandbox ID returned from Sandock API");
+      }
+
+      console.log(`[Sandock] Created new sandbox: ${sandboxId}`);
+
+      // Start the sandbox using high-level API
+      await this.client.sandbox.start(sandboxId);
+
+      SandockSandbox.instances.set(id, {
+        sandboxId,
+        lastAccessTime: Date.now(),
+      });
+
+      // Remove old initialized flag for this user ID when creating new sandbox
+      SandockSandbox.initializedInstances.delete(id);
+      needsInit = true;
+    }
+
+    const handle = new SandockHandle(
+      this.client,
+      sandboxId,
+      this.workdir,
+      this.timeout,
+      () => {
+        SandockSandbox.instances.delete(id);
+        SandockSandbox.initializedInstances.delete(id);
       },
-    })) as ApiResponse<{ data: { id: string } }>;
+    );
 
-    if (createResult.error) {
-      throw new Error(
-        `Failed to create sandbox: ${JSON.stringify(createResult.error)}`,
+    // Upload runner and templates on first attach
+    if (needsInit && !SandockSandbox.initializedInstances.has(id)) {
+      await this.initializeSandbox(handle, id);
+      SandockSandbox.initializedInstances.add(id);
+    }
+
+    return handle;
+  }
+
+  private async initializeSandbox(
+    handle: SandockHandle,
+    id: string,
+  ): Promise<void> {
+    const filesToUpload: Array<{ path: string; content: Uint8Array | string }> =
+      [];
+
+    // Upload runner bundle
+    if (this.runnerBundlePath && fs.existsSync(this.runnerBundlePath)) {
+      const bundleContent = fs.readFileSync(this.runnerBundlePath);
+      const bundleFileName = path.basename(this.runnerBundlePath);
+      filesToUpload.push({
+        path: `runner/${bundleFileName}`,
+        content: bundleContent,
+      });
+      console.log(
+        `[Sandock] Uploading runner bundle (${bundleFileName}) to sandbox ${id}`,
       );
     }
 
-    const sandboxId = createResult.data?.data.id;
-    if (!sandboxId) {
-      throw new Error("No sandbox ID returned from Sandock API");
-    }
-
-    // Start the sandbox
-    const startResult = (await this.client.POST("/api/sandbox/{id}/start", {
-      params: { path: { id: sandboxId } },
-    })) as ApiResponse<{ data: { id: string; started: boolean } }>;
-
-    if (startResult.error) {
-      throw new Error(
-        `Failed to start sandbox: ${JSON.stringify(startResult.error)}`,
+    // Upload template from specified path to /sandagent root
+    if (this.templatesPath && fs.existsSync(this.templatesPath)) {
+      const templateFiles = this.collectFiles(this.templatesPath, "");
+      filesToUpload.push(...templateFiles);
+      console.log(
+        `[Sandock] Uploading ${templateFiles.length} files from '${this.templatesPath}' to sandbox ${id}`,
+      );
+    } else if (this.templatesPath) {
+      console.warn(
+        `[Sandock] Template path not found: ${this.templatesPath}, skipping`,
       );
     }
 
-    return new SandockHandle(this.client, sandboxId, this.workdir);
+    if (filesToUpload.length > 0) {
+      await handle.upload(filesToUpload, "/sandagent");
+
+      // Install claude-agent-sdk in sandbox
+      console.log(
+        `[Sandock] Installing @anthropic-ai/claude-agent-sdk in sandbox ${id}`,
+      );
+      const installResult = await handle.runCommand(
+        "npm install --prefix /sandagent @anthropic-ai/claude-agent-sdk",
+      );
+      if (installResult.exitCode !== 0) {
+        console.error(
+          `[Sandock] Failed to install claude-agent-sdk: ${installResult.stderr}`,
+        );
+      }
+    }
+  }
+
+  private collectFiles(
+    dir: string,
+    prefix: string,
+  ): Array<{ path: string; content: Uint8Array | string }> {
+    const files: Array<{ path: string; content: Uint8Array | string }> = [];
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name);
+      const relativePath = prefix ? `${prefix}/${entry.name}` : entry.name;
+
+      if (entry.isDirectory()) {
+        // Skip node_modules and .git only
+        if (entry.name === "node_modules" || entry.name === ".git") {
+          continue;
+        }
+        files.push(...this.collectFiles(fullPath, relativePath));
+      } else if (entry.isFile()) {
+        files.push({
+          path: relativePath,
+          content: fs.readFileSync(fullPath),
+        });
+      }
+    }
+
+    return files;
   }
 }
 
@@ -116,15 +330,50 @@ class SandockHandle implements SandboxHandle {
   private readonly client: SandockClient;
   private readonly sandboxId: string;
   private readonly defaultWorkdir: string;
+  private readonly timeout: number;
+  private readonly onDestroy: () => void;
 
   constructor(
     client: SandockClient,
     sandboxId: string,
     defaultWorkdir: string,
+    timeout: number,
+    onDestroy: () => void,
   ) {
     this.client = client;
     this.sandboxId = sandboxId;
     this.defaultWorkdir = defaultWorkdir;
+    this.timeout = timeout;
+    this.onDestroy = onDestroy;
+  }
+
+  /**
+   * Run a command and wait for completion (used internally)
+   */
+  async runCommand(
+    cmd: string,
+  ): Promise<{ exitCode: number; stdout: string; stderr: string }> {
+    let stdout = "";
+    let stderr = "";
+
+    const result = await this.client.sandbox.shell(
+      this.sandboxId,
+      { cmd, timeoutMs: this.timeout },
+      {
+        onStdout: (chunk: string) => {
+          stdout += chunk;
+        },
+        onStderr: (chunk: string) => {
+          stderr += chunk;
+        },
+      },
+    );
+
+    return {
+      exitCode: result.data.exitCode ?? 0,
+      stdout,
+      stderr,
+    };
   }
 
   /**
@@ -133,58 +382,148 @@ class SandockHandle implements SandboxHandle {
   exec(command: string[], opts?: ExecOptions): AsyncIterable<Uint8Array> {
     const self = this;
 
+    // Add NODE_PATH so Node can find packages installed in /sandagent
+    const envWithNodePath: Record<string, string> = {
+      ...opts?.env,
+      NODE_PATH: "/sandagent/node_modules",
+    };
+
+    // Debug: log environment variables being passed to sandbox
+    console.log("[Sandock] Executing command:", command.join(" "));
+    console.log(
+      "[Sandock] Environment variables:",
+      Object.keys(envWithNodePath),
+    );
+    console.log(
+      "[Sandock] ANTHROPIC_API_KEY present:",
+      !!envWithNodePath.ANTHROPIC_API_KEY,
+    );
+    if (envWithNodePath.ANTHROPIC_API_KEY) {
+      console.log(
+        "[Sandock] ANTHROPIC_API_KEY prefix:",
+        envWithNodePath.ANTHROPIC_API_KEY.substring(0, 10) + "...",
+      );
+    }
+
     return {
       async *[Symbol.asyncIterator](): AsyncIterator<Uint8Array> {
-        // Build command string
-        const cmd = command.length === 1 ? command[0] : command;
+        // Build command string - note: proper shell escaping would be better
+        // but we maintain backward compatibility with the original implementation
+        const baseCmd = command.length === 1 ? command[0] : command.join(" ");
 
-        // Execute shell command via Sandock API
-        const result = (await self.client.POST("/api/sandbox/{id}/shell", {
-          params: { path: { id: self.sandboxId } },
-          body: {
-            cmd,
-            workdir: opts?.cwd ?? self.defaultWorkdir,
-            env: opts?.env,
-            timeoutMs: opts?.timeout ? opts.timeout * 1000 : undefined,
+        // Build full command with cwd and env support
+        const parts: string[] = [];
+
+        // Add working directory change (escape single quotes in path)
+        const workdir = opts?.cwd ?? self.defaultWorkdir;
+        if (workdir) {
+          const escapedWorkdir = workdir.replace(/'/g, "'\\''");
+          parts.push(`cd '${escapedWorkdir}'`);
+        }
+
+        // Add environment variables (validate keys and escape values)
+        const validKeyPattern = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+        const envParts = Object.entries(envWithNodePath)
+          .filter(([key]) => validKeyPattern.test(key))
+          .map(([key, value]) => `export ${key}=${JSON.stringify(value)}`)
+          .join(" && ");
+        if (envParts) {
+          parts.push(envParts);
+        }
+
+        // Add the actual command
+        parts.push(baseCmd);
+
+        const cmd = parts.join(" && ");
+
+        // Queue for streaming chunks
+        const queue: Uint8Array[] = [];
+        let done = false;
+        let error: Error | null = null;
+        let resolveWait: (() => void) | null = null;
+
+        // Start shell command with streaming callbacks
+        const shellPromise = self.client.sandbox.shell(
+          self.sandboxId,
+          { cmd, timeoutMs: self.timeout },
+          {
+            onStdout: (chunk: string) => {
+              queue.push(new TextEncoder().encode(chunk));
+              resolveWait?.();
+            },
+            onStderr: (chunk: string) => {
+              console.log("STDERR CHUNK:", chunk);
+              queue.push(new TextEncoder().encode(chunk));
+              resolveWait?.();
+            },
+            onError: (err: unknown) => {
+              console.log("SHELL ERROR:", err);
+              error = err instanceof Error ? err : new Error(String(err));
+              resolveWait?.();
+            },
           },
-        })) as ApiResponse<{
-          data: {
-            stdout: string;
-            stderr: string;
-            exitCode: number | null;
-            timedOut: boolean;
-            durationMs: number;
-          };
-        }>;
+        );
 
-        if (result.error) {
-          throw new Error(
-            `Shell command failed: ${JSON.stringify(result.error)}`,
-          );
-        }
+        // Handle completion
+        shellPromise
+          .then((result) => {
+            // Check for errors in the result
+            console.log(
+              "[Sandock] Command completed with exit code:",
+              result.data.exitCode,
+            );
+            console.log(
+              "[Sandock] Command stdout:",
+              result.data.stdout?.substring(0, 500) || "(empty)",
+            );
+            console.log(
+              "[Sandock] Command stderr:",
+              result.data.stderr?.substring(0, 500) || "(empty)",
+            );
+            if (result.data.timedOut) {
+              error = new Error(
+                `Command timed out after ${result.data.durationMs}ms`,
+              );
+            } else if (
+              result.data.exitCode !== 0 &&
+              result.data.exitCode !== null
+            ) {
+              console.warn(`Command exited with code ${result.data.exitCode}`);
+            }
+            done = true;
+            resolveWait?.();
+          })
+          .catch((err) => {
+            console.error("[Sandock] Shell promise rejected:", err);
+            error = err instanceof Error ? err : new Error(String(err));
+            done = true;
+            resolveWait?.();
+          });
 
-        const data = result.data?.data;
-        if (!data) {
-          return;
-        }
+        // Yield chunks as they arrive
+        while (true) {
+          // Yield all queued chunks
+          while (queue.length > 0) {
+            const chunk = queue.shift();
+            if (chunk) {
+              yield chunk;
+            }
+          }
 
-        // Yield stdout
-        if (data.stdout) {
-          yield new TextEncoder().encode(data.stdout);
-        }
+          // Check for errors
+          if (error) {
+            throw error;
+          }
 
-        // Yield stderr (if any)
-        if (data.stderr) {
-          yield new TextEncoder().encode(data.stderr);
-        }
+          // Check if done
+          if (done) {
+            break;
+          }
 
-        // Check exit code
-        if (data.exitCode !== 0 && data.exitCode !== null) {
-          console.warn(`Command exited with code ${data.exitCode}`);
-        }
-
-        if (data.timedOut) {
-          throw new Error(`Command timed out after ${data.durationMs}ms`);
+          // Wait for more data
+          await new Promise<void>((resolve) => {
+            resolveWait = resolve;
+          });
         }
       },
     };
@@ -206,19 +545,8 @@ class SandockHandle implements SandboxHandle {
           ? file.content
           : new TextDecoder().decode(file.content);
 
-      const result = (await this.client.POST("/api/sandbox/{id}/fs/write", {
-        params: { path: { id: this.sandboxId } },
-        body: {
-          path: fullPath,
-          content,
-        },
-      })) as ApiResponse<{ data: boolean }>;
-
-      if (result.error) {
-        throw new Error(
-          `Failed to write file ${fullPath}: ${JSON.stringify(result.error)}`,
-        );
-      }
+      // Use high-level fs.write API
+      await this.client.fs.write(this.sandboxId, fullPath, content);
     }
   }
 
@@ -226,20 +554,13 @@ class SandockHandle implements SandboxHandle {
    * Destroy the sandbox and release resources
    */
   async destroy(): Promise<void> {
-    // Stop the sandbox first
-    await this.client.POST("/api/sandbox/{id}/stop", {
-      params: { path: { id: this.sandboxId } },
-    });
+    // Stop the sandbox using high-level API
+    await this.client.sandbox.stop(this.sandboxId);
 
-    // Then delete it
-    const result = (await this.client.DELETE("/api/sandbox/{id}", {
-      params: { path: { id: this.sandboxId } },
-    })) as ApiResponse<{ data: { id: string; deleted: boolean } }>;
+    // Delete sandbox using high-level API
+    await this.client.sandbox.delete(this.sandboxId);
 
-    if (result.error) {
-      throw new Error(
-        `Failed to delete sandbox: ${JSON.stringify(result.error)}`,
-      );
-    }
+    // Clean up from cache
+    this.onDestroy();
   }
 }

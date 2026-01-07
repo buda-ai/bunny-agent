@@ -4,22 +4,36 @@ import { SandockSandbox } from "../sandock-sandbox.js";
 // Mock the sandock SDK
 vi.mock("sandock", () => ({
   createSandockClient: vi.fn(() => ({
-    POST: vi.fn().mockImplementation((path) => {
-      if (path === "/api/sandbox") {
-        return Promise.resolve({
-          data: { data: { id: "sandbox-123" } },
-          error: null,
-        });
-      }
-      if (path === "/api/sandbox/{id}/start") {
-        return Promise.resolve({
-          data: { data: { id: "sandbox-123", started: true } },
-          error: null,
-        });
-      }
-      if (path === "/api/sandbox/{id}/shell") {
-        return Promise.resolve({
-          data: {
+    DELETE: vi.fn().mockResolvedValue({
+      data: { data: { id: "sandbox-123", deleted: true } },
+      error: null,
+    }),
+    // High-level sandbox API with streaming support
+    sandbox: {
+      create: vi.fn().mockResolvedValue({
+        success: true,
+        data: { id: "sandbox-123" },
+      }),
+      start: vi.fn().mockResolvedValue({
+        success: true,
+        data: { id: "sandbox-123", started: true },
+      }),
+      shell: vi.fn().mockImplementation(
+        (
+          _sandboxId: string,
+          _command: string,
+          callbacks?: {
+            onStdout?: (chunk: string) => void;
+            onStderr?: (chunk: string) => void;
+            onError?: (error: unknown) => void;
+          },
+        ) => {
+          // Simulate streaming output
+          if (callbacks?.onStdout) {
+            callbacks.onStdout("command output");
+          }
+          return Promise.resolve({
+            success: true,
             data: {
               stdout: "command output",
               stderr: "",
@@ -27,25 +41,25 @@ vi.mock("sandock", () => ({
               timedOut: false,
               durationMs: 100,
             },
-          },
-          error: null,
-        });
-      }
-      if (path === "/api/sandbox/{id}/fs/write") {
-        return Promise.resolve({ data: { data: true }, error: null });
-      }
-      if (path === "/api/sandbox/{id}/stop") {
-        return Promise.resolve({
-          data: { data: { id: "sandbox-123", stopped: true } },
-          error: null,
-        });
-      }
-      return Promise.resolve({ data: null, error: "Unknown path" });
-    }),
-    DELETE: vi.fn().mockResolvedValue({
-      data: { data: { id: "sandbox-123", deleted: true } },
-      error: null,
-    }),
+          });
+        },
+      ),
+      stop: vi.fn().mockResolvedValue({
+        success: true,
+        data: { id: "sandbox-123", stopped: true },
+      }),
+      delete: vi.fn().mockResolvedValue({
+        success: true,
+        data: { id: "sandbox-123", deleted: true },
+      }),
+    },
+    // High-level fs API
+    fs: {
+      write: vi.fn().mockResolvedValue({
+        success: true,
+        data: true,
+      }),
+    },
   })),
 }));
 

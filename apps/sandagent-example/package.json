@@ -5,7 +5,7 @@
   "description": "Complete SandAgent example with AI Chat UI, template selector, and real-time streaming",
   "scripts": {
     "dev": "concurrently \"pnpm dev:deps\" \"next dev\"",
-    "dev:deps": "pnpm --filter @sandagent/core --filter @sandagent/sandbox-e2b --parallel dev",
+    "dev:deps": "pnpm --filter @sandagent/core --filter @sandagent/sandbox-e2b --filter @sandagent/sandbox-sandock --parallel dev",
     "dev:next": "next dev",
     "build": "next build",
     "start": "next start",
@@ -15,6 +15,7 @@
     "@ai-sdk/react": "^3.0.3",
     "@sandagent/core": "workspace:*",
     "@sandagent/sandbox-e2b": "workspace:*",
+    "@sandagent/sandbox-sandock": "workspace:*",
     "ai": "^6.0.3",
     "kui": "workspace:*",
     "lucide-react": "^0.556.0",
