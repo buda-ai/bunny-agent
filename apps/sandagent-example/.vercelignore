@@ -1,3 +1,0 @@
-# Include all dotfiles in templates
-!../../templates/**/.claude
-!../../templates/**/.claude/**
