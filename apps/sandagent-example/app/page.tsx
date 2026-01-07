@@ -78,6 +78,11 @@ export default function Home() {
       name: "SEO",
       description: "SEO Optimization",
     },
+    {
+      id: "gaia-agent",
+      name: "GAIA Agent",
+      description: "GAIA Benchmark Super Agent",
+    },
   ];
   // Use a ref to always get the latest clientConfig
   const clientConfigRef = useRef(clientConfig);
