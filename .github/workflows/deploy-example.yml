@@ -68,6 +68,13 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: Debug - Check .claude folders
+        run: |
+          echo "=== Checking templates/.claude folders ==="
+          ls -la templates/*/
+          echo "=== Checking .claude contents ==="
+          ls -la templates/*/.claude/ || echo "No .claude folders found"
+
       # =========================================
       # DEV MODE: Build local packages
       # =========================================
