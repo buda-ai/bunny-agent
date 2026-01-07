@@ -48,6 +48,10 @@ vi.mock("sandock", () => ({
         success: true,
         data: { id: "sandbox-123", stopped: true },
       }),
+      delete: vi.fn().mockResolvedValue({
+        success: true,
+        data: { id: "sandbox-123", deleted: true },
+      }),
     },
     // High-level fs API
     fs: {
