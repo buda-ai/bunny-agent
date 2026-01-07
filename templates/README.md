@@ -19,6 +19,7 @@ Instead of writing SDK code, tool definitions, and memory management, you just w
 | `coder` | Software development focused | Coding, debugging, refactoring |
 | `analyst` | Data analysis optimized | Data processing, SQL, visualization |
 | `researcher` | Web research capabilities | Information gathering, summarization |
+| `gaia-agent` | GAIA Benchmark Super Agent | Complex multi-step reasoning, benchmarks |
 | `seo-agent` | SEO optimization | Keyword research, content optimization |
 
 ## Template Structure

@@ -1,0 +1,5 @@
+{
+  "$schema": "https://modelcontextprotocol.io/schemas/mcp.json",
+  "description": "GAIA Agent MCP configuration for enhanced capabilities",
+  "servers": {}
+}
