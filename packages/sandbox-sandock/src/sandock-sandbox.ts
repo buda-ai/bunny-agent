@@ -200,7 +200,9 @@ export class SandockSandbox implements SandboxAdapter {
         cpu: this.cpuShares,
       });
 
-      console.log(`[Sandock] Sandbox creation result: ${JSON.stringify(createResult)}`);
+      console.log(
+        `[Sandock] Sandbox creation result: ${JSON.stringify(createResult)}`,
+      );
       sandboxId = createResult.data.id;
       if (!sandboxId) {
         throw new Error("No sandbox ID returned from Sandock API");
@@ -215,7 +217,7 @@ export class SandockSandbox implements SandboxAdapter {
         sandboxId,
         lastAccessTime: Date.now(),
       });
-      
+
       // Remove old initialized flag for this user ID when creating new sandbox
       SandockSandbox.initializedInstances.delete(id);
       needsInit = true;
