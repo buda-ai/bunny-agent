@@ -411,10 +411,6 @@ class E2BHandle implements SandboxHandle {
               "[E2B] Command completed with exit code:",
               result.exitCode,
             );
-            if (result.stdout)
-              console.log("[E2B] stdout:", result.stdout.substring(0, 500));
-            if (result.stderr)
-              console.log("[E2B] stderr:", result.stderr.substring(0, 500));
             finished = true;
             if (resolveNext) {
               resolveNext();

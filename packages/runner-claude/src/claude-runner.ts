@@ -12,34 +12,16 @@
  */
 
 import type {
-  HookCallback,
-  HookCallbackMatcher,
-  HookEvent,
-  HookInput,
+  CanUseTool,
+  PermissionResult,
+  PermissionUpdate,
+  Query,
   SDKAssistantMessage,
   SDKMessage,
   SDKResultMessage,
   SDKSystemMessage,
   SDKUserMessage,
 } from "@anthropic-ai/claude-agent-sdk";
-
-/**
- * 待审批的工具调用信息
- */
-type PendingToolApproval = {
-  toolUseId: string;
-  toolName: string;
-  toolInput: unknown;
-  sessionId: string;
-};
-
-/**
- * 工具审批状态，用于在 hook 和 runner 之间传递数据
- */
-type ToolApprovalState = {
-  pending: PendingToolApproval | null;
-  shouldStop: boolean;
-};
 
 /**
  * Options for creating a Claude runner
@@ -59,49 +41,8 @@ export interface ClaudeRunnerOptions {
   env?: Record<string, string>;
   /** Resume session ID for multi-turn conversation */
   resume?: string;
-  /** Parent tool use ID for tool result submission */
-  parentToolUseId?: string;
-}
-
-/**
- * Build an SDKUserMessage for resuming conversation after tool approval
- *
- * @param toolOutput - JSON string containing toolCallId, result, and optional isError
- * @param parentToolUseId - Parent tool use ID for the tool result
- * @param sessionId - Session ID for resuming the conversation
- * @returns SDKUserMessage formatted for Claude Agent SDK
- * @throws Error if toolOutput JSON is invalid or missing required fields
- *
- */
-export function buildSDKUserMessage(
-  toolOutput: string,
-  parentToolUseId: string,
-  sessionId: string,
-): SDKUserMessage {
-  let toolResultContent: string | object = toolOutput;
-  try {
-    toolResultContent = JSON.parse(toolOutput);
-  } catch (error) {
-    // Keep as string if not valid JSON
-  }
-  // Build the SDKUserMessage with tool_use_result flag
-  return {
-    type: "user",
-    message: {
-      role: "user",
-      content: [
-        {
-          type: "tool_result",
-          tool_use_id: parentToolUseId,
-          content: toolResultContent,
-          is_error: false,
-        },
-      ],
-    },
-    tool_use_result: true,
-    parent_tool_use_id: parentToolUseId,
-    session_id: sessionId,
-  };
+  /** SSE API URL for canUseTool callback approval flow */
+  toolSseUrl?: string;
 }
 
 /**
@@ -122,19 +63,8 @@ export function buildUserMessage(userInput: string): SDKUserMessage {
  */
 export async function* buildSDKUserMessageIterable(
   userInput: string,
-  options: ClaudeRunnerOptions,
 ): AsyncIterable<SDKUserMessage> {
-  if (options.parentToolUseId && options.resume) {
-    // This is a tool result submission
-    yield buildSDKUserMessage(
-      userInput,
-      options.parentToolUseId,
-      options.resume,
-    );
-  } else {
-    // This is a regular user message
-    yield buildUserMessage(userInput);
-  }
+  yield buildUserMessage(userInput);
 }
 
 /**
@@ -153,25 +83,6 @@ export interface ClaudeRunner {
  * Type definitions for Claude Agent SDK
  * Based on @anthropic-ai/claude-agent-sdk
  */
-// interface SDKMessage {
-//   type: string;
-//   subtype?: string;
-//   [key: string]: unknown;
-// }
-
-// interface SDKResultMessage extends SDKMessage {
-//   type: "result";
-//   subtype: "success" | "error" | "interrupted";
-//   is_error?: boolean;
-//   result?: string;
-//   duration_ms?: number;
-//   num_turns?: number;
-//   total_cost_usd?: number;
-//   permission_denials?: string[];
-//   errors?: string[];
-//   structured_output?: unknown;
-// }
-
 interface SDKAssistantMessageContent {
   type: string;
   text?: string;
@@ -179,50 +90,6 @@ interface SDKAssistantMessageContent {
   name?: string;
   input?: unknown;
 }
-
-interface SDKAssistantMessageData {
-  id: string;
-  model: string;
-  role: string;
-  stop_reason: string;
-  type: string;
-  content: SDKAssistantMessageContent[];
-  usage?: {
-    input_tokens: number;
-    output_tokens: number;
-    [key: string]: unknown;
-  };
-}
-
-// interface SDKAssistantMessage extends SDKMessage {
-//   type: "assistant";
-//   message: SDKAssistantMessageData | string;
-//   error?: string;
-//   session_id?: string;
-// }
-
-// interface SDKToolUseMessage extends SDKMessage {
-//   type: "tool_use";
-//   tool_name: string;
-//   tool_input: unknown;
-//   tool_use_id: string;
-// }
-
-// interface SDKToolResultMessage extends SDKMessage {
-//   type: "tool_result";
-//   tool_use_id: string;
-//   output: string;
-//   is_error?: boolean;
-// }
-
-// interface SDKSystemMessage extends SDKMessage {
-//   type: "system";
-//   subtype?: string;
-//   model?: string;
-//   cwd?: string;
-//   session_id?: string;
-//   tools?: string[];
-// }
 
 enum SettingSource {
   user = "user",
@@ -237,16 +104,125 @@ interface ClaudeAgentSDKOptions {
   cwd?: string;
   env?: Record<string, string>;
   resume?: string;
-  // file system
   settingSources?: SettingSource[];
-  hooks?: Partial<Record<HookEvent, HookCallbackMatcher[]>>;
+  canUseTool?: CanUseTool;
 }
 
 interface ClaudeAgentSDKModule {
   query(params: {
     prompt: string | AsyncIterable<SDKUserMessage>;
     options?: ClaudeAgentSDKOptions;
-  }): AsyncIterable<SDKMessage>;
+  }): Query;
+}
+
+/**
+ * Create canUseTool callback for tool approval flow
+ * @param claudeOptions - Claude runner options
+ * @returns canUseTool callback function
+ */
+function createCanUseToolCallback(
+  claudeOptions: ClaudeRunnerOptions,
+): CanUseTool {
+  return async (
+    toolName: string,
+    input: ToolInput,
+    options: {
+      signal: AbortSignal;
+      suggestions?: PermissionUpdate[];
+      blockedPath?: string;
+      decisionReason?: string;
+      toolUseID: string;
+      agentID?: string;
+    },
+  ) => {
+    const { toolUseID, signal } = options;
+    if (toolName !== "AskUserQuestion") {
+      return { behavior: "allow", updatedInput: input };
+    }
+
+    const toolSseUrl = claudeOptions.toolSseUrl;
+
+    // If no URL configured, return empty answers immediately
+    if (!toolSseUrl) {
+      return { behavior: "deny", message: "User not answer" };
+    }
+
+    try {
+      // Call SSE endpoint
+      const response = await fetch(toolSseUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          toolCallId: toolUseID,
+          questions: (input as { questions: unknown }).questions,
+        }),
+      });
+
+      if (!response.ok) {
+        console.error("Approval API error:", response.status);
+        return {
+          behavior: "allow",
+          updatedInput: {
+            questions: (input as { questions: unknown }).questions,
+            answers: {},
+          },
+        };
+      }
+
+      // Read SSE stream
+      const reader = response.body!.getReader();
+      const decoder = new TextDecoder();
+      let answers: Record<string, unknown> = {};
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split("\n");
+
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            const data = JSON.parse(line.slice(6));
+
+            if (data.type === "answer") {
+              // Partial update
+              answers[data.question] = data.answer;
+            } else if (data.type === "complete") {
+              // All questions answered
+              answers = data.answers;
+            } else if (data.type === "timeout") {
+              // Timeout
+              break;
+            }
+          }
+        }
+      }
+
+      return {
+        behavior: "allow",
+        updatedInput: {
+          questions: (input as { questions: unknown }).questions,
+          answers,
+        },
+      };
+    } catch (error) {
+      console.error("Failed to access approval API:", error);
+      return {
+        behavior: "allow",
+        updatedInput: {
+          questions: (input as { questions: unknown }).questions,
+          answers: {},
+        },
+      };
+    }
+  };
+}
+
+/** 累积的 usage 统计 */
+interface AccumulatedUsage {
+  inputTokens: number;
+  outputTokens: number;
 }
 
 // Module registry for optional dependencies
@@ -258,26 +234,16 @@ const OPTIONAL_MODULES: Record<string, string> = {
  * Create a Claude runner using the official Claude Agent SDK
  */
 export function createClaudeRunner(options: ClaudeRunnerOptions): ClaudeRunner {
-  console.error(
-    "[SandAgent] Creating Claude runner with options:",
-    JSON.stringify(options, null, 2),
-  );
   return {
     async *run(userInput: string): AsyncIterable<string> {
-      // Debug: log all environment variables (redacted)
-      console.error("[SandAgent] Environment check:");
-      console.error(
-        `  ANTHROPIC_API_KEY: ${process.env.ANTHROPIC_API_KEY ? `set (${process.env.ANTHROPIC_API_KEY.substring(0, 10)}...)` : "NOT SET"}`,
-      );
-      console.error(`  All env keys: ${Object.keys(process.env).join(", ")}`);
-
       // Check for API key
-      const apiKey = process.env.ANTHROPIC_API_KEY;
+      const apiKey =
+        process.env.ANTHROPIC_API_KEY || process.env.AWS_BEARER_TOKEN_BEDROCK;
       if (!apiKey) {
         console.error(
-          "[SandAgent] Warning: ANTHROPIC_API_KEY not set. Using mock response.\n" +
+          "[SandAgent] Warning: ANTHROPIC_API_KEY or AWS_BEARER_TOKEN_BEDROCK not set. Using mock response.\n" +
             "To use the real Claude Agent SDK:\n" +
-            "1. Set ANTHROPIC_API_KEY environment variable\n" +
+            "1. Set ANTHROPIC_API_KEY or AWS_BEARER_TOKEN_BEDROCK environment variable\n" +
             "2. Install the SDK: npm install @anthropic-ai/claude-agent-sdk",
         );
 
@@ -289,13 +255,8 @@ export function createClaudeRunner(options: ClaudeRunnerOptions): ClaudeRunner {
       const sdk = await loadClaudeAgentSDK();
 
       if (sdk) {
-        // Build the user message iterable based on options
-        const userMessageIterable = buildSDKUserMessageIterable(
-          userInput,
-          options,
-        );
         // Use the real Claude Agent SDK
-        yield* runWithClaudeAgentSDK(sdk, options, userMessageIterable);
+        yield* runWithClaudeAgentSDK(sdk, options, userInput);
       } else {
         // Fallback to mock implementation
         console.error(
@@ -322,47 +283,6 @@ async function loadClaudeAgentSDK(): Promise<ClaudeAgentSDKModule | null> {
 }
 
 /**
- * 创建 PreToolUse hook 回调
- * 当 AskUserQuestion 被调用时，记录工具信息并中断执行
- */
-function createPreToolUseHook(state: ToolApprovalState): HookCallback {
-  return async (
-    input: HookInput,
-    toolUseID: string | undefined,
-    _options: { signal: AbortSignal },
-  ) => {
-    console.error(
-      "[SandAgent] PreToolUse hook triggered:",
-      JSON.stringify(input, null, 2),
-      "toolUseID:",
-      toolUseID,
-    );
-
-    // 检查是否是 PreToolUse 事件
-    if (input.hook_event_name === "PreToolUse" && toolUseID) {
-      // 记录待审批的工具信息
-      state.pending = {
-        toolUseId: toolUseID,
-        toolName: input.tool_name,
-        toolInput: input.tool_input,
-        sessionId: input.session_id,
-      };
-      state.shouldStop = true;
-    }
-
-    // 返回 deny 让 SDK 停止执行
-    // 使用 PreToolUse 的正确返回格式
-    return {
-      hookSpecificOutput: {
-        hookEventName: "PreToolUse" as const,
-        permissionDecision: "deny" as const,
-        permissionDecisionReason: "User input required. Waiting for approval.",
-      },
-    };
-  };
-}
-
-/**
  * Run with real Claude Agent SDK
  */
 async function* runWithClaudeAgentSDK(
@@ -370,11 +290,9 @@ async function* runWithClaudeAgentSDK(
   options: ClaudeRunnerOptions,
   userInput: string | AsyncIterable<SDKUserMessage>,
 ): AsyncIterable<string> {
-  // 创建审批状态，用于在 hook 和 runner 之间传递数据
-  const approvalState: ToolApprovalState = {
-    pending: null,
-    shouldStop: false,
-  };
+  const usage: AccumulatedUsage = { inputTokens: 0, outputTokens: 0 };
+  let systemMessage: SDKSystemMessage | undefined;
+  let messageId: string | undefined;
 
   const sdkOptions: ClaudeAgentSDKOptions = {
     model: options.model,
@@ -384,80 +302,58 @@ async function* runWithClaudeAgentSDK(
     cwd: options.cwd,
     env: options.env,
     resume: options.resume,
-    // SDK uses cwd as project directory, loads CLAUDE.md and .claude/skills/*.skill.md
     settingSources: [SettingSource.project, SettingSource.user],
-    hooks: {
-      PreToolUse: [
-        {
-          matcher: "AskUserQuestion",
-          hooks: [createPreToolUseHook(approvalState)],
-        },
-      ],
-    },
+    canUseTool: createCanUseToolCallback(options),
   };
 
   try {
-    console.error("[SandAgent] User input:", userInput);
-
     const queryIterator = sdk.query({
       prompt: userInput,
       options: sdkOptions,
     });
 
-    // console.error("[SandAgent] Query iterator created, starting iteration...");
-
     for await (const message of queryIterator) {
-      console.log("claude return message", JSON.stringify(message, null, 2));
+      if (message.type === "system" && message.subtype === "init") {
+        systemMessage = message;
+        continue;
+      }
 
-      // Convert SDK messages to AI SDK UI format
+      // start message
+      if (message.type === "assistant" && !messageId && systemMessage) {
+        messageId = (message as SDKAssistantMessage).message.id;
+        yield formatDataStream({
+          type: "start",
+          messageId,
+        });
+        yield formatDataStream({
+          type: "message-metadata",
+          messageMetadata: {
+            tools: systemMessage.tools,
+            model: systemMessage.model,
+            sessionId: systemMessage.session_id,
+          },
+        });
+      }
+
+      // Convert and output messages
       const chunks = convertSDKMessageToAISDKUI(message);
       for (const chunk of chunks) {
         yield chunk;
       }
-
-      // 检查是否有待审批的工具调用需要发送
-      if (approvalState.shouldStop && approvalState.pending) {
-        const pending = approvalState.pending;
-
-        // 发送 tool-approval-request 事件
-        yield formatDataStream({
-          type: "tool-approval-request",
-          approvalId: pending.toolUseId,
-          toolCallId: pending.toolUseId,
-        });
-
-        // 发送 finish 事件，表示需要等待用户审批
-        yield formatDataStream({
-          type: "finish",
-          finishReason: "tool-calls",
-          messageMetadata: {
-            sessionId: pending.sessionId,
-            toolCallId: pending.toolUseId,
-            toolName: pending.toolName,
-            requiresApproval: true,
-          },
-        });
-
-        // 清除状态，跳出循环
-        approvalState.pending = null;
-        approvalState.shouldStop = false;
-        break;
-      }
     }
   } catch (error) {
-    // Stream error as AI SDK UI format
-    // console.error("[SandAgent] SDK query error:", error);
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error occurred";
-    const errorStack = error instanceof Error ? error.stack : "";
-    console.error("[SandAgent] Error message:", errorMessage);
-    console.error("[SandAgent] Error stack:", errorStack);
+    console.error("[SandAgent] Error:", errorMessage);
 
     yield formatDataStream({ type: "error", errorText: errorMessage });
     yield formatDataStream({
-      type: "finish-message",
+      type: "finish",
       finishReason: "error",
-      usage: { promptTokens: 0, completionTokens: 0 },
+      usage: {
+        promptTokens: usage.inputTokens,
+        completionTokens: usage.outputTokens,
+      },
     });
   } finally {
     yield `data: [DONE]\n\n`;
@@ -479,32 +375,7 @@ async function* runWithClaudeAgentSDK(
  */
 function convertSDKMessageToAISDKUI(message: SDKMessage): string[] {
   const chunks: string[] = [];
-
   switch (message.type) {
-    case "system": {
-      // System initialization messages - emit start
-      const sysMsg = message as SDKSystemMessage;
-      if (sysMsg.subtype === "init") {
-        chunks.push(
-          formatDataStream({
-            type: "start",
-            messageId: "msg_" + generateId(),
-          }),
-        );
-        chunks.push(
-          formatDataStream({
-            type: "message-metadata",
-            messageMetadata: {
-              tools: sysMsg.tools,
-              model: sysMsg.model,
-              sessionId: sysMsg.session_id,
-            },
-          }),
-        );
-      }
-      break;
-    }
-
     case "assistant": {
       // Assistant response - can contain text and tool_use content blocks
       const assistantMsg = message as SDKAssistantMessage;
@@ -582,45 +453,7 @@ function convertSDKMessageToAISDKUI(message: SDKMessage): string[] {
       }
       break;
     }
-
-    // case "tool_use": {
-    //   // Standalone tool call message
-    //   const toolUseMsg = message as SDKToolUseMessage;
-    //   const toolCallId = toolUseMsg.tool_use_id || generateId();
-
-    //   chunks.push(formatDataStream({
-    //     type: "tool-call-start",
-    //     id: toolCallId,
-    //     name: toolUseMsg.tool_name,
-    //   }));
-    //   if (toolUseMsg.tool_input) {
-    //     chunks.push(formatDataStream({
-    //       type: "tool-call-delta",
-    //       id: toolCallId,
-    //       delta: JSON.stringify(toolUseMsg.tool_input),
-    //     }));
-    //   }
-    //   chunks.push(formatDataStream({
-    //     type: "tool-call-end",
-    //     id: toolCallId,
-    //   }));
-    //   break;
-    // }
-
-    // case "tool_result": {
-    //   // Tool result
-    //   const toolResultMsg = message as SDKToolResultMessage;
-    //   chunks.push(formatDataStream({
-    //     type: "tool-result",
-    //     id: toolResultMsg.tool_use_id,
-    //     result: toolResultMsg.output,
-    //     isError: toolResultMsg.is_error ?? false,
-    //   }));
-    //   break;
-    // }
-
     case "result": {
-      // console.log("result message", JSON.stringify(message, null, 2));
       // Result message - indicates completion
       const resultMsg = message as SDKResultMessage;
 
@@ -643,13 +476,11 @@ function convertSDKMessageToAISDKUI(message: SDKMessage): string[] {
       const usrMsg = message as SDKUserMessage;
 
       // Skip synthetic messages (SDK-injected skill content)
-      if ((usrMsg as unknown as { isSynthetic?: boolean }).isSynthetic) {
-        console.log(
-          "[SandAgent] Skipping synthetic user message (skill injection)",
-        );
+      if ((usrMsg as { isSynthetic?: boolean }).isSynthetic) {
         break;
       }
       const contentArray = usrMsg.message.content;
+
       // this is a tool use result
       if (
         usrMsg.tool_use_result ||
@@ -678,16 +509,11 @@ function convertSDKMessageToAISDKUI(message: SDKMessage): string[] {
           }
         }
       }
-
       break;
     }
 
     default:
-      // Other message types (user, thinking, etc.) - skip for now
-      console.error(
-        `[SandAgent] Unhandled message type: $message.type`,
-        message,
-      );
+      // Other message types - skip for now
       break;
   }
 

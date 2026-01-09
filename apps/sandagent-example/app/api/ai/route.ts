@@ -2,7 +2,11 @@ import path from "node:path";
 import { SandAgent } from "@sandagent/core";
 import { E2BSandbox } from "@sandagent/sandbox-e2b";
 import { SandockSandbox } from "@sandagent/sandbox-sandock";
-import type { UIMessage } from "ai";
+import {
+  type UIMessage,
+  isToolUIPart,
+  lastAssistantMessageIsCompleteWithToolCalls,
+} from "ai";
 
 // Resolve paths relative to the monorepo root
 const MONOREPO_ROOT = path.resolve(process.cwd(), "../..");
@@ -22,11 +26,12 @@ const TEMPLATES_PATH = path.join(MONOREPO_ROOT, "templates");
  *   sessionId: string,
  *   messages: [{ role: "user" | "assistant", content: string }],
  *   template?: string,
- *   ANTHROPIC_API_KEY?: string,     // Client-provided API key
- *   ANTHROPIC_BASE_URL?: string,    // Client-provided base URL (optional)
- *   E2B_API_KEY?: string,           // Client-provided E2B key
- *   SANDOCK_API_KEY?: string,       // Client-provided Sandock key
- *   SANDBOX_PROVIDER?: string,      // 'e2b' or 'sandock'
+ *   ANTHROPIC_API_KEY?: string,          // Client-provided API key
+ *   ANTHROPIC_BASE_URL?: string,         // Client-provided base URL (optional)
+ *   AWS_BEARER_TOKEN_BEDROCK?: string,   // Client-provided AWS Bedrock token (optional)
+ *   E2B_API_KEY?: string,                // Client-provided E2B key
+ *   SANDOCK_API_KEY?: string,            // Client-provided Sandock key
+ *   SANDBOX_PROVIDER?: string,           // 'e2b' or 'sandock'
  *   workspace?: { path?: string }
  * }
  *
@@ -42,6 +47,7 @@ export async function POST(request: Request) {
     resume,
     ANTHROPIC_API_KEY,
     ANTHROPIC_BASE_URL,
+    AWS_BEARER_TOKEN_BEDROCK,
     E2B_API_KEY,
     SANDOCK_API_KEY,
     SANDBOX_PROVIDER = "e2b",
@@ -50,6 +56,10 @@ export async function POST(request: Request) {
   // Debug logging (remove in production)
   console.log("[API] Request body keys:", Object.keys(body));
   console.log("[API] Has ANTHROPIC_API_KEY:", !!ANTHROPIC_API_KEY);
+  console.log(
+    "[API] Has AWS_BEARER_TOKEN_BEDROCK:",
+    !!AWS_BEARER_TOKEN_BEDROCK,
+  );
   console.log("[API] Has E2B_API_KEY:", !!E2B_API_KEY);
   console.log("[API] Has SANDOCK_API_KEY:", !!SANDOCK_API_KEY);
   console.log("[API] SANDBOX_PROVIDER:", SANDBOX_PROVIDER);
@@ -62,11 +72,12 @@ export async function POST(request: Request) {
     });
   }
 
-  if (!ANTHROPIC_API_KEY) {
+  // Either ANTHROPIC_API_KEY or AWS_BEARER_TOKEN_BEDROCK is required
+  if (!ANTHROPIC_API_KEY && !AWS_BEARER_TOKEN_BEDROCK) {
     return new Response(
       JSON.stringify({
         error:
-          "ANTHROPIC_API_KEY is required. Please configure it in Settings.",
+          "Either ANTHROPIC_API_KEY or AWS_BEARER_TOKEN_BEDROCK is required. Please configure one in Settings.",
       }),
       {
         status: 400,
@@ -104,16 +115,46 @@ export async function POST(request: Request) {
 
   // Convert AI SDK message format to simple format
   // AI SDK: { role, parts: [{ type: 'text', text: '...' }] }
-  const normalizedMessages = (messages || []).map((msg: UIMessage) => {
-    if (Array.isArray(msg.parts)) {
-      const textPart = msg.parts.find((p) => p.type === "text");
-      return {
-        role: msg.role,
-        content: textPart?.text || "",
-      };
-    }
-    return msg;
-  });
+  // Process only the last message
+  const lastMessage = messages?.[messages.length - 1];
+  if (!lastMessage) {
+    return new Response(JSON.stringify({ error: "No messages provided" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  let normalizedMessage: {
+    role: "user" | "assistant" | "system";
+    content: string;
+  };
+
+  // Check if last assistant message is complete with tool calls
+  if (lastAssistantMessageIsCompleteWithToolCalls({ messages })) {
+    // Find tool result (tool part with output-available state)
+    const toolResult = lastMessage.parts?.find(
+      (part: UIMessage["parts"][number]) =>
+        isToolUIPart(part) && part.state === "output-available",
+    );
+    // Return tool result as user message with JSON string output
+    normalizedMessage = {
+      role: "user",
+      content: JSON.stringify(toolResult.output || {}),
+    };
+  } else {
+    // If role is user, return text part
+    const textPart = lastMessage.parts
+      ?.map((part: UIMessage["parts"][number]) =>
+        part.type === "text" ? part.text : "",
+      )
+      .join(" ");
+    normalizedMessage = {
+      role: lastMessage.role,
+      content: textPart || "",
+    };
+  }
+
+  const normalizedMessages = [normalizedMessage];
 
   // Create sandbox based on provider
   const sandbox =
@@ -121,26 +162,37 @@ export async function POST(request: Request) {
       ? new SandockSandbox({
           apiKey: SANDOCK_API_KEY,
           runnerBundlePath: RUNNER_BUNDLE_PATH,
-          templatesPath: TEMPLATES_PATH,
+          templatesPath: path.join(TEMPLATES_PATH, template),
         })
       : new E2BSandbox({
           apiKey: E2B_API_KEY,
           runnerBundlePath: RUNNER_BUNDLE_PATH,
-          templatesPath: TEMPLATES_PATH,
+          templatesPath: path.join(TEMPLATES_PATH, template),
         });
+
+  // Determine model based on whether using AWS Bedrock
+  const model = AWS_BEARER_TOKEN_BEDROCK
+    ? "us.anthropic.claude-sonnet-4-20250514-v1:0" // AWS Bedrock model ID
+    : "claude-sonnet-4-20250514"; // Standard Anthropic model ID
 
   const agent = new SandAgent({
     id: sessionId,
     sandbox,
     runner: {
       kind: "claude-agent-sdk",
-      model: "claude-sonnet-4-20250514",
+      model,
       template,
+      toolSseUrl: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/approval/sse`,
     },
     // Pass environment variables to the sandbox
+    // Only include defined values to avoid E2B JSON encoding errors
     env: {
-      ANTHROPIC_API_KEY,
+      ...(ANTHROPIC_API_KEY && { ANTHROPIC_API_KEY }),
       ...(ANTHROPIC_BASE_URL && { ANTHROPIC_BASE_URL }),
+      ...(AWS_BEARER_TOKEN_BEDROCK && {
+        CLAUDE_CODE_USE_BEDROCK: "1",
+        AWS_BEARER_TOKEN_BEDROCK,
+      }),
     },
   });
 

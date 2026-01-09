@@ -2,6 +2,7 @@
 
 import { useChat } from "@ai-sdk/react";
 import {
+  type ChatAddToolApproveResponseFunction,
   DefaultChatTransport,
   type DynamicToolUIPart,
   type UIMessage,
@@ -41,9 +42,11 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { AskUserQuestionUI } from "./claude-tools/AskUserQuestionUI";
+import type { ChatAddToolOutputFunction } from "./claude-tools/type";
 import { STORAGE_KEY } from "./settings/page";
 
-const REQUIRED_KEYS = ["ANTHROPIC_API_KEY", "E2B_API_KEY"];
+const REQUIRED_KEYS = ["E2B_API_KEY"];
 
 export default function Home() {
   const [sessionId] = useState(() => `session-${Date.now()}`);
@@ -57,7 +60,11 @@ export default function Home() {
       const saved = localStorage.getItem(STORAGE_KEY);
       const config = saved ? JSON.parse(saved) : {};
       setClientConfig(config);
-      const allRequiredSet = REQUIRED_KEYS.every((key) => !!config[key]);
+      // Either ANTHROPIC_API_KEY or AWS_BEARER_TOKEN_BEDROCK is required
+      const hasApiKey =
+        !!config.ANTHROPIC_API_KEY || !!config.AWS_BEARER_TOKEN_BEDROCK;
+      const allRequiredSet =
+        REQUIRED_KEYS.every((key) => !!config[key]) && hasApiKey;
       setConfigReady(allRequiredSet);
     } catch {
       setConfigReady(false);
@@ -99,7 +106,15 @@ export default function Home() {
   // Use a ref to track messages for accessing in body callback
   const messagesRef = useRef<UIMessage[]>([]);
 
-  const { messages, sendMessage, status, error } = useChat({
+  const {
+    messages,
+    sendMessage,
+    status,
+    error,
+    setMessages,
+    addToolApprovalResponse,
+    addToolOutput,
+  } = useChat({
     transport: new DefaultChatTransport({
       api: "/api/ai",
       body: () => {
@@ -125,11 +140,15 @@ export default function Home() {
   const hasError = status === "error" && error;
 
   const handleSubmit = async (message: { text: string }) => {
-    if (message.text.trim() && !isLoading) {
-      sendMessage({
-        role: "user",
-        parts: [{ type: "text", text: message.text }],
-      });
+    if (!isLoading) {
+      if (message.text) {
+        sendMessage({
+          role: "user",
+          parts: [{ type: "text", text: message.text.trim() }],
+        });
+      } else {
+        sendMessage();
+      }
     }
   };
 
@@ -196,7 +215,12 @@ export default function Home() {
             />
           ) : (
             messages.map((message: UIMessage) => (
-              <ChatMessage key={message.id} message={message} />
+              <ChatMessage
+                key={message.id}
+                message={message}
+                addToolApprovalResponse={addToolApprovalResponse}
+                addToolOutput={addToolOutput}
+              />
             ))
           )}
           {isLoading && messages[messages.length - 1]?.role === "user" && (
@@ -238,7 +262,15 @@ export default function Home() {
   );
 }
 
-function ChatMessage({ message }: { message: UIMessage }) {
+function ChatMessage({
+  message,
+  addToolApprovalResponse,
+  addToolOutput,
+}: {
+  message: UIMessage;
+  addToolApprovalResponse: ChatAddToolApproveResponseFunction;
+  addToolOutput: ChatAddToolOutputFunction;
+}) {
   const isUser = message.role === "user";
 
   return (
@@ -261,7 +293,14 @@ function ChatMessage({ message }: { message: UIMessage }) {
               return <MessageResponse key={i}>{part.text}</MessageResponse>;
             }
             if (part.type === "dynamic-tool") {
-              return <DynamicToolUI key={i} part={part} />;
+              return (
+                <DynamicToolUI
+                  key={i}
+                  part={part}
+                  addToolApprovalResponse={addToolApprovalResponse}
+                  addToolOutput={addToolOutput}
+                />
+              );
             }
             return null;
           })}
@@ -271,7 +310,15 @@ function ChatMessage({ message }: { message: UIMessage }) {
   );
 }
 
-function DynamicToolUI({ part }: { part: DynamicToolUIPart }) {
+function DynamicToolUI({
+  part,
+  addToolApprovalResponse,
+  addToolOutput,
+}: {
+  part: DynamicToolUIPart;
+  addToolApprovalResponse: ChatAddToolApproveResponseFunction;
+  addToolOutput: ChatAddToolOutputFunction;
+}) {
   const toolName = part.toolName;
   const state = part.state;
   const input = part.input as Record<string, unknown> | undefined;
@@ -290,52 +337,8 @@ function DynamicToolUI({ part }: { part: DynamicToolUIPart }) {
   }
 
   // Handle AskUserQuestion tool specially
-  if (toolName === "AskUserQuestion" && input?.questions) {
-    const questions = input.questions as Array<{
-      question: string;
-      header?: string;
-      multiSelect?: boolean;
-      options?: Array<{ label: string; description?: string }>;
-    }>;
-
-    return (
-      <div className="my-2 space-y-4">
-        {questions.map((q, idx) => (
-          <div key={idx} className="rounded-lg border border-border p-4">
-            {q.header && (
-              <h4 className="mb-2 font-medium text-foreground">{q.header}</h4>
-            )}
-            <p className="mb-3 text-sm text-muted-foreground">{q.question}</p>
-            {q.options && (
-              <div className="space-y-2">
-                {q.options.map((opt, optIdx) => (
-                  <label
-                    key={optIdx}
-                    className="flex cursor-pointer items-start gap-3 rounded-md border border-border p-3 hover:bg-muted"
-                  >
-                    <input
-                      type={q.multiSelect ? "checkbox" : "radio"}
-                      name={`question-${idx}`}
-                      className="mt-0.5"
-                    />
-                    <div>
-                      <div className="font-medium text-foreground">
-                        {opt.label}
-                      </div>
-                      {opt.description && (
-                        <div className="text-sm text-muted-foreground">
-                          {opt.description}
-                        </div>
-                      )}
-                    </div>
-                  </label>
-                ))}
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-    );
+  if (toolName === "AskUserQuestion" && part.state !== "input-streaming") {
+    return <AskUserQuestionUI part={part} addToolOutput={addToolOutput} />;
   }
 
   // Handle Write tool specially - expandable markdown preview

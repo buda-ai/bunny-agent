@@ -85,6 +85,11 @@ export class SandAgent {
       cmd.push("--resume", input.resume);
     }
 
+    // Add toolSseUrl for tool approval flow
+    if (this.runner.toolSseUrl) {
+      cmd.push("--tool-sse", this.runner.toolSseUrl);
+    }
+
     // Add separator and user input
     cmd.push("--");
 
