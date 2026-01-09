@@ -185,15 +185,18 @@ export async function POST(request: Request) {
       approvalDir: "/sandagent/approvals",
     },
     // Pass environment variables to the sandbox
-    // Only include defined values to avoid E2B JSON encoding errors
-    env: {
-      ...(ANTHROPIC_API_KEY && { ANTHROPIC_API_KEY }),
-      ...(ANTHROPIC_BASE_URL && { ANTHROPIC_BASE_URL }),
-      ...(AWS_BEARER_TOKEN_BEDROCK && {
-        CLAUDE_CODE_USE_BEDROCK: "1",
-        AWS_BEARER_TOKEN_BEDROCK,
-      }),
-    },
+    // Prioritize ANTHROPIC_API_KEY over AWS_BEARER_TOKEN_BEDROCK
+    env: ANTHROPIC_API_KEY
+      ? {
+          ANTHROPIC_API_KEY,
+          ...(ANTHROPIC_BASE_URL && { ANTHROPIC_BASE_URL }),
+        }
+      : AWS_BEARER_TOKEN_BEDROCK
+        ? {
+            CLAUDE_CODE_USE_BEDROCK: "1",
+            AWS_BEARER_TOKEN_BEDROCK,
+          }
+        : {},
   });
 
   return agent.stream({
