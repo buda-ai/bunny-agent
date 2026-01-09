@@ -66,6 +66,8 @@ export interface RunnerSpec {
   maxTurns?: number;
   /** Allowed tools (undefined means all tools, or use template's settings) */
   allowedTools?: string[];
+  /** SSE API URL for canUseTool callback approval flow */
+  toolSseUrl?: string;
 }
 
 /**
