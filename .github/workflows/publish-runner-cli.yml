@@ -28,17 +28,19 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Run tests
-        run: pnpm test --filter=@sandagent/runner-cli --filter=@sandagent/runner-claude
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          pnpm --filter @sandagent/runner-cli test
+          pnpm --filter @sandagent/runner-claude test
 
       - name: Build
         run: |
-          pnpm build --filter=@sandagent/runner-claude
-          pnpm build --filter=@sandagent/runner-cli
+          pnpm --filter @sandagent/runner-claude build
+          pnpm --filter @sandagent/runner-cli build
 
       - name: Type check
-        run: pnpm typecheck --filter=@sandagent/runner-cli --filter=@sandagent/runner-claude
+        run: |
+          pnpm --filter @sandagent/runner-cli typecheck
+          pnpm --filter @sandagent/runner-claude typecheck
 
       - name: Publish to NPM
         run: pnpm publish --access public --no-git-checks --provenance
