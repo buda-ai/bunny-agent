@@ -240,6 +240,10 @@ interface ClaudeAgentSDKOptions {
   // file system
   settingSources?: SettingSource[];
   hooks?: Partial<Record<HookEvent, HookCallbackMatcher[]>>;
+  // Permission mode: 'default', 'acceptEdits', 'bypassPermissions', 'plan'
+  permissionMode?: string;
+  // Required when using permissionMode: 'bypassPermissions'
+  allowDangerouslySkipPermissions?: boolean;
 }
 
 interface ClaudeAgentSDKModule {
@@ -386,6 +390,9 @@ async function* runWithClaudeAgentSDK(
     resume: options.resume,
     // SDK uses cwd as project directory, loads CLAUDE.md and .claude/skills/*.skill.md
     settingSources: [SettingSource.project, SettingSource.user],
+    // Bypass all permission checks for automated execution
+    permissionMode: "bypassPermissions",
+    allowDangerouslySkipPermissions: true,
     hooks: {
       PreToolUse: [
         {
