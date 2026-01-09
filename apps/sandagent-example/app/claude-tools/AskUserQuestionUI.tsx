@@ -198,13 +198,16 @@ export function AskUserQuestionUI({
   const isWaiting = part.state !== "output-available";
 
   return (
-    <div className={`my-2 space-y-4 ${isWaiting ? "shake-animation" : ""}`}>
+    <div className="my-2 space-y-4">
       {questions.map((q, idx) => {
         const selectedValue = answers[q.question];
         const isMulti = q.multiSelect ?? false;
 
         return (
-          <div key={idx} className="rounded-lg border border-border p-4">
+          <div
+            key={idx}
+            className={`rounded-lg border p-4 ${isWaiting ? "bounce-animation" : "border-border"}`}
+          >
             {q.header && (
               <h4 className="mb-2 font-medium text-foreground">{q.header}</h4>
             )}

@@ -2,13 +2,31 @@
 @import "kui/styles.css";
 @source "../../../packages/kui";
 
-/* Shake animation for tool approval UI */
-@keyframes shake {
-  0%, 100% { transform: translateX(0); }
-  10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
-  20%, 40%, 60%, 80% { transform: translateX(4px); }
+/* Bounce animation for tool approval UI */
+@keyframes bounce-attention {
+  0%, 100% { 
+    transform: translateY(0) scale(1);
+  }
+  25% { 
+    transform: translateY(-8px) scale(1.02);
+  }
+  50% { 
+    transform: translateY(0) scale(1);
+  }
 }
 
-.shake-animation {
-  animation: shake 0.5s ease-in-out;
+@keyframes border-pulse {
+  0%, 100% {
+    border-color: hsl(var(--primary));
+    box-shadow: 0 0 0 0 hsla(var(--primary), 0.4);
+  }
+  50% {
+    border-color: hsl(var(--primary));
+    box-shadow: 0 0 0 4px hsla(var(--primary), 0);
+  }
+}
+
+.bounce-animation {
+  animation: bounce-attention 0.6s ease-in-out, border-pulse 2s ease-in-out infinite;
+  border-color: hsl(var(--primary)) !important;
 }
