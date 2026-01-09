@@ -66,6 +66,8 @@ export interface RunnerSpec {
   maxTurns?: number;
   /** Allowed tools (undefined means all tools, or use template's settings) */
   allowedTools?: string[];
+  /** Approval file directory for tool approval flow (e.g., "/sandagent/approvals") */
+  approvalDir?: string;
 }
 
 /**
