@@ -106,6 +106,10 @@ interface ClaudeAgentSDKOptions {
   resume?: string;
   settingSources?: SettingSource[];
   canUseTool?: CanUseTool;
+  // Permission mode: 'default', 'acceptEdits', 'bypassPermissions', 'plan'
+  permissionMode?: string;
+  // Required when using permissionMode: 'bypassPermissions'
+  allowDangerouslySkipPermissions?: boolean;
 }
 
 interface ClaudeAgentSDKModule {
@@ -125,7 +129,7 @@ function createCanUseToolCallback(
 ): CanUseTool {
   return async (
     toolName: string,
-    input: ToolInput,
+    input: unknown,
     options: {
       signal: AbortSignal;
       suggestions?: PermissionUpdate[];
@@ -137,7 +141,7 @@ function createCanUseToolCallback(
   ) => {
     const { toolUseID, signal } = options;
     if (toolName !== "AskUserQuestion") {
-      return { behavior: "allow", updatedInput: input };
+      return { behavior: "allow", updatedInput: input as Record<string, unknown> };
     }
 
     const toolSseUrl = claudeOptions.toolSseUrl;
@@ -304,6 +308,9 @@ async function* runWithClaudeAgentSDK(
     resume: options.resume,
     settingSources: [SettingSource.project, SettingSource.user],
     canUseTool: createCanUseToolCallback(options),
+    // Bypass all permission checks for automated execution
+    permissionMode: "bypassPermissions",
+    allowDangerouslySkipPermissions: true,
   };
 
   try {
