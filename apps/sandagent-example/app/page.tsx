@@ -220,6 +220,7 @@ export default function Home() {
                 message={message}
                 addToolApprovalResponse={addToolApprovalResponse}
                 addToolOutput={addToolOutput}
+                sessionId={sessionId}
               />
             ))
           )}
@@ -266,10 +267,12 @@ function ChatMessage({
   message,
   addToolApprovalResponse,
   addToolOutput,
+  sessionId,
 }: {
   message: UIMessage;
   addToolApprovalResponse: ChatAddToolApproveResponseFunction;
   addToolOutput: ChatAddToolOutputFunction;
+  sessionId: string;
 }) {
   const isUser = message.role === "user";
 
@@ -299,6 +302,7 @@ function ChatMessage({
                   part={part}
                   addToolApprovalResponse={addToolApprovalResponse}
                   addToolOutput={addToolOutput}
+                  sessionId={sessionId}
                 />
               );
             }
@@ -314,10 +318,12 @@ function DynamicToolUI({
   part,
   addToolApprovalResponse,
   addToolOutput,
+  sessionId,
 }: {
   part: DynamicToolUIPart;
   addToolApprovalResponse: ChatAddToolApproveResponseFunction;
   addToolOutput: ChatAddToolOutputFunction;
+  sessionId: string;
 }) {
   const toolName = part.toolName;
   const state = part.state;
@@ -338,7 +344,13 @@ function DynamicToolUI({
 
   // Handle AskUserQuestion tool specially
   if (toolName === "AskUserQuestion" && part.state !== "input-streaming") {
-    return <AskUserQuestionUI part={part} addToolOutput={addToolOutput} />;
+    return (
+      <AskUserQuestionUI
+        part={part}
+        addToolOutput={addToolOutput}
+        sessionId={sessionId}
+      />
+    );
   }
 
   // Handle Write tool specially - expandable markdown preview

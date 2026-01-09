@@ -41,8 +41,8 @@ export interface ClaudeRunnerOptions {
   env?: Record<string, string>;
   /** Resume session ID for multi-turn conversation */
   resume?: string;
-  /** SSE API URL for canUseTool callback approval flow */
-  toolSseUrl?: string;
+  /** Approval file directory for tool approval flow (e.g., "/sandagent/approvals") */
+  approvalDir?: string;
 }
 
 /**
@@ -139,85 +139,83 @@ function createCanUseToolCallback(
       agentID?: string;
     },
   ) => {
-    const { toolUseID, signal } = options;
+    const { toolUseID } = options;
+
+    // Only intercept AskUserQuestion tool
     if (toolName !== "AskUserQuestion") {
-      return { behavior: "allow", updatedInput: input as Record<string, unknown> };
+      return {
+        behavior: "allow",
+        updatedInput: input as Record<string, unknown>,
+      };
     }
 
-    const toolSseUrl = claudeOptions.toolSseUrl;
+    const approvalDir = claudeOptions.approvalDir;
 
-    // If no URL configured, return empty answers immediately
-    if (!toolSseUrl) {
+    // If no approval directory configured, deny the tool call
+    if (!approvalDir) {
       return { behavior: "deny", message: "User not answer" };
     }
 
     try {
-      // Call SSE endpoint
-      const response = await fetch(toolSseUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          toolCallId: toolUseID,
-          questions: (input as { questions: unknown }).questions,
+      const fs = await import("node:fs/promises");
+      const path = await import("node:path");
+
+      const approvalFile = path.join(approvalDir, `${toolUseID}.json`);
+      const questions = (input as { questions: unknown }).questions;
+
+      // Ensure approval directory exists
+      await fs.mkdir(approvalDir, { recursive: true });
+
+      // Write initial approval request
+      await fs.writeFile(
+        approvalFile,
+        JSON.stringify({
+          questions,
+          answers: {},
+          status: "pending",
         }),
-      });
+      );
 
-      if (!response.ok) {
-        console.error("Approval API error:", response.status);
-        return {
-          behavior: "allow",
-          updatedInput: {
-            questions: (input as { questions: unknown }).questions,
-            answers: {},
-          },
-        };
-      }
+      // Poll for completion (60 second timeout)
+      const timeout = Date.now() + 60000;
+      while (Date.now() < timeout) {
+        try {
+          const data = await fs.readFile(approvalFile, "utf-8");
+          const approval = JSON.parse(data);
 
-      // Read SSE stream
-      const reader = response.body!.getReader();
-      const decoder = new TextDecoder();
-      let answers: Record<string, unknown> = {};
+          if (approval.status === "completed") {
+            // Clean up file
+            await fs.unlink(approvalFile).catch(() => {});
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value);
-        const lines = chunk.split("\n");
-
-        for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            const data = JSON.parse(line.slice(6));
-
-            if (data.type === "answer") {
-              // Partial update
-              answers[data.question] = data.answer;
-            } else if (data.type === "complete") {
-              // All questions answered
-              answers = data.answers;
-            } else if (data.type === "timeout") {
-              // Timeout
-              break;
-            }
+            return {
+              behavior: "allow",
+              updatedInput: {
+                questions: approval.questions,
+                answers: approval.answers,
+              },
+            };
           }
+        } catch (error) {
+          // File might not exist yet or be in the middle of writing
+          console.error("Error reading approval file:", error);
         }
+
+        // Wait 500ms before next poll
+        await new Promise((resolve) => setTimeout(resolve, 500));
       }
+
+      // Timeout - clean up file
+      await fs.unlink(approvalFile).catch(() => {});
 
       return {
-        behavior: "allow",
-        updatedInput: {
-          questions: (input as { questions: unknown }).questions,
-          answers,
-        },
+        behavior: "deny",
+        message: "Timeout waiting for user input",
       };
     } catch (error) {
-      console.error("Failed to access approval API:", error);
+      console.error("Failed to handle approval flow:", error);
       return {
-        behavior: "allow",
-        updatedInput: {
-          questions: (input as { questions: unknown }).questions,
-          answers: {},
-        },
+        behavior: "deny",
+        message: "Failed to handle approval flow",
       };
     }
   };

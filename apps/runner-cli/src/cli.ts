@@ -25,6 +25,7 @@ interface ParsedArgs {
   allowedTools?: string[];
   resume?: string;
   toolSseUrl?: string;
+  approvalDir?: string;
   userInput: string;
 }
 
@@ -63,6 +64,9 @@ function parseCliArgs(): ParsedArgs {
         short: "r",
       },
       "tool-sse": {
+        type: "string",
+      },
+      "approval-dir": {
         type: "string",
       },
       help: {
@@ -113,6 +117,7 @@ function parseCliArgs(): ParsedArgs {
     allowedTools: values["allowed-tools"]?.split(",").map((t) => t.trim()),
     resume: values.resume,
     toolSseUrl: values["tool-sse"],
+    approvalDir: values["approval-dir"],
     userInput,
   };
 }
@@ -186,6 +191,7 @@ async function main(): Promise<void> {
     allowedTools: args.allowedTools,
     resume: args.resume,
     toolSseUrl: args.toolSseUrl,
+    approvalDir: args.approvalDir,
   });
 }
 

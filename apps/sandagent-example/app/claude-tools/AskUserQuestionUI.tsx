@@ -8,9 +8,11 @@ import type { AskUserQuestionOutput, ChatAddToolOutputFunction } from "./type";
 export function AskUserQuestionUI({
   part,
   addToolOutput,
+  sessionId,
 }: {
   part: DynamicToolUIPart;
   addToolOutput: ChatAddToolOutputFunction;
+  sessionId: string;
 }) {
   const [answers, setAnswers] = useState<Record<string, string | string[]>>({});
 
@@ -156,6 +158,7 @@ export function AskUserQuestionUI({
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        sessionId,
         toolCallId: part.toolCallId,
         question,
         answer,

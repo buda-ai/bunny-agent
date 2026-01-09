@@ -21,8 +21,8 @@ export interface RunAgentOptions {
   allowedTools?: string[];
   /** Resume session ID for multi-turn conversation */
   resume?: string;
-  /** SSE API URL for canUseTool callback approval flow */
-  toolSseUrl?: string;
+  /** Approval file directory for tool approval flow (e.g., "/sandagent/approvals") */
+  approvalDir?: string;
 }
 
 /**
@@ -44,7 +44,7 @@ export async function runAgent(options: RunAgentOptions): Promise<void> {
     maxTurns: options.maxTurns,
     allowedTools: options.allowedTools,
     resume: options.resume,
-    toolSseUrl: options.toolSseUrl,
+    approvalDir: options.approvalDir,
   };
 
   const runner = createClaudeRunner(runnerOptions);

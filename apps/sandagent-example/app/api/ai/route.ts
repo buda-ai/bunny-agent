@@ -182,7 +182,7 @@ export async function POST(request: Request) {
       kind: "claude-agent-sdk",
       model,
       template,
-      toolSseUrl: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/approval/sse`,
+      approvalDir: "/sandagent/approvals",
     },
     // Pass environment variables to the sandbox
     // Only include defined values to avoid E2B JSON encoding errors
