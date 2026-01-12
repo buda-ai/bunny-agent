@@ -221,6 +221,7 @@ export default function Home() {
                 addToolApprovalResponse={addToolApprovalResponse}
                 addToolOutput={addToolOutput}
                 sessionId={sessionId}
+                config={clientConfig}
               />
             ))
           )}
@@ -268,11 +269,13 @@ function ChatMessage({
   addToolApprovalResponse,
   addToolOutput,
   sessionId,
+  config,
 }: {
   message: UIMessage;
   addToolApprovalResponse: ChatAddToolApproveResponseFunction;
   addToolOutput: ChatAddToolOutputFunction;
   sessionId: string;
+  config: Record<string, string>;
 }) {
   const isUser = message.role === "user";
 
@@ -303,6 +306,7 @@ function ChatMessage({
                   addToolApprovalResponse={addToolApprovalResponse}
                   addToolOutput={addToolOutput}
                   sessionId={sessionId}
+                  config={config}
                 />
               );
             }
@@ -319,11 +323,13 @@ function DynamicToolUI({
   addToolApprovalResponse,
   addToolOutput,
   sessionId,
+  config,
 }: {
   part: DynamicToolUIPart;
   addToolApprovalResponse: ChatAddToolApproveResponseFunction;
   addToolOutput: ChatAddToolOutputFunction;
   sessionId: string;
+  config: Record<string, string>;
 }) {
   const toolName = part.toolName;
   const state = part.state;
@@ -349,6 +355,7 @@ function DynamicToolUI({
         part={part}
         addToolOutput={addToolOutput}
         sessionId={sessionId}
+        config={config}
       />
     );
   }
