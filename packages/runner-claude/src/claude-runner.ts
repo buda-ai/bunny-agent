@@ -11,6 +11,7 @@
  * @see https://platform.claude.com/docs/en/agent-sdk/typescript-v2-preview
  */
 
+import { json } from "node:stream/consumers";
 import type {
   CanUseTool,
   PermissionResult,
@@ -161,28 +162,26 @@ function createCanUseToolCallback(
       const path = await import("node:path");
 
       const approvalFile = path.join(approvalDir, `${toolUseID}.json`);
-      const questions = (input as { questions: unknown }).questions;
 
-      // Ensure approval directory exists
-      await fs.mkdir(approvalDir, { recursive: true });
-
-      // Write initial approval request
-      await fs.writeFile(
-        approvalFile,
-        JSON.stringify({
-          questions,
-          answers: {},
-          status: "pending",
-        }),
-      );
-
-      // Poll for completion (60 second timeout)
+      // Poll for answers (60 second timeout)
       const timeout = Date.now() + 60000;
+      let lastApproval: {
+        questions: unknown;
+        answers: Record<string, unknown>;
+        status: string;
+      } | null = null;
+
       while (Date.now() < timeout) {
         try {
+          // Check if file exists first
+          await fs.access(approvalFile);
+
+          // File exists, read it
           const data = await fs.readFile(approvalFile, "utf-8");
           const approval = JSON.parse(data);
+          lastApproval = approval;
 
+          // If completed, return immediately
           if (approval.status === "completed") {
             // Clean up file
             await fs.unlink(approvalFile).catch(() => {});
@@ -196,16 +195,26 @@ function createCanUseToolCallback(
             };
           }
         } catch (error) {
-          // File might not exist yet or be in the middle of writing
-          console.error("Error reading approval file:", error);
+          // File doesn't exist yet, continue waiting
         }
 
         // Wait 500ms before next poll
         await new Promise((resolve) => setTimeout(resolve, 500));
       }
 
-      // Timeout - clean up file
+      // Timeout - return partial answers if any were collected
       await fs.unlink(approvalFile).catch(() => {});
+
+      if (lastApproval && Object.keys(lastApproval.answers).length > 0) {
+        // Return partial answers
+        return {
+          behavior: "allow",
+          updatedInput: {
+            questions: lastApproval.questions,
+            answers: lastApproval.answers,
+          },
+        };
+      }
 
       return {
         behavior: "deny",
@@ -318,6 +327,10 @@ async function* runWithClaudeAgentSDK(
     });
 
     for await (const message of queryIterator) {
+      // console.log(
+      //   "[ClaudeRunner] get message",
+      //   JSON.stringify(message, null, 2),
+      // );
       if (message.type === "system" && message.subtype === "init") {
         systemMessage = message;
         continue;
