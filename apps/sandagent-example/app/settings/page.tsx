@@ -23,8 +23,8 @@ const ENV_CONFIGS: EnvConfig[] = [
     name: "Anthropic API Key",
     key: "ANTHROPIC_API_KEY",
     description:
-      "Required for Claude Agent SDK. Get one at https://console.anthropic.com",
-    required: true,
+      "Optional. Claude API key from https://console.anthropic.com (use this OR AWS Bedrock token)",
+    required: false,
     category: "api",
     placeholder: "sk-ant-...",
     isSecret: true,
@@ -37,6 +37,16 @@ const ENV_CONFIGS: EnvConfig[] = [
     required: false,
     category: "api",
     placeholder: "https://api.anthropic.com",
+  },
+  {
+    name: "AWS Bedrock Bearer Token",
+    key: "AWS_BEARER_TOKEN_BEDROCK",
+    description:
+      "Optional. AWS Bearer Token for accessing Claude via Amazon Bedrock (use this OR Anthropic API key)",
+    required: false,
+    category: "api",
+    placeholder: "Bearer token for AWS Bedrock",
+    isSecret: true,
   },
   {
     name: "E2B API Key",

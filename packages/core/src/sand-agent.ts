@@ -85,6 +85,11 @@ export class SandAgent {
       cmd.push("--resume", input.resume);
     }
 
+    // Add approvalDir for tool approval flow
+    if (this.runner.approvalDir) {
+      cmd.push("--approval-dir", this.runner.approvalDir);
+    }
+
     // Add separator and user input
     cmd.push("--");
 

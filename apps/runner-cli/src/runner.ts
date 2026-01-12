@@ -21,8 +21,8 @@ export interface RunAgentOptions {
   allowedTools?: string[];
   /** Resume session ID for multi-turn conversation */
   resume?: string;
-  /** Parent tool use ID for tool result submission */
-  parentToolUseId?: string;
+  /** Approval file directory for tool approval flow (e.g., "/sandagent/approvals") */
+  approvalDir?: string;
 }
 
 /**
@@ -44,7 +44,7 @@ export async function runAgent(options: RunAgentOptions): Promise<void> {
     maxTurns: options.maxTurns,
     allowedTools: options.allowedTools,
     resume: options.resume,
-    parentToolUseId: options.parentToolUseId,
+    approvalDir: options.approvalDir,
   };
 
   const runner = createClaudeRunner(runnerOptions);

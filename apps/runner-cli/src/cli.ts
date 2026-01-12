@@ -24,7 +24,7 @@ interface ParsedArgs {
   maxTurns?: number;
   allowedTools?: string[];
   resume?: string;
-  parentToolUseId?: string;
+  approvalDir?: string;
   userInput: string;
 }
 
@@ -62,9 +62,8 @@ function parseCliArgs(): ParsedArgs {
         type: "string",
         short: "r",
       },
-      "parent-tool-use-id": {
+      "approval-dir": {
         type: "string",
-        short: "p",
       },
       help: {
         type: "boolean",
@@ -113,7 +112,7 @@ function parseCliArgs(): ParsedArgs {
       : undefined,
     allowedTools: values["allowed-tools"]?.split(",").map((t) => t.trim()),
     resume: values.resume,
-    parentToolUseId: values["parent-tool-use-id"],
+    approvalDir: values["approval-dir"],
     userInput,
   };
 }
@@ -141,7 +140,6 @@ Options:
   -t, --max-turns <n>          Maximum conversation turns
   -a, --allowed-tools <tools>  Comma-separated list of allowed tools
   -r, --resume <session-id>    Resume a previous session
-  -p, --parent-tool-use-id <id> Parent tool use ID for tool result submission
   -h, --help                   Show this help message
 
 Environment Variables:
@@ -187,7 +185,7 @@ async function main(): Promise<void> {
     maxTurns: args.maxTurns,
     allowedTools: args.allowedTools,
     resume: args.resume,
-    parentToolUseId: args.parentToolUseId,
+    approvalDir: args.approvalDir,
   });
 }
 
