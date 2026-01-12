@@ -381,6 +381,7 @@ class SandockHandle implements SandboxHandle {
    */
   exec(command: string[], opts?: ExecOptions): AsyncIterable<Uint8Array> {
     const self = this;
+    const signal = opts?.signal;
 
     // Add NODE_PATH so Node can find packages installed in /sandagent
     const envWithNodePath: Record<string, string> = {
@@ -431,8 +432,11 @@ class SandockHandle implements SandboxHandle {
           parts.push(envParts);
         }
 
-        // Add the actual command
-        parts.push(baseCmd);
+        // Wrap the command to capture its PID and handle signals
+        // We write the PID to a file so we can kill it if needed
+        const pidFile = `/tmp/sandagent-${Date.now()}-${Math.random().toString(36).substring(7)}.pid`;
+        const wrappedCmd = `(${baseCmd}) & echo $! > ${pidFile}; wait $!; rm -f ${pidFile}`;
+        parts.push(wrappedCmd);
 
         const cmd = parts.join(" && ");
 
@@ -442,12 +446,64 @@ class SandockHandle implements SandboxHandle {
         let error: Error | null = null;
         let resolveWait: (() => void) | null = null;
 
+        // Monitor abort signal and kill the process
+        const abortHandler = async () => {
+          console.log(
+            "[Sandock] Abort signal received, terminating process...",
+          );
+          console.log("[Sandock] PID file:", pidFile);
+
+          // Try to kill the process using the PID file
+          try {
+            // First check if PID file exists and read it
+            const checkCmd = `if [ -f ${pidFile} ]; then cat ${pidFile}; else echo "PID file not found"; fi`;
+            const checkResult = await self.client.sandbox.shell(
+              self.sandboxId,
+              { cmd: checkCmd, timeoutMs: 2000 },
+              {},
+            );
+            console.log("[Sandock] PID check result:", checkResult.data.stdout);
+
+            // Now try to kill the process
+            const killCmd = `if [ -f ${pidFile} ]; then PID=$(cat ${pidFile}); echo "Killing PID: $PID"; kill -TERM $PID 2>&1 || echo "Kill failed"; rm -f ${pidFile}; else echo "No PID file to kill"; fi`;
+            const killResult = await self.client.sandbox.shell(
+              self.sandboxId,
+              { cmd: killCmd, timeoutMs: 5000 },
+              {},
+            );
+            console.log(
+              "[Sandock] Kill command result:",
+              killResult.data.stdout,
+            );
+            console.log(
+              "[Sandock] Kill command stderr:",
+              killResult.data.stderr,
+            );
+          } catch (err) {
+            console.error("[Sandock] Failed to send termination signal:", err);
+          }
+
+          done = true;
+          error = new Error("Operation aborted");
+          error.name = "AbortError";
+          resolveWait?.();
+        };
+
+        if (signal) {
+          console.log("[Sandock] Adding abort signal listener");
+          signal.addEventListener("abort", abortHandler);
+        } else {
+          console.log("[Sandock] No signal provided");
+        }
+
         // Start shell command with streaming callbacks
         const shellPromise = self.client.sandbox.shell(
           self.sandboxId,
           { cmd, timeoutMs: self.timeout },
           {
             onStdout: (chunk: string) => {
+              // Stop producing stdout chunks if signal is aborted
+              if (signal?.aborted) return;
               queue.push(new TextEncoder().encode(chunk));
               resolveWait?.();
             },
@@ -494,14 +550,30 @@ class SandockHandle implements SandboxHandle {
             resolveWait?.();
           })
           .catch((err) => {
-            console.error("[Sandock] Shell promise rejected:", err);
             error = err instanceof Error ? err : new Error(String(err));
+            // Log AbortError appropriately
+            if (error.name === "AbortError") {
+              console.log("[Sandock] Command execution aborted by user");
+            } else {
+              console.error("[Sandock] Shell promise rejected:", err);
+            }
             done = true;
             resolveWait?.();
+          })
+          .finally(() => {
+            // Remove event listener when iterator completes
+            if (signal) {
+              signal.removeEventListener("abort", abortHandler);
+            }
           });
 
         // Yield chunks as they arrive
         while (true) {
+          // Check if signal is aborted
+          if (signal?.aborted) {
+            break;
+          }
+
           // Yield all queued chunks
           while (queue.length > 0) {
             const chunk = queue.shift();

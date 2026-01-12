@@ -356,6 +356,7 @@ class E2BHandle implements SandboxHandle {
 
   exec(command: string[], opts?: ExecOptions): AsyncIterable<Uint8Array> {
     const self = this;
+    const signal = opts?.signal;
 
     // Add NODE_PATH so Node can find packages installed in /sandagent
     const envWithNodePath: Record<string, string> = {
@@ -364,10 +365,15 @@ class E2BHandle implements SandboxHandle {
     };
 
     // Build shell-safe command string with proper escaping
-    const shellCommand = this.buildShellCommand(command);
+    const baseCommand = this.buildShellCommand(command);
+
+    // Wrap command to capture PID for potential termination
+    const pidFile = `/tmp/sandagent-${Date.now()}-${Math.random().toString(36).substring(7)}.pid`;
+    const shellCommand = `(${baseCommand}) & echo $! > ${pidFile}; wait $!; EXIT_CODE=$?; rm -f ${pidFile}; exit $EXIT_CODE`;
 
     // Debug: log environment variables being passed to sandbox
-    console.log("[E2B] Executing command:", shellCommand);
+    console.log("[E2B] Executing command:", baseCommand);
+    console.log("[E2B] PID file:", pidFile);
     console.log("[E2B] Environment variables:", Object.keys(envWithNodePath));
     console.log(
       "[E2B] ANTHROPIC_API_KEY present:",
@@ -386,6 +392,51 @@ class E2BHandle implements SandboxHandle {
         let finished = false;
         let error: Error | null = null;
         let resolveNext: (() => void) | null = null;
+
+        // Monitor abort signal and kill the process
+        const abortHandler = async () => {
+          console.log("[E2B] Abort signal received, terminating process...");
+          console.log("[E2B] PID file:", pidFile);
+
+          finished = true;
+          error = new Error("Operation aborted");
+          error.name = "AbortError";
+
+          // Try to kill the process using the PID file
+          try {
+            // Check if PID file exists and kill the process
+            const killCmd = `if [ -f ${pidFile} ]; then PID=$(cat ${pidFile}); echo "Killing PID: $PID"; kill -TERM $PID 2>&1 || echo "Kill failed"; rm -f ${pidFile}; else echo "No PID file found"; fi`;
+
+            // Execute kill command asynchronously (don't wait for result)
+            self.instance.commands
+              .run(killCmd, {
+                timeoutMs: 5000,
+              })
+              .then((result) => {
+                console.log("[E2B] Kill command output:", result.stdout);
+                if (result.stderr) {
+                  console.log("[E2B] Kill command stderr:", result.stderr);
+                }
+              })
+              .catch((err) => {
+                console.error("[E2B] Failed to execute kill command:", err);
+              });
+          } catch (err) {
+            console.error("[E2B] Failed to send termination signal:", err);
+          }
+
+          if (resolveNext) {
+            resolveNext();
+            resolveNext = null;
+          }
+        };
+
+        if (signal) {
+          console.log("[E2B] Adding abort signal listener");
+          signal.addEventListener("abort", abortHandler);
+        } else {
+          console.log("[E2B] No signal provided");
+        }
 
         const commandPromise = self.instance.commands.run(shellCommand, {
           cwd: opts?.cwd,
@@ -419,14 +470,32 @@ class E2BHandle implements SandboxHandle {
           })
           .catch((err) => {
             error = err instanceof Error ? err : new Error(String(err));
+            // Log AbortError appropriately
+            if (error.name === "AbortError") {
+              console.log("[E2B] Command execution aborted by user");
+            } else {
+              console.error("[E2B] Command execution error:", error.message);
+            }
             if (resolveNext) {
               resolveNext();
               resolveNext = null;
+            }
+          })
+          .finally(() => {
+            // Remove event listener when iterator completes
+            if (signal) {
+              signal.removeEventListener("abort", abortHandler);
             }
           });
 
         return {
           async next(): Promise<IteratorResult<Uint8Array>> {
+            // Check if signal is aborted and no more chunks
+            if (signal?.aborted && chunks.length === 0) {
+              console.log("[E2B] Signal aborted, stopping iteration");
+              return { value: undefined, done: true };
+            }
+
             if (chunks.length > 0) {
               return { value: chunks.shift()!, done: false };
             }

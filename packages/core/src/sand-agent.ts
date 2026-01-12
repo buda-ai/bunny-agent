@@ -127,6 +127,12 @@ export class SandAgent {
     const workspacePath = input.workspace?.path ?? "/workspace";
     const transcriptWriter = input.transcriptWriter;
     const agentId = this.id;
+    const signal = input.signal;
+
+    // Check if signal is already aborted
+    if (signal?.aborted) {
+      throw new Error("Operation was aborted");
+    }
 
     // Write start entry if transcript is enabled
     if (transcriptWriter) {
@@ -146,12 +152,15 @@ export class SandAgent {
     const stdout = handle.exec(command, {
       cwd: workspacePath,
       env: this.env,
+      signal,
     });
 
     // Create a ReadableStream that passes through the stdout chunks
     // and optionally writes to transcript
     const readableStream = new ReadableStream<Uint8Array>({
       async start(controller) {
+        let controllerClosed = false;
+
         try {
           for await (const chunk of stdout) {
             // Write to transcript if enabled
@@ -180,20 +189,30 @@ export class SandAgent {
           }
 
           controller.close();
+          controllerClosed = true;
         } catch (error) {
-          // Write error entry if transcript is enabled
-          if (transcriptWriter) {
+          if (error instanceof Error && error.name === "AbortError") {
+            // Normal abort operation - log appropriately
+            console.log("[SandAgent] Operation aborted by user");
+          } else {
+            // Other errors
             const errorMessage =
               error instanceof Error ? error.message : String(error);
-            await transcriptWriter.write({
-              timestamp: new Date().toISOString(),
-              type: "error",
-              agentId,
-              text: errorMessage,
-            });
+            console.error("[SandAgent] Error:", errorMessage);
+            if (transcriptWriter) {
+              await transcriptWriter.write({
+                timestamp: new Date().toISOString(),
+                type: "error",
+                agentId,
+                text: errorMessage,
+              });
+            }
           }
 
-          controller.error(error);
+          // Only call controller.error if controller hasn't been closed yet
+          if (!controllerClosed) {
+            controller.error(error);
+          }
         }
       },
     });
