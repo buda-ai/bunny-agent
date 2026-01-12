@@ -7,12 +7,10 @@ import type { AskUserQuestionOutput, ChatAddToolOutputFunction } from "./type";
 // AskUserQuestion interactive component
 export function AskUserQuestionUI({
   part,
-  addToolOutput,
   sessionId,
   config = {},
 }: {
   part: DynamicToolUIPart;
-  addToolOutput: ChatAddToolOutputFunction;
   sessionId: string;
   config?: Record<string, string>;
 }) {
@@ -69,11 +67,12 @@ export function AskUserQuestionUI({
   const displayAnswers =
     Object.keys(answers).length > 0 ? answers : outputAnswers || {};
 
-  // Only show read-only completed state if:
-  // 1. User hasn't started selecting (answers is empty)
-  // 2. AND there are real answers from a previous session (outputAnswers exists)
+  // Show read-only state if:
+  // 1. Tool state is 'output-available' (tool execution completed)
+  // 2. OR user hasn't started selecting AND there are answers from previous session
   const isCompleted =
-    Object.keys(answers).length === 0 && outputAnswers !== null;
+    part.state === "output-available" ||
+    (Object.keys(answers).length === 0 && outputAnswers !== null);
 
   if (isCompleted) {
     return (

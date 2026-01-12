@@ -89,6 +89,9 @@ describe("runAgent", () => {
       userInput: "Create a file",
     });
 
-    expect(mockRunner.run).toHaveBeenCalledWith("Create a file");
+    expect(mockRunner.run).toHaveBeenCalledWith(
+      "Create a file",
+      expect.any(AbortSignal),
+    );
   });
 });
