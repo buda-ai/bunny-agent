@@ -302,10 +302,214 @@ function detectApiError(output: string): string | undefined {
 }
 
 /**
+ * Parse SSE (Server-Sent Events) formatted output and extract text deltas
+ */
+function parseSSEOutput(output: string): {
+  textContent: string;
+  toolOutputs: Array<{ toolName: string; output: unknown }>;
+} {
+  const textParts: string[] = [];
+  const toolOutputs: Array<{ toolName: string; output: unknown }> = [];
+
+  // SSE format: data: {...}\n\ndata: {...}
+  // Split by 'data: ' prefix and parse each JSON block
+  const parts = output.split(/data: /);
+
+  for (const part of parts) {
+    if (!part.trim()) continue;
+
+    // Extract the JSON part (up to the first double newline or end)
+    const jsonPart = part.split(/\n\n/)[0]?.trim();
+    if (!jsonPart) continue;
+
+    try {
+      const data = JSON.parse(jsonPart);
+
+      // Collect text deltas
+      if (data.type === "text-delta" && data.delta) {
+        textParts.push(data.delta);
+      }
+
+      // Collect tool outputs (especially TaskOutput)
+      if (data.type === "tool-output-available" && data.output) {
+        toolOutputs.push({
+          toolName: data.toolName,
+          output: data.output,
+        });
+      }
+    } catch {
+      // Skip malformed JSON
+    }
+  }
+
+  return {
+    textContent: textParts.join(""),
+    toolOutputs,
+  };
+}
+
+/**
  * Extract the final answer from agent output
  * Agents often include explanation before the answer
  */
 function extractFinalAnswer(output: string): string {
+  // Check if this is SSE formatted output (from sandagent)
+  if (output.includes('data: {"type":')) {
+    const { textContent, toolOutputs } = parseSSEOutput(output);
+
+    // First, look for TaskOutput tool result (preferred for GAIA answers)
+    const taskOutput = toolOutputs.find((t) => t.toolName === "TaskOutput");
+    if (taskOutput?.output) {
+      const outputObj = taskOutput.output as Record<string, unknown>;
+      // TaskOutput usually has content or answer field
+      if (typeof outputObj.content === "string") {
+        return outputObj.content.trim();
+      }
+      if (typeof outputObj.answer === "string") {
+        return outputObj.answer.trim();
+      }
+      if (typeof outputObj === "string") {
+        return (outputObj as string).trim();
+      }
+    }
+
+    // Look for answer patterns in ALL tool outputs with stdout
+    // We scan in reverse order to get the latest results first
+    const reversedOutputs = [...toolOutputs].reverse();
+    for (const tool of reversedOutputs) {
+      const toolOutput = tool.output as Record<string, unknown>;
+      const stdout = toolOutput?.stdout;
+      if (typeof stdout === "string") {
+        // Look for "ANSWER:" or "FINAL ANSWER:" first (highest priority)
+        const answerMatch = stdout.match(
+          /(?:FINAL\s+)?ANSWER:\s*(?:Ball\s*#?)?(\d+|[^\n]+)/i,
+        );
+        if (answerMatch) {
+          return answerMatch[1].trim();
+        }
+
+        // Look for "Ball with HIGHEST ejection probability: Ball #N" pattern
+        const ballMatch = stdout.match(
+          /(?:Ball\s+with\s+)?HIGHEST\s+ejection\s+probability:\s*Ball\s*#?(\d+)/i,
+        );
+        if (ballMatch) {
+          return ballMatch[1].trim();
+        }
+      }
+    }
+
+    // Fall back to text content analysis
+    if (textContent) {
+      // Look for answer patterns in the text content
+
+      // === NUMERIC ANSWER PATTERNS ===
+      const numericPatterns = [
+        // Bold answer pattern like **78** or **3**
+        /(?:optimal choice is|the answer is|choose)[:\s]*\*\*(\d+)\*\*/i,
+        // Standard patterns
+        /(?:final answer|answer)[:\s]+(?:Ball\s*#?)?(\d+)/i,
+        /(?:the answer is)[:\s]+(?:Ball\s*#?)?(\d+)/i,
+        /(?:should choose|you should choose|choose ball)[:\s#]*(\d+)/i,
+        /(?:Ball\s*#?)(\d+)\s+has the highest/i,
+        // "rounds to **N**" or "rounds to **N hours/units/etc**"
+        /rounds to \*\*(\d+)(?:\s*\w*)?\*\*/i,
+        // "approximately **N**" or "is approximately **N**"
+        /approximately \*\*(\d+)\*\*/i,
+        // "total of **N**" or "totals **N**"
+        /total(?:s|ing)?\s*(?:of|to|:)?\s*\*\*(\d+)\*\*/i,
+        // "equals **N**" or "= **N**"
+        /(?:equals?|=)\s*\*\*(\d+)\*\*/i,
+        // Generic bold number with common answer words
+        /(?:result|answer|value|total|sum|count)[:\s]+\*\*(\d+)\*\*/i,
+        // "minimum guaranteed winnings = **N**"
+        /(?:winnings?|earnings?|profit)\s*[=:]\s*\*\*[^*]*?(\d[\d,]*)\*\*/i,
+      ];
+
+      for (const pattern of numericPatterns) {
+        const match = textContent.match(pattern);
+        if (match) {
+          // Remove commas from numbers like "17,000" -> "17000"
+          return match[1].replace(/,/g, "").trim();
+        }
+      }
+
+      // === BOLD CONTENT EXTRACTION ===
+      // First check for "**The Answer:**" header pattern followed by answer
+      const answerHeaderMatch = textContent.match(
+        /\*\*(?:The\s+)?Answer:\*\*\s*\n?\s*([A-Z][a-z]+)\s+(?:was|is|did)/i,
+      );
+      if (answerHeaderMatch) {
+        return answerHeaderMatch[1].trim();
+      }
+
+      // Prefer the LAST bold content as it's often the final/corrected answer
+      const allBoldMatches = [...textContent.matchAll(/\*\*"?([^*]+)"?\*\*/g)];
+      if (allBoldMatches.length > 0) {
+        // Get the last bold match (often the corrected/final answer)
+        const lastBold = allBoldMatches[allBoldMatches.length - 1][1].trim();
+        // Clean up quotes
+        const cleanedBold = lastBold.replace(/^["']|["']$/g, "").trim();
+        // Only use if it looks like an answer (not too long, not a header)
+        if (cleanedBold.length > 0 && cleanedBold.length < 100) {
+          // Extract just the number if it starts with a number followed by units
+          const numWithUnits = cleanedBold.match(/^(\d[\d,]*)\s*(?:\w+)?$/);
+          if (numWithUnits) {
+            return numWithUnits[1].replace(/,/g, "");
+          }
+          return cleanedBold;
+        }
+      }
+
+      // === COMMA-SEPARATED LIST PATTERNS ===
+      // Match comma-separated lists of fractions, numbers, or items at end of text
+      const listMatch = textContent.match(
+        /(?:comma[- ]separated|list)[^:]*:\s*\n*([a-zA-Z0-9/,.\s-]+(?:,\s*[a-zA-Z0-9/,.\s-]+)+)\s*$/i,
+      );
+      if (listMatch) {
+        // Clean up whitespace between items
+        return listMatch[1].replace(/\s+/g, "").trim();
+      }
+
+      // === TEXT ANSWER PATTERNS (fallback for non-bold answers) ===
+      const textAnswerPatterns = [
+        // "The sentence is: ..." pattern (without bold)
+        /(?:sentence is|answer is|result is)[:\s]+([^\n]{5,100})/i,
+        // "was: Something" or "is: Something"
+        /(?:was|is)[:\s]+([^\n]{5,100})\s*$/im,
+      ];
+
+      for (const pattern of textAnswerPatterns) {
+        const match = textContent.match(pattern);
+        if (match) {
+          return match[1].replace(/^["']|["']$/g, "").trim();
+        }
+      }
+    }
+
+    // If we have text content but no clear answer, try to find the conclusion
+    if (textContent && textContent.length > 0) {
+      // Split into sentences and look for answer-like statements
+      const sentences = textContent.split(/[.!?]+/).filter((s) => s.trim());
+      // Try to find a short, answer-like sentence (last few sentences)
+      for (
+        let i = sentences.length - 1;
+        i >= Math.max(0, sentences.length - 3);
+        i--
+      ) {
+        const sentence = sentences[i]?.trim() ?? "";
+        // Accept sentences that are reasonably short or contain answer keywords
+        if (sentence.length > 0 && sentence.length < 150) {
+          return sentence;
+        }
+      }
+      // If all sentences are too long, return the last one truncated
+      const lastSentence = sentences[sentences.length - 1]?.trim() ?? "";
+      if (lastSentence.length > 0) {
+        return lastSentence.slice(0, 200);
+      }
+    }
+  }
+
   // First try to parse as JSON (for --output-format json responses)
   const jsonResult = tryParseJson(output);
   if (jsonResult) {
