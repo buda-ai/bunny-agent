@@ -204,9 +204,10 @@ export const sandagentRunner: RunnerHandler = {
       prompt = `${fileInfo}\n\n${task.question}`;
     }
 
+    const defaultArgs = this.defaults.args ?? [];
     return {
-      command,
-      args: ["run", "--", prompt],
+      command: command,
+      args: [...defaultArgs, prompt],
     };
   },
 
