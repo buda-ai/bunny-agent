@@ -1,17 +1,21 @@
 import path from "node:path";
 import { E2BSandbox } from "@sandagent/sandbox-e2b";
+import { SandockSandbox } from "@sandagent/sandbox-sandock";
 
 /**
  * POST /api/approval/submit
  *
- * Submit a single answer for a tool approval request.
+ * Submit all collected answers for a tool approval request.
  *
  * Request body:
  * {
- *   sessionId: string,  // E2B sandbox session ID
+ *   sessionId: string,  // Sandbox session ID
  *   toolCallId: string,
- *   question: string,   // Question text used as key
- *   answer: any
+ *   questions: Array<{ question: string }>,
+ *   answers: Record<string, any>,  // All collected answers
+ *   E2B_API_KEY?: string,        // Client-provided E2B key
+ *   SANDOCK_API_KEY?: string,    // Client-provided Sandock key
+ *   SANDBOX_PROVIDER?: string    // 'e2b' or 'sandock'
  * }
  *
  * Response:
@@ -21,13 +25,21 @@ import { E2BSandbox } from "@sandagent/sandbox-e2b";
  * }
  */
 export async function POST(request: Request) {
-  const { sessionId, toolCallId, question, answer } = await request.json();
+  const {
+    sessionId,
+    toolCallId,
+    questions,
+    answers,
+    E2B_API_KEY,
+    SANDOCK_API_KEY,
+    SANDBOX_PROVIDER = "e2b",
+  } = await request.json();
 
-  if (!sessionId || !toolCallId || !question) {
+  if (!sessionId || !toolCallId || !questions || !answers) {
     return Response.json(
       {
         success: false,
-        error: "sessionId, toolCallId, and question are required",
+        error: "sessionId, toolCallId, questions, and answers are required",
       },
       { status: 400 },
     );
@@ -40,11 +52,9 @@ export async function POST(request: Request) {
       MONOREPO_ROOT,
       "apps/runner-cli/dist/bundle.mjs",
     );
-    const TEMPLATES_PATH = path.join(MONOREPO_ROOT, "templates");
 
-    // Get E2B API key from request or environment
-    const E2B_API_KEY = process.env.E2B_API_KEY;
-    if (!E2B_API_KEY) {
+    // Validate sandbox provider and API key
+    if (SANDBOX_PROVIDER === "e2b" && !E2B_API_KEY) {
       return Response.json(
         {
           success: false,
@@ -54,57 +64,59 @@ export async function POST(request: Request) {
       );
     }
 
-    // Create sandbox adapter and attach to existing session
-    const sandbox = new E2BSandbox({
-      apiKey: E2B_API_KEY,
-      runnerBundlePath: RUNNER_BUNDLE_PATH,
-      templatesPath: TEMPLATES_PATH,
-    });
+    if (SANDBOX_PROVIDER === "sandock" && !SANDOCK_API_KEY) {
+      return Response.json(
+        {
+          success: false,
+          error: "SANDOCK_API_KEY not configured",
+        },
+        { status: 500 },
+      );
+    }
+
+    // Create sandbox adapter based on provider
+    // Note: We're only attaching to an existing sandbox, so templatesPath is not needed
+    const sandbox =
+      SANDBOX_PROVIDER === "sandock"
+        ? new SandockSandbox({
+            apiKey: SANDOCK_API_KEY,
+            runnerBundlePath: RUNNER_BUNDLE_PATH,
+          })
+        : new E2BSandbox({
+            apiKey: E2B_API_KEY,
+            runnerBundlePath: RUNNER_BUNDLE_PATH,
+          });
 
     const handle = await sandbox.attach(sessionId);
 
-    // Read approval file using exec
-    const approvalFile = `/sandagent/approvals/${toolCallId}.json`;
-
-    // Read file content
-    const readChunks: Uint8Array[] = [];
-    for await (const chunk of handle.exec(["cat", approvalFile])) {
-      readChunks.push(chunk);
+    // Ensure approval directory exists
+    for await (const _chunk of handle.exec([
+      "mkdir",
+      "-p",
+      "/sandagent/approvals",
+    ])) {
+      // consume chunks
     }
-    const fileContent = new TextDecoder().decode(Buffer.concat(readChunks));
-    const approval = JSON.parse(fileContent);
-
-    // Update answers
-    approval.answers[question] = answer;
 
     // Check if all questions are answered
-    const allAnswered = approval.questions.every(
-      (q: { question: string }) => approval.answers[q.question] !== undefined,
+    const allAnswered = questions.every(
+      (q: { question: string }) =>
+        answers[q.question] !== undefined && answers[q.question] !== "",
     );
 
-    if (allAnswered) {
-      approval.status = "completed";
-    }
+    // Create approval file with all answers
+    const approval = {
+      questions,
+      answers,
+      status: allAnswered ? "completed" : "pending",
+    };
 
-    // Write back to file using a temporary file and atomic move
-    const updatedContent = JSON.stringify(approval);
-    const tempFile = `${approvalFile}.tmp`;
-
-    // Write to temp file
-    const writeChunks: Uint8Array[] = [];
-    for await (const chunk of handle.exec([
-      "sh",
-      "-c",
-      `cat > ${tempFile} << 'EOF'\n${updatedContent}\nEOF`,
-    ])) {
-      writeChunks.push(chunk);
-    }
-
-    // Atomic move
-    const moveChunks: Uint8Array[] = [];
-    for await (const chunk of handle.exec(["mv", tempFile, approvalFile])) {
-      moveChunks.push(chunk);
-    }
+    // Write file directly - no need to read first
+    const content = JSON.stringify(approval);
+    await handle.upload(
+      [{ path: `${toolCallId}.json`, content }],
+      "/sandagent/approvals",
+    );
 
     return Response.json({ success: true });
   } catch (error) {

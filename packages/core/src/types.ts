@@ -8,6 +8,8 @@ export interface ExecOptions {
   env?: Record<string, string>;
   /** Timeout in milliseconds */
   timeout?: number;
+  /** AbortSignal for cancelling the operation */
+  signal?: AbortSignal;
 }
 
 /**
@@ -111,6 +113,8 @@ export interface StreamInput {
   transcriptWriter?: TranscriptWriter;
   /** Runner session ID to resume a previous conversation (from assistant message metadata) */
   resume?: string;
+  /** AbortSignal for cancelling the operation */
+  signal?: AbortSignal;
 }
 
 /**

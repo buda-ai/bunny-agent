@@ -13,7 +13,6 @@
 
 import type {
   CanUseTool,
-  PermissionResult,
   PermissionUpdate,
   Query,
   SDKAssistantMessage,
@@ -43,6 +42,8 @@ export interface ClaudeRunnerOptions {
   resume?: string;
   /** Approval file directory for tool approval flow (e.g., "/sandagent/approvals") */
   approvalDir?: string;
+  /** AbortSignal for cancelling operations */
+  signal?: AbortSignal;
 }
 
 /**
@@ -74,23 +75,16 @@ export interface ClaudeRunner {
   /**
    * Run a task and stream AI SDK UI messages
    * @param userInput - The user's task/input
+   * @param signal - Optional AbortSignal for cancelling the operation
    * @returns An async iterable of AI SDK UI message chunks
    */
-  run(userInput: string): AsyncIterable<string>;
+  run(userInput: string, signal?: AbortSignal): AsyncIterable<string>;
 }
 
 /**
  * Type definitions for Claude Agent SDK
  * Based on @anthropic-ai/claude-agent-sdk
  */
-interface SDKAssistantMessageContent {
-  type: string;
-  text?: string;
-  id?: string;
-  name?: string;
-  input?: unknown;
-}
-
 enum SettingSource {
   user = "user",
   project = "project",
@@ -157,35 +151,37 @@ function createCanUseToolCallback(
     }
 
     try {
-      const fs = await import("node:fs/promises");
+      const { execSync } = await import("node:child_process");
       const path = await import("node:path");
 
       const approvalFile = path.join(approvalDir, `${toolUseID}.json`);
-      const questions = (input as { questions: unknown }).questions;
 
-      // Ensure approval directory exists
-      await fs.mkdir(approvalDir, { recursive: true });
-
-      // Write initial approval request
-      await fs.writeFile(
-        approvalFile,
-        JSON.stringify({
-          questions,
-          answers: {},
-          status: "pending",
-        }),
-      );
-
-      // Poll for completion (60 second timeout)
+      // Poll for answers (60 second timeout)
       const timeout = Date.now() + 60000;
+      let lastApproval: {
+        questions: unknown;
+        answers: Record<string, unknown>;
+        status: string;
+      } | null = null;
+
       while (Date.now() < timeout) {
         try {
-          const data = await fs.readFile(approvalFile, "utf-8");
+          // Use shell command to check if file exists and read it
+          // Redirect stderr to /dev/null to suppress "No such file or directory" errors
+          const data = execSync(`cat ${approvalFile} 2>/dev/null`, {
+            encoding: "utf-8",
+          });
           const approval = JSON.parse(data);
+          lastApproval = approval;
 
+          // If completed, return immediately
           if (approval.status === "completed") {
             // Clean up file
-            await fs.unlink(approvalFile).catch(() => {});
+            try {
+              execSync(`rm ${approvalFile} 2>/dev/null`);
+            } catch {
+              // Ignore cleanup errors
+            }
 
             return {
               behavior: "allow",
@@ -196,17 +192,30 @@ function createCanUseToolCallback(
             };
           }
         } catch (error) {
-          // File might not exist yet or be in the middle of writing
-          console.error("Error reading approval file:", error);
+          // File doesn't exist yet or can't be read, continue waiting
         }
 
         // Wait 500ms before next poll
         await new Promise((resolve) => setTimeout(resolve, 500));
       }
 
-      // Timeout - clean up file
-      await fs.unlink(approvalFile).catch(() => {});
+      // Timeout - return partial answers if any were collected
+      try {
+        execSync(`rm ${approvalFile} 2>/dev/null`);
+      } catch {
+        // Ignore cleanup errors
+      }
 
+      if (lastApproval && Object.keys(lastApproval.answers).length > 0) {
+        // Return partial answers
+        return {
+          behavior: "allow",
+          updatedInput: {
+            questions: lastApproval.questions,
+            answers: lastApproval.answers,
+          },
+        };
+      }
       return {
         behavior: "deny",
         message: "Timeout waiting for user input",
@@ -237,7 +246,12 @@ const OPTIONAL_MODULES: Record<string, string> = {
  */
 export function createClaudeRunner(options: ClaudeRunnerOptions): ClaudeRunner {
   return {
-    async *run(userInput: string): AsyncIterable<string> {
+    async *run(userInput: string, signal?: AbortSignal): AsyncIterable<string> {
+      // Check if signal is already aborted - just return without sending messages
+      if (signal?.aborted) {
+        return;
+      }
+
       // Check for API key
       const apiKey =
         process.env.ANTHROPIC_API_KEY || process.env.AWS_BEARER_TOKEN_BEDROCK;
@@ -249,7 +263,7 @@ export function createClaudeRunner(options: ClaudeRunnerOptions): ClaudeRunner {
             "2. Install the SDK: npm install @anthropic-ai/claude-agent-sdk",
         );
 
-        yield* runMockAgent(options, userInput);
+        yield* runMockAgent(options, userInput, signal);
         return;
       }
 
@@ -258,14 +272,14 @@ export function createClaudeRunner(options: ClaudeRunnerOptions): ClaudeRunner {
 
       if (sdk) {
         // Use the real Claude Agent SDK
-        yield* runWithClaudeAgentSDK(sdk, options, userInput);
+        yield* runWithClaudeAgentSDK(sdk, options, userInput, signal);
       } else {
         // Fallback to mock implementation
         console.error(
           "[SandAgent] Warning: @anthropic-ai/claude-agent-sdk not installed. Using mock response.\n" +
             "Install the SDK: npm install @anthropic-ai/claude-agent-sdk",
         );
-        yield* runMockAgent(options, userInput);
+        yield* runMockAgent(options, userInput, signal);
       }
     },
   };
@@ -291,6 +305,7 @@ async function* runWithClaudeAgentSDK(
   sdk: ClaudeAgentSDKModule,
   options: ClaudeRunnerOptions,
   userInput: string | AsyncIterable<SDKUserMessage>,
+  signal?: AbortSignal,
 ): AsyncIterable<string> {
   const usage: AccumulatedUsage = { inputTokens: 0, outputTokens: 0 };
   let systemMessage: SDKSystemMessage | undefined;
@@ -311,13 +326,37 @@ async function* runWithClaudeAgentSDK(
     allowDangerouslySkipPermissions: true,
   };
 
-  try {
-    const queryIterator = sdk.query({
-      prompt: userInput,
-      options: sdkOptions,
-    });
+  const queryIterator = sdk.query({
+    prompt: userInput,
+    options: sdkOptions,
+  });
 
+  // Add abort event listener to call interrupt() on the query
+  const abortHandler = async () => {
+    console.error(
+      "[ClaudeRunner] Operation aborted, calling query.interrupt()",
+    );
+    await queryIterator.interrupt();
+  };
+
+  if (signal) {
+    console.error("[ClaudeRunner] Signal provided, adding abort listener");
+    signal.addEventListener("abort", abortHandler);
+
+    // Check if already aborted
+    if (signal.aborted) {
+      console.error("[ClaudeRunner] Signal already aborted!");
+    }
+  } else {
+    console.error("[ClaudeRunner] No signal provided");
+  }
+
+  try {
     for await (const message of queryIterator) {
+      // console.log(
+      //   "[ClaudeRunner] get message",
+      //   JSON.stringify(message, null, 2),
+      // );
       if (message.type === "system" && message.subtype === "init") {
         systemMessage = message;
         continue;
@@ -349,7 +388,7 @@ async function* runWithClaudeAgentSDK(
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error occurred";
-    console.error("[SandAgent] Error:", errorMessage);
+    console.error("[ClaudeRunner] Error:", errorMessage);
 
     yield formatDataStream({ type: "error", errorText: errorMessage });
     yield formatDataStream({
@@ -361,6 +400,10 @@ async function* runWithClaudeAgentSDK(
       },
     });
   } finally {
+    // Remove abort event listener
+    if (signal) {
+      signal.removeEventListener("abort", abortHandler);
+    }
     yield `data: [DONE]\n\n`;
   }
 }
@@ -549,45 +592,64 @@ function generateId(): string {
 async function* runMockAgent(
   options: ClaudeRunnerOptions,
   userInput: string,
+  signal?: AbortSignal,
 ): AsyncIterable<string> {
-  // Output a helpful response in AI SDK UI format
-  const response =
-    `I received your request: "${userInput}"\n\n` +
-    `Model: ${options.model}\n\n` +
-    `This is a mock response because:\n` +
-    `- ANTHROPIC_API_KEY is not set, OR\n` +
-    `- @anthropic-ai/claude-agent-sdk is not installed\n\n` +
-    `To use the real Claude Agent SDK:\n` +
-    `1. Set ANTHROPIC_API_KEY environment variable\n` +
-    `2. Install the SDK: npm install @anthropic-ai/claude-agent-sdk\n\n` +
-    `Documentation: https://platform.claude.com/docs/en/agent-sdk/typescript-v2-preview`;
-
-  const textId = generateId();
-
-  // Start text block
-  yield formatDataStream({ type: "text-start", id: textId });
-
-  // Simulate streaming by yielding chunks
-  const words = response.split(" ");
-  for (const word of words) {
-    yield formatDataStream({
-      type: "text-delta",
-      id: textId,
-      delta: word + " ",
-    });
-    // Small delay to simulate streaming
-    await new Promise((resolve) => setTimeout(resolve, 20));
+  // Check if signal is already aborted - just return without sending messages
+  if (signal?.aborted) {
+    console.log("[ClaudeRunner] Mock agent: Operation already aborted");
+    return;
   }
 
-  // End text block
-  yield formatDataStream({ type: "text-end", id: textId });
+  try {
+    // Output a helpful response in AI SDK UI format
+    const response =
+      `I received your request: "${userInput}"\n\n` +
+      `Model: ${options.model}\n\n` +
+      `This is a mock response because:\n` +
+      `- ANTHROPIC_API_KEY is not set, OR\n` +
+      `- @anthropic-ai/claude-agent-sdk is not installed\n\n` +
+      `To use the real Claude Agent SDK:\n` +
+      `1. Set ANTHROPIC_API_KEY environment variable\n` +
+      `2. Install the SDK: npm install @anthropic-ai/claude-agent-sdk\n\n` +
+      `Documentation: https://platform.claude.com/docs/en/agent-sdk/typescript-v2-preview`;
 
-  // Finish message
-  yield formatDataStream({
-    type: "finish",
-    finishReason: "stop",
-  });
+    const textId = generateId();
 
-  // Stream termination
-  yield `data: [DONE]\n\n`;
+    // Start text block
+    yield formatDataStream({ type: "text-start", id: textId });
+
+    // Simulate streaming by yielding chunks
+    const words = response.split(" ");
+    for (const word of words) {
+      yield formatDataStream({
+        type: "text-delta",
+        id: textId,
+        delta: word + " ",
+      });
+      // Small delay to simulate streaming
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+
+    // End text block
+    yield formatDataStream({ type: "text-end", id: textId });
+
+    // Finish message
+    yield formatDataStream({
+      type: "finish",
+      finishReason: "stop",
+    });
+
+    // Stream termination
+    yield `data: [DONE]\n\n`;
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error occurred";
+    console.error("[ClaudeRunner] Mock agent error:", errorMessage);
+    yield formatDataStream({ type: "error", errorText: errorMessage });
+    yield formatDataStream({
+      type: "finish",
+      finishReason: "error",
+    });
+    yield `data: [DONE]\n\n`;
+  }
 }

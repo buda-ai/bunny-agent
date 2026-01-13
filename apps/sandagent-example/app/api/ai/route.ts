@@ -53,6 +53,9 @@ export async function POST(request: Request) {
     SANDBOX_PROVIDER = "e2b",
   } = body;
 
+  // Extract signal from Request object
+  const signal = request.signal;
+
   // Debug logging (remove in production)
   console.log("[API] Request body keys:", Object.keys(body));
   console.log("[API] Has ANTHROPIC_API_KEY:", !!ANTHROPIC_API_KEY);
@@ -203,5 +206,6 @@ export async function POST(request: Request) {
     messages: normalizedMessages,
     workspace: { path: "/sandagent" },
     resume,
+    signal, // Pass signal to SandAgent
   });
 }

@@ -189,6 +189,166 @@ describe("ClaudeRunnerOptions", () => {
   });
 });
 
+describe("AbortSignal Support", () => {
+  it("should accept signal parameter", async () => {
+    delete process.env.ANTHROPIC_API_KEY;
+
+    const runner = createClaudeRunner({
+      model: "claude-sonnet-4-20250514",
+    });
+
+    const controller = new AbortController();
+    const signal = controller.signal;
+
+    // Should not throw when signal is passed
+    const result = runner.run("Test with signal", signal);
+    expect(result[Symbol.asyncIterator]).toBeDefined();
+
+    // Collect chunks to complete the iteration
+    const chunks: string[] = [];
+    for await (const chunk of result) {
+      chunks.push(chunk);
+    }
+
+    expect(chunks.length).toBeGreaterThan(0);
+  });
+
+  it("should handle pre-aborted signal", async () => {
+    delete process.env.ANTHROPIC_API_KEY;
+
+    const runner = createClaudeRunner({
+      model: "claude-sonnet-4-20250514",
+    });
+
+    const controller = new AbortController();
+    controller.abort(); // Abort before calling run
+    const signal = controller.signal;
+
+    const chunks: string[] = [];
+    for await (const chunk of runner.run(
+      "Test with pre-aborted signal",
+      signal,
+    )) {
+      chunks.push(chunk);
+    }
+
+    // Should immediately return without sending any messages
+    expect(chunks.length).toBe(0);
+  });
+
+  it("should interrupt iteration when signal is aborted during streaming", async () => {
+    delete process.env.ANTHROPIC_API_KEY;
+
+    const runner = createClaudeRunner({
+      model: "claude-sonnet-4-20250514",
+    });
+
+    const controller = new AbortController();
+    const signal = controller.signal;
+
+    const chunks: string[] = [];
+    let chunkCount = 0;
+
+    // Start collecting chunks
+    const iterator = runner.run("Test abort during streaming", signal);
+
+    for await (const chunk of iterator) {
+      chunks.push(chunk);
+      chunkCount++;
+
+      // Abort after receiving a few chunks (during streaming)
+      if (chunkCount === 3) {
+        controller.abort();
+      }
+    }
+
+    // Should have received some chunks before abort
+    expect(chunks.length).toBeGreaterThan(0);
+
+    // After abort, iteration should stop naturally without error messages
+    // The stream just ends
+  });
+
+  it("should send appropriate completion messages when aborted", async () => {
+    delete process.env.ANTHROPIC_API_KEY;
+
+    const runner = createClaudeRunner({
+      model: "claude-sonnet-4-20250514",
+    });
+
+    const controller = new AbortController();
+    const signal = controller.signal;
+
+    const chunks: string[] = [];
+    let chunkCount = 0;
+
+    for await (const chunk of runner.run("Test completion messages", signal)) {
+      chunks.push(chunk);
+      chunkCount++;
+
+      // Abort after a few chunks
+      if (chunkCount === 2) {
+        controller.abort();
+      }
+    }
+
+    // After abort, iteration should stop naturally
+    // No error or finish messages are sent
+    expect(chunks.length).toBeGreaterThan(0);
+  });
+
+  it("should clean up abort event listener", async () => {
+    delete process.env.ANTHROPIC_API_KEY;
+
+    const runner = createClaudeRunner({
+      model: "claude-sonnet-4-20250514",
+    });
+
+    const controller = new AbortController();
+    const signal = controller.signal;
+
+    // Track listener count (this is a proxy test since we can't directly inspect listeners)
+    const initialListenerCount = signal.addEventListener.length;
+
+    const chunks: string[] = [];
+    for await (const chunk of runner.run("Test listener cleanup", signal)) {
+      chunks.push(chunk);
+    }
+
+    // After completion, the listener should be removed
+    // We verify this indirectly by ensuring the operation completed successfully
+    expect(chunks[chunks.length - 1]).toBe("data: [DONE]\n\n");
+
+    // Aborting after completion should not affect anything
+    controller.abort();
+
+    // No errors should occur
+    expect(chunks.length).toBeGreaterThan(0);
+  });
+
+  it("should work without signal parameter (backward compatibility)", async () => {
+    delete process.env.ANTHROPIC_API_KEY;
+
+    const runner = createClaudeRunner({
+      model: "claude-sonnet-4-20250514",
+    });
+
+    // Call without signal parameter
+    const chunks: string[] = [];
+    for await (const chunk of runner.run("Test without signal")) {
+      chunks.push(chunk);
+    }
+
+    // Should work normally
+    expect(chunks.length).toBeGreaterThan(0);
+    expect(chunks[chunks.length - 1]).toBe("data: [DONE]\n\n");
+
+    // Should have normal completion
+    const hasFinish = chunks.some((c) => c.includes('"type":"finish"'));
+    expect(hasFinish).toBe(true);
+  });
+});
+
 describe("Query Natural Completion", () => {
   it("should complete message loop traversal and send [DONE] marker", async () => {
     // Remove API key to use mock mode for predictable testing

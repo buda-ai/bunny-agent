@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { SandAgent } from "../sand-agent.js";
-import type { ExecOptions, SandboxAdapter, SandboxHandle } from "../types.js";
+import type { SandboxAdapter, SandboxHandle } from "../types.js";
 
 /**
  * Create an async iterable from data
@@ -258,6 +258,158 @@ describe("SandAgent", () => {
       await agent.destroy();
 
       expect(sandbox.handle.destroy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("AbortSignal support", () => {
+    it("should pass signal to exec()", async () => {
+      const sandbox = createMockSandbox();
+      const agent = new SandAgent({
+        id: "test-agent",
+        sandbox,
+        runner: {
+          kind: "claude-agent-sdk",
+          model: "claude-sonnet-4-20250514",
+        },
+      });
+
+      const controller = new AbortController();
+      const signal = controller.signal;
+
+      await agent.stream({
+        messages: [{ role: "user", content: "Hello" }],
+        signal,
+      });
+
+      expect(sandbox.handle.exec).toHaveBeenCalledWith(
+        expect.any(Array),
+        expect.objectContaining({ signal }),
+      );
+    });
+
+    it("should throw error if signal is already aborted", async () => {
+      const sandbox = createMockSandbox();
+      const agent = new SandAgent({
+        id: "test-agent",
+        sandbox,
+        runner: {
+          kind: "claude-agent-sdk",
+          model: "claude-sonnet-4-20250514",
+        },
+      });
+
+      const controller = new AbortController();
+      controller.abort();
+      const signal = controller.signal;
+
+      await expect(
+        agent.stream({
+          messages: [{ role: "user", content: "Hello" }],
+          signal,
+        }),
+      ).rejects.toThrow("Operation was aborted");
+    });
+
+    it("should pass signal to exec()", async () => {
+      const sandbox = createMockSandbox();
+      const controller = new AbortController();
+
+      sandbox.handle.exec = vi
+        .fn()
+        .mockReturnValue(
+          createAsyncIterable([new TextEncoder().encode("test output")]),
+        );
+
+      const agent = new SandAgent({
+        id: "test-agent",
+        sandbox,
+        runner: {
+          kind: "claude-agent-sdk",
+          model: "claude-sonnet-4-20250514",
+        },
+      });
+
+      await agent.stream({
+        messages: [{ role: "user", content: "Hello" }],
+        signal: controller.signal,
+      });
+
+      // Verify signal was passed to exec
+      expect(sandbox.handle.exec).toHaveBeenCalledWith(
+        expect.any(Array),
+        expect.objectContaining({
+          signal: controller.signal,
+        }),
+      );
+    });
+
+    it("should handle AbortError from exec() gracefully", async () => {
+      const sandbox = createMockSandbox();
+      const transcriptEntries: Array<{
+        timestamp: string;
+        type: string;
+        agentId: string;
+        text?: string;
+        data?: string;
+        metadata?: unknown;
+      }> = [];
+
+      const mockTranscriptWriter = {
+        write: vi.fn().mockImplementation((entry) => {
+          transcriptEntries.push(entry);
+          return Promise.resolve();
+        }),
+      };
+
+      // Create a mock that throws AbortError
+      sandbox.handle.exec = vi.fn().mockReturnValue({
+        [Symbol.asyncIterator]: async function* () {
+          yield new TextEncoder().encode("chunk1");
+          const error = new Error("The operation was aborted");
+          error.name = "AbortError";
+          throw error;
+        },
+      });
+
+      const agent = new SandAgent({
+        id: "test-agent",
+        sandbox,
+        runner: {
+          kind: "claude-agent-sdk",
+          model: "claude-sonnet-4-20250514",
+        },
+      });
+
+      const response = await agent.stream({
+        messages: [{ role: "user", content: "Hello" }],
+        transcriptWriter: mockTranscriptWriter,
+      });
+
+      const reader = response.body!.getReader();
+
+      // Read first chunk
+      await reader.read();
+
+      // Try to read next chunk - should throw
+      await expect(reader.read()).rejects.toThrow();
+
+      // Check that start entry was written
+      const startEntry = transcriptEntries.find(
+        (entry) => entry.type === "start",
+      );
+      expect(startEntry).toBeDefined();
+
+      // Check that at least one chunk was written
+      const chunkEntry = transcriptEntries.find(
+        (entry) => entry.type === "chunk",
+      );
+      expect(chunkEntry).toBeDefined();
+
+      // AbortError should NOT create an error entry - just stops cleanly
+      const errorEntry = transcriptEntries.find(
+        (entry) => entry.type === "error",
+      );
+      expect(errorEntry).toBeUndefined();
     });
   });
 });

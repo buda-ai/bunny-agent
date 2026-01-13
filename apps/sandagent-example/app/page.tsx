@@ -2,7 +2,6 @@
 
 import { useChat } from "@ai-sdk/react";
 import {
-  type ChatAddToolApproveResponseFunction,
   DefaultChatTransport,
   type DynamicToolUIPart,
   type UIMessage,
@@ -43,7 +42,6 @@ import {
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { AskUserQuestionUI } from "./claude-tools/AskUserQuestionUI";
-import type { ChatAddToolOutputFunction } from "./claude-tools/type";
 import { STORAGE_KEY } from "./settings/page";
 
 const REQUIRED_KEYS = ["E2B_API_KEY"];
@@ -106,15 +104,7 @@ export default function Home() {
   // Use a ref to track messages for accessing in body callback
   const messagesRef = useRef<UIMessage[]>([]);
 
-  const {
-    messages,
-    sendMessage,
-    status,
-    error,
-    setMessages,
-    addToolApprovalResponse,
-    addToolOutput,
-  } = useChat({
+  const { messages, sendMessage, status, error, stop } = useChat({
     transport: new DefaultChatTransport({
       api: "/api/ai",
       body: () => {
@@ -218,9 +208,8 @@ export default function Home() {
               <ChatMessage
                 key={message.id}
                 message={message}
-                addToolApprovalResponse={addToolApprovalResponse}
-                addToolOutput={addToolOutput}
                 sessionId={sessionId}
+                config={clientConfig}
               />
             ))
           )}
@@ -255,7 +244,15 @@ export default function Home() {
           <PromptInputTextarea placeholder="Ask the agent to do something..." />
           <PromptInputFooter>
             <PromptInputTools />
-            <PromptInputSubmit status={status} disabled={isLoading} />
+            <PromptInputSubmit
+              status={status}
+              onClick={(e) => {
+                if (status === "streaming") {
+                  e.preventDefault();
+                  stop();
+                }
+              }}
+            />
           </PromptInputFooter>
         </PromptInput>
       </div>
@@ -265,14 +262,12 @@ export default function Home() {
 
 function ChatMessage({
   message,
-  addToolApprovalResponse,
-  addToolOutput,
   sessionId,
+  config,
 }: {
   message: UIMessage;
-  addToolApprovalResponse: ChatAddToolApproveResponseFunction;
-  addToolOutput: ChatAddToolOutputFunction;
   sessionId: string;
+  config: Record<string, string>;
 }) {
   const isUser = message.role === "user";
 
@@ -300,9 +295,8 @@ function ChatMessage({
                 <DynamicToolUI
                   key={i}
                   part={part}
-                  addToolApprovalResponse={addToolApprovalResponse}
-                  addToolOutput={addToolOutput}
                   sessionId={sessionId}
+                  config={config}
                 />
               );
             }
@@ -316,14 +310,12 @@ function ChatMessage({
 
 function DynamicToolUI({
   part,
-  addToolApprovalResponse,
-  addToolOutput,
   sessionId,
+  config,
 }: {
   part: DynamicToolUIPart;
-  addToolApprovalResponse: ChatAddToolApproveResponseFunction;
-  addToolOutput: ChatAddToolOutputFunction;
   sessionId: string;
+  config: Record<string, string>;
 }) {
   const toolName = part.toolName;
   const state = part.state;
@@ -345,11 +337,7 @@ function DynamicToolUI({
   // Handle AskUserQuestion tool specially
   if (toolName === "AskUserQuestion" && part.state !== "input-streaming") {
     return (
-      <AskUserQuestionUI
-        part={part}
-        addToolOutput={addToolOutput}
-        sessionId={sessionId}
-      />
+      <AskUserQuestionUI part={part} sessionId={sessionId} config={config} />
     );
   }
 

@@ -7,18 +7,35 @@ import type { AskUserQuestionOutput, ChatAddToolOutputFunction } from "./type";
 // AskUserQuestion interactive component
 export function AskUserQuestionUI({
   part,
-  addToolOutput,
   sessionId,
+  config = {},
 }: {
   part: DynamicToolUIPart;
-  addToolOutput: ChatAddToolOutputFunction;
   sessionId: string;
+  config?: Record<string, string>;
 }) {
   const [answers, setAnswers] = useState<Record<string, string | string[]>>({});
 
-  const questions = (part.input as AskUserQuestionOutput)?.questions || [];
+  // Safely extract questions with type checking
+  const questions = (() => {
+    if (!part.input || typeof part.input !== "object") return [];
+    const input = part.input as AskUserQuestionOutput;
+    if (!input.questions || !Array.isArray(input.questions)) return [];
+    return input.questions;
+  })();
 
   const approval = part.approval;
+
+  // If questions is empty or invalid, show error state
+  if (questions.length === 0) {
+    return (
+      <div className="my-2 rounded-lg border border-destructive bg-destructive/10 p-4">
+        <p className="text-sm text-destructive">
+          Invalid question format. Please try again.
+        </p>
+      </div>
+    );
+  }
 
   // Parse answers from part.output if available (for restored sessions)
   const outputAnswers = (() => {
@@ -50,11 +67,12 @@ export function AskUserQuestionUI({
   const displayAnswers =
     Object.keys(answers).length > 0 ? answers : outputAnswers || {};
 
-  // Only show read-only completed state if:
-  // 1. User hasn't started selecting (answers is empty)
-  // 2. AND there are real answers from a previous session (outputAnswers exists)
+  // Show read-only state if:
+  // 1. Tool state is 'output-available' (tool execution completed)
+  // 2. OR user hasn't started selecting AND there are answers from previous session
   const isCompleted =
-    Object.keys(answers).length === 0 && outputAnswers !== null;
+    part.state === "output-available" ||
+    (Object.keys(answers).length === 0 && outputAnswers !== null);
 
   if (isCompleted) {
     return (
@@ -149,25 +167,7 @@ export function AskUserQuestionUI({
     }
     setAnswers(newAnswers);
 
-    // Submit answer to approval API
-    const answer = multiSelect
-      ? (newAnswers[question] as string[]).join(", ")
-      : newAnswers[question];
-
-    fetch("/api/approval/submit", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        sessionId,
-        toolCallId: part.toolCallId,
-        question,
-        answer,
-      }),
-    }).catch((error) => {
-      console.error("Failed to submit answer:", error);
-    });
-
-    // Update tool output on every selection so it's ready when user sends message
+    // Prepare all answers for submission
     const answersMap: Record<string, string> = {};
     for (const q of questions) {
       const answer = newAnswers[q.question];
@@ -177,25 +177,31 @@ export function AskUserQuestionUI({
         answersMap[q.question] = (answer as string) || "";
       }
     }
-    addToolOutput({
-      tool: part.toolName,
-      toolCallId: part.toolCallId,
-      output: {
-        questions: questions,
+
+    // Submit all collected answers to approval API (updates file in sandbox)
+    // This allows the runner to read partial answers if timeout occurs
+    fetch("/api/approval/submit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sessionId,
+        toolCallId: part.toolCallId,
+        questions,
         answers: answersMap,
-      },
-      approval: approval
-        ? {
-            id: approval.id,
-            approved: true,
-            reason: "User selected",
-          }
-        : undefined,
+        E2B_API_KEY: config.E2B_API_KEY,
+        SANDOCK_API_KEY: config.SANDOCK_API_KEY,
+        SANDBOX_PROVIDER: config.SANDBOX_PROVIDER || "e2b",
+      }),
+    }).catch((error) => {
+      console.error("Failed to submit answer:", error);
     });
+
+    // Note: We don't call addToolOutput here to avoid changing tool state
+    // The tool output will be set when user sends the message
   };
 
-  // Check if waiting for user input (state !== 'output-available')
-  const isWaiting = part.state !== "output-available";
+  // Show animation when waiting for user input
+  const shouldAnimate = part.state === "input-available";
 
   return (
     <div className="my-2 space-y-4">
@@ -206,7 +212,7 @@ export function AskUserQuestionUI({
         return (
           <div
             key={idx}
-            className={`rounded-lg border p-4 ${isWaiting ? "bounce-animation" : "border-border"}`}
+            className={`rounded-lg border p-4 ${shouldAnimate ? "bounce-animation" : "border-border"}`}
           >
             {q.header && (
               <h4 className="mb-2 font-medium text-foreground">{q.header}</h4>
