@@ -1,5 +1,6 @@
 import path from "node:path";
 import { SandAgent } from "@sandagent/core";
+import { DaytonaSandbox } from "@sandagent/sandbox-daytona";
 import { E2BSandbox } from "@sandagent/sandbox-e2b";
 import { SandockSandbox } from "@sandagent/sandbox-sandock";
 import {
@@ -50,6 +51,7 @@ export async function POST(request: Request) {
     AWS_BEARER_TOKEN_BEDROCK,
     E2B_API_KEY,
     SANDOCK_API_KEY,
+    DAYTONA_API_KEY,
     SANDBOX_PROVIDER = "e2b",
   } = body;
 
@@ -65,6 +67,7 @@ export async function POST(request: Request) {
   );
   console.log("[API] Has E2B_API_KEY:", !!E2B_API_KEY);
   console.log("[API] Has SANDOCK_API_KEY:", !!SANDOCK_API_KEY);
+  console.log("[API] Has DAYTONA_API_KEY:", !!DAYTONA_API_KEY);
   console.log("[API] SANDBOX_PROVIDER:", SANDBOX_PROVIDER);
 
   // Validate required fields
@@ -108,6 +111,19 @@ export async function POST(request: Request) {
       JSON.stringify({
         error:
           "SANDOCK_API_KEY is required when using Sandock sandbox. Please configure it in Settings.",
+      }),
+      {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+  }
+
+  if (SANDBOX_PROVIDER === "daytona" && !DAYTONA_API_KEY) {
+    return new Response(
+      JSON.stringify({
+        error:
+          "DAYTONA_API_KEY is required when using Daytona sandbox. Please configure it in Settings.",
       }),
       {
         status: 400,
@@ -160,18 +176,26 @@ export async function POST(request: Request) {
   const normalizedMessages = [normalizedMessage];
 
   // Create sandbox based on provider
-  const sandbox =
-    SANDBOX_PROVIDER === "sandock"
-      ? new SandockSandbox({
-          apiKey: SANDOCK_API_KEY,
-          runnerBundlePath: RUNNER_BUNDLE_PATH,
-          templatesPath: path.join(TEMPLATES_PATH, template),
-        })
-      : new E2BSandbox({
-          apiKey: E2B_API_KEY,
-          runnerBundlePath: RUNNER_BUNDLE_PATH,
-          templatesPath: path.join(TEMPLATES_PATH, template),
-        });
+  let sandbox;
+  if (SANDBOX_PROVIDER === "daytona") {
+    sandbox = new DaytonaSandbox({
+      apiKey: DAYTONA_API_KEY,
+      runnerBundlePath: RUNNER_BUNDLE_PATH,
+      templatesPath: path.join(TEMPLATES_PATH, template),
+    });
+  } else if (SANDBOX_PROVIDER === "sandock") {
+    sandbox = new SandockSandbox({
+      apiKey: SANDOCK_API_KEY,
+      runnerBundlePath: RUNNER_BUNDLE_PATH,
+      templatesPath: path.join(TEMPLATES_PATH, template),
+    });
+  } else {
+    sandbox = new E2BSandbox({
+      apiKey: E2B_API_KEY,
+      runnerBundlePath: RUNNER_BUNDLE_PATH,
+      templatesPath: path.join(TEMPLATES_PATH, template),
+    });
+  }
 
   // Determine model based on whether using AWS Bedrock
   const model = AWS_BEARER_TOKEN_BEDROCK

@@ -68,10 +68,20 @@ const ENV_CONFIGS: EnvConfig[] = [
     isSecret: true,
   },
   {
+    name: "Daytona API Key",
+    key: "DAYTONA_API_KEY",
+    description:
+      "Required for Daytona cloud sandbox. Get one at https://daytona.io",
+    required: false,
+    category: "sandbox",
+    placeholder: "daytona_...",
+    isSecret: true,
+  },
+  {
     name: "Sandbox Provider",
     key: "SANDBOX_PROVIDER",
     description:
-      "Choose sandbox: 'e2b' (cloud) or 'sandock' (cloud). Default: e2b",
+      "Choose sandbox: 'e2b', 'sandock', or 'daytona'. Default: e2b",
     required: false,
     category: "sandbox",
     placeholder: "e2b",
@@ -339,6 +349,16 @@ export default function SettingsPage() {
                 className="text-primary hover:underline"
               >
                 Sandock Console → Get Sandock API Key
+              </a>
+            </li>
+            <li>
+              <a
+                href="https://daytona.io"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline"
+              >
+                Daytona Console → Get Daytona API Key
               </a>
             </li>
           </ul>
