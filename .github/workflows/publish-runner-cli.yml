@@ -9,7 +9,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 jobs:
   publish:
@@ -48,7 +47,7 @@ jobs:
           pnpm --filter @sandagent/runner-claude typecheck
 
       - name: Publish to NPM
-        run: pnpm publish --access public --no-git-checks --provenance
+        run: pnpm publish --access public --no-git-checks
         working-directory: ./apps/runner-cli
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
