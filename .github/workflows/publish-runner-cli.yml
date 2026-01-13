@@ -27,15 +27,16 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build dependencies
+        run: pnpm --filter @sandagent/runner-claude build
+
       - name: Run tests
         run: |
           pnpm --filter @sandagent/runner-cli test
           pnpm --filter @sandagent/runner-claude test
 
       - name: Build
-        run: |
-          pnpm --filter @sandagent/runner-claude build
-          pnpm --filter @sandagent/runner-cli build
+        run: pnpm --filter @sandagent/runner-cli build
 
       - name: Type check
         run: |
