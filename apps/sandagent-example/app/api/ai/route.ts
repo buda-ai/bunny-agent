@@ -1,6 +1,6 @@
 import path from "node:path";
 import { SandAgent } from "@sandagent/core";
-import { DaytonaSandbox } from "@sandagent/sandbox-daytona";
+import { DaytonaSandbox, getClaudeSessionId } from "@sandagent/sandbox-daytona";
 import { E2BSandbox } from "@sandagent/sandbox-e2b";
 import { SandockSandbox } from "@sandagent/sandbox-sandock";
 import {
@@ -177,12 +177,28 @@ export async function POST(request: Request) {
 
   // Create sandbox based on provider
   let sandbox;
+  // For Daytona with persistence, try to get stored Claude session ID for conversation history
+  let effectiveResume = resume;
+  
   if (SANDBOX_PROVIDER === "daytona") {
     sandbox = new DaytonaSandbox({
       apiKey: DAYTONA_API_KEY,
       runnerBundlePath: RUNNER_BUNDLE_PATH,
       templatesPath: path.join(TEMPLATES_PATH, template),
+      // Enable volume-based persistence to reuse sandbox across requests
+      enablePersistence: true,
+      persistenceMountPath: "/sandagent-data",
     });
+    
+    // If no resume parameter provided, try to get stored Claude session ID
+    // This enables automatic conversation history restoration when using the same sessionId
+    if (!effectiveResume) {
+      const storedClaudeSessionId = getClaudeSessionId(sessionId);
+      if (storedClaudeSessionId) {
+        effectiveResume = storedClaudeSessionId;
+        console.log(`[API] Using stored Claude session ID for resume: ${storedClaudeSessionId}`);
+      }
+    }
   } else if (SANDBOX_PROVIDER === "sandock") {
     sandbox = new SandockSandbox({
       apiKey: SANDOCK_API_KEY,
@@ -229,7 +245,7 @@ export async function POST(request: Request) {
   return agent.stream({
     messages: normalizedMessages,
     workspace: { path: "/sandagent" },
-    resume,
+    resume: effectiveResume,
     signal, // Pass signal to SandAgent
   });
 }
