@@ -8,6 +8,7 @@ import type { AgentRunner } from "../types.js";
 import { claudecodeRunner } from "./claudecode.js";
 import { codexCliRunner } from "./codex-cli.js";
 import { geminiCliRunner } from "./gemini-cli.js";
+import { opencodeRunner } from "./opencode.js";
 import { sandagentRunner } from "./sandagent.js";
 import type { RunnerHandler } from "./types.js";
 
@@ -21,6 +22,7 @@ export const runners: Record<AgentRunner, RunnerHandler> = {
   "gemini-cli": geminiCliRunner,
   claudecode: claudecodeRunner,
   "codex-cli": codexCliRunner,
+  opencode: opencodeRunner,
 };
 
 /**
@@ -45,4 +47,5 @@ export function getRunnerNames(): AgentRunner[] {
 export { claudecodeRunner } from "./claudecode.js";
 export { codexCliRunner } from "./codex-cli.js";
 export { geminiCliRunner } from "./gemini-cli.js";
+export { opencodeRunner } from "./opencode.js";
 export { sandagentRunner } from "./sandagent.js";

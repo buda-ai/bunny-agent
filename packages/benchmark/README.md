@@ -10,6 +10,7 @@ GAIA benchmark runner for comparing agent CLI performance.
   - `gemini-cli` - Google Gemini CLI
   - `claudecode` - Anthropic Claude Code CLI
   - `codex-cli` - OpenAI Codex CLI
+  - `opencode` - OpenCode CLI (open-source)
 - **Compare results** across different agents
 - **Filter by level** (1, 2, 3) or category (files, code, search, browser, reasoning)
 - **Resume interrupted** benchmark runs
@@ -165,6 +166,7 @@ Results are saved in JSON format:
 | `GEMINI_API_KEY` | Required for gemini-cli runner (Option 1) |
 | `GOOGLE_API_KEY` | Required for gemini-cli with Vertex AI (Option 2) |
 | `GOOGLE_GENAI_USE_VERTEXAI` | Set to `true` when using `GOOGLE_API_KEY` |
+| `OPENCODE_API_KEY` | Required for opencode runner (if using remote models) |
 
 
 ## Developer Guide
