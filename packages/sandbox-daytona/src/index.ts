@@ -6,4 +6,7 @@ export {
   setSessionState,
   clearSessionState,
   listSessions,
+  // Claude session ID management for conversation history
+  updateClaudeSessionId,
+  getClaudeSessionId,
 } from "./daytona-sandbox.js";

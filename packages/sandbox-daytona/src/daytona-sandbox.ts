@@ -15,11 +15,20 @@ type VolumeConfig = VolumeMount;
 /**
  * In-memory store for session -> sandbox/volume mapping
  * This enables sandbox persistence across requests
+ * 
+ * Note: For full conversation history restoration, you need BOTH:
+ * 1. volumeId - to restore filesystem state (files, code, data)
+ * 2. claudeSessionId - to restore conversation history (via Claude Agent SDK's resume parameter)
  */
 interface SessionState {
+  /** Daytona sandbox ID */
   sandboxId: string;
+  /** Daytona volume ID for filesystem persistence */
   volumeId: string;
+  /** Volume name */
   volumeName: string;
+  /** Claude Agent SDK session ID for conversation history (optional) */
+  claudeSessionId?: string;
 }
 
 // Global in-memory store for session states
@@ -51,6 +60,30 @@ export function clearSessionState(sessionId: string): void {
  */
 export function listSessions(): Map<string, SessionState> {
   return new Map(sessionStore);
+}
+
+/**
+ * Update Claude session ID for an existing session
+ * This should be called after receiving the session_id from Claude Agent SDK response
+ * 
+ * The Claude session ID is needed to resume conversation history across sandbox restarts.
+ * Without it, only filesystem state (files, code) will be restored, not conversation history.
+ */
+export function updateClaudeSessionId(sessionId: string, claudeSessionId: string): void {
+  const state = sessionStore.get(sessionId);
+  if (state) {
+    state.claudeSessionId = claudeSessionId;
+    sessionStore.set(sessionId, state);
+    console.log(`[Daytona] Updated Claude session ID for ${sessionId}: ${claudeSessionId}`);
+  }
+}
+
+/**
+ * Get Claude session ID for resuming conversation
+ * Returns undefined if no session exists or no Claude session ID has been stored
+ */
+export function getClaudeSessionId(sessionId: string): string | undefined {
+  return sessionStore.get(sessionId)?.claudeSessionId;
 }
 
 /**
