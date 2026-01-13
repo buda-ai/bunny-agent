@@ -4,7 +4,9 @@ on:
   push:
     branches:
       - main
-      - chore*
+    paths:
+      - 'apps/runner-cli/**'
+      - 'packages/runner-claude/**'
   workflow_dispatch:  # Manual trigger
 
 permissions:
