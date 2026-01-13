@@ -1,0 +1,65 @@
+name: Publish @sandagent/runner-cli to NPM
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'apps/runner-cli/**'
+      - 'packages/runner-claude/**'
+  workflow_dispatch:  # Manual trigger
+    inputs:
+      version:
+        description: 'Version to publish (e.g., 1.0.0, 1.0.1-beta.1). Leave empty to use current package.json version'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build dependencies
+        run: pnpm --filter @sandagent/runner-claude build
+
+      - name: Run tests
+        run: |
+          pnpm --filter @sandagent/runner-cli test
+          pnpm --filter @sandagent/runner-claude test
+
+      - name: Build
+        run: pnpm --filter @sandagent/runner-cli build
+
+      - name: Type check
+        run: |
+          pnpm --filter @sandagent/runner-cli typecheck
+          pnpm --filter @sandagent/runner-claude typecheck
+
+      - name: Update version (if specified)
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.version != ''
+        run: npm version ${{ github.event.inputs.version }} --no-git-tag-version
+        working-directory: ./apps/runner-cli
+
+      - name: Publish to NPM
+        run: pnpm publish --access public --no-git-checks
+        working-directory: ./apps/runner-cli
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
