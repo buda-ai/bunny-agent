@@ -26,7 +26,8 @@ export type AgentRunner =
   | "sandagent"
   | "gemini-cli"
   | "claudecode"
-  | "codex-cli";
+  | "codex-cli"
+  | "opencode";
 
 /**
  * File attachment for a GAIA task
