@@ -386,6 +386,7 @@ class SandockHandle implements SandboxHandle {
     // Add NODE_PATH so Node can find packages installed in /sandagent
     const envWithNodePath: Record<string, string> = {
       ...opts?.env,
+      IS_SANDBOX: "1",
       NODE_PATH: "/sandagent/node_modules",
     };
 

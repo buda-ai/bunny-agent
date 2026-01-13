@@ -399,8 +399,8 @@ importers:
         specifier: workspace:*
         version: link:../core
       sandock:
-        specifier: ^2.2.0
-        version: 2.2.0
+        specifier: ^2.2.1
+        version: 2.2.1
     devDependencies:
       '@types/node':
         specifier: ^20.10.0
@@ -3990,8 +3990,8 @@ packages:
   safer-buffer@2.1.2:
     resolution: {integrity: sha512-YZo3K82SD7Riyi0E1EQPojLz7kpepnSQI9IyPbHHg1XXXevb5dJI7tpyN2ADxGcQbHG7vcyRHk0cbwqcQriUtg==}
 
-  sandock@2.2.0:
-    resolution: {integrity: sha512-7Zv0MXhRQdlr4LK9gk/S1rCOBdeh19BAmokSPU+5KVuTdaY5+R7gu4G2yKojFhCjD7Fv8e8rriemtVh7ztCXNQ==}
+  sandock@2.2.1:
+    resolution: {integrity: sha512-bodpiIRBO0/DWuCS2J73s0apc8o1hGNTIMyKa2ZhbPP1H6hsBa6Kh9rKwrhfj1ymio+0EWfVHz2y8UIROx23EQ==}
 
   scheduler@0.27.0:
     resolution: {integrity: sha512-eNv+WrVbKu1f3vbYJT/xtiF5syA5HPIMtf9IgY/nKg0sWqzAUEvqY/xm7OcZc/qafLx/iO9FgOmeSAp4v5ti/Q==}
@@ -8289,7 +8289,7 @@ snapshots:
 
   safer-buffer@2.1.2: {}
 
-  sandock@2.2.0:
+  sandock@2.2.1:
     dependencies:
       openapi-fetch: 0.15.0
 
