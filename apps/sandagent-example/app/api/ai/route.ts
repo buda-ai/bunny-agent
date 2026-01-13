@@ -182,6 +182,9 @@ export async function POST(request: Request) {
       apiKey: DAYTONA_API_KEY,
       runnerBundlePath: RUNNER_BUNDLE_PATH,
       templatesPath: path.join(TEMPLATES_PATH, template),
+      // Enable volume-based persistence to reuse sandbox across requests
+      enablePersistence: true,
+      persistenceMountPath: "/sandagent-data",
     });
   } else if (SANDBOX_PROVIDER === "sandock") {
     sandbox = new SandockSandbox({

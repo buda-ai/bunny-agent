@@ -7,6 +7,51 @@ import type {
   SandboxHandle,
 } from "@sandagent/core";
 
+/**
+ * Type alias for VolumeMount configuration
+ */
+type VolumeConfig = VolumeMount;
+
+/**
+ * In-memory store for session -> sandbox/volume mapping
+ * This enables sandbox persistence across requests
+ */
+interface SessionState {
+  sandboxId: string;
+  volumeId: string;
+  volumeName: string;
+}
+
+// Global in-memory store for session states
+const sessionStore = new Map<string, SessionState>();
+
+/**
+ * Get stored session state
+ */
+export function getSessionState(sessionId: string): SessionState | undefined {
+  return sessionStore.get(sessionId);
+}
+
+/**
+ * Set session state
+ */
+export function setSessionState(sessionId: string, state: SessionState): void {
+  sessionStore.set(sessionId, state);
+}
+
+/**
+ * Clear session state
+ */
+export function clearSessionState(sessionId: string): void {
+  sessionStore.delete(sessionId);
+}
+
+/**
+ * List all stored sessions
+ */
+export function listSessions(): Map<string, SessionState> {
+  return new Map(sessionStore);
+}
 
 /**
  * Options for creating a DaytonaSandbox instance
@@ -23,7 +68,11 @@ export interface DaytonaSandboxOptions {
   /** Path to template directory to upload */
   templatesPath?: string;
   /** Optional volumes to attach to the sandbox */
-  volumes?: VolumeMount[];
+  volumes?: VolumeConfig[];
+  /** Enable volume-based persistence for sandbox state */
+  enablePersistence?: boolean;
+  /** Mount path for the persistence volume (default: /sandagent-data) */
+  persistenceMountPath?: string;
 }
 
 /**
@@ -36,6 +85,8 @@ export class DaytonaSandbox implements SandboxAdapter {
   private readonly runnerBundlePath?: string;
   private readonly templatesPath?: string;
   private readonly volumes?: VolumeConfig[];
+  private readonly enablePersistence: boolean;
+  private readonly persistenceMountPath: string;
 
   constructor(options: DaytonaSandboxOptions = {}) {
     this.apiKey = options.apiKey ?? process.env.DAYTONA_API_KEY;
@@ -44,6 +95,8 @@ export class DaytonaSandbox implements SandboxAdapter {
     this.runnerBundlePath = options.runnerBundlePath;
     this.templatesPath = options.templatesPath;
     this.volumes = options.volumes;
+    this.enablePersistence = options.enablePersistence ?? false;
+    this.persistenceMountPath = options.persistenceMountPath ?? "/sandagent-data";
   }
 
   async attach(id: string): Promise<SandboxHandle> {
@@ -58,18 +111,109 @@ export class DaytonaSandbox implements SandboxAdapter {
       apiUrl: this.apiUrl,
     });
 
+    // Check if we have a stored session state for this agent
+    const storedState = getSessionState(id);
+    
+    if (this.enablePersistence && storedState) {
+      // Try to restore existing sandbox
+      console.log(`[Daytona] Found stored session for agent: ${id}`);
+      console.log(`[Daytona] Attempting to restore sandbox: ${storedState.sandboxId}`);
+      
+      try {
+        const existingSandbox = await daytona.get(storedState.sandboxId);
+        
+        // Check sandbox state and start if needed
+        if (existingSandbox.state === "stopped" || existingSandbox.state === "archived") {
+          console.log(`[Daytona] Sandbox ${existingSandbox.id} is ${existingSandbox.state}, starting...`);
+          await existingSandbox.start(this.timeout || 60);
+        } else if (existingSandbox.state === "started") {
+          console.log(`[Daytona] Sandbox ${existingSandbox.id} is already running`);
+        } else {
+          console.log(`[Daytona] Sandbox ${existingSandbox.id} is in state: ${existingSandbox.state}`);
+          await existingSandbox.waitUntilStarted(this.timeout || 60);
+        }
+        
+        console.log(`[Daytona] Restored sandbox ${existingSandbox.id} with volume ${storedState.volumeId}`);
+        return new DaytonaHandle(existingSandbox);
+      } catch (err) {
+        console.warn(`[Daytona] Failed to restore sandbox: ${err instanceof Error ? err.message : String(err)}`);
+        console.log(`[Daytona] Creating new sandbox with existing volume...`);
+        // Clear the invalid session state, but keep the volume for new sandbox
+        clearSessionState(id);
+        
+        // Create new sandbox with the existing volume
+        return this.createNewSandbox(daytona, id, storedState.volumeId, storedState.volumeName);
+      }
+    }
+
+    // Create new sandbox (with or without persistence)
+    return this.createNewSandbox(daytona, id);
+  }
+
+  /**
+   * Create a new sandbox, optionally with persistence volume
+   */
+  private async createNewSandbox(
+    daytona: Daytona, 
+    id: string, 
+    existingVolumeId?: string,
+    existingVolumeName?: string
+  ): Promise<SandboxHandle> {
     console.log(`[Daytona] Creating sandbox for agent: ${id}`);
+
+    let volumesToMount = this.volumes ? [...this.volumes] : [];
+    let volumeId = existingVolumeId;
+    let volumeName = existingVolumeName;
+
+    // Set up persistence volume if enabled
+    if (this.enablePersistence) {
+      if (!volumeId) {
+        // Create a new volume for this session
+        // Use a sanitized version of the session ID as the volume name
+        volumeName = `sandagent-${id.replace(/[^a-zA-Z0-9-]/g, "-").toLowerCase()}`;
+        console.log(`[Daytona] Creating/getting persistence volume: ${volumeName}`);
+        
+        try {
+          // get() with create=true will create the volume if it doesn't exist
+          const volume = await daytona.volume.get(volumeName, true);
+          volumeId = volume.id;
+          console.log(`[Daytona] Got volume: ${volumeId} (${volumeName})`);
+        } catch (err) {
+          console.error(`[Daytona] Failed to create volume: ${err instanceof Error ? err.message : String(err)}`);
+          // Continue without persistence if volume creation fails
+        }
+      }
+
+      if (volumeId && volumeName) {
+        // Add the persistence volume to the mount list
+        volumesToMount.push({
+          volumeId,
+          mountPath: this.persistenceMountPath,
+        });
+        console.log(`[Daytona] Mounting volume ${volumeId} at ${this.persistenceMountPath}`);
+      }
+    }
 
     const sandbox = await daytona.create(
       {
         language: "typescript",
-        volumes: this.volumes,
+        volumes: volumesToMount.length > 0 ? volumesToMount : undefined,
       },
       { timeout: this.timeout },
     );
     await sandbox.start();
 
     console.log(`[Daytona] Sandbox ${sandbox.id} started`);
+
+    // Store the session state if persistence is enabled
+    if (this.enablePersistence && volumeId && volumeName) {
+      setSessionState(id, {
+        sandboxId: sandbox.id,
+        volumeId,
+        volumeName,
+      });
+      console.log(`[Daytona] Stored session state for agent: ${id}`);
+    }
 
     const handle = new DaytonaHandle(sandbox);
     await this.initializeSandbox(handle, id);
