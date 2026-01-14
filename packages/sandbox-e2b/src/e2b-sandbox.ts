@@ -5,7 +5,7 @@ import type {
   SandboxAdapter,
   SandboxHandle,
 } from "@sandagent/core";
-import { Sandbox } from "e2b";
+import { Sandbox, type SandboxInfo } from "e2b";
 
 /**
  * Options for creating an E2BSandbox instance
@@ -15,70 +15,48 @@ export interface E2BSandboxOptions {
   apiKey?: string;
   /** E2B template to use (default: "base") */
   template?: string;
-  /** Timeout for sandbox operations in milliseconds (default: 0 = no timeout) */
+  /**
+   * Timeout for sandbox in seconds.
+   * This is the maximum time the sandbox can run continuously.
+   * - Hobby tier: max 1 hour (3600s)
+   * - Pro tier: max 24 hours (86400s)
+   * Default: 3600 (1 hour)
+   *
+   * Note: Sandbox can be paused for up to 30 days with E2B's persistence feature.
+   */
   timeout?: number;
   /** Path to runner bundle.js (required for running sandagent) */
   runnerBundlePath?: string;
   /** Path to template directory to upload */
   templatesPath?: string;
-}
-
-/**
- * Type definitions for E2B SDK (e2b package)
- */
-interface E2BSandboxInstance {
-  sandboxId: string;
-  commands: {
-    run(
-      cmd: string,
-      opts?: {
-        cwd?: string;
-        envs?: Record<string, string>;
-        onStdout?: (data: string) => void;
-        onStderr?: (data: string) => void;
-        timeoutMs?: number;
-        requestTimeoutMs?: number;
-      },
-    ): Promise<{
-      exitCode: number;
-      stdout: string;
-      stderr: string;
-    }>;
-  };
-  files: {
-    write(path: string, content: string | ArrayBuffer): Promise<void>;
-    makeDir(path: string): Promise<void>;
-    read(path: string): Promise<string>;
-    list(
-      path: string,
-    ): Promise<Array<{ name: string; type: "file" | "dir"; path: string }>>;
-  };
-  kill(): Promise<void>;
-}
-
-interface E2BSandboxStatic {
-  create(opts?: {
-    apiKey?: string;
-    template?: string;
-    timeoutMs?: number;
-    metadata?: Record<string, string>;
-  }): Promise<E2BSandboxInstance>;
-  connect(
-    sandboxId: string,
-    opts?: { apiKey?: string },
-  ): Promise<E2BSandboxInstance>;
-}
-
-/**
- * Cached sandbox instance with metadata
- */
-interface CachedInstance {
-  instance: E2BSandboxInstance;
-  lastAccessTime: number;
+  /**
+   * Sandbox name for reuse (similar to Daytona).
+   * If provided, will try to find an existing sandbox by name (via metadata) first.
+   * If not found, creates a new sandbox with this name stored in metadata.
+   * If not provided, a new sandbox is always created.
+   *
+   * The name should be determined by the business layer and can include
+   * template/user/project information as needed for differentiation.
+   */
+  name?: string;
 }
 
 /**
  * E2B-based sandbox implementation.
+ *
+ * This adapter supports sandbox reuse based on sandbox name (similar to Daytona).
+ * When a name is provided, it will attempt to find an existing sandbox
+ * by that name (stored in metadata) first. If not found, creates a new sandbox
+ * with that name in metadata.
+ *
+ * If no name is provided, a new sandbox is always created.
+ *
+ * Note on E2B limitations (as of beta):
+ * - Sandbox can be paused for up to 30 days
+ * - Continuous runtime depends on tier:
+ *   - Hobby: max 1 hour
+ *   - Pro: max 24 hours
+ * - See: https://e2b.dev/docs/sandbox/persistence#limitations-while-in-beta
  */
 export class E2BSandbox implements SandboxAdapter {
   private readonly apiKey?: string;
@@ -86,100 +64,66 @@ export class E2BSandbox implements SandboxAdapter {
   private readonly timeout: number;
   private readonly runnerBundlePath?: string;
   private readonly templatesPath?: string;
+  private readonly name?: string;
 
-  /** Global cache for sandbox instances (shared across all E2BSandbox instances) */
-  private static readonly instances: Map<string, CachedInstance> = new Map();
-  private static readonly initializedInstances: Set<string> = new Set();
-
-  /** Maximum number of cached instances */
-  private static readonly MAX_CACHE_SIZE = 50;
-  /** Instance expiration time in milliseconds (default: 60 minutes) */
-  private static readonly INSTANCE_TTL_MS = 60 * 60 * 1000;
-  /** Cleanup interval timer (lazy initialized on first cache write) */
-  private static cleanupTimer: ReturnType<typeof setInterval> | null = null;
+  /** Default timeout in seconds (1 hour for hobby tier) */
+  private static readonly DEFAULT_TIMEOUT_SEC = 3600;
 
   constructor(options: E2BSandboxOptions = {}) {
     this.apiKey = options.apiKey ?? process.env.E2B_API_KEY;
     this.template = options.template ?? "base";
-    this.timeout = options.timeout ?? E2BSandbox.INSTANCE_TTL_MS;
+    // Default to 1 hour (hobby tier limit), convert to milliseconds for E2B SDK
+    this.timeout = (options.timeout ?? E2BSandbox.DEFAULT_TIMEOUT_SEC) * 1000;
     this.runnerBundlePath = options.runnerBundlePath;
     this.templatesPath = options.templatesPath;
+    this.name = options.name;
   }
 
   /**
-   * Ensure cleanup timer is running (lazy initialization)
+   * Find an existing sandbox by name and connect to it.
+   * Sandbox.connect() will automatically resume if paused.
+   * See: https://e2b.dev/docs/sandbox/persistence
+   *
+   * @returns Connected sandbox instance if found, null otherwise
    */
-  private static ensureCleanupTimer(): void {
-    if (E2BSandbox.cleanupTimer) return;
+  private async findSandboxByName(name: string): Promise<Sandbox | null> {
+    try {
+      // Use Sandbox.list() with metadata query
+      const paginator = Sandbox.list({
+        apiKey: this.apiKey,
+        query: {
+          metadata: {
+            sandagentName: name,
+          },
+        },
+      });
 
-    E2BSandbox.cleanupTimer = setInterval(
-      () => {
-        E2BSandbox.cleanupExpiredInstances();
-      },
-      5 * 60 * 1000,
-    ); // Run every 5 minutes
+      // Get the first page of results
+      const sandboxes: SandboxInfo[] = await paginator.nextItems();
 
-    // Don't prevent process exit
-    if (E2BSandbox.cleanupTimer.unref) {
-      E2BSandbox.cleanupTimer.unref();
-    }
-  }
-
-  /**
-   * Remove expired instances from cache
-   */
-  private static cleanupExpiredInstances(): void {
-    const now = Date.now();
-    const expiredIds: string[] = [];
-
-    for (const [id, cached] of E2BSandbox.instances) {
-      if (now - cached.lastAccessTime > E2BSandbox.INSTANCE_TTL_MS) {
-        expiredIds.push(id);
+      if (sandboxes.length === 0) {
+        console.log(`[E2B] No existing sandbox found for name: ${name}`);
+        return null;
       }
-    }
 
-    for (const id of expiredIds) {
-      const cached = E2BSandbox.instances.get(id);
-      if (cached) {
-        console.log(`[E2B] Removing expired sandbox instance: ${id}`);
-        cached.instance.kill().catch((e) => {
-          console.error(`[E2B] Error killing expired sandbox ${id}:`, e);
-        });
-        E2BSandbox.instances.delete(id);
-        E2BSandbox.initializedInstances.delete(id);
-      }
-    }
-  }
+      const sandboxInfo = sandboxes[0];
+      console.log(
+        `[E2B] Found existing sandbox by name: ${name}, id: ${sandboxInfo.sandboxId}, state: ${sandboxInfo.state}`,
+      );
 
-  /**
-   * Evict oldest instance if cache is full
-   */
-  private static evictOldestIfNeeded(): void {
-    // Lazy start cleanup timer on first cache write
-    E2BSandbox.ensureCleanupTimer();
+      // Connect to sandbox (will auto-resume if paused)
+      const sandbox = await Sandbox.connect(sandboxInfo.sandboxId, {
+        apiKey: this.apiKey,
+        timeoutMs: this.timeout,
+      });
 
-    if (E2BSandbox.instances.size < E2BSandbox.MAX_CACHE_SIZE) return;
-
-    let oldestId: string | null = null;
-    let oldestTime = Number.POSITIVE_INFINITY;
-
-    for (const [id, cached] of E2BSandbox.instances) {
-      if (cached.lastAccessTime < oldestTime) {
-        oldestTime = cached.lastAccessTime;
-        oldestId = id;
-      }
-    }
-
-    if (oldestId) {
-      const cached = E2BSandbox.instances.get(oldestId);
-      if (cached) {
-        console.log(`[E2B] Evicting oldest sandbox instance: ${oldestId}`);
-        cached.instance.kill().catch((e) => {
-          console.error(`[E2B] Error killing evicted sandbox ${oldestId}:`, e);
-        });
-        E2BSandbox.instances.delete(oldestId);
-        E2BSandbox.initializedInstances.delete(oldestId);
-      }
+      console.log(
+        `[E2B] Successfully connected to sandbox: ${sandboxInfo.sandboxId}`,
+      );
+      return sandbox;
+    } catch (error) {
+      console.warn(`[E2B] Failed to find/connect sandbox by name:`, error);
+      return null;
     }
   }
 
@@ -190,46 +134,64 @@ export class E2BSandbox implements SandboxAdapter {
       );
     }
 
-    const cached = E2BSandbox.instances.get(id);
-    let instance = cached?.instance;
-
+    let instance: Sandbox;
     let needsInit = false;
 
-    if (instance) {
-      // Update last access time
-      E2BSandbox.instances.set(id, {
-        instance,
-        lastAccessTime: Date.now(),
-      });
-      console.log(`[E2B] Reusing cached sandbox instance: ${id}`);
-    } else {
-      // Evict oldest if cache is full before adding new instance
-      E2BSandbox.evictOldestIfNeeded();
+    // If name is provided, try to find and connect to existing sandbox
+    if (this.name) {
+      console.log(`[E2B] Looking for existing sandbox with name: ${this.name}`);
 
-      instance = (await Sandbox.create(this.template, {
-        apiKey: this.apiKey,
-        timeoutMs: this.timeout,
-        metadata: { sandagentId: id },
-      })) as unknown as E2BSandboxInstance;
-      E2BSandbox.instances.set(id, {
-        instance,
-        lastAccessTime: Date.now(),
-      });
+      const existingSandbox = await this.findSandboxByName(this.name);
+
+      if (existingSandbox) {
+        instance = existingSandbox;
+      } else {
+        // No existing sandbox found or connection failed, create new one
+        instance = await this.createNewSandbox(id);
+        needsInit = true;
+      }
+    } else {
+      // No name provided - always create new sandbox
+      console.log(`[E2B] No name provided, creating new sandbox`);
+      instance = await this.createNewSandbox(id);
       needsInit = true;
     }
 
-    const handle = new E2BHandle(instance, () => {
-      E2BSandbox.instances.delete(id);
-      E2BSandbox.initializedInstances.delete(id);
-    });
+    const handle = new E2BHandle(instance);
 
-    // Upload runner and templates on first attach
-    if (needsInit && !E2BSandbox.initializedInstances.has(id)) {
+    // Initialize sandbox if it's new (upload files, install dependencies)
+    if (needsInit) {
       await this.initializeSandbox(handle, id);
-      E2BSandbox.initializedInstances.add(id);
     }
 
     return handle;
+  }
+
+  /**
+   * Create a new sandbox with metadata for later querying
+   */
+  private async createNewSandbox(id: string): Promise<Sandbox> {
+    const metadata: Record<string, string> = {
+      sandagentId: id,
+    };
+
+    // Add name to metadata if provided (for sandbox reuse)
+    if (this.name) {
+      metadata.sandagentName = this.name;
+    }
+
+    console.log(
+      `[E2B] Creating new sandbox with template "${this.template}"${this.name ? `, name "${this.name}"` : ""}, timeout=${this.timeout / 1000}s`,
+    );
+
+    const instance = await Sandbox.create(this.template, {
+      apiKey: this.apiKey,
+      timeoutMs: this.timeout,
+      metadata,
+    });
+
+    console.log(`[E2B] Sandbox created: ${instance.sandboxId}`);
+    return instance;
   }
 
   private async initializeSandbox(
@@ -316,12 +278,17 @@ export class E2BSandbox implements SandboxAdapter {
  * Handle for an active E2B sandbox
  */
 class E2BHandle implements SandboxHandle {
-  private readonly instance: E2BSandboxInstance;
-  private readonly onDestroy: () => void;
+  private readonly instance: Sandbox;
 
-  constructor(instance: E2BSandboxInstance, onDestroy: () => void) {
+  constructor(instance: Sandbox) {
     this.instance = instance;
-    this.onDestroy = onDestroy;
+  }
+
+  /**
+   * Get the sandbox ID (useful for external tracking)
+   */
+  getSandboxId(): string {
+    return this.instance.sandboxId;
   }
 
   /**
@@ -442,7 +409,6 @@ class E2BHandle implements SandboxHandle {
           cwd: opts?.cwd,
           envs: envWithNodePath,
           timeoutMs: 0, // 0 = no timeout for LLM operations
-          requestTimeoutMs: 0, // 0 = no request timeout
           onStdout: (data: string) => {
             const chunk = new TextEncoder().encode(data);
             chunks.push(chunk);
@@ -547,7 +513,11 @@ class E2BHandle implements SandboxHandle {
   }
 
   async destroy(): Promise<void> {
-    await this.instance.kill();
-    this.onDestroy();
+    // Note: We don't kill the sandbox here to allow reuse
+    // The sandbox will auto-terminate based on the configured timeout
+    // or can be paused for up to 30 days with E2B's persistence feature
+    console.log(
+      `[E2B] Sandbox ${this.instance.sandboxId} handle destroyed (sandbox continues running for reuse)`,
+    );
   }
 }
