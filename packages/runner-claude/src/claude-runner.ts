@@ -288,7 +288,13 @@ function mapFinishReason(
   subtype?: string,
   isError?: boolean,
 ): {
-  unified: "stop" | "length" | "content-filter" | "tool-calls" | "error" | "other";
+  unified:
+    | "stop"
+    | "length"
+    | "content-filter"
+    | "tool-calls"
+    | "error"
+    | "other";
   raw: string | undefined;
 } {
   // If explicitly marked as error
@@ -589,7 +595,9 @@ function convertSDKMessageToAISDKUI(message: SDKMessage): string[] {
       const resultMsg = message as SDKResultMessage;
 
       // Handle structured output errors (SDK 0.1.45+)
-      if ((resultMsg.subtype as string) === "error_max_structured_output_retries") {
+      if (
+        (resultMsg.subtype as string) === "error_max_structured_output_retries"
+      ) {
         chunks.push(
           formatDataStream({
             type: "error",
@@ -601,7 +609,10 @@ function convertSDKMessageToAISDKUI(message: SDKMessage): string[] {
       }
 
       // Map finish reason properly
-      const finishReason = mapFinishReason(resultMsg.subtype, resultMsg.is_error);
+      const finishReason = mapFinishReason(
+        resultMsg.subtype,
+        resultMsg.is_error,
+      );
 
       // Convert usage to proper format
       const usage = convertUsageToAISDK(resultMsg.usage);

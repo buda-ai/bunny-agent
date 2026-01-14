@@ -1,17 +1,25 @@
-import { describe, it, expect, vi } from "vitest";
-import { createSandAgent } from "../sandagent-provider.js";
 import type { SandboxAdapter, SandboxHandle } from "@sandagent/core";
+import { describe, expect, it, vi } from "vitest";
+import { createSandAgent } from "../sandagent-provider.js";
 
 // Mock sandbox adapter for testing
 function createMockSandbox(): SandboxAdapter {
   const mockHandle: SandboxHandle = {
     exec: vi.fn().mockReturnValue({
       [Symbol.asyncIterator]: async function* () {
-        yield new TextEncoder().encode('data: {"type":"text-start","id":"test-1"}\n\n');
-        yield new TextEncoder().encode('data: {"type":"text-delta","id":"test-1","delta":"Hello"}\n\n');
-        yield new TextEncoder().encode('data: {"type":"text-end","id":"test-1"}\n\n');
-        yield new TextEncoder().encode('data: {"type":"finish","finishReason":"stop"}\n\n');
-        yield new TextEncoder().encode('data: [DONE]\n\n');
+        yield new TextEncoder().encode(
+          'data: {"type":"text-start","id":"test-1"}\n\n',
+        );
+        yield new TextEncoder().encode(
+          'data: {"type":"text-delta","id":"test-1","delta":"Hello"}\n\n',
+        );
+        yield new TextEncoder().encode(
+          'data: {"type":"text-end","id":"test-1"}\n\n',
+        );
+        yield new TextEncoder().encode(
+          'data: {"type":"finish","finishReason":"stop"}\n\n',
+        );
+        yield new TextEncoder().encode("data: [DONE]\n\n");
       },
     }),
     upload: vi.fn().mockResolvedValue(undefined),
@@ -70,7 +78,9 @@ describe("createSandAgent", () => {
     expect(provider("sonnet").modelId).toBe("claude-sonnet-4-20250514");
     expect(provider("opus").modelId).toBe("claude-opus-4-20250514");
     expect(provider("haiku").modelId).toBe("claude-3-5-haiku-20241022");
-    expect(provider("claude-3-opus-20240229").modelId).toBe("claude-3-opus-20240229");
+    expect(provider("claude-3-opus-20240229").modelId).toBe(
+      "claude-3-opus-20240229",
+    );
   });
 
   it("should merge settings correctly", () => {

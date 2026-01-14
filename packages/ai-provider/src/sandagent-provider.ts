@@ -1,12 +1,12 @@
 import type {
-  LanguageModelV3,
-  ProviderV3,
   EmbeddingModelV3,
   ImageModelV3,
+  LanguageModelV3,
+  ProviderV3,
 } from "@ai-sdk/provider";
 import { NoSuchModelError } from "@ai-sdk/provider";
 import { SandAgentLanguageModel } from "./sandagent-language-model.js";
-import type { SandAgentSettings, SandAgentModelId, Logger } from "./types.js";
+import type { Logger, SandAgentModelId, SandAgentSettings } from "./types.js";
 
 /**
  * SandAgent provider interface that extends the AI SDK's ProviderV3.
@@ -41,7 +41,7 @@ export interface SandAgentProvider extends ProviderV3 {
    */
   (
     modelId: SandAgentModelId,
-    settings?: Partial<SandAgentSettings>
+    settings?: Partial<SandAgentSettings>,
   ): LanguageModelV3;
 
   /**
@@ -53,7 +53,7 @@ export interface SandAgentProvider extends ProviderV3 {
    */
   languageModel(
     modelId: SandAgentModelId,
-    settings?: Partial<SandAgentSettings>
+    settings?: Partial<SandAgentSettings>,
   ): LanguageModelV3;
 
   /**
@@ -65,7 +65,7 @@ export interface SandAgentProvider extends ProviderV3 {
    */
   chat(
     modelId: SandAgentModelId,
-    settings?: Partial<SandAgentSettings>
+    settings?: Partial<SandAgentSettings>,
   ): LanguageModelV3;
 
   /**
@@ -160,7 +160,7 @@ function getLogger(settings: Partial<SandAgentSettings>): Logger {
  * ```
  */
 export function createSandAgent(
-  defaultSettings: SandAgentProviderSettings
+  defaultSettings: SandAgentProviderSettings,
 ): SandAgentProvider {
   const logger = getLogger(defaultSettings);
 
@@ -168,13 +168,13 @@ export function createSandAgent(
   if (!defaultSettings.sandbox) {
     throw new Error(
       "SandAgent provider requires a sandbox adapter. " +
-        "Please provide one, e.g.: new E2BSandbox({ apiKey: 'xxx' })"
+        "Please provide one, e.g.: new E2BSandbox({ apiKey: 'xxx' })",
     );
   }
 
   const createModel = (
     modelId: SandAgentModelId,
-    settings: Partial<SandAgentSettings> = {}
+    settings: Partial<SandAgentSettings> = {},
   ): LanguageModelV3 => {
     // Merge settings with defaults
     const mergedSettings: SandAgentSettings = {
@@ -188,7 +188,7 @@ export function createSandAgent(
     };
 
     logger.debug(
-      `[sandagent] Creating model: ${modelId} with template: ${mergedSettings.template ?? "default"}`
+      `[sandagent] Creating model: ${modelId} with template: ${mergedSettings.template ?? "default"}`,
     );
 
     return new SandAgentLanguageModel({
@@ -199,11 +199,11 @@ export function createSandAgent(
 
   const provider = function (
     modelId: SandAgentModelId,
-    settings?: Partial<SandAgentSettings>
+    settings?: Partial<SandAgentSettings>,
   ) {
     if (new.target) {
       throw new Error(
-        "The SandAgent model function cannot be called with the new keyword."
+        "The SandAgent model function cannot be called with the new keyword.",
       );
     }
 

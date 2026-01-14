@@ -1,19 +1,19 @@
 import type {
   LanguageModelV3,
   LanguageModelV3CallOptions,
+  LanguageModelV3Content,
+  LanguageModelV3FinishReason,
+  LanguageModelV3GenerateResult,
+  LanguageModelV3Prompt,
   LanguageModelV3StreamPart,
   LanguageModelV3StreamResult,
-  LanguageModelV3GenerateResult,
-  LanguageModelV3FinishReason,
   LanguageModelV3Usage,
-  LanguageModelV3Prompt,
-  LanguageModelV3Content,
   SharedV3ProviderMetadata,
   SharedV3Warning,
 } from "@ai-sdk/provider";
 import { generateId } from "@ai-sdk/provider-utils";
-import { SandAgent, type Message } from "@sandagent/core";
-import type { SandAgentSettings, SandAgentModelId, Logger } from "./types.js";
+import { type Message, SandAgent } from "@sandagent/core";
+import type { Logger, SandAgentModelId, SandAgentSettings } from "./types.js";
 import { resolveModelId } from "./types.js";
 
 /**
@@ -144,7 +144,7 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
    * This collects all stream parts and returns the final result.
    */
   async doGenerate(
-    options: LanguageModelV3CallOptions
+    options: LanguageModelV3CallOptions,
   ): Promise<LanguageModelV3GenerateResult> {
     const { stream, request } = await this.doStream(options);
     const reader = stream.getReader();
@@ -248,7 +248,7 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
    * This is the main method that AI SDK calls for streaming responses.
    */
   async doStream(
-    options: LanguageModelV3CallOptions
+    options: LanguageModelV3CallOptions,
   ): Promise<LanguageModelV3StreamResult> {
     const { prompt, abortSignal } = options;
 
@@ -256,7 +256,7 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
     const messages = this.convertPromptToMessages(prompt);
 
     this.logger.debug(
-      `[sandagent] Starting stream with ${messages.length} messages`
+      `[sandagent] Starting stream with ${messages.length} messages`,
     );
 
     // Create SandAgent instance
@@ -344,7 +344,7 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
                     }
                   } catch (e) {
                     self.logger.error(
-                      `[sandagent] Failed to parse SSE data: ${e}`
+                      `[sandagent] Failed to parse SSE data: ${e}`,
                     );
                   }
                 }
@@ -577,7 +577,7 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
         // Handle both old format (in messageMetadata) and new format (direct usage)
         const rawUsage = parsed.usage ?? parsed.messageMetadata;
         const usage = this.convertUsage(
-          rawUsage as Record<string, unknown> | undefined
+          rawUsage as Record<string, unknown> | undefined,
         );
 
         parts.push({
@@ -619,7 +619,7 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
           const textParts = message.content
             .filter(
               (part): part is { type: "text"; text: string } =>
-                part.type === "text"
+                part.type === "text",
             )
             .map((part) => part.text);
 
@@ -637,7 +637,7 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
           const textParts = message.content
             .filter(
               (part): part is { type: "text"; text: string } =>
-                part.type === "text"
+                part.type === "text",
             )
             .map((part) => part.text);
 
@@ -664,7 +664,7 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
    * Map finish reason from sandbox response to AI SDK format.
    */
   private mapFinishReason(
-    reason: string | undefined
+    reason: string | undefined,
   ): LanguageModelV3FinishReason {
     switch (reason) {
       case "stop":
@@ -689,7 +689,7 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
    * Handles both old format (usage nested in metadata) and new format (direct usage object).
    */
   private convertUsage(
-    data: Record<string, unknown> | undefined
+    data: Record<string, unknown> | undefined,
   ): LanguageModelV3Usage {
     if (!data) {
       return createEmptyUsage();
