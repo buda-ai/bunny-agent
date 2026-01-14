@@ -5,7 +5,7 @@ import type {
   SandboxAdapter,
   SandboxHandle,
 } from "@sandagent/core";
-import { Sandbox } from "e2b";
+import { Sandbox, type SandboxInfo } from "e2b";
 
 /**
  * Options for creating an E2BSandbox instance
@@ -39,67 +39,6 @@ export interface E2BSandboxOptions {
    * Template is also stored in metadata for differentiation.
    */
   name?: string;
-}
-
-/**
- * Sandbox info returned from E2B list API
- */
-interface SandboxInfo {
-  sandboxId: string;
-  templateId: string;
-  clientId: string;
-  startedAt: Date;
-  metadata?: Record<string, string>;
-}
-
-/**
- * Type definitions for E2B SDK (e2b package)
- */
-interface E2BSandboxInstance {
-  sandboxId: string;
-  commands: {
-    run(
-      cmd: string,
-      opts?: {
-        cwd?: string;
-        envs?: Record<string, string>;
-        onStdout?: (data: string) => void;
-        onStderr?: (data: string) => void;
-        timeoutMs?: number;
-        requestTimeoutMs?: number;
-      },
-    ): Promise<{
-      exitCode: number;
-      stdout: string;
-      stderr: string;
-    }>;
-  };
-  files: {
-    write(path: string, content: string | ArrayBuffer): Promise<void>;
-    makeDir(path: string): Promise<void>;
-    read(path: string): Promise<string>;
-    list(
-      path: string,
-    ): Promise<Array<{ name: string; type: "file" | "dir"; path: string }>>;
-  };
-  kill(): Promise<void>;
-  setTimeout(timeoutMs: number): Promise<void>;
-}
-
-interface E2BSandboxStatic {
-  create(
-    template: string,
-    opts?: {
-      apiKey?: string;
-      timeoutMs?: number;
-      metadata?: Record<string, string>;
-    },
-  ): Promise<E2BSandboxInstance>;
-  connect(
-    sandboxId: string,
-    opts?: { apiKey?: string },
-  ): Promise<E2BSandboxInstance>;
-  list(opts?: { apiKey?: string }): Promise<SandboxInfo[]>;
 }
 
 /**
@@ -149,22 +88,29 @@ export class E2BSandbox implements SandboxAdapter {
     template: string,
   ): Promise<string | null> {
     try {
-      // List all running sandboxes
-      const sandboxes = (await (Sandbox as unknown as E2BSandboxStatic).list({
+      // Use Sandbox.list() with metadata query
+      const paginator = Sandbox.list({
         apiKey: this.apiKey,
-      })) as SandboxInfo[];
+        query: {
+          metadata: {
+            sandagentName: name,
+            template: template,
+          },
+        },
+      });
 
-      // Find sandbox with matching name and template in metadata
-      for (const sandbox of sandboxes) {
-        if (
-          sandbox.metadata?.sandagentName === name &&
-          sandbox.metadata?.template === template
-        ) {
-          console.log(
-            `[E2B] Found existing sandbox by name: ${name}, id: ${sandbox.sandboxId}`,
-          );
-          return sandbox.sandboxId;
-        }
+      // Get the first page of results
+      const sandboxes: SandboxInfo[] = await paginator.nextItems();
+
+      if (sandboxes.length > 0) {
+        // Return the first matching sandbox (prefer running over paused)
+        const runningSandbox = sandboxes.find((s) => s.state === "running");
+        const sandbox = runningSandbox ?? sandboxes[0];
+
+        console.log(
+          `[E2B] Found existing sandbox by name: ${name}, id: ${sandbox.sandboxId}, state: ${sandbox.state}`,
+        );
+        return sandbox.sandboxId;
       }
 
       console.log(`[E2B] No existing sandbox found for name: ${name}`);
@@ -182,7 +128,7 @@ export class E2BSandbox implements SandboxAdapter {
       );
     }
 
-    let instance: E2BSandboxInstance;
+    let instance: Sandbox;
     let needsInit = false;
 
     // If name is provided, try to find existing sandbox by name
@@ -195,18 +141,16 @@ export class E2BSandbox implements SandboxAdapter {
       );
 
       if (existingSandboxId) {
-        // Connect to existing sandbox
+        // Connect to existing sandbox (will auto-resume if paused)
         try {
           console.log(
             `[E2B] Connecting to existing sandbox: ${existingSandboxId}`,
           );
-          instance = (await (Sandbox as unknown as E2BSandboxStatic).connect(
-            existingSandboxId,
-            { apiKey: this.apiKey },
-          )) as E2BSandboxInstance;
+          instance = await Sandbox.connect(existingSandboxId, {
+            apiKey: this.apiKey,
+            timeoutMs: this.timeout,
+          });
 
-          // Extend timeout to keep sandbox alive
-          await instance.setTimeout(this.timeout);
           console.log(
             `[E2B] Successfully connected to sandbox: ${existingSandboxId}`,
           );
@@ -244,7 +188,7 @@ export class E2BSandbox implements SandboxAdapter {
   /**
    * Create a new sandbox with metadata for later querying
    */
-  private async createNewSandbox(id: string): Promise<E2BSandboxInstance> {
+  private async createNewSandbox(id: string): Promise<Sandbox> {
     const metadata: Record<string, string> = {
       sandagentId: id,
       template: this.template,
@@ -259,14 +203,11 @@ export class E2BSandbox implements SandboxAdapter {
       `[E2B] Creating new sandbox with template "${this.template}"${this.name ? `, name "${this.name}"` : ""}, timeout=${this.timeout / 1000}s`,
     );
 
-    const instance = (await (Sandbox as unknown as E2BSandboxStatic).create(
-      this.template,
-      {
-        apiKey: this.apiKey,
-        timeoutMs: this.timeout,
-        metadata,
-      },
-    )) as E2BSandboxInstance;
+    const instance = await Sandbox.create(this.template, {
+      apiKey: this.apiKey,
+      timeoutMs: this.timeout,
+      metadata,
+    });
 
     console.log(`[E2B] Sandbox created: ${instance.sandboxId}`);
     return instance;
@@ -356,9 +297,9 @@ export class E2BSandbox implements SandboxAdapter {
  * Handle for an active E2B sandbox
  */
 class E2BHandle implements SandboxHandle {
-  private readonly instance: E2BSandboxInstance;
+  private readonly instance: Sandbox;
 
-  constructor(instance: E2BSandboxInstance) {
+  constructor(instance: Sandbox) {
     this.instance = instance;
   }
 
@@ -487,7 +428,6 @@ class E2BHandle implements SandboxHandle {
           cwd: opts?.cwd,
           envs: envWithNodePath,
           timeoutMs: 0, // 0 = no timeout for LLM operations
-          requestTimeoutMs: 0, // 0 = no request timeout
           onStdout: (data: string) => {
             const chunk = new TextEncoder().encode(data);
             chunks.push(chunk);
