@@ -6,7 +6,8 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { normalizeAnswer, runTask } from "./runner.js";
+import { shouldUpdateReadme, updateReadmeMatrix } from "./readme-updater.js";
+import { runTask, runTaskWithReflection } from "./runner.js";
 import type {
   AgentRunner,
   BenchmarkConfig,
@@ -304,6 +305,11 @@ export async function runBenchmark(
 
   console.log(`\n🚀 Running ${filteredTasks.length} tasks with ${runner}...\n`);
 
+  // Show reflection mode status
+  if (config.reflect) {
+    console.log("💭 Reflection mode: ENABLED (prompt-based)\n");
+  }
+
   // Run tasks sequentially
   for (const [index, task] of filteredTasks.entries()) {
     const progress = `[${index + 1 + results.length}/${results.length + filteredTasks.length}]`;
@@ -313,7 +319,11 @@ export async function runBenchmark(
       console.log(`   Question: ${task.question.substring(0, 80)}...`);
     }
 
-    const result = await runTask(task, runnerConfig);
+    const result = config.reflect
+      ? await runTaskWithReflection(task, runnerConfig, {
+          verbose: config.verbose,
+        })
+      : await runTask(task, runnerConfig);
     results.push(result);
 
     if (config.verbose) {

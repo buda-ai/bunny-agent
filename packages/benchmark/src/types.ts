@@ -107,6 +107,8 @@ export interface BenchmarkConfig {
   outputDir: string;
   /** Enable verbose output */
   verbose: boolean;
+  /** Enable reflection during task execution */
+  reflect?: boolean;
   /** Resume from last checkpoint */
   resume?: boolean;
 }
