@@ -18,6 +18,7 @@ import type {
   RunnerConfig,
   TaskCategory,
 } from "./types.js";
+import { updateWrongAnswers } from "./wrong-answers.js";
 
 /**
  * Categorize a task based on its content and files
@@ -175,14 +176,15 @@ export function loadCheckpoint(
 }
 
 /**
- * Save benchmark results
+ * Save benchmark results and update wrong answers collection
  */
-export function saveResults(
+export async function saveResults(
   results: BenchmarkResult[],
+  tasks: GaiaTask[],
   runner: AgentRunner,
   config: BenchmarkConfig,
   incremental = false,
-): void {
+): Promise<void> {
   // Ensure output directory exists
   if (!existsSync(config.outputDir)) {
     mkdirSync(config.outputDir, { recursive: true });
@@ -223,6 +225,9 @@ export function saveResults(
     );
     writeFileSync(timestampedPath, JSON.stringify(report, null, 2));
     console.log(`💾 Results saved to: ${timestampedPath}`);
+
+    // Update wrong answers collection (only on final save)
+    await updateWrongAnswers(results, tasks, config.outputDir);
   }
 }
 
@@ -338,7 +343,7 @@ export async function runBenchmark(
     }
 
     // Save incremental results
-    saveResults(results, runner, config, true);
+    await saveResults(results, tasks, runner, config, true);
 
     // Small delay to avoid rate limits
     if (index < filteredTasks.length - 1) {
@@ -347,7 +352,7 @@ export async function runBenchmark(
   }
 
   // Save final results
-  saveResults(results, runner, config, false);
+  await saveResults(results, tasks, runner, config, false);
 
   // Display summary
   displaySummary(results, runner);
