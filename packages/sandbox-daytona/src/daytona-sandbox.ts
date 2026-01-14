@@ -30,10 +30,45 @@ export interface DaytonaSandboxOptions {
   volumeName?: string;
   /** Mount path for the volume (default: /sandagent) */
   volumeMountPath?: string;
+  /**
+   * Auto-stop interval in minutes (0 means disabled).
+   * Default is 15 minutes.
+   * The sandbox will automatically stop after being idle for this duration.
+   */
+  autoStopInterval?: number;
+  /**
+   * Auto-delete interval in minutes.
+   * - Negative value: disabled (default)
+   * - 0: delete immediately upon stopping
+   * - Positive value: delete after being stopped for this many minutes
+   */
+  autoDeleteInterval?: number;
+  /**
+   * Reuse key for sandbox identification.
+   * Sandboxes with the same reuse key will be reused instead of creating new ones.
+   * If not provided, a new sandbox is always created.
+   * This key is stored as a label on the sandbox for lookup without in-memory caching.
+   */
+  reuseKey?: string;
 }
 
 /**
+ * Label key used to store the reuse key on sandboxes
+ */
+const REUSE_KEY_LABEL = "sandagent-reuse-key";
+
+/**
+ * Label key to mark that a sandbox has been initialized
+ */
+const INITIALIZED_LABEL = "sandagent-initialized";
+
+/**
  * Daytona-based sandbox implementation.
+ *
+ * This adapter supports sandbox reuse based on a reuse key.
+ * When a reuse key is provided, it will attempt to find and reuse
+ * an existing sandbox with the same key instead of creating a new one.
+ * All state is stored in Daytona labels - no in-memory caching is used.
  */
 export class DaytonaSandbox implements SandboxAdapter {
   private readonly apiKey?: string;
@@ -43,9 +78,9 @@ export class DaytonaSandbox implements SandboxAdapter {
   private readonly templatesPath?: string;
   private readonly volumeName?: string;
   private readonly volumeMountPath: string;
-
-  /** Track which volumes have been initialized (files uploaded) */
-  private static readonly initializedVolumes: Set<string> = new Set();
+  private readonly autoStopInterval: number;
+  private readonly autoDeleteInterval: number;
+  private readonly reuseKey?: string;
 
   constructor(options: DaytonaSandboxOptions = {}) {
     this.apiKey = options.apiKey ?? process.env.DAYTONA_API_KEY;
@@ -55,6 +90,11 @@ export class DaytonaSandbox implements SandboxAdapter {
     this.templatesPath = options.templatesPath;
     this.volumeName = options.volumeName;
     this.volumeMountPath = options.volumeMountPath ?? "/sandagent";
+    // Default auto-stop to 15 minutes
+    this.autoStopInterval = options.autoStopInterval ?? 15;
+    // Default auto-delete to disabled (-1)
+    this.autoDeleteInterval = options.autoDeleteInterval ?? -1;
+    this.reuseKey = options.reuseKey;
   }
 
   async attach(id: string): Promise<SandboxHandle> {
@@ -69,7 +109,7 @@ export class DaytonaSandbox implements SandboxAdapter {
       apiUrl: this.apiUrl,
     });
 
-    console.log(`[Daytona] Creating sandbox for agent: ${id}`);
+    console.log(`[Daytona] Attaching sandbox for agent: ${id}`);
 
     // Get or create volume if volumeName is provided
     let volumes: VolumeConfig[] | undefined;
@@ -98,23 +138,167 @@ export class DaytonaSandbox implements SandboxAdapter {
       );
     }
 
+    let sandbox: Sandbox;
+    let needsInit = false;
+
+    // Try to find existing sandbox by reuse key
+    if (this.reuseKey) {
+      console.log(
+        `[Daytona] Looking for existing sandbox with reuse key: ${this.reuseKey}`,
+      );
+
+      try {
+        const existingSandbox = await daytona.findOne({
+          labels: { [REUSE_KEY_LABEL]: this.reuseKey },
+        });
+
+        if (existingSandbox) {
+          console.log(
+            `[Daytona] Found existing sandbox: ${existingSandbox.id}, state: ${existingSandbox.state}`,
+          );
+
+          // Handle different sandbox states
+          if (existingSandbox.state === "started") {
+            // Sandbox is ready to use
+            console.log(
+              `[Daytona] Reusing running sandbox: ${existingSandbox.id}`,
+            );
+            sandbox = existingSandbox;
+            // Refresh activity to prevent auto-stop
+            await sandbox.refreshActivity();
+          } else if (
+            existingSandbox.state === "stopped" ||
+            existingSandbox.state === "stopping"
+          ) {
+            // Sandbox needs to be started
+            console.log(
+              `[Daytona] Starting stopped sandbox: ${existingSandbox.id}`,
+            );
+            await existingSandbox.start(this.timeout);
+            sandbox = existingSandbox;
+          } else if (existingSandbox.state === "archived") {
+            // Archived sandbox - start it (Daytona will unarchive automatically)
+            console.log(
+              `[Daytona] Starting archived sandbox: ${existingSandbox.id}`,
+            );
+            await existingSandbox.start(this.timeout);
+            sandbox = existingSandbox;
+          } else if (existingSandbox.state === "error") {
+            // Error state - check if recoverable
+            if (existingSandbox.recoverable) {
+              console.log(
+                `[Daytona] Recovering sandbox from error: ${existingSandbox.id}`,
+              );
+              await existingSandbox.recover(this.timeout);
+              sandbox = existingSandbox;
+            } else {
+              // Non-recoverable error - delete and create new
+              console.log(
+                `[Daytona] Deleting non-recoverable sandbox: ${existingSandbox.id}`,
+              );
+              await existingSandbox.delete();
+              sandbox = await this.createNewSandbox(daytona, volumes);
+              needsInit = true;
+            }
+          } else if (existingSandbox.state === "starting") {
+            // Wait for it to finish starting
+            console.log(
+              `[Daytona] Waiting for sandbox to start: ${existingSandbox.id}`,
+            );
+            await existingSandbox.waitUntilStarted(this.timeout);
+            sandbox = existingSandbox;
+          } else {
+            // Unknown state - create new sandbox
+            console.log(
+              `[Daytona] Unknown sandbox state: ${existingSandbox.state}, creating new sandbox`,
+            );
+            sandbox = await this.createNewSandbox(daytona, volumes);
+            needsInit = true;
+          }
+
+          // Check if sandbox was already initialized (using labels)
+          if (
+            !needsInit &&
+            existingSandbox.labels[INITIALIZED_LABEL] !== "true"
+          ) {
+            console.log(
+              `[Daytona] Sandbox exists but not initialized, will initialize`,
+            );
+            needsInit = true;
+          }
+        } else {
+          // No existing sandbox found, create new
+          console.log(`[Daytona] No existing sandbox found, creating new one`);
+          sandbox = await this.createNewSandbox(daytona, volumes);
+          needsInit = true;
+        }
+      } catch (error) {
+        // findOne throws if not found, create new sandbox
+        console.log(
+          `[Daytona] No existing sandbox found (error: ${error}), creating new one`,
+        );
+        sandbox = await this.createNewSandbox(daytona, volumes);
+        needsInit = true;
+      }
+    } else {
+      // No reuse key - always create new sandbox
+      console.log(`[Daytona] No reuse key provided, creating new sandbox`);
+      sandbox = await this.createNewSandbox(daytona, volumes);
+      needsInit = true;
+    }
+
+    console.log(`[Daytona] Sandbox ${sandbox.id} ready`);
+
+    const handle = new DaytonaHandle(sandbox);
+
+    // Initialize sandbox if needed (upload files, install dependencies)
+    if (needsInit) {
+      await this.initializeSandbox(handle, id);
+
+      // Mark sandbox as initialized using labels
+      if (this.reuseKey) {
+        await sandbox.setLabels({
+          ...sandbox.labels,
+          [INITIALIZED_LABEL]: "true",
+        });
+      }
+    }
+
+    return handle;
+  }
+
+  /**
+   * Create a new sandbox with the configured settings
+   */
+  private async createNewSandbox(
+    daytona: Daytona,
+    volumes?: VolumeConfig[],
+  ): Promise<Sandbox> {
+    const labels: Record<string, string> = {};
+
+    // Add reuse key label if provided
+    if (this.reuseKey) {
+      labels[REUSE_KEY_LABEL] = this.reuseKey;
+    }
+
+    console.log(
+      `[Daytona] Creating new sandbox with autoStopInterval=${this.autoStopInterval}min, autoDeleteInterval=${this.autoDeleteInterval}min`,
+    );
+
     const sandbox = await daytona.create(
       {
         language: "typescript",
         volumes,
-        autoDeleteInterval: 0,
-        autoStopInterval: 5,
+        labels,
+        autoStopInterval: this.autoStopInterval,
+        autoDeleteInterval: this.autoDeleteInterval,
       },
       { timeout: this.timeout },
     );
     await sandbox.start();
 
-    console.log(`[Daytona] Sandbox ${sandbox.id} started`);
-
-    const handle = new DaytonaHandle(sandbox);
-    await this.initializeSandbox(handle, id);
-
-    return handle;
+    console.log(`[Daytona] Sandbox ${sandbox.id} created and started`);
+    return sandbox;
   }
 
   private async initializeSandbox(
@@ -197,6 +381,13 @@ class DaytonaHandle implements SandboxHandle {
 
   constructor(sandbox: Sandbox) {
     this.sandbox = sandbox;
+  }
+
+  /**
+   * Get the sandbox ID (useful for external tracking)
+   */
+  getSandboxId(): string {
+    return this.sandbox.id;
   }
 
   /**
@@ -428,5 +619,6 @@ class DaytonaHandle implements SandboxHandle {
 
   async destroy(): Promise<void> {
     // Daytona sandbox lifecycle is managed by the platform, no manual cleanup needed
+    // The sandbox will auto-stop and auto-delete based on configured intervals
   }
 }
