@@ -9,6 +9,9 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { GaiaLevel, GaiaTask } from "./types.js";
 
+// Constants
+export const GAIA_CACHE_DIR = ".gaia-cache";
+
 /**
  * Custom MIME type mapping for files not recognized by mime-types library
  */
@@ -185,14 +188,14 @@ async function loadParquetData(
  * Download and load GAIA dataset
  *
  * @param dataset - Which dataset split to load ("validation" or "test")
- * @param cacheDir - Directory to cache downloaded data (defaults to .gaia-cache)
+ * @param cacheDir - Directory to cache downloaded data (defaults to GAIA_CACHE_DIR)
  * @returns Array of GAIA tasks
  */
 export async function downloadGaiaDataset(
   dataset: "validation" | "test" = "validation",
   cacheDir?: string,
 ): Promise<GaiaTask[]> {
-  const cache = cacheDir ?? join(process.cwd(), ".gaia-cache");
+  const cache = cacheDir ?? join(process.cwd(), GAIA_CACHE_DIR);
 
   // Ensure cache directory exists
   if (!existsSync(cache)) {

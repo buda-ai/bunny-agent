@@ -41,6 +41,7 @@ import {
   saveComparisonReport,
 } from "./compare.js";
 import {
+  GAIA_CACHE_DIR,
   downloadGaiaDataset,
   loadTasksFromJson,
   saveTasksToJson,
@@ -121,8 +122,9 @@ async function handleDownload(args: {
 
   const tasks = await downloadGaiaDataset(args.dataset);
 
-  // Save to JSON for offline use
-  const outputPath = join(args.output, `gaia-${args.dataset}-tasks.json`);
+  // Save to JSON for offline use in .gaia-cache directory
+  const cacheDir = join(process.cwd(), GAIA_CACHE_DIR);
+  const outputPath = join(cacheDir, `gaia-${args.dataset}-tasks.json`);
   await saveTasksToJson(tasks, outputPath);
 
   console.log(`\n✅ Download complete!`);
@@ -172,8 +174,9 @@ async function handleRun(args: {
   console.log(`Resume:   ${args.resume}`);
   console.log("=".repeat(60));
 
-  // Load tasks
-  const tasksPath = join(args.output, `gaia-${args.dataset}-tasks.json`);
+  // Load tasks from .gaia-cache directory
+  const cacheDir = join(process.cwd(), GAIA_CACHE_DIR);
+  const tasksPath = join(cacheDir, `gaia-${args.dataset}-tasks.json`);
   let tasks;
 
   if (existsSync(tasksPath)) {
