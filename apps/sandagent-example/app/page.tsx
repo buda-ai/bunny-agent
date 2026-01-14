@@ -209,7 +209,7 @@ export default function Home() {
                 key={message.id}
                 message={message}
                 sessionId={sessionId}
-                config={clientConfig}
+                config={{ ...clientConfig, template: selectedTemplate }}
               />
             ))
           )}

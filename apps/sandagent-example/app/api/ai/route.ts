@@ -177,11 +177,11 @@ export async function POST(request: Request) {
 
   // Create sandbox based on provider
   let sandbox;
+  const sandboxName = `sandagent-${template}`;
 
   if (SANDBOX_PROVIDER === "daytona") {
     // For Daytona, use template as sandbox name to enable sandbox reuse
     // Sandboxes with the same name will be reused instead of creating new ones
-    const sandboxName = `sandagent-${template}`;
 
     sandbox = new DaytonaSandbox({
       apiKey: DAYTONA_API_KEY,
@@ -208,6 +208,7 @@ export async function POST(request: Request) {
       apiKey: E2B_API_KEY,
       runnerBundlePath: RUNNER_BUNDLE_PATH,
       templatesPath: path.join(TEMPLATES_PATH, template),
+      name: sandboxName,
     });
   }
 

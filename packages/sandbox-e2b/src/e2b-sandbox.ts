@@ -80,10 +80,13 @@ export class E2BSandbox implements SandboxAdapter {
   }
 
   /**
-   * Find an existing sandbox by name (via metadata query)
-   * Returns the sandbox ID if found, null otherwise
+   * Find an existing sandbox by name and connect to it.
+   * Sandbox.connect() will automatically resume if paused.
+   * See: https://e2b.dev/docs/sandbox/persistence
+   *
+   * @returns Connected sandbox instance if found, null otherwise
    */
-  private async findSandboxByName(name: string): Promise<string | null> {
+  private async findSandboxByName(name: string): Promise<Sandbox | null> {
     try {
       // Use Sandbox.list() with metadata query
       const paginator = Sandbox.list({
@@ -98,21 +101,28 @@ export class E2BSandbox implements SandboxAdapter {
       // Get the first page of results
       const sandboxes: SandboxInfo[] = await paginator.nextItems();
 
-      if (sandboxes.length > 0) {
-        // Return the first matching sandbox (prefer running over paused)
-        const runningSandbox = sandboxes.find((s) => s.state === "running");
-        const sandbox = runningSandbox ?? sandboxes[0];
-
-        console.log(
-          `[E2B] Found existing sandbox by name: ${name}, id: ${sandbox.sandboxId}, state: ${sandbox.state}`,
-        );
-        return sandbox.sandboxId;
+      if (sandboxes.length === 0) {
+        console.log(`[E2B] No existing sandbox found for name: ${name}`);
+        return null;
       }
 
-      console.log(`[E2B] No existing sandbox found for name: ${name}`);
-      return null;
+      const sandboxInfo = sandboxes[0];
+      console.log(
+        `[E2B] Found existing sandbox by name: ${name}, id: ${sandboxInfo.sandboxId}, state: ${sandboxInfo.state}`,
+      );
+
+      // Connect to sandbox (will auto-resume if paused)
+      const sandbox = await Sandbox.connect(sandboxInfo.sandboxId, {
+        apiKey: this.apiKey,
+        timeoutMs: this.timeout,
+      });
+
+      console.log(
+        `[E2B] Successfully connected to sandbox: ${sandboxInfo.sandboxId}`,
+      );
+      return sandbox;
     } catch (error) {
-      console.warn(`[E2B] Failed to list sandboxes:`, error);
+      console.warn(`[E2B] Failed to find/connect sandbox by name:`, error);
       return null;
     }
   }
@@ -127,37 +137,16 @@ export class E2BSandbox implements SandboxAdapter {
     let instance: Sandbox;
     let needsInit = false;
 
-    // If name is provided, try to find existing sandbox by name
+    // If name is provided, try to find and connect to existing sandbox
     if (this.name) {
       console.log(`[E2B] Looking for existing sandbox with name: ${this.name}`);
 
-      const existingSandboxId = await this.findSandboxByName(this.name);
+      const existingSandbox = await this.findSandboxByName(this.name);
 
-      if (existingSandboxId) {
-        // Connect to existing sandbox (will auto-resume if paused)
-        try {
-          console.log(
-            `[E2B] Connecting to existing sandbox: ${existingSandboxId}`,
-          );
-          instance = await Sandbox.connect(existingSandboxId, {
-            apiKey: this.apiKey,
-            timeoutMs: this.timeout,
-          });
-
-          console.log(
-            `[E2B] Successfully connected to sandbox: ${existingSandboxId}`,
-          );
-        } catch (error) {
-          console.warn(
-            `[E2B] Failed to connect to sandbox ${existingSandboxId}:`,
-            error,
-          );
-          // If connection fails, create a new sandbox
-          instance = await this.createNewSandbox(id);
-          needsInit = true;
-        }
+      if (existingSandbox) {
+        instance = existingSandbox;
       } else {
-        // No existing sandbox found, create new one
+        // No existing sandbox found or connection failed, create new one
         instance = await this.createNewSandbox(id);
         needsInit = true;
       }

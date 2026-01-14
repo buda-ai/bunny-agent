@@ -13,6 +13,7 @@ import { SandockSandbox } from "@sandagent/sandbox-sandock";
  *   toolCallId: string,
  *   questions: Array<{ question: string }>,
  *   answers: Record<string, any>,  // All collected answers
+ *   template?: string,           // Template name for sandbox naming
  *   E2B_API_KEY?: string,        // Client-provided E2B key
  *   SANDOCK_API_KEY?: string,    // Client-provided Sandock key
  *   SANDBOX_PROVIDER?: string    // 'e2b' or 'sandock'
@@ -30,10 +31,14 @@ export async function POST(request: Request) {
     toolCallId,
     questions,
     answers,
+    template = "default",
     E2B_API_KEY,
     SANDOCK_API_KEY,
     SANDBOX_PROVIDER = "e2b",
   } = await request.json();
+
+  // Generate sandbox name to match ai/route.ts
+  const sandboxName = `sandagent-${template}`;
 
   if (!sessionId || !toolCallId || !questions || !answers) {
     return Response.json(
@@ -85,6 +90,7 @@ export async function POST(request: Request) {
         : new E2BSandbox({
             apiKey: E2B_API_KEY,
             runnerBundlePath: RUNNER_BUNDLE_PATH,
+            name: sandboxName,
           });
 
     const handle = await sandbox.attach(sessionId);
