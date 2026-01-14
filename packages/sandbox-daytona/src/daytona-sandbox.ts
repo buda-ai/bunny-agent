@@ -44,18 +44,13 @@ export interface DaytonaSandboxOptions {
    */
   autoDeleteInterval?: number;
   /**
-   * Reuse key for sandbox identification.
-   * Sandboxes with the same reuse key will be reused instead of creating new ones.
-   * If not provided, a new sandbox is always created.
-   * This key is stored as a label on the sandbox for lookup without in-memory caching.
+   * Sandbox name for reuse.
+   * If provided, will try to get existing sandbox by name first.
+   * If not found, creates a new sandbox with this name.
+   * If not provided, a new sandbox is always created (without a name).
    */
-  reuseKey?: string;
+  name?: string;
 }
-
-/**
- * Label key used to store the reuse key on sandboxes
- */
-const REUSE_KEY_LABEL = "sandagent-reuse-key";
 
 /**
  * Label key to mark that a sandbox has been initialized
@@ -65,10 +60,10 @@ const INITIALIZED_LABEL = "sandagent-initialized";
 /**
  * Daytona-based sandbox implementation.
  *
- * This adapter supports sandbox reuse based on a reuse key.
- * When a reuse key is provided, it will attempt to find and reuse
- * an existing sandbox with the same key instead of creating a new one.
- * All state is stored in Daytona labels - no in-memory caching is used.
+ * This adapter supports sandbox reuse based on sandbox name.
+ * When a name is provided, it will attempt to get an existing sandbox
+ * by that name first. If not found, creates a new sandbox with that name.
+ * If no name is provided, a new sandbox is always created.
  */
 export class DaytonaSandbox implements SandboxAdapter {
   private readonly apiKey?: string;
@@ -80,7 +75,7 @@ export class DaytonaSandbox implements SandboxAdapter {
   private readonly volumeMountPath: string;
   private readonly autoStopInterval: number;
   private readonly autoDeleteInterval: number;
-  private readonly reuseKey?: string;
+  private readonly name?: string;
 
   constructor(options: DaytonaSandboxOptions = {}) {
     this.apiKey = options.apiKey ?? process.env.DAYTONA_API_KEY;
@@ -94,7 +89,7 @@ export class DaytonaSandbox implements SandboxAdapter {
     this.autoStopInterval = options.autoStopInterval ?? 15;
     // Default auto-delete to disabled (-1)
     this.autoDeleteInterval = options.autoDeleteInterval ?? -1;
-    this.reuseKey = options.reuseKey;
+    this.name = options.name;
   }
 
   async attach(id: string): Promise<SandboxHandle> {
@@ -141,108 +136,98 @@ export class DaytonaSandbox implements SandboxAdapter {
     let sandbox: Sandbox;
     let needsInit = false;
 
-    // Try to find existing sandbox by reuse key
-    if (this.reuseKey) {
+    // Try to get existing sandbox by name
+    if (this.name) {
       console.log(
-        `[Daytona] Looking for existing sandbox with reuse key: ${this.reuseKey}`,
+        `[Daytona] Looking for existing sandbox with name: ${this.name}`,
       );
 
       try {
-        const existingSandbox = await daytona.findOne({
-          labels: { [REUSE_KEY_LABEL]: this.reuseKey },
-        });
+        const existingSandbox = await daytona.get(this.name);
+        console.log(
+          `[Daytona] Found existing sandbox: ${existingSandbox.id}, state: ${existingSandbox.state}`,
+        );
 
-        if (existingSandbox) {
+        // Handle different sandbox states
+        if (existingSandbox.state === "started") {
+          // Sandbox is ready to use
           console.log(
-            `[Daytona] Found existing sandbox: ${existingSandbox.id}, state: ${existingSandbox.state}`,
+            `[Daytona] Reusing running sandbox: ${existingSandbox.id}`,
           );
-
-          // Handle different sandbox states
-          if (existingSandbox.state === "started") {
-            // Sandbox is ready to use
+          sandbox = existingSandbox;
+          // Refresh activity to prevent auto-stop
+          await sandbox.refreshActivity();
+        } else if (
+          existingSandbox.state === "stopped" ||
+          existingSandbox.state === "stopping"
+        ) {
+          // Sandbox needs to be started
+          console.log(
+            `[Daytona] Starting stopped sandbox: ${existingSandbox.id}`,
+          );
+          await existingSandbox.start(this.timeout);
+          sandbox = existingSandbox;
+        } else if (existingSandbox.state === "archived") {
+          // Archived sandbox - start it (Daytona will unarchive automatically)
+          console.log(
+            `[Daytona] Starting archived sandbox: ${existingSandbox.id}`,
+          );
+          await existingSandbox.start(this.timeout);
+          sandbox = existingSandbox;
+        } else if (existingSandbox.state === "error") {
+          // Error state - check if recoverable
+          if (existingSandbox.recoverable) {
             console.log(
-              `[Daytona] Reusing running sandbox: ${existingSandbox.id}`,
+              `[Daytona] Recovering sandbox from error: ${existingSandbox.id}`,
             );
-            sandbox = existingSandbox;
-            // Refresh activity to prevent auto-stop
-            await sandbox.refreshActivity();
-          } else if (
-            existingSandbox.state === "stopped" ||
-            existingSandbox.state === "stopping"
-          ) {
-            // Sandbox needs to be started
-            console.log(
-              `[Daytona] Starting stopped sandbox: ${existingSandbox.id}`,
-            );
-            await existingSandbox.start(this.timeout);
-            sandbox = existingSandbox;
-          } else if (existingSandbox.state === "archived") {
-            // Archived sandbox - start it (Daytona will unarchive automatically)
-            console.log(
-              `[Daytona] Starting archived sandbox: ${existingSandbox.id}`,
-            );
-            await existingSandbox.start(this.timeout);
-            sandbox = existingSandbox;
-          } else if (existingSandbox.state === "error") {
-            // Error state - check if recoverable
-            if (existingSandbox.recoverable) {
-              console.log(
-                `[Daytona] Recovering sandbox from error: ${existingSandbox.id}`,
-              );
-              await existingSandbox.recover(this.timeout);
-              sandbox = existingSandbox;
-            } else {
-              // Non-recoverable error - delete and create new
-              console.log(
-                `[Daytona] Deleting non-recoverable sandbox: ${existingSandbox.id}`,
-              );
-              await existingSandbox.delete();
-              sandbox = await this.createNewSandbox(daytona, volumes);
-              needsInit = true;
-            }
-          } else if (existingSandbox.state === "starting") {
-            // Wait for it to finish starting
-            console.log(
-              `[Daytona] Waiting for sandbox to start: ${existingSandbox.id}`,
-            );
-            await existingSandbox.waitUntilStarted(this.timeout);
+            await existingSandbox.recover(this.timeout);
             sandbox = existingSandbox;
           } else {
-            // Unknown state - create new sandbox
+            // Non-recoverable error - delete and create new
             console.log(
-              `[Daytona] Unknown sandbox state: ${existingSandbox.state}, creating new sandbox`,
+              `[Daytona] Deleting non-recoverable sandbox: ${existingSandbox.id}`,
             );
+            await existingSandbox.delete();
             sandbox = await this.createNewSandbox(daytona, volumes);
             needsInit = true;
           }
-
-          // Check if sandbox was already initialized (using labels)
-          if (
-            !needsInit &&
-            existingSandbox.labels[INITIALIZED_LABEL] !== "true"
-          ) {
-            console.log(
-              `[Daytona] Sandbox exists but not initialized, will initialize`,
-            );
-            needsInit = true;
-          }
+        } else if (existingSandbox.state === "starting") {
+          // Wait for it to finish starting
+          console.log(
+            `[Daytona] Waiting for sandbox to start: ${existingSandbox.id}`,
+          );
+          await existingSandbox.waitUntilStarted(this.timeout);
+          sandbox = existingSandbox;
         } else {
-          // No existing sandbox found, create new
-          console.log(`[Daytona] No existing sandbox found, creating new one`);
+          // Unknown state - create new sandbox
+          console.log(
+            `[Daytona] Unknown sandbox state: ${existingSandbox.state}, creating new sandbox`,
+          );
           sandbox = await this.createNewSandbox(daytona, volumes);
           needsInit = true;
         }
+
+        // Check if sandbox was already initialized (using labels)
+        if (
+          !needsInit &&
+          existingSandbox.labels[INITIALIZED_LABEL] !== "true"
+        ) {
+          console.log(
+            `[Daytona] Sandbox exists but not initialized, will initialize`,
+          );
+          needsInit = true;
+        }
       } catch (error) {
-        // findOne throws if not found, create new sandbox
+        // get() throws if not found, create new sandbox with the name
         console.log(
-          `[Daytona] No existing sandbox found (error: ${error}), creating new one`,
+          `[Daytona] Sandbox "${this.name}" not found, creating new one`,
         );
         sandbox = await this.createNewSandbox(daytona, volumes);
         needsInit = true;
       }
     } else {
-      // No reuse key - always create new sandbox
-      console.log(`[Daytona] No reuse key provided, creating new sandbox`);
+      // No name provided - always create new sandbox
+      console.log(`[Daytona] No name provided, creating new sandbox`);
       sandbox = await this.createNewSandbox(daytona, volumes);
       needsInit = true;
     }
@@ -255,8 +240,8 @@ export class DaytonaSandbox implements SandboxAdapter {
     if (needsInit) {
       await this.initializeSandbox(handle, id);
 
-      // Mark sandbox as initialized using labels
-      if (this.reuseKey) {
+      // Mark sandbox as initialized using labels (for named sandboxes)
+      if (this.name) {
         await sandbox.setLabels({
           ...sandbox.labels,
           [INITIALIZED_LABEL]: "true",
@@ -274,22 +259,15 @@ export class DaytonaSandbox implements SandboxAdapter {
     daytona: Daytona,
     volumes?: VolumeConfig[],
   ): Promise<Sandbox> {
-    const labels: Record<string, string> = {};
-
-    // Add reuse key label if provided
-    if (this.reuseKey) {
-      labels[REUSE_KEY_LABEL] = this.reuseKey;
-    }
-
     console.log(
-      `[Daytona] Creating new sandbox with autoStopInterval=${this.autoStopInterval}min, autoDeleteInterval=${this.autoDeleteInterval}min`,
+      `[Daytona] Creating new sandbox${this.name ? ` with name "${this.name}"` : ""}, autoStopInterval=${this.autoStopInterval}min, autoDeleteInterval=${this.autoDeleteInterval}min`,
     );
 
     const sandbox = await daytona.create(
       {
+        name: this.name,
         language: "typescript",
         volumes,
-        labels,
         autoStopInterval: this.autoStopInterval,
         autoDeleteInterval: this.autoDeleteInterval,
       },

@@ -179,24 +179,24 @@ export async function POST(request: Request) {
   let sandbox;
 
   if (SANDBOX_PROVIDER === "daytona") {
-    // For Daytona, use template as reuseKey to enable sandbox reuse
-    // Sandboxes with the same template will be reused instead of creating new ones
-    const reuseKey = `template-${template}`;
+    // For Daytona, use template as sandbox name to enable sandbox reuse
+    // Sandboxes with the same name will be reused instead of creating new ones
+    const sandboxName = `sandagent-${template}`;
 
     sandbox = new DaytonaSandbox({
       apiKey: DAYTONA_API_KEY,
       runnerBundlePath: RUNNER_BUNDLE_PATH,
       templatesPath: path.join(TEMPLATES_PATH, template),
-      volumeName: `sandagent-${template}`,
-      // Reuse key enables sandbox reuse - same template = same sandbox
-      reuseKey,
+      volumeName: sandboxName,
+      // Name enables sandbox reuse - same name = same sandbox
+      name: sandboxName,
       // Auto-stop after 15 minutes of inactivity
       autoStopInterval: 15,
       // Disable auto-delete (sandbox persists until manually deleted)
       autoDeleteInterval: -1,
     });
 
-    console.log(`[API] Daytona sandbox configured with reuseKey: ${reuseKey}`);
+    console.log(`[API] Daytona sandbox configured with name: ${sandboxName}`);
   } else if (SANDBOX_PROVIDER === "sandock") {
     sandbox = new SandockSandbox({
       apiKey: SANDOCK_API_KEY,
