@@ -1,6 +1,6 @@
 import path from "node:path";
 import { SandAgent } from "@sandagent/core";
-import { DaytonaSandbox, getClaudeSessionId } from "@sandagent/sandbox-daytona";
+import { DaytonaSandbox } from "@sandagent/sandbox-daytona";
 import { E2BSandbox } from "@sandagent/sandbox-e2b";
 import { SandockSandbox } from "@sandagent/sandbox-sandock";
 import {
@@ -177,28 +177,14 @@ export async function POST(request: Request) {
 
   // Create sandbox based on provider
   let sandbox;
-  // For Daytona with persistence, try to get stored Claude session ID for conversation history
-  let effectiveResume = resume;
-  
+
   if (SANDBOX_PROVIDER === "daytona") {
     sandbox = new DaytonaSandbox({
       apiKey: DAYTONA_API_KEY,
       runnerBundlePath: RUNNER_BUNDLE_PATH,
       templatesPath: path.join(TEMPLATES_PATH, template),
-      // Enable volume-based persistence to reuse sandbox across requests
-      enablePersistence: true,
-      persistenceMountPath: "/sandagent-data",
+      volumeName: `sandagent-${template}`,
     });
-    
-    // If no resume parameter provided, try to get stored Claude session ID
-    // This enables automatic conversation history restoration when using the same sessionId
-    if (!effectiveResume) {
-      const storedClaudeSessionId = getClaudeSessionId(sessionId);
-      if (storedClaudeSessionId) {
-        effectiveResume = storedClaudeSessionId;
-        console.log(`[API] Using stored Claude session ID for resume: ${storedClaudeSessionId}`);
-      }
-    }
   } else if (SANDBOX_PROVIDER === "sandock") {
     sandbox = new SandockSandbox({
       apiKey: SANDOCK_API_KEY,
@@ -214,9 +200,9 @@ export async function POST(request: Request) {
   }
 
   // Determine model based on whether using AWS Bedrock
-  const model = AWS_BEARER_TOKEN_BEDROCK
-    ? "us.anthropic.claude-sonnet-4-20250514-v1:0" // AWS Bedrock model ID
-    : "claude-sonnet-4-20250514"; // Standard Anthropic model ID
+  const model = ANTHROPIC_API_KEY
+    ? "claude-sonnet-4-20250514" // Standard Anthropic model ID
+    : "us.anthropic.claude-sonnet-4-20250514-v1:0"; // AWS Bedrock model ID
 
   const agent = new SandAgent({
     id: sessionId,
@@ -245,7 +231,7 @@ export async function POST(request: Request) {
   return agent.stream({
     messages: normalizedMessages,
     workspace: { path: "/sandagent" },
-    resume: effectiveResume,
+    resume,
     signal, // Pass signal to SandAgent
   });
 }

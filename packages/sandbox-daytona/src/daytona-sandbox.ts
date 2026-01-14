@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { Daytona, VolumeMount, type Sandbox } from "@daytonaio/sdk";
+import { Daytona, type Sandbox, type VolumeMount } from "@daytonaio/sdk";
 import type {
   ExecOptions,
   SandboxAdapter,
@@ -11,80 +11,6 @@ import type {
  * Type alias for VolumeMount configuration
  */
 type VolumeConfig = VolumeMount;
-
-/**
- * In-memory store for session -> sandbox/volume mapping
- * This enables sandbox persistence across requests
- * 
- * Note: For full conversation history restoration, you need BOTH:
- * 1. volumeId - to restore filesystem state (files, code, data)
- * 2. claudeSessionId - to restore conversation history (via Claude Agent SDK's resume parameter)
- */
-interface SessionState {
-  /** Daytona sandbox ID */
-  sandboxId: string;
-  /** Daytona volume ID for filesystem persistence */
-  volumeId: string;
-  /** Volume name */
-  volumeName: string;
-  /** Claude Agent SDK session ID for conversation history (optional) */
-  claudeSessionId?: string;
-}
-
-// Global in-memory store for session states
-const sessionStore = new Map<string, SessionState>();
-
-/**
- * Get stored session state
- */
-export function getSessionState(sessionId: string): SessionState | undefined {
-  return sessionStore.get(sessionId);
-}
-
-/**
- * Set session state
- */
-export function setSessionState(sessionId: string, state: SessionState): void {
-  sessionStore.set(sessionId, state);
-}
-
-/**
- * Clear session state
- */
-export function clearSessionState(sessionId: string): void {
-  sessionStore.delete(sessionId);
-}
-
-/**
- * List all stored sessions
- */
-export function listSessions(): Map<string, SessionState> {
-  return new Map(sessionStore);
-}
-
-/**
- * Update Claude session ID for an existing session
- * This should be called after receiving the session_id from Claude Agent SDK response
- * 
- * The Claude session ID is needed to resume conversation history across sandbox restarts.
- * Without it, only filesystem state (files, code) will be restored, not conversation history.
- */
-export function updateClaudeSessionId(sessionId: string, claudeSessionId: string): void {
-  const state = sessionStore.get(sessionId);
-  if (state) {
-    state.claudeSessionId = claudeSessionId;
-    sessionStore.set(sessionId, state);
-    console.log(`[Daytona] Updated Claude session ID for ${sessionId}: ${claudeSessionId}`);
-  }
-}
-
-/**
- * Get Claude session ID for resuming conversation
- * Returns undefined if no session exists or no Claude session ID has been stored
- */
-export function getClaudeSessionId(sessionId: string): string | undefined {
-  return sessionStore.get(sessionId)?.claudeSessionId;
-}
 
 /**
  * Options for creating a DaytonaSandbox instance
@@ -100,12 +26,10 @@ export interface DaytonaSandboxOptions {
   runnerBundlePath?: string;
   /** Path to template directory to upload */
   templatesPath?: string;
-  /** Optional volumes to attach to the sandbox */
-  volumes?: VolumeConfig[];
-  /** Enable volume-based persistence for sandbox state */
-  enablePersistence?: boolean;
-  /** Mount path for the persistence volume (default: /sandagent-data) */
-  persistenceMountPath?: string;
+  /** Volume name for persistence (will be created if not exists) */
+  volumeName?: string;
+  /** Mount path for the volume (default: /sandagent) */
+  volumeMountPath?: string;
 }
 
 /**
@@ -117,9 +41,11 @@ export class DaytonaSandbox implements SandboxAdapter {
   private readonly timeout: number;
   private readonly runnerBundlePath?: string;
   private readonly templatesPath?: string;
-  private readonly volumes?: VolumeConfig[];
-  private readonly enablePersistence: boolean;
-  private readonly persistenceMountPath: string;
+  private readonly volumeName?: string;
+  private readonly volumeMountPath: string;
+
+  /** Track which volumes have been initialized (files uploaded) */
+  private static readonly initializedVolumes: Set<string> = new Set();
 
   constructor(options: DaytonaSandboxOptions = {}) {
     this.apiKey = options.apiKey ?? process.env.DAYTONA_API_KEY;
@@ -127,9 +53,8 @@ export class DaytonaSandbox implements SandboxAdapter {
     this.timeout = options.timeout ?? 0;
     this.runnerBundlePath = options.runnerBundlePath;
     this.templatesPath = options.templatesPath;
-    this.volumes = options.volumes;
-    this.enablePersistence = options.enablePersistence ?? false;
-    this.persistenceMountPath = options.persistenceMountPath ?? "/sandagent-data";
+    this.volumeName = options.volumeName;
+    this.volumeMountPath = options.volumeMountPath ?? "/sandagent";
   }
 
   async attach(id: string): Promise<SandboxHandle> {
@@ -144,109 +69,47 @@ export class DaytonaSandbox implements SandboxAdapter {
       apiUrl: this.apiUrl,
     });
 
-    // Check if we have a stored session state for this agent
-    const storedState = getSessionState(id);
-    
-    if (this.enablePersistence && storedState) {
-      // Try to restore existing sandbox
-      console.log(`[Daytona] Found stored session for agent: ${id}`);
-      console.log(`[Daytona] Attempting to restore sandbox: ${storedState.sandboxId}`);
-      
-      try {
-        const existingSandbox = await daytona.get(storedState.sandboxId);
-        
-        // Check sandbox state and start if needed
-        if (existingSandbox.state === "stopped" || existingSandbox.state === "archived") {
-          console.log(`[Daytona] Sandbox ${existingSandbox.id} is ${existingSandbox.state}, starting...`);
-          await existingSandbox.start(this.timeout || 60);
-        } else if (existingSandbox.state === "started") {
-          console.log(`[Daytona] Sandbox ${existingSandbox.id} is already running`);
-        } else {
-          console.log(`[Daytona] Sandbox ${existingSandbox.id} is in state: ${existingSandbox.state}`);
-          await existingSandbox.waitUntilStarted(this.timeout || 60);
-        }
-        
-        console.log(`[Daytona] Restored sandbox ${existingSandbox.id} with volume ${storedState.volumeId}`);
-        return new DaytonaHandle(existingSandbox);
-      } catch (err) {
-        console.warn(`[Daytona] Failed to restore sandbox: ${err instanceof Error ? err.message : String(err)}`);
-        console.log(`[Daytona] Creating new sandbox with existing volume...`);
-        // Clear the invalid session state, but keep the volume for new sandbox
-        clearSessionState(id);
-        
-        // Create new sandbox with the existing volume
-        return this.createNewSandbox(daytona, id, storedState.volumeId, storedState.volumeName);
-      }
-    }
-
-    // Create new sandbox (with or without persistence)
-    return this.createNewSandbox(daytona, id);
-  }
-
-  /**
-   * Create a new sandbox, optionally with persistence volume
-   */
-  private async createNewSandbox(
-    daytona: Daytona, 
-    id: string, 
-    existingVolumeId?: string,
-    existingVolumeName?: string
-  ): Promise<SandboxHandle> {
     console.log(`[Daytona] Creating sandbox for agent: ${id}`);
 
-    let volumesToMount = this.volumes ? [...this.volumes] : [];
-    let volumeId = existingVolumeId;
-    let volumeName = existingVolumeName;
+    // Get or create volume if volumeName is provided
+    let volumes: VolumeConfig[] | undefined;
+    if (this.volumeName) {
+      console.log(`[Daytona] Getting/creating volume: ${this.volumeName}`);
+      let volume = await daytona.volume.get(this.volumeName, true);
 
-    // Set up persistence volume if enabled
-    if (this.enablePersistence) {
-      if (!volumeId) {
-        // Create a new volume for this session
-        // Use a sanitized version of the session ID as the volume name
-        volumeName = `sandagent-${id.replace(/[^a-zA-Z0-9-]/g, "-").toLowerCase()}`;
-        console.log(`[Daytona] Creating/getting persistence volume: ${volumeName}`);
-        
-        try {
-          // get() with create=true will create the volume if it doesn't exist
-          const volume = await daytona.volume.get(volumeName, true);
-          volumeId = volume.id;
-          console.log(`[Daytona] Got volume: ${volumeId} (${volumeName})`);
-        } catch (err) {
-          console.error(`[Daytona] Failed to create volume: ${err instanceof Error ? err.message : String(err)}`);
-          // Continue without persistence if volume creation fails
-        }
+      // Wait for volume to be ready
+      const maxWaitMs = 30000;
+      const startTime = Date.now();
+      while (volume.state !== "ready" && Date.now() - startTime < maxWaitMs) {
+        console.log(`[Daytona] Volume state: ${volume.state}, waiting...`);
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        volume = await daytona.volume.get(this.volumeName, false);
       }
 
-      if (volumeId && volumeName) {
-        // Add the persistence volume to the mount list
-        volumesToMount.push({
-          volumeId,
-          mountPath: this.persistenceMountPath,
-        });
-        console.log(`[Daytona] Mounting volume ${volumeId} at ${this.persistenceMountPath}`);
+      if (volume.state !== "ready") {
+        throw new Error(
+          `Volume '${this.volumeName}' failed to become ready. State: ${volume.state}`,
+        );
       }
+
+      volumes = [{ volumeId: volume.id, mountPath: this.volumeMountPath }];
+      console.log(
+        `[Daytona] Using volume ${volume.id} at ${this.volumeMountPath}`,
+      );
     }
 
     const sandbox = await daytona.create(
       {
         language: "typescript",
-        volumes: volumesToMount.length > 0 ? volumesToMount : undefined,
+        volumes,
+        autoDeleteInterval: 0,
+        autoStopInterval: 5,
       },
       { timeout: this.timeout },
     );
     await sandbox.start();
 
     console.log(`[Daytona] Sandbox ${sandbox.id} started`);
-
-    // Store the session state if persistence is enabled
-    if (this.enablePersistence && volumeId && volumeName) {
-      setSessionState(id, {
-        sandboxId: sandbox.id,
-        volumeId,
-        volumeName,
-      });
-      console.log(`[Daytona] Stored session state for agent: ${id}`);
-    }
 
     const handle = new DaytonaHandle(sandbox);
     await this.initializeSandbox(handle, id);
@@ -391,8 +254,11 @@ class DaytonaHandle implements SandboxHandle {
     const shellCommand = `${envExports}; ${baseCommand}`;
 
     // Debug: log environment variables being passed to sandbox
-    console.log("[Daytona] Executing command:", baseCommand);
-    console.log("[Daytona] Environment variables:", Object.keys(envWithNodePath));
+    console.log("[Daytona] Executing command:", shellCommand);
+    console.log(
+      "[Daytona] Environment variables:",
+      Object.keys(envWithNodePath),
+    );
     console.log(
       "[Daytona] ANTHROPIC_API_KEY present:",
       !!envWithNodePath.ANTHROPIC_API_KEY,
@@ -416,7 +282,9 @@ class DaytonaHandle implements SandboxHandle {
 
         // Monitor abort signal and kill the session
         const abortHandler = async () => {
-          console.log("[Daytona] Abort signal received, terminating session...");
+          console.log(
+            "[Daytona] Abort signal received, terminating session...",
+          );
           console.log("[Daytona] Session ID:", sessionId);
 
           finished = true;
@@ -447,6 +315,9 @@ class DaytonaHandle implements SandboxHandle {
         // Start async execution
         (async () => {
           try {
+            // Create session first
+            await sandbox.process.createSession(sessionId);
+
             const result = await sandbox.process.executeSessionCommand(
               sessionId,
               { command: shellCommand, runAsync: true },
@@ -462,6 +333,7 @@ class DaytonaHandle implements SandboxHandle {
               sessionId,
               result.cmdId,
               (chunk: string) => {
+                console.log("[Daytona] stdout:", chunk);
                 chunks.push(new TextEncoder().encode(chunk));
                 if (resolveNext) {
                   resolveNext();
@@ -469,7 +341,7 @@ class DaytonaHandle implements SandboxHandle {
                 }
               },
               (chunk: string) => {
-                console.error(`[Daytona stderr] ${chunk}`);
+                console.log("[Daytona] stderr:", chunk);
               },
             );
 
@@ -484,7 +356,10 @@ class DaytonaHandle implements SandboxHandle {
             if (error.name === "AbortError") {
               console.log("[Daytona] Command execution aborted by user");
             } else {
-              console.error("[Daytona] Command execution error:", error.message);
+              console.error(
+                "[Daytona] Command execution error:",
+                error.message,
+              );
             }
             if (resolveNext) {
               (resolveNext as () => void)();
@@ -538,25 +413,17 @@ class DaytonaHandle implements SandboxHandle {
     files: Array<{ path: string; content: Uint8Array | string }>,
     targetDir: string,
   ): Promise<void> {
-    for (const file of files) {
-      const fullPath = `${targetDir}/${file.path}`;
-      const dirPath = fullPath.substring(0, fullPath.lastIndexOf("/"));
-
-      if (dirPath) {
-        try {
-          await this.sandbox.fs.createFolder(dirPath, "755");
-        } catch {
-          // Directory might already exist
-        }
-      }
-
-      const content =
+    // Batch upload all files
+    const filesToUpload = files.map((file) => ({
+      source:
         file.content instanceof Uint8Array
-          ? new TextDecoder().decode(file.content)
-          : file.content;
+          ? Buffer.from(file.content)
+          : Buffer.from(file.content, "utf-8"),
+      destination: `${targetDir}/${file.path}`,
+    }));
 
-      await this.sandbox.fs.uploadFile(content, fullPath);
-    }
+    // Use longer timeout (300s) for large file uploads
+    await this.sandbox.fs.uploadFiles(filesToUpload, 300);
   }
 
   async destroy(): Promise<void> {
