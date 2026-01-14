@@ -230,10 +230,87 @@ function createCanUseToolCallback(
   };
 }
 
-/** 累积的 usage 统计 */
-interface AccumulatedUsage {
-  inputTokens: number;
-  outputTokens: number;
+/**
+ * Usage data from Claude Agent SDK
+ */
+interface ClaudeCodeUsage {
+  input_tokens?: number | null;
+  output_tokens?: number | null;
+  cache_creation_input_tokens?: number | null;
+  cache_read_input_tokens?: number | null;
+}
+
+/**
+ * Converts Claude Agent SDK usage to AI SDK usage format
+ */
+function convertUsageToAISDK(usage?: ClaudeCodeUsage): {
+  inputTokens: {
+    total: number;
+    noCache: number;
+    cacheRead: number;
+    cacheWrite: number;
+  };
+  outputTokens: {
+    total: number;
+    text?: number;
+    reasoning?: number;
+  };
+} {
+  if (!usage) {
+    return {
+      inputTokens: { total: 0, noCache: 0, cacheRead: 0, cacheWrite: 0 },
+      outputTokens: { total: 0 },
+    };
+  }
+
+  const inputTokens = usage.input_tokens ?? 0;
+  const outputTokens = usage.output_tokens ?? 0;
+  const cacheWrite = usage.cache_creation_input_tokens ?? 0;
+  const cacheRead = usage.cache_read_input_tokens ?? 0;
+
+  return {
+    inputTokens: {
+      total: inputTokens + cacheWrite + cacheRead,
+      noCache: inputTokens,
+      cacheRead,
+      cacheWrite,
+    },
+    outputTokens: {
+      total: outputTokens,
+    },
+  };
+}
+
+/**
+ * Maps Claude Agent SDK result subtypes to AI SDK finish reasons
+ */
+function mapFinishReason(
+  subtype?: string,
+  isError?: boolean,
+): {
+  unified: "stop" | "length" | "content-filter" | "tool-calls" | "error" | "other";
+  raw: string | undefined;
+} {
+  // If explicitly marked as error
+  if (isError) {
+    return { unified: "error", raw: subtype ?? "error" };
+  }
+
+  switch (subtype) {
+    case "success":
+      return { unified: "stop", raw: subtype };
+    case "error_max_turns":
+      return { unified: "length", raw: subtype };
+    case "error_during_execution":
+      return { unified: "error", raw: subtype };
+    case "error_max_structured_output_retries":
+      return { unified: "error", raw: subtype };
+    case undefined:
+      return { unified: "stop", raw: undefined };
+    default:
+      // Unknown subtypes mapped to 'other'
+      return { unified: "other", raw: subtype };
+  }
 }
 
 // Module registry for optional dependencies
@@ -307,9 +384,9 @@ async function* runWithClaudeAgentSDK(
   userInput: string | AsyncIterable<SDKUserMessage>,
   signal?: AbortSignal,
 ): AsyncIterable<string> {
-  const usage: AccumulatedUsage = { inputTokens: 0, outputTokens: 0 };
   let systemMessage: SDKSystemMessage | undefined;
   let messageId: string | undefined;
+  let hasEmittedStart = false;
 
   const sdkOptions: ClaudeAgentSDKOptions = {
     model: options.model,
@@ -353,22 +430,23 @@ async function* runWithClaudeAgentSDK(
 
   try {
     for await (const message of queryIterator) {
-      // console.log(
-      //   "[ClaudeRunner] get message",
-      //   JSON.stringify(message, null, 2),
-      // );
+      // Handle system init message
       if (message.type === "system" && message.subtype === "init") {
         systemMessage = message;
         continue;
       }
 
-      // start message
-      if (message.type === "assistant" && !messageId && systemMessage) {
-        messageId = (message as SDKAssistantMessage).message.id;
+      // Emit start message on first assistant message
+      if (message.type === "assistant" && !hasEmittedStart && systemMessage) {
+        const assistantMsg = message as SDKAssistantMessage;
+        messageId = assistantMsg.message?.id ?? generateId();
+        hasEmittedStart = true;
+
         yield formatDataStream({
           type: "start",
           messageId,
         });
+
         yield formatDataStream({
           type: "message-metadata",
           messageMetadata: {
@@ -393,11 +471,8 @@ async function* runWithClaudeAgentSDK(
     yield formatDataStream({ type: "error", errorText: errorMessage });
     yield formatDataStream({
       type: "finish",
-      finishReason: "error",
-      usage: {
-        promptTokens: usage.inputTokens,
-        completionTokens: usage.outputTokens,
-      },
+      finishReason: mapFinishReason("error_during_execution", true),
+      usage: convertUsageToAISDK(undefined),
     });
   } finally {
     // Remove abort event listener
@@ -430,13 +505,17 @@ function convertSDKMessageToAISDKUI(message: SDKMessage): string[] {
 
       // Check for error in the message
       if (assistantMsg.error) {
-        const errorDetail = message.message.content
-          .map((c: { type: string; text: string }) => c.text)
-          .join("\n");
+        const errorDetail =
+          assistantMsg.message?.content
+            ?.map((c: { type: string; text?: string }) => c.text ?? "")
+            .filter(Boolean)
+            .join("\n") ?? "";
         chunks.push(
           formatDataStream({
             type: "error",
-            errorText: `${assistantMsg.error}: ${errorDetail}`,
+            errorText: errorDetail
+              ? `${assistantMsg.error}: ${errorDetail}`
+              : assistantMsg.error,
           }),
         );
         break;
@@ -485,13 +564,17 @@ function convertSDKMessageToAISDKUI(message: SDKMessage): string[] {
                 }),
               );
               if (block.input) {
+                // Emit tool-call with stringified input for AI SDK V3 compatibility
                 chunks.push(
                   formatDataStream({
-                    type: "tool-input-available",
+                    type: "tool-call",
                     toolCallId,
                     toolName: block.name,
-                    dynamic: true,
-                    input: block.input,
+                    input:
+                      typeof block.input === "string"
+                        ? block.input
+                        : JSON.stringify(block.input),
+                    providerExecuted: true,
                   }),
                 );
               }
@@ -505,13 +588,32 @@ function convertSDKMessageToAISDKUI(message: SDKMessage): string[] {
       // Result message - indicates completion
       const resultMsg = message as SDKResultMessage;
 
-      // Always emit finish, with appropriate finishReason and usage in messageMetadata
+      // Handle structured output errors (SDK 0.1.45+)
+      if ((resultMsg.subtype as string) === "error_max_structured_output_retries") {
+        chunks.push(
+          formatDataStream({
+            type: "error",
+            errorText:
+              "Failed to generate valid structured output after maximum retries. " +
+              "The model could not produce a response matching the required schema.",
+          }),
+        );
+      }
+
+      // Map finish reason properly
+      const finishReason = mapFinishReason(resultMsg.subtype, resultMsg.is_error);
+
+      // Convert usage to proper format
+      const usage = convertUsageToAISDK(resultMsg.usage);
+
+      // Emit finish with proper format
       chunks.push(
         formatDataStream({
           type: "finish",
-          finishReason: resultMsg.is_error ? "error" : "stop",
+          finishReason,
+          usage,
           messageMetadata: {
-            usage: resultMsg.usage,
+            sessionId: resultMsg.session_id,
             duration_ms: resultMsg.duration_ms,
             num_turns: resultMsg.num_turns,
             total_cost_usd: resultMsg.total_cost_usd,
@@ -536,21 +638,32 @@ function convertSDKMessageToAISDKUI(message: SDKMessage): string[] {
           contentArray.some((c) => c.type === "tool_result"))
       ) {
         for (const tool of contentArray) {
+          if (tool.type !== "tool_result") continue;
+
           if (tool.is_error) {
             chunks.push(
               formatDataStream({
-                type: "tool-output-error",
+                type: "tool-result",
                 toolCallId: tool.tool_use_id,
-                errorText: tool.content,
-                dynamic: true,
+                toolName: "",
+                result: tool.content ?? "Error executing tool",
+                isError: true,
               }),
             );
           } else {
+            // Format result properly - ensure it's a string or JSON
+            const resultContent = usrMsg.tool_use_result ?? tool.content;
+            const result =
+              typeof resultContent === "string"
+                ? resultContent
+                : JSON.stringify(resultContent);
+
             chunks.push(
               formatDataStream({
-                type: "tool-output-available",
+                type: "tool-result",
                 toolCallId: tool.tool_use_id,
-                output: usrMsg.tool_use_result || tool.content,
+                toolName: "",
+                result,
                 dynamic: true,
               }),
             );
@@ -601,6 +714,13 @@ async function* runMockAgent(
   }
 
   try {
+    // Emit start
+    const messageId = generateId();
+    yield formatDataStream({
+      type: "start",
+      messageId,
+    });
+
     // Output a helpful response in AI SDK UI format
     const response =
       `I received your request: "${userInput}"\n\n` +
@@ -633,10 +753,11 @@ async function* runMockAgent(
     // End text block
     yield formatDataStream({ type: "text-end", id: textId });
 
-    // Finish message
+    // Finish message with proper format
     yield formatDataStream({
       type: "finish",
-      finishReason: "stop",
+      finishReason: mapFinishReason("success"),
+      usage: convertUsageToAISDK(undefined),
     });
 
     // Stream termination
@@ -648,7 +769,8 @@ async function* runMockAgent(
     yield formatDataStream({ type: "error", errorText: errorMessage });
     yield formatDataStream({
       type: "finish",
-      finishReason: "error",
+      finishReason: mapFinishReason("error_during_execution", true),
+      usage: convertUsageToAISDK(undefined),
     });
     yield `data: [DONE]\n\n`;
   }

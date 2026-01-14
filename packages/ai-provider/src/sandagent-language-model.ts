@@ -486,7 +486,7 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
       }
 
       case "tool-input-available": {
-        // Tool input is fully available - emit tool-call
+        // Legacy format - Tool input is fully available
         const toolCallId = parsed.toolCallId as string;
         const toolName = parsed.toolName as string;
         const input = parsed.input as Record<string, unknown>;
@@ -501,7 +501,32 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
         break;
       }
 
+      case "tool-call": {
+        // New format - tool-call with input already stringified
+        parts.push({
+          type: "tool-call",
+          toolCallId: parsed.toolCallId as string,
+          toolName: parsed.toolName as string,
+          input: parsed.input as string,
+          providerExecuted: (parsed.providerExecuted as boolean) ?? true,
+        });
+        break;
+      }
+
+      case "tool-result": {
+        // Tool result from runner
+        parts.push({
+          type: "tool-result",
+          toolCallId: parsed.toolCallId as string,
+          toolName: (parsed.toolName as string) ?? "",
+          result: parsed.result as string,
+          isError: parsed.isError as boolean,
+        });
+        break;
+      }
+
       case "tool-output-available": {
+        // Legacy format
         const resultValue =
           typeof parsed.output === "string"
             ? parsed.output
@@ -509,9 +534,8 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
         parts.push({
           type: "tool-result",
           toolCallId: parsed.toolCallId as string,
-          toolName: "", // Not always available from sandbox
+          toolName: "",
           result: resultValue,
-          dynamic: true, // Provider-executed tool
         });
         break;
       }
@@ -534,11 +558,26 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
       }
 
       case "finish": {
-        const finishReason = this.mapFinishReason(
-          parsed.finishReason as string
-        );
+        // Handle both old format (string) and new format (object with unified/raw)
+        const rawFinishReason = parsed.finishReason;
+        let finishReason: LanguageModelV3FinishReason;
+
+        if (
+          typeof rawFinishReason === "object" &&
+          rawFinishReason !== null &&
+          "unified" in rawFinishReason
+        ) {
+          // New format from updated runner
+          finishReason = rawFinishReason as LanguageModelV3FinishReason;
+        } else {
+          // Old format - map string to object
+          finishReason = this.mapFinishReason(rawFinishReason as string);
+        }
+
+        // Handle both old format (in messageMetadata) and new format (direct usage)
+        const rawUsage = parsed.usage ?? parsed.messageMetadata;
         const usage = this.convertUsage(
-          parsed.messageMetadata as Record<string, unknown> | undefined
+          rawUsage as Record<string, unknown> | undefined
         );
 
         parts.push({
@@ -647,28 +686,60 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
 
   /**
    * Convert usage from sandbox response to AI SDK format.
+   * Handles both old format (usage nested in metadata) and new format (direct usage object).
    */
   private convertUsage(
-    metadata: Record<string, unknown> | undefined
+    data: Record<string, unknown> | undefined
   ): LanguageModelV3Usage {
-    if (!metadata?.usage) {
+    if (!data) {
       return createEmptyUsage();
     }
 
-    const usage = metadata.usage as Record<string, number>;
+    // Check if this is the new format (direct usage with inputTokens/outputTokens)
+    if ("inputTokens" in data && "outputTokens" in data) {
+      const inputTokens = data.inputTokens as Record<string, number>;
+      const outputTokens = data.outputTokens as Record<string, number>;
 
-    return {
-      inputTokens: {
-        total: usage.input_tokens ?? 0,
-        noCache: usage.input_tokens ?? 0,
-        cacheRead: usage.cache_read_input_tokens ?? 0,
-        cacheWrite: usage.cache_creation_input_tokens ?? 0,
-      },
-      outputTokens: {
-        total: usage.output_tokens ?? 0,
-        text: undefined,
-        reasoning: undefined,
-      },
-    };
+      return {
+        inputTokens: {
+          total: inputTokens.total ?? 0,
+          noCache: inputTokens.noCache ?? 0,
+          cacheRead: inputTokens.cacheRead ?? 0,
+          cacheWrite: inputTokens.cacheWrite ?? 0,
+        },
+        outputTokens: {
+          total: outputTokens.total ?? 0,
+          text: undefined,
+          reasoning: undefined,
+        },
+      };
+    }
+
+    // Check if usage is nested (old format from messageMetadata)
+    const usage = (data.usage ?? data) as Record<string, number>;
+
+    // Handle Claude SDK format (input_tokens, output_tokens, etc.)
+    if ("input_tokens" in usage || "output_tokens" in usage) {
+      const inputTokens = (usage.input_tokens as number) ?? 0;
+      const outputTokens = (usage.output_tokens as number) ?? 0;
+      const cacheWrite = (usage.cache_creation_input_tokens as number) ?? 0;
+      const cacheRead = (usage.cache_read_input_tokens as number) ?? 0;
+
+      return {
+        inputTokens: {
+          total: inputTokens + cacheWrite + cacheRead,
+          noCache: inputTokens,
+          cacheRead,
+          cacheWrite,
+        },
+        outputTokens: {
+          total: outputTokens,
+          text: undefined,
+          reasoning: undefined,
+        },
+      };
+    }
+
+    return createEmptyUsage();
   }
 }
