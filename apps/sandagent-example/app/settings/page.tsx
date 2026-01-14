@@ -80,8 +80,7 @@ const ENV_CONFIGS: EnvConfig[] = [
   {
     name: "Sandbox Provider",
     key: "SANDBOX_PROVIDER",
-    description:
-      "Choose sandbox: 'e2b', 'sandock', or 'daytona'. Default: e2b",
+    description: "Choose sandbox: 'e2b', 'sandock', or 'daytona'. Default: e2b",
     required: false,
     category: "sandbox",
     placeholder: "e2b",
