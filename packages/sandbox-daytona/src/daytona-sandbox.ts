@@ -53,11 +53,6 @@ export interface DaytonaSandboxOptions {
 }
 
 /**
- * Label key to mark that a sandbox has been initialized
- */
-const INITIALIZED_LABEL = "sandagent-initialized";
-
-/**
  * Daytona-based sandbox implementation.
  *
  * This adapter supports sandbox reuse based on sandbox name.
@@ -87,8 +82,8 @@ export class DaytonaSandbox implements SandboxAdapter {
     this.volumeMountPath = options.volumeMountPath ?? "/sandagent";
     // Default auto-stop to 15 minutes
     this.autoStopInterval = options.autoStopInterval ?? 15;
-    // Default auto-delete to disabled (-1)
-    this.autoDeleteInterval = options.autoDeleteInterval ?? -1;
+    // Default auto-delete to disabled (-1),
+    this.autoDeleteInterval = options.autoDeleteInterval ?? 0;
     this.name = options.name;
   }
 
@@ -207,16 +202,8 @@ export class DaytonaSandbox implements SandboxAdapter {
           needsInit = true;
         }
 
-        // Check if sandbox was already initialized (using labels)
-        if (
-          !needsInit &&
-          existingSandbox.labels[INITIALIZED_LABEL] !== "true"
-        ) {
-          console.log(
-            `[Daytona] Sandbox exists but not initialized, will initialize`,
-          );
-          needsInit = true;
-        }
+        // If sandbox exists, it's already initialized (files are in volume)
+        // Only initialize if we're creating a new sandbox
       } catch (error) {
         // get() throws if not found, create new sandbox with the name
         console.log(
@@ -237,16 +224,9 @@ export class DaytonaSandbox implements SandboxAdapter {
     const handle = new DaytonaHandle(sandbox);
 
     // Initialize sandbox if needed (upload files, install dependencies)
+    // Files are stored in volume, so existing sandboxes don't need re-initialization
     if (needsInit) {
       await this.initializeSandbox(handle, id);
-
-      // Mark sandbox as initialized using labels (for named sandboxes)
-      if (this.name) {
-        await sandbox.setLabels({
-          ...sandbox.labels,
-          [INITIALIZED_LABEL]: "true",
-        });
-      }
     }
 
     return handle;
