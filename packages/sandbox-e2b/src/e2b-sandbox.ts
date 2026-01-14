@@ -35,8 +35,8 @@ export interface E2BSandboxOptions {
    * If not found, creates a new sandbox with this name stored in metadata.
    * If not provided, a new sandbox is always created.
    *
-   * The name is stored in metadata as "sandagentName" for querying.
-   * Template is also stored in metadata for differentiation.
+   * The name should be determined by the business layer and can include
+   * template/user/project information as needed for differentiation.
    */
   name?: string;
 }
@@ -83,10 +83,7 @@ export class E2BSandbox implements SandboxAdapter {
    * Find an existing sandbox by name (via metadata query)
    * Returns the sandbox ID if found, null otherwise
    */
-  private async findSandboxByName(
-    name: string,
-    template: string,
-  ): Promise<string | null> {
+  private async findSandboxByName(name: string): Promise<string | null> {
     try {
       // Use Sandbox.list() with metadata query
       const paginator = Sandbox.list({
@@ -94,7 +91,6 @@ export class E2BSandbox implements SandboxAdapter {
         query: {
           metadata: {
             sandagentName: name,
-            template: template,
           },
         },
       });
@@ -135,10 +131,7 @@ export class E2BSandbox implements SandboxAdapter {
     if (this.name) {
       console.log(`[E2B] Looking for existing sandbox with name: ${this.name}`);
 
-      const existingSandboxId = await this.findSandboxByName(
-        this.name,
-        this.template,
-      );
+      const existingSandboxId = await this.findSandboxByName(this.name);
 
       if (existingSandboxId) {
         // Connect to existing sandbox (will auto-resume if paused)
@@ -191,10 +184,9 @@ export class E2BSandbox implements SandboxAdapter {
   private async createNewSandbox(id: string): Promise<Sandbox> {
     const metadata: Record<string, string> = {
       sandagentId: id,
-      template: this.template,
     };
 
-    // Add name to metadata if provided
+    // Add name to metadata if provided (for sandbox reuse)
     if (this.name) {
       metadata.sandagentName = this.name;
     }

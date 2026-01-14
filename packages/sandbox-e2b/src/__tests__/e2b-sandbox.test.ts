@@ -122,19 +122,20 @@ describe("E2BSandbox Configuration", () => {
     }
   });
 
-  it("should use template and name together for differentiation", () => {
+  it("should use name for sandbox identification (business-defined)", () => {
+    // Name is determined by business layer and can include template info if needed
     const sandbox1 = new E2BSandbox({
-      name: "my-sandbox",
+      name: "project-base-user123",
       template: "base",
     });
     const sandbox2 = new E2BSandbox({
-      name: "my-sandbox",
+      name: "project-python-user123",
       template: "python",
     });
 
     expect(sandbox1).toBeInstanceOf(E2BSandbox);
     expect(sandbox2).toBeInstanceOf(E2BSandbox);
-    // These would create/connect to different sandboxes due to different templates
+    // Different names means different sandboxes
   });
 });
 
@@ -198,16 +199,16 @@ describe("E2BSandbox Metadata Usage", () => {
   it("should document metadata fields used for querying", () => {
     // The sandbox uses these metadata fields:
     // - sandagentId: The session/agent ID
-    // - sandagentName: The sandbox name for reuse (if provided)
-    // - template: The template name for differentiation
+    // - sandagentName: The sandbox name for reuse (if provided, business-defined)
 
     const sandbox = new E2BSandbox({
-      name: "test-sandbox",
+      name: "my-project-python-user123", // Name includes all info needed for identification
       template: "python",
     });
 
     expect(sandbox).toBeInstanceOf(E2BSandbox);
     // When creating, metadata will include:
-    // { sandagentId: "...", sandagentName: "test-sandbox", template: "python" }
+    // { sandagentId: "...", sandagentName: "my-project-python-user123" }
+    // The name is used for sandbox reuse, determined by business layer
   });
 });
