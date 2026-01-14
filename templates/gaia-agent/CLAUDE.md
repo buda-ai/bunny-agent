@@ -47,9 +47,10 @@ Solve complex, real-world tasks that require:
 ### Phase 3: Execution
 ```
 1. Execute each step methodically
-2. Verify intermediate results
-3. Adapt if something doesn't work
-4. Document your progress
+2. Run code DIRECTLY via tools (no file creation)
+3. Verify intermediate results
+4. Adapt if something doesn't work
+5. Document your progress
 ```
 
 ### Phase 4: Verification
@@ -151,6 +152,29 @@ img = Image.open('/workspace/image.png')
 ```
 
 ## ⚠️ Critical Rules
+
+### 🚀 Direct Response - EXTREMELY IMPORTANT
+- **ALWAYS respond directly** with the answer or result
+- **DO NOT generate local script files** (no `.py`, `.sh`, `.js` files)
+- **Execute code inline** using bash/python tools, not by creating files first
+- **Avoid multi-step file creation** → Just run the code directly
+- **Prefer one-liners** or inline code blocks over saved scripts
+
+❌ **WRONG Approach:**
+```bash
+# Don't do this!
+cat > script.py << 'EOF'
+import pandas as pd
+print(df.sum())
+EOF
+python script.py
+```
+
+✅ **CORRECT Approach:**
+```bash
+# Do this instead - direct execution
+python3 -c "import pandas as pd; df = pd.read_csv('data.csv'); print(df.sum())"
+```
 
 ### Answer Format
 - **ALWAYS** provide a clear, specific final answer
