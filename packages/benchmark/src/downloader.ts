@@ -10,7 +10,7 @@ import { join } from "node:path";
 import type { GaiaLevel, GaiaTask } from "./types.js";
 
 // Constants
-export const GAIA_CACHE_DIR = ".gaia-cache";
+const GAIA_CACHE_DIR = ".gaia-cache";
 
 /**
  * Custom MIME type mapping for files not recognized by mime-types library
@@ -219,6 +219,10 @@ export async function downloadGaiaDataset(
       `   Level distribution: L1=${level1}, L2=${level2}, L3=${level3}`,
     );
 
+    // Save to JSON for offline use in gaia cache directory
+    const outputPath = join(cache, `gaia-${dataset}-tasks.json`);
+    await saveTasksToJson(tasks, outputPath);
+
     return tasks;
   } catch (error) {
     console.error("❌ Failed to download dataset:", error);
@@ -271,6 +275,23 @@ export function loadTasksFromJson(inputPath: string): GaiaTask[] {
   const tasks = JSON.parse(content) as GaiaTask[];
 
   console.log(`✅ Loaded ${tasks.length} tasks from: ${inputPath}`);
+  return tasks;
+}
+
+/**
+ * Fetch GAIA tasks with optional filtering
+ */
+export async function fetchGaiaTasks(dataset: "validation" | "test") {
+  // Load tasks from .gaia-cache directory
+  const cacheDir = join(process.cwd(), GAIA_CACHE_DIR);
+  const tasksPath = join(cacheDir, `gaia-${dataset}-tasks.json`);
+
+  if (existsSync(tasksPath)) {
+    console.log(`📂 Loading cached tasks from: ${tasksPath}`);
+    return loadTasksFromJson(tasksPath);
+  }
+  console.log(`📥 Downloading ${dataset} dataset...`);
+  const tasks = await downloadGaiaDataset(dataset);
   return tasks;
 }
 

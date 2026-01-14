@@ -40,12 +40,7 @@ import {
   loadAllRunnerResults,
   saveComparisonReport,
 } from "./compare.js";
-import {
-  GAIA_CACHE_DIR,
-  downloadGaiaDataset,
-  loadTasksFromJson,
-  saveTasksToJson,
-} from "./downloader.js";
+import { downloadGaiaDataset, fetchGaiaTasks } from "./downloader.js";
 import { runBenchmark } from "./evaluator.js";
 import {
   createRunnerConfig,
@@ -122,14 +117,8 @@ async function handleDownload(args: {
 
   const tasks = await downloadGaiaDataset(args.dataset);
 
-  // Save to JSON for offline use in .gaia-cache directory
-  const cacheDir = join(process.cwd(), GAIA_CACHE_DIR);
-  const outputPath = join(cacheDir, `gaia-${args.dataset}-tasks.json`);
-  await saveTasksToJson(tasks, outputPath);
-
   console.log(`\n✅ Download complete!`);
   console.log(`   Tasks: ${tasks.length}`);
-  console.log(`   Saved: ${outputPath}`);
 }
 
 /**
@@ -174,19 +163,8 @@ async function handleRun(args: {
   console.log(`Resume:   ${args.resume}`);
   console.log("=".repeat(60));
 
-  // Load tasks from .gaia-cache directory
-  const cacheDir = join(process.cwd(), GAIA_CACHE_DIR);
-  const tasksPath = join(cacheDir, `gaia-${args.dataset}-tasks.json`);
-  let tasks;
-
-  if (existsSync(tasksPath)) {
-    console.log(`📂 Loading cached tasks from: ${tasksPath}`);
-    tasks = loadTasksFromJson(tasksPath);
-  } else {
-    console.log(`📥 Downloading ${args.dataset} dataset...`);
-    tasks = await downloadGaiaDataset(args.dataset);
-    await saveTasksToJson(tasks, tasksPath);
-  }
+  // Fetch GAIA tasks
+  const tasks = await fetchGaiaTasks(args.dataset);
 
   // Create runner config
   const runnerConfig = createRunnerConfig(args.runner);
