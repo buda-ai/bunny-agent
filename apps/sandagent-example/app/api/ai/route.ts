@@ -33,8 +33,6 @@ const TEMPLATES_PATH = path.join(MONOREPO_ROOT, "templates");
  *   E2B_API_KEY?: string,                // Client-provided E2B key
  *   SANDOCK_API_KEY?: string,            // Client-provided Sandock key
  *   SANDBOX_PROVIDER?: string,           // 'e2b', 'sandock', or 'daytona'
- *   DAYTONA_AUTO_STOP_INTERVAL?: number, // Daytona auto-stop interval in minutes (default: 15)
- *   DAYTONA_AUTO_DELETE_INTERVAL?: number, // Daytona auto-delete interval in minutes (default: -1, disabled)
  *   workspace?: { path?: string }
  * }
  *
@@ -54,8 +52,6 @@ export async function POST(request: Request) {
     E2B_API_KEY,
     SANDOCK_API_KEY,
     DAYTONA_API_KEY,
-    DAYTONA_AUTO_STOP_INTERVAL,
-    DAYTONA_AUTO_DELETE_INTERVAL,
     SANDBOX_PROVIDER = "e2b",
   } = body;
 
@@ -73,16 +69,6 @@ export async function POST(request: Request) {
   console.log("[API] Has SANDOCK_API_KEY:", !!SANDOCK_API_KEY);
   console.log("[API] Has DAYTONA_API_KEY:", !!DAYTONA_API_KEY);
   console.log("[API] SANDBOX_PROVIDER:", SANDBOX_PROVIDER);
-  if (SANDBOX_PROVIDER === "daytona") {
-    console.log(
-      "[API] DAYTONA_AUTO_STOP_INTERVAL:",
-      DAYTONA_AUTO_STOP_INTERVAL ?? "15 (default)",
-    );
-    console.log(
-      "[API] DAYTONA_AUTO_DELETE_INTERVAL:",
-      DAYTONA_AUTO_DELETE_INTERVAL ?? "-1 (disabled, default)",
-    );
-  }
 
   // Validate required fields
   if (!sessionId) {
@@ -204,10 +190,10 @@ export async function POST(request: Request) {
       volumeName: `sandagent-${template}`,
       // Reuse key enables sandbox reuse - same template = same sandbox
       reuseKey,
-      // Configurable auto-stop interval (default: 15 minutes)
-      autoStopInterval: DAYTONA_AUTO_STOP_INTERVAL ?? 15,
-      // Configurable auto-delete interval (default: -1, disabled)
-      autoDeleteInterval: DAYTONA_AUTO_DELETE_INTERVAL ?? -1,
+      // Auto-stop after 15 minutes of inactivity
+      autoStopInterval: 15,
+      // Disable auto-delete (sandbox persists until manually deleted)
+      autoDeleteInterval: -1,
     });
 
     console.log(`[API] Daytona sandbox configured with reuseKey: ${reuseKey}`);
