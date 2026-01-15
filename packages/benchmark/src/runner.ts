@@ -158,37 +158,6 @@ function detectApiError(output: string): string | undefined {
 }
 
 /**
- * Extract the final answer from agent output using the appropriate runner
- */
-function extractFinalAnswer(output: string, runner: AgentRunner): string {
-  const runnerHandler = getRunner(runner);
-
-  // Try the specific runner's extractor first
-  const answer = runnerHandler.extractAnswer(output);
-  if (answer !== null) {
-    return answer;
-  }
-
-  // Fallback: try all runners
-  for (const name of getRunnerNames()) {
-    if (name !== runner) {
-      const otherRunner = getRunner(name);
-      const otherAnswer = otherRunner.extractAnswer(output);
-      if (otherAnswer !== null) {
-        return otherAnswer;
-      }
-    }
-  }
-
-  // Ultimate fallback: return last non-empty line
-  const lines = output
-    .split("\n")
-    .map((l) => l.trim())
-    .filter((l) => l.length > 0);
-  return lines[lines.length - 1] ?? output.trim();
-}
-
-/**
  * Run a single benchmark task with a specific runner
  */
 export async function runTask(
@@ -225,7 +194,7 @@ export async function runTask(
       };
     }
 
-    const answer = extractFinalAnswer(rawOutput, config.runner);
+    const answer = runnerHandler.extractAnswer(rawOutput);
     const correct = result.exitCode === 0 && checkAnswer(answer, task.answer);
 
     return {
