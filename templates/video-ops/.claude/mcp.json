@@ -1,0 +1,32 @@
+{
+  "$schema": "https://modelcontextprotocol.io/schemas/mcp.json",
+  "description": "Video-Ops template MCP configuration - Complete video production toolkit",
+  "servers": {
+    "filesystem": {
+      "command": "mcp-server-filesystem",
+      "args": ["/workspace"],
+      "description": "File system access for video projects, scripts, and assets"
+    },
+    "heygen": {
+      "command": "npx",
+      "args": ["-y", "heygen-mcp"],
+      "env": {
+        "HEYGEN_API_KEY": "${HEYGEN_API_KEY}"
+      },
+      "description": "HeyGen AI avatar video generation - creates professional talking avatar videos from scripts. Requires HEYGEN_API_KEY environment variable. Get your API key at https://app.heygen.com/settings?nav=API"
+    },
+    "google-ai": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-google-ai"],
+      "env": {
+        "GOOGLE_API_KEY": "${GOOGLE_API_KEY}"
+      },
+      "description": "Google AI (Gemini + Veo) - Gemini for content analysis and segment recommendations, Veo for video generation. Requires GOOGLE_API_KEY environment variable. Get your API key at https://aistudio.google.com/app/apikey"
+    },
+    "gdrive": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-gdrive"],
+      "description": "Google Drive integration for uploading and organizing video files. Requires Google OAuth authentication. Manages video projects, shares links, and maintains organized folder structure."
+    }
+  }
+}
