@@ -14,6 +14,11 @@
  */
 
 import { spawn } from "node:child_process";
+import {
+  buildReflectionPrompt,
+  extractCommandFromOutput,
+  shouldTriggerReflection,
+} from "./reflection-helper.js";
 import { getRunner, getRunnerNames } from "./runners/index.js";
 import type {
   AgentRunner,
@@ -314,5 +319,131 @@ export function createRunnerConfig(
     args: runnerHandler.defaults.args,
     timeout: runnerHandler.defaults.timeout,
     ...overrides,
+  };
+}
+
+/**
+ * Run task with reflection loop
+ * Executes CLI runner multiple times with reflection prompts injected between iterations
+ */
+export async function runTaskWithReflection(
+  task: GaiaTask,
+  config: RunnerConfig,
+  options: {
+    verbose?: boolean;
+    maxReflections?: number;
+  } = {},
+): Promise<BenchmarkResult> {
+  const startTime = Date.now();
+  const maxReflections = options.maxReflections ?? 15;
+  const verbose = options.verbose ?? false;
+
+  let stepCount = 0;
+  let currentQuestion = task.question;
+  const commandHistory: string[] = [];
+  let lastResult: BenchmarkResult | null = null;
+
+  if (verbose) {
+    console.log(
+      `\n🤖 Starting reflection loop (max ${maxReflections} iterations)...`,
+    );
+  }
+
+  // Reflection loop
+  while (stepCount < maxReflections) {
+    stepCount++;
+
+    if (verbose) {
+      console.log(`\n--- Reflection Step ${stepCount}/${maxReflections} ---`);
+      if (stepCount > 1) {
+        console.log(
+          `Question with reflection: ${currentQuestion.substring(0, 100)}...`,
+        );
+      }
+    }
+
+    // Run task with current question
+    const modifiedTask = { ...task, question: currentQuestion };
+    const result = await runTask(modifiedTask, config);
+    lastResult = result;
+
+    // Track commands used (extract from output if possible)
+    if (result.rawOutput) {
+      const cmd = extractCommandFromOutput(result.rawOutput);
+      if (cmd) {
+        commandHistory.push(cmd);
+      }
+    }
+
+    // Check if we should trigger reflection
+    const shouldReflect = shouldTriggerReflection({
+      stepCount,
+      maxSteps: maxReflections,
+      lastCommand: commandHistory[commandHistory.length - 1],
+      commandHistory,
+      hasError: !!result.error,
+    });
+
+    if (verbose) {
+      console.log(`Answer: ${result.answer}`);
+      console.log(`Should reflect: ${shouldReflect}`);
+      console.log(`Commands used so far: ${commandHistory.join(", ")}`);
+    }
+
+    if (!shouldReflect) {
+      if (verbose) {
+        console.log(
+          "\n✅ Final answer detected or max reflections reached. Stopping reflection loop.",
+        );
+      }
+      break;
+    }
+
+    // Build reflection prompt for next iteration
+    const reflectionPrompt = buildReflectionPrompt({
+      stepNumber: stepCount,
+      totalSteps: maxReflections,
+      lastCommand: commandHistory[commandHistory.length - 1],
+      hasError: !!result.error,
+      isRepeating:
+        commandHistory.length >= 3 &&
+        commandHistory
+          .slice(-3)
+          .every((cmd) => cmd === commandHistory[commandHistory.length - 1]),
+    });
+
+    if (verbose) {
+      console.log(
+        `\n💭 Reflection prompt: ${reflectionPrompt.substring(0, 200)}...`,
+      );
+    }
+
+    // Update question for next iteration
+    currentQuestion = `${task.question}\n\n${reflectionPrompt}\n\nPrevious answer: ${result.answer}`;
+  }
+
+  if (verbose && stepCount >= maxReflections) {
+    console.log(
+      `\n⚠️ Reached maximum reflections (${maxReflections}). Using last answer.`,
+    );
+  }
+
+  // Return the last result with updated step count
+  if (lastResult) {
+    return {
+      ...lastResult,
+      durationMs: Date.now() - startTime,
+    };
+  }
+
+  // Fallback if no result
+  return {
+    taskId: task.id,
+    question: task.question,
+    level: task.level,
+    answer: "",
+    expectedAnswer: task.answer,
+    correct: false,
+    durationMs: Date.now() - startTime,
   };
 }
