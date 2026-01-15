@@ -104,6 +104,8 @@ interface ClaudeAgentSDKOptions {
   permissionMode?: string;
   // Required when using permissionMode: 'bypassPermissions'
   allowDangerouslySkipPermissions?: boolean;
+  // Include partial messages for streaming
+  includePartialMessages?: boolean;
 }
 
 interface ClaudeAgentSDKModule {
@@ -191,7 +193,7 @@ function createCanUseToolCallback(
               },
             };
           }
-        } catch (error) {
+        } catch {
           // File doesn't exist yet or can't be read, continue waiting
         }
 
@@ -255,6 +257,7 @@ function convertUsageToAISDK(usage?: ClaudeCodeUsage): {
     text?: number;
     reasoning?: number;
   };
+  raw?: ClaudeCodeUsage;
 } {
   if (!usage) {
     return {
@@ -278,6 +281,7 @@ function convertUsageToAISDK(usage?: ClaudeCodeUsage): {
     outputTokens: {
       total: outputTokens,
     },
+    raw: usage,
   };
 }
 
@@ -317,6 +321,82 @@ function mapFinishReason(
       // Unknown subtypes mapped to 'other'
       return { unified: "other", raw: subtype };
   }
+}
+
+/**
+ * Check if an error is an AbortError
+ */
+function isAbortError(err: unknown): boolean {
+  if (err && typeof err === "object") {
+    const e = err as { name?: unknown; code?: unknown };
+    if (typeof e.name === "string" && e.name === "AbortError") return true;
+    if (typeof e.code === "string" && e.code.toUpperCase() === "ABORT_ERR")
+      return true;
+  }
+  return false;
+}
+
+const MIN_TRUNCATION_LENGTH = 512;
+
+/**
+ * Detects if an error represents a truncated SDK JSON stream.
+ *
+ * The Claude Code SDK can truncate JSON responses mid-stream, producing a SyntaxError.
+ * This function distinguishes genuine truncation from normal JSON syntax errors.
+ */
+function isClaudeCodeTruncationError(
+  error: unknown,
+  bufferedText: string,
+): boolean {
+  const isSyntaxError =
+    error instanceof SyntaxError ||
+    (typeof (error as { name?: string })?.name === "string" &&
+      (error as { name: string }).name.toLowerCase() === "syntaxerror");
+
+  if (!isSyntaxError) {
+    return false;
+  }
+
+  if (!bufferedText) {
+    return false;
+  }
+
+  const rawMessage =
+    typeof (error as { message?: string })?.message === "string"
+      ? (error as { message: string }).message
+      : "";
+  const message = rawMessage.toLowerCase();
+
+  const truncationIndicators = [
+    "unexpected end of json input",
+    "unexpected end of input",
+    "unexpected end of string",
+    "unexpected eof",
+    "end of file",
+    "unterminated string",
+    "unterminated string constant",
+  ];
+
+  if (!truncationIndicators.some((indicator) => message.includes(indicator))) {
+    return false;
+  }
+
+  if (bufferedText.length < MIN_TRUNCATION_LENGTH) {
+    return false;
+  }
+
+  return true;
+}
+
+/**
+ * Tracks the streaming lifecycle state for a single tool invocation.
+ */
+interface ToolStreamState {
+  name: string;
+  lastSerializedInput?: string;
+  inputStarted: boolean;
+  inputClosed: boolean;
+  callEmitted: boolean;
 }
 
 // Module registry for optional dependencies
@@ -393,6 +473,10 @@ async function* runWithClaudeAgentSDK(
   let systemMessage: SDKSystemMessage | undefined;
   let messageId: string | undefined;
   let hasEmittedStart = false;
+  let accumulatedText = "";
+
+  // Tool state tracking for proper streaming lifecycle
+  const toolStates = new Map<string, ToolStreamState>();
 
   const sdkOptions: ClaudeAgentSDKOptions = {
     model: options.model,
@@ -407,6 +491,8 @@ async function* runWithClaudeAgentSDK(
     // Bypass all permission checks for automated execution
     permissionMode: "bypassPermissions",
     allowDangerouslySkipPermissions: true,
+    // Enable partial messages for streaming
+    includePartialMessages: true,
   };
 
   const queryIterator = sdk.query({
@@ -432,6 +518,35 @@ async function* runWithClaudeAgentSDK(
     }
   } else {
     console.error("[ClaudeRunner] No signal provided");
+  }
+
+  /**
+   * Helper to close tool input stream
+   */
+  function closeToolInput(
+    toolId: string,
+    state: ToolStreamState,
+    chunks: string[],
+  ): void {
+    if (!state.inputClosed && state.inputStarted) {
+      chunks.push(
+        formatDataStream({
+          type: "tool-input-end",
+          toolCallId: toolId,
+        }),
+      );
+      state.inputClosed = true;
+    }
+  }
+
+  /**
+   * Finalize all pending tool calls at end of stream
+   */
+  function finalizeToolCalls(chunks: string[]): void {
+    for (const [toolId, state] of toolStates) {
+      closeToolInput(toolId, state, chunks);
+    }
+    toolStates.clear();
   }
 
   try {
@@ -464,22 +579,77 @@ async function* runWithClaudeAgentSDK(
       }
 
       // Convert and output messages
-      const chunks = convertSDKMessageToAISDKUI(message);
+      const chunks = convertSDKMessageToAISDKUI(
+        message,
+        toolStates,
+        accumulatedText,
+      );
+
+      // Track accumulated text for truncation detection
+      if (message.type === "assistant") {
+        const assistantMsg = message as SDKAssistantMessage;
+        if (assistantMsg.message?.content) {
+          for (const block of assistantMsg.message.content) {
+            if (block.type === "text" && block.text) {
+              accumulatedText += block.text;
+            }
+          }
+        }
+      }
+
       for (const chunk of chunks) {
         yield chunk;
       }
     }
-  } catch (error) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Unknown error occurred";
-    console.error("[ClaudeRunner] Error:", errorMessage);
 
-    yield formatDataStream({ type: "error", errorText: errorMessage });
-    yield formatDataStream({
-      type: "finish",
-      finishReason: mapFinishReason("error_during_execution", true),
-      usage: convertUsageToAISDK(undefined),
-    });
+    // Finalize any pending tool calls
+    const finalChunks: string[] = [];
+    finalizeToolCalls(finalChunks);
+    for (const chunk of finalChunks) {
+      yield chunk;
+    }
+  } catch (error) {
+    // Check for truncation error
+    if (isClaudeCodeTruncationError(error, accumulatedText)) {
+      console.warn(
+        `[ClaudeRunner] Detected truncated stream response, returning ${accumulatedText.length} characters of buffered text`,
+      );
+
+      // Finalize tool calls
+      const finalChunks: string[] = [];
+      finalizeToolCalls(finalChunks);
+      for (const chunk of finalChunks) {
+        yield chunk;
+      }
+
+      yield formatDataStream({
+        type: "finish",
+        finishReason: { unified: "length", raw: "truncation" },
+        usage: convertUsageToAISDK(undefined),
+        messageMetadata: {
+          truncated: true,
+        },
+      });
+    } else if (isAbortError(error)) {
+      // Handle abort gracefully
+      console.log("[ClaudeRunner] Operation aborted by user");
+      const finalChunks: string[] = [];
+      finalizeToolCalls(finalChunks);
+      for (const chunk of finalChunks) {
+        yield chunk;
+      }
+    } else {
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error occurred";
+      console.error("[ClaudeRunner] Error:", errorMessage);
+
+      yield formatDataStream({ type: "error", errorText: errorMessage });
+      yield formatDataStream({
+        type: "finish",
+        finishReason: mapFinishReason("error_during_execution", true),
+        usage: convertUsageToAISDK(undefined),
+      });
+    }
   } finally {
     // Remove abort event listener
     if (signal) {
@@ -495,15 +665,21 @@ async function* runWithClaudeAgentSDK(
  * AI SDK UI Data Stream Protocol uses Server-Sent Events format:
  * - message-start: Beginning of a new message
  * - text-start/text-delta/text-end: Text content streaming
- * - tool-call-start/tool-call-delta/tool-call-end: Tool calls
+ * - tool-input-start/tool-input-delta/tool-input-end: Tool input streaming
+ * - tool-call: Tool call with complete input
  * - tool-result: Tool execution results
  * - error: Error messages
- * - finish-message: Message completion
+ * - finish: Message completion
  *
  * @see https://ai-sdk.dev/docs/ai-sdk-ui/stream-protocol
  */
-function convertSDKMessageToAISDKUI(message: SDKMessage): string[] {
+function convertSDKMessageToAISDKUI(
+  message: SDKMessage,
+  toolStates: Map<string, ToolStreamState>,
+  _accumulatedText: string,
+): string[] {
   const chunks: string[] = [];
+
   switch (message.type) {
     case "assistant": {
       // Assistant response - can contain text and tool_use content blocks
@@ -561,28 +737,75 @@ function convertSDKMessageToAISDKUI(message: SDKMessage): string[] {
               chunks.push(formatDataStream({ type: "text-end", id: textId }));
             } else if (block.type === "tool_use") {
               const toolCallId = block.id || generateId();
-              chunks.push(
-                formatDataStream({
-                  type: "tool-input-start",
-                  toolCallId,
-                  toolName: block.name,
-                  dynamic: true,
-                }),
-              );
-              if (block.input) {
+              const toolName = block.name || "unknown-tool";
+
+              // Get or create tool state
+              let state = toolStates.get(toolCallId);
+              if (!state) {
+                state = {
+                  name: toolName,
+                  inputStarted: false,
+                  inputClosed: false,
+                  callEmitted: false,
+                };
+                toolStates.set(toolCallId, state);
+              }
+
+              // Emit tool-input-start if not started
+              if (!state.inputStarted) {
+                chunks.push(
+                  formatDataStream({
+                    type: "tool-input-start",
+                    toolCallId,
+                    toolName,
+                    dynamic: true,
+                    providerExecuted: true,
+                  }),
+                );
+                state.inputStarted = true;
+              }
+
+              if (block.input && !state.callEmitted) {
+                // Serialize input
+                const serializedInput =
+                  typeof block.input === "string"
+                    ? block.input
+                    : JSON.stringify(block.input);
+
+                // Emit delta if input changed
+                if (serializedInput !== state.lastSerializedInput) {
+                  chunks.push(
+                    formatDataStream({
+                      type: "tool-input-delta",
+                      toolCallId,
+                      delta: serializedInput,
+                    }),
+                  );
+                  state.lastSerializedInput = serializedInput;
+                }
+
+                // Close input and emit tool-call
+                if (!state.inputClosed) {
+                  chunks.push(
+                    formatDataStream({
+                      type: "tool-input-end",
+                      toolCallId,
+                    }),
+                  );
+                  state.inputClosed = true;
+                }
+
                 // Emit tool-call with stringified input for AI SDK V3 compatibility
                 chunks.push(
                   formatDataStream({
                     type: "tool-call",
                     toolCallId,
-                    toolName: block.name,
-                    input:
-                      typeof block.input === "string"
-                        ? block.input
-                        : JSON.stringify(block.input),
+                    toolName,
+                    input: serializedInput,
                     providerExecuted: true,
                   }),
                 );
+                state.callEmitted = true;
               }
             }
           }
@@ -651,11 +874,13 @@ function convertSDKMessageToAISDKUI(message: SDKMessage): string[] {
         for (const tool of contentArray) {
           if (tool.type !== "tool_result") continue;
 
+          const toolCallId = tool.tool_use_id;
+
           if (tool.is_error) {
             chunks.push(
               formatDataStream({
                 type: "tool-result",
-                toolCallId: tool.tool_use_id,
+                toolCallId,
                 toolName: "",
                 result: tool.content ?? "Error executing tool",
                 isError: true,
@@ -672,7 +897,7 @@ function convertSDKMessageToAISDKUI(message: SDKMessage): string[] {
             chunks.push(
               formatDataStream({
                 type: "tool-result",
-                toolCallId: tool.tool_use_id,
+                toolCallId,
                 toolName: "",
                 result,
                 dynamic: true,
