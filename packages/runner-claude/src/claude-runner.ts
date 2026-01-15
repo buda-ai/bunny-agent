@@ -13,6 +13,7 @@
 
 import type {
   CanUseTool,
+  Options,
   PermissionUpdate,
   Query,
   SDKAssistantMessage,
@@ -82,34 +83,13 @@ export interface ClaudeRunner {
 }
 
 /**
- * Type definitions for Claude Agent SDK
- * Based on @anthropic-ai/claude-agent-sdk
+ * Claude Agent SDK Module interface
+ * Uses the SDK's Options type directly for better compatibility
  */
-enum SettingSource {
-  user = "user",
-  project = "project",
-}
-
-interface ClaudeAgentSDKOptions {
-  model?: string;
-  systemPrompt?: string;
-  maxTurns?: number;
-  allowedTools?: string[];
-  cwd?: string;
-  env?: Record<string, string>;
-  resume?: string;
-  settingSources?: SettingSource[];
-  canUseTool?: CanUseTool;
-  // Permission mode: 'default', 'acceptEdits', 'bypassPermissions', 'plan'
-  permissionMode?: string;
-  // Required when using permissionMode: 'bypassPermissions'
-  allowDangerouslySkipPermissions?: boolean;
-}
-
 interface ClaudeAgentSDKModule {
   query(params: {
     prompt: string | AsyncIterable<SDKUserMessage>;
-    options?: ClaudeAgentSDKOptions;
+    options?: Options;
   }): Query;
 }
 
