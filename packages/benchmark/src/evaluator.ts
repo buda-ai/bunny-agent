@@ -6,7 +6,6 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { shouldUpdateReadme, updateReadmeMatrix } from "./readme-updater.js";
 import { runTask, runTaskWithReflection } from "./runner.js";
 import type {
   AgentRunner,
