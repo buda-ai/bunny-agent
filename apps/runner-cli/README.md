@@ -1,0 +1,118 @@
+# @sandagent/runner-cli
+
+SandAgent Runner CLI - A command-line interface for running AI agents locally in your terminal.
+
+Like gemini-cli or claude-code, this tool runs locally and streams AI SDK UI messages directly to stdout.
+
+## Installation
+
+```bash
+pnpm add @sandagent/runner-cli
+```
+
+## Usage
+
+```bash
+sandagent run [options] -- "<user input>"
+```
+
+### Basic Examples
+
+```bash
+# Simple task
+sandagent run -- "Create a hello world script"
+
+# With custom system prompt
+sandagent run --system-prompt "You are a coding assistant" -- "Build a REST API with Express"
+```
+
+## Options
+
+| Option | Short | Description | Default |
+|--------|-------|-------------|---------|
+| `--model <model>` | `-m` | Model to use | `claude-sonnet-4-20250514` |
+| `--cwd <path>` | `-c` | Working directory | Current directory |
+| `--system-prompt <prompt>` | `-s` | Custom system prompt | - |
+| `--max-turns <n>` | `-t` | Maximum conversation turns | - |
+| `--allowed-tools <tools>` | `-a` | Comma-separated list of allowed tools | - |
+| `--resume <session-id>` | `-r` | Resume a previous session | - |
+| `--output-format <format>` | `-o` | Output format: `stream` or `json` | `stream` |
+| `--help` | `-h` | Show help message | - |
+
+## Output Formats
+
+### Stream Format (Default)
+
+Outputs Server-Sent Events (SSE) using the AI SDK UI Stream Protocol. Ideal for real-time UI streaming.
+
+```bash
+sandagent run -- "Calculate 2+2"
+```
+
+**Output:**
+```
+data: {"type":"start","messageId":"msg_123"}
+data: {"type":"text-delta","id":"text_1","delta":"The answer is 4."}
+data: [DONE]
+```
+
+### JSON Format
+
+Outputs a structured JSON object with complete message content and metadata. Ideal for API integration and automation.
+
+```bash
+sandagent run --output-format json -- "Calculate 2+2"
+# or
+sandagent run -o json -- "Calculate 2+2"
+```
+
+## Environment Variables
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `ANTHROPIC_API_KEY` | Anthropic API key | Yes |
+| `SANDAGENT_WORKSPACE` | Default workspace path | No |
+| `SANDAGENT_LOG_LEVEL` | Logging level (debug, info, warn, error) | No |
+
+## Advanced Examples
+
+### Specify Working Directory
+
+```bash
+sandagent run --cwd ./my-project -- "Fix the bug in main.ts"
+```
+
+### JSON Output for Automation
+
+```bash
+# Save result to file
+sandagent run -o json -- "Generate UUID" > result.json
+
+# Parse with jq
+sandagent run -o json -- "What is 2+2?" | jq '.content[0].text'
+```
+
+### Combined Options
+
+```bash
+sandagent run \
+  -o json \
+  -m claude-sonnet-4-20250514 \
+  --system-prompt "You are a helpful coding assistant" \
+  --max-turns 10 \
+  -- "Build a REST API"
+```
+
+## Architecture
+
+The CLI is designed to:
+1. Execute in a specific working directory
+2. Load settings from `.claude/settings.json` and `CLAUDE.md` in the project
+3. Stream AI SDK UI messages directly to stdout
+4. Support both SSE stream and JSON output formats
+
+## Related Documentation
+
+- [Claude Agent SDK](https://platform.claude.com/docs/agent-sdk/typescript)
+- [AI SDK UI Stream Protocol](https://ai-sdk.dev/docs/ai-sdk-ui/stream-protocol)
+

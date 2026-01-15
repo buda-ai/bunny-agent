@@ -13,6 +13,7 @@
 
 import type {
   CanUseTool,
+  Options,
   PermissionUpdate,
   Query,
   SDKAssistantMessage,
@@ -21,27 +22,17 @@ import type {
   SDKSystemMessage,
   SDKUserMessage,
 } from "@anthropic-ai/claude-agent-sdk";
+import type { BaseRunnerOptions } from "./types";
 
 /**
  * Options for creating a Claude runner
+ * Extends BaseRunnerOptions with internal runtime options
  */
-export interface ClaudeRunnerOptions {
-  /** Model to use (e.g., "claude-sonnet-4-20250514", "claude-3-5-sonnet-20241022") */
-  model: string;
-  /** Custom system prompt */
-  systemPrompt?: string;
-  /** Maximum conversation turns */
-  maxTurns?: number;
-  /** Allowed tools */
-  allowedTools?: string[];
+export interface ClaudeRunnerOptions extends BaseRunnerOptions {
   /** Working directory for the agent */
   cwd?: string;
   /** Environment variables to pass to the agent */
   env?: Record<string, string>;
-  /** Resume session ID for multi-turn conversation */
-  resume?: string;
-  /** Approval file directory for tool approval flow (e.g., "/sandagent/approvals") */
-  approvalDir?: string;
   /** AbortSignal for cancelling operations */
   signal?: AbortSignal;
 }
@@ -82,34 +73,13 @@ export interface ClaudeRunner {
 }
 
 /**
- * Type definitions for Claude Agent SDK
- * Based on @anthropic-ai/claude-agent-sdk
+ * Claude Agent SDK Module interface
+ * Uses the SDK's Options type directly for better compatibility
  */
-enum SettingSource {
-  user = "user",
-  project = "project",
-}
-
-interface ClaudeAgentSDKOptions {
-  model?: string;
-  systemPrompt?: string;
-  maxTurns?: number;
-  allowedTools?: string[];
-  cwd?: string;
-  env?: Record<string, string>;
-  resume?: string;
-  settingSources?: SettingSource[];
-  canUseTool?: CanUseTool;
-  // Permission mode: 'default', 'acceptEdits', 'bypassPermissions', 'plan'
-  permissionMode?: string;
-  // Required when using permissionMode: 'bypassPermissions'
-  allowDangerouslySkipPermissions?: boolean;
-}
-
 interface ClaudeAgentSDKModule {
   query(params: {
     prompt: string | AsyncIterable<SDKUserMessage>;
-    options?: ClaudeAgentSDKOptions;
+    options?: Options;
   }): Query;
 }
 
@@ -300,6 +270,7 @@ async function loadClaudeAgentSDK(): Promise<ClaudeAgentSDKModule | null> {
 
 /**
  * Run with real Claude Agent SDK
+ * Dispatches to different output format handlers based on options.outputFormat
  */
 async function* runWithClaudeAgentSDK(
   sdk: ClaudeAgentSDKModule,
@@ -307,11 +278,30 @@ async function* runWithClaudeAgentSDK(
   userInput: string | AsyncIterable<SDKUserMessage>,
   signal?: AbortSignal,
 ): AsyncIterable<string> {
-  const usage: AccumulatedUsage = { inputTokens: 0, outputTokens: 0 };
-  let systemMessage: SDKSystemMessage | undefined;
-  let messageId: string | undefined;
+  const outputFormat = options.outputFormat || "stream-json";
 
-  const sdkOptions: ClaudeAgentSDKOptions = {
+  switch (outputFormat) {
+    case "text":
+      yield* runWithTextOutput(sdk, options, userInput, signal);
+      break;
+    case "json":
+      yield* runWithJSONOutput(sdk, options, userInput, signal);
+      break;
+    case "stream-json":
+      yield* runWithStreamJSONOutput(sdk, options, userInput, signal);
+      break;
+    // case "stream":
+    default:
+      yield* runWithAISDKUIOutput(sdk, options, userInput, signal);
+      break;
+  }
+}
+
+/**
+ * Create SDK options for query
+ */
+function createSDKOptions(options: ClaudeRunnerOptions): Options {
+  return {
     model: options.model,
     systemPrompt: options.systemPrompt,
     maxTurns: options.maxTurns,
@@ -319,19 +309,21 @@ async function* runWithClaudeAgentSDK(
     cwd: options.cwd,
     env: options.env,
     resume: options.resume,
-    settingSources: [SettingSource.project, SettingSource.user],
+    settingSources: ["project", "user"],
     canUseTool: createCanUseToolCallback(options),
     // Bypass all permission checks for automated execution
     permissionMode: "bypassPermissions",
     allowDangerouslySkipPermissions: true,
   };
+}
 
-  const queryIterator = sdk.query({
-    prompt: userInput,
-    options: sdkOptions,
-  });
-
-  // Add abort event listener to call interrupt() on the query
+/**
+ * Setup abort handler for query iterator
+ */
+function setupAbortHandler(
+  queryIterator: Query,
+  signal?: AbortSignal,
+): () => void {
   const abortHandler = async () => {
     console.error(
       "[ClaudeRunner] Operation aborted, calling query.interrupt()",
@@ -343,13 +335,127 @@ async function* runWithClaudeAgentSDK(
     console.error("[ClaudeRunner] Signal provided, adding abort listener");
     signal.addEventListener("abort", abortHandler);
 
-    // Check if already aborted
     if (signal.aborted) {
       console.error("[ClaudeRunner] Signal already aborted!");
     }
   } else {
     console.error("[ClaudeRunner] No signal provided");
   }
+
+  return abortHandler;
+}
+
+/**
+ * Output format: "text"
+ * Only outputs the final result text (like Claude Code CLI --output-format text)
+ */
+async function* runWithTextOutput(
+  sdk: ClaudeAgentSDKModule,
+  options: ClaudeRunnerOptions,
+  userInput: string | AsyncIterable<SDKUserMessage>,
+  signal?: AbortSignal,
+): AsyncIterable<string> {
+  const sdkOptions = createSDKOptions(options);
+  const queryIterator = sdk.query({ prompt: userInput, options: sdkOptions });
+  const abortHandler = setupAbortHandler(queryIterator, signal);
+
+  try {
+    let resultText = "";
+    for await (const message of queryIterator) {
+      // Only capture the final result message
+      if (message.type === "result") {
+        const resultMsg = message as SDKResultMessage;
+        // result field only exists when subtype is 'success'
+        if (resultMsg.subtype === "success") {
+          resultText = resultMsg.result || "";
+        }
+      }
+    }
+    // Output plain text result
+    yield resultText;
+  } finally {
+    if (signal) {
+      signal.removeEventListener("abort", abortHandler);
+    }
+  }
+}
+
+/**
+ * Output format: "json"
+ * Only outputs the final result as a single JSON object (like Claude Code CLI --output-format json)
+ */
+async function* runWithJSONOutput(
+  sdk: ClaudeAgentSDKModule,
+  options: ClaudeRunnerOptions,
+  userInput: string | AsyncIterable<SDKUserMessage>,
+  signal?: AbortSignal,
+): AsyncIterable<string> {
+  const sdkOptions = createSDKOptions(options);
+  const queryIterator = sdk.query({ prompt: userInput, options: sdkOptions });
+  const abortHandler = setupAbortHandler(queryIterator, signal);
+
+  try {
+    let resultMessage: SDKMessage | null = null;
+    for await (const message of queryIterator) {
+      // Only capture the final result message
+      if (message.type === "result") {
+        resultMessage = message;
+      }
+    }
+    // Output single JSON result
+    if (resultMessage) {
+      yield JSON.stringify(resultMessage) + "\n";
+    }
+  } finally {
+    if (signal) {
+      signal.removeEventListener("abort", abortHandler);
+    }
+  }
+}
+
+/**
+ * Output format: "stream-json"
+ * Outputs each SDK message as a JSON object per line (like Claude Code CLI --output-format stream-json)
+ */
+async function* runWithStreamJSONOutput(
+  sdk: ClaudeAgentSDKModule,
+  options: ClaudeRunnerOptions,
+  userInput: string | AsyncIterable<SDKUserMessage>,
+  signal?: AbortSignal,
+): AsyncIterable<string> {
+  const sdkOptions = createSDKOptions(options);
+  const queryIterator = sdk.query({ prompt: userInput, options: sdkOptions });
+  const abortHandler = setupAbortHandler(queryIterator, signal);
+
+  try {
+    for await (const message of queryIterator) {
+      // Output each message as JSON line (NDJSON format)
+      yield JSON.stringify(message) + "\n";
+    }
+  } finally {
+    if (signal) {
+      signal.removeEventListener("abort", abortHandler);
+    }
+  }
+}
+
+/**
+ * Output format: "stream-ai-sdk-ui-message"
+ * Outputs SSE-based AI SDK UI Data Stream format
+ */
+async function* runWithAISDKUIOutput(
+  sdk: ClaudeAgentSDKModule,
+  options: ClaudeRunnerOptions,
+  userInput: string | AsyncIterable<SDKUserMessage>,
+  signal?: AbortSignal,
+): AsyncIterable<string> {
+  const usage: AccumulatedUsage = { inputTokens: 0, outputTokens: 0 };
+  let systemMessage: SDKSystemMessage | undefined;
+  let messageId: string | undefined;
+
+  const sdkOptions = createSDKOptions(options);
+  const queryIterator = sdk.query({ prompt: userInput, options: sdkOptions });
+  const abortHandler = setupAbortHandler(queryIterator, signal);
 
   try {
     for await (const message of queryIterator) {

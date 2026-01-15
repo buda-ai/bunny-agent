@@ -10,21 +10,22 @@
  *   sandagent run [options] -- "<user input>"
  *
  * The CLI is designed to be executed in a specific working directory
- * (e.g., a template directory) and outputs AI SDK UI messages directly.
+ * and outputs AI SDK UI messages directly.
  */
 
 import { parseArgs } from "node:util";
+import type { OutputFormat } from "@sandagent/runner-claude";
 import { runAgent } from "./runner.js";
 
 interface ParsedArgs {
   model: string;
   cwd: string;
-  template: string;
   systemPrompt?: string;
   maxTurns?: number;
   allowedTools?: string[];
   resume?: string;
   approvalDir?: string;
+  outputFormat?: OutputFormat;
   userInput: string;
 }
 
@@ -40,11 +41,6 @@ function parseCliArgs(): ParsedArgs {
         type: "string",
         short: "c",
         default: process.env.SANDAGENT_WORKSPACE ?? process.cwd(),
-      },
-      template: {
-        type: "string",
-        short: "T",
-        default: process.env.SANDAGENT_TEMPLATE ?? "default",
       },
       "system-prompt": {
         type: "string",
@@ -64,6 +60,10 @@ function parseCliArgs(): ParsedArgs {
       },
       "approval-dir": {
         type: "string",
+      },
+      "output-format": {
+        type: "string",
+        short: "o",
       },
       help: {
         type: "boolean",
@@ -102,10 +102,21 @@ function parseCliArgs(): ParsedArgs {
     process.exit(1);
   }
 
+  // Validate output-format
+  const outputFormat = values["output-format"] as OutputFormat | undefined;
+  if (
+    outputFormat &&
+    !["text", "json", "stream-json", "stream"].includes(outputFormat)
+  ) {
+    console.error(
+      'Error: --output-format must be one of: "text", "json", "stream-json", "stream"',
+    );
+    process.exit(1);
+  }
+
   return {
     model: values.model!,
     cwd: values.cwd!,
-    template: values.template!,
     systemPrompt: values["system-prompt"],
     maxTurns: values["max-turns"]
       ? Number.parseInt(values["max-turns"], 10)
@@ -113,6 +124,7 @@ function parseCliArgs(): ParsedArgs {
     allowedTools: values["allowed-tools"]?.split(",").map((t) => t.trim()),
     resume: values.resume,
     approvalDir: values["approval-dir"],
+    outputFormat: (outputFormat as OutputFormat) ?? "stream",
     userInput,
   };
 }
@@ -127,43 +139,28 @@ Streams AI SDK UI messages directly to stdout.
 Usage:
   sandagent run [options] -- "<user input>"
 
-  # Or run from a template directory:
-  cd templates/coder
-  sandagent run -- "Build a REST API"
-
 Options:
   -m, --model <model>          Model to use (default: claude-sonnet-4-20250514)
   -c, --cwd <path>             Working directory (default: current directory)
-  -T, --template <name>        Template to use (default: default)
-                               Available: default, coder, analyst, researcher
-  -s, --system-prompt <prompt> Custom system prompt (overrides template)
+  -s, --system-prompt <prompt> Custom system prompt
   -t, --max-turns <n>          Maximum conversation turns
   -a, --allowed-tools <tools>  Comma-separated list of allowed tools
   -r, --resume <session-id>    Resume a previous session
+  -o, --output-format <format> Output format (default: stream)
+                               Available: text, json(single result), stream-json(realtime streaming), stream(ai sdk ui sse format)
   -h, --help                   Show this help message
 
 Environment Variables:
   ANTHROPIC_API_KEY           Anthropic API key (required)
   SANDAGENT_WORKSPACE         Default workspace path
-  SANDAGENT_TEMPLATE          Default template to use
   SANDAGENT_LOG_LEVEL         Logging level (debug, info, warn, error)
 
-Templates:
-  default     General-purpose assistant
-  coder       Optimized for software development
-  analyst     Optimized for data analysis
-  researcher  Optimized for research tasks
-
 Examples:
-  # Run with default template
+  # Run with default settings
   sandagent run -- "Create a hello world script"
 
-  # Run from a template directory (recommended)
-  cd templates/coder
-  sandagent run -- "Build a REST API with Express"
-
-  # Use a specific template
-  sandagent run --template analyst -- "Analyze sales.csv"
+  # Run with custom system prompt
+  sandagent run --system-prompt "You are a coding assistant" -- "Build a REST API with Express"
 
   # Specify working directory
   sandagent run --cwd ./my-project -- "Fix the bug in main.ts"
@@ -179,13 +176,13 @@ async function main(): Promise<void> {
   // Run the agent and stream output to stdout
   await runAgent({
     model: args.model,
-    template: args.template,
     userInput: args.userInput,
     systemPrompt: args.systemPrompt,
     maxTurns: args.maxTurns,
     allowedTools: args.allowedTools,
     resume: args.resume,
     approvalDir: args.approvalDir,
+    outputFormat: args.outputFormat,
   });
 }
 
