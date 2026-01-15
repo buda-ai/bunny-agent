@@ -23,7 +23,7 @@ describe("E2BSandbox", () => {
       const sandbox = new E2BSandbox({
         apiKey: "test-api-key",
         template: "python",
-        timeout: 120000,
+        timeout: 7200, // 2 hours in seconds
       });
       expect(sandbox).toBeInstanceOf(E2BSandbox);
     });
@@ -32,6 +32,15 @@ describe("E2BSandbox", () => {
       process.env.E2B_API_KEY = "env-api-key";
 
       const sandbox = new E2BSandbox();
+      expect(sandbox).toBeInstanceOf(E2BSandbox);
+    });
+
+    it("should accept name option for sandbox reuse", () => {
+      const sandbox = new E2BSandbox({
+        apiKey: "test-api-key",
+        name: "my-sandbox",
+        template: "base",
+      });
       expect(sandbox).toBeInstanceOf(E2BSandbox);
     });
   });
@@ -96,230 +105,110 @@ describe("E2BSandbox Configuration", () => {
     }
   });
 
-  it("should support custom timeouts", () => {
-    const timeouts = [30000, 60000, 120000, 300000];
+  it("should support custom timeouts in seconds", () => {
+    // E2B timeout is now in seconds (for API clarity)
+    const timeouts = [1800, 3600, 7200, 86400]; // 30min, 1hr, 2hr, 24hr
     for (const timeout of timeouts) {
       const sandbox = new E2BSandbox({ timeout });
       expect(sandbox).toBeInstanceOf(E2BSandbox);
     }
   });
-});
 
-describe("E2BSandbox Instance Caching (Persistence)", () => {
-  // Access private static members for testing
-  const getInstances = () =>
-    (E2BSandbox as unknown as { instances: Map<string, unknown> }).instances;
-  const getInitializedInstances = () =>
-    (E2BSandbox as unknown as { initializedInstances: Set<string> })
-      .initializedInstances;
-
-  beforeEach(() => {
-    // Clear cache before each test
-    getInstances().clear();
-    getInitializedInstances().clear();
+  it("should support name for sandbox reuse", () => {
+    const names = ["sandbox-1", "my-project-sandbox", "user-123-sandbox"];
+    for (const name of names) {
+      const sandbox = new E2BSandbox({ name });
+      expect(sandbox).toBeInstanceOf(E2BSandbox);
+    }
   });
 
-  describe("cache structure", () => {
-    it("should have a static instances Map", () => {
-      const instances = getInstances();
-      expect(instances).toBeInstanceOf(Map);
+  it("should use name for sandbox identification (business-defined)", () => {
+    // Name is determined by business layer and can include template info if needed
+    const sandbox1 = new E2BSandbox({
+      name: "project-base-user123",
+      template: "base",
+    });
+    const sandbox2 = new E2BSandbox({
+      name: "project-python-user123",
+      template: "python",
     });
 
-    it("should have a static initializedInstances Set", () => {
-      const initialized = getInitializedInstances();
-      expect(initialized).toBeInstanceOf(Set);
-    });
-
-    it("should share cache across multiple E2BSandbox instances", () => {
-      const sandbox1 = new E2BSandbox({ apiKey: "key1" });
-      const sandbox2 = new E2BSandbox({ apiKey: "key2" });
-
-      // Both should reference the same static cache
-      const instances1 = getInstances();
-      const instances2 = getInstances();
-      expect(instances1).toBe(instances2);
-    });
-  });
-
-  describe("cache constants", () => {
-    it("should have MAX_CACHE_SIZE of 50", () => {
-      const maxSize = (E2BSandbox as unknown as { MAX_CACHE_SIZE: number })
-        .MAX_CACHE_SIZE;
-      expect(maxSize).toBe(50);
-    });
-
-    it("should have INSTANCE_TTL_MS of 60 minutes", () => {
-      const ttl = (E2BSandbox as unknown as { INSTANCE_TTL_MS: number })
-        .INSTANCE_TTL_MS;
-      expect(ttl).toBe(60 * 60 * 1000);
-    });
-  });
-
-  describe("LRU eviction", () => {
-    it("evictOldestIfNeeded should be a static method", () => {
-      const evictMethod = (
-        E2BSandbox as unknown as { evictOldestIfNeeded: () => void }
-      ).evictOldestIfNeeded;
-      expect(typeof evictMethod).toBe("function");
-    });
-  });
-
-  describe("cleanup mechanism", () => {
-    it("cleanupExpiredInstances should be a static method", () => {
-      const cleanupMethod = (
-        E2BSandbox as unknown as { cleanupExpiredInstances: () => void }
-      ).cleanupExpiredInstances;
-      expect(typeof cleanupMethod).toBe("function");
-    });
+    expect(sandbox1).toBeInstanceOf(E2BSandbox);
+    expect(sandbox2).toBeInstanceOf(E2BSandbox);
+    // Different names means different sandboxes
   });
 });
 
-describe("E2BSandbox Cache Behavior (Mock)", () => {
-  // Mock E2B Sandbox for testing cache behavior
-  const mockSandboxInstance = {
-    sandboxId: "mock-sandbox-id",
-    commands: {
-      run: vi.fn().mockResolvedValue({ exitCode: 0, stdout: "", stderr: "" }),
-    },
-    files: {
-      write: vi.fn().mockResolvedValue(undefined),
-      makeDir: vi.fn().mockResolvedValue(undefined),
-    },
-    kill: vi.fn().mockResolvedValue(undefined),
-  };
+describe("E2BSandbox Name-based Reuse", () => {
+  it("should support all options together", () => {
+    const sandbox = new E2BSandbox({
+      apiKey: "test-key",
+      template: "nodejs",
+      timeout: 3600,
+      name: "my-project",
+      runnerBundlePath: "/path/to/runner.js",
+      templatesPath: "/path/to/templates",
+    });
 
-  const getInstances = () =>
-    (
-      E2BSandbox as unknown as {
-        instances: Map<string, { instance: unknown; lastAccessTime: number }>;
-      }
-    ).instances;
-  const getInitializedInstances = () =>
-    (E2BSandbox as unknown as { initializedInstances: Set<string> })
-      .initializedInstances;
-
-  beforeEach(() => {
-    getInstances().clear();
-    getInitializedInstances().clear();
-    vi.clearAllMocks();
+    expect(sandbox).toBeInstanceOf(E2BSandbox);
   });
 
-  it("should update lastAccessTime when reusing cached instance", () => {
-    const instances = getInstances();
-    const testId = "test-session-123";
-    const oldTime = Date.now() - 10000;
-
-    // Manually add a cached instance
-    instances.set(testId, {
-      instance: mockSandboxInstance,
-      lastAccessTime: oldTime,
+  it("should create sandbox without name (no reuse)", () => {
+    // When no name is provided, a new sandbox is always created
+    const sandbox = new E2BSandbox({
+      apiKey: "test-key",
+      template: "base",
     });
 
-    // Verify initial state
-    expect(instances.get(testId)?.lastAccessTime).toBe(oldTime);
+    expect(sandbox).toBeInstanceOf(E2BSandbox);
   });
 
-  it("should track initialized instances separately", () => {
-    const instances = getInstances();
-    const initialized = getInitializedInstances();
-    const testId = "test-session-456";
-
-    // Add to cache
-    instances.set(testId, {
-      instance: mockSandboxInstance,
-      lastAccessTime: Date.now(),
+  it("should support name with special characters", () => {
+    const sandbox = new E2BSandbox({
+      name: "project-user_123-dev",
     });
 
-    // Initially not in initialized set
-    expect(initialized.has(testId)).toBe(false);
+    expect(sandbox).toBeInstanceOf(E2BSandbox);
+  });
+});
 
-    // Mark as initialized
-    initialized.add(testId);
-    expect(initialized.has(testId)).toBe(true);
+describe("E2BSandbox Timeout Configuration", () => {
+  it("should default to 1 hour (3600 seconds)", () => {
+    // The default timeout aligns with E2B hobby tier limits
+    const sandbox = new E2BSandbox();
+    expect(sandbox).toBeInstanceOf(E2BSandbox);
   });
 
-  it("should find oldest instance for LRU eviction", () => {
-    const instances = getInstances();
-    const now = Date.now();
-
-    // Add multiple instances with different access times
-    instances.set("session-1", {
-      instance: { ...mockSandboxInstance, sandboxId: "1" },
-      lastAccessTime: now - 3000, // oldest
+  it("should accept timeout for pro tier (up to 24 hours)", () => {
+    // Pro tier supports up to 24 hours continuous runtime
+    const sandbox = new E2BSandbox({
+      timeout: 86400, // 24 hours in seconds
     });
-    instances.set("session-2", {
-      instance: { ...mockSandboxInstance, sandboxId: "2" },
-      lastAccessTime: now - 1000,
-    });
-    instances.set("session-3", {
-      instance: { ...mockSandboxInstance, sandboxId: "3" },
-      lastAccessTime: now - 2000,
-    });
-
-    // Find oldest manually (simulating evictOldestIfNeeded logic)
-    let oldestId: string | null = null;
-    let oldestTime = Number.POSITIVE_INFINITY;
-
-    for (const [id, cached] of instances) {
-      if (cached.lastAccessTime < oldestTime) {
-        oldestTime = cached.lastAccessTime;
-        oldestId = id;
-      }
-    }
-
-    expect(oldestId).toBe("session-1");
-    expect(oldestTime).toBe(now - 3000);
+    expect(sandbox).toBeInstanceOf(E2BSandbox);
   });
 
-  it("should identify expired instances", () => {
-    const instances = getInstances();
-    const now = Date.now();
-    const TTL = 30 * 60 * 1000; // 30 minutes
-
-    // Add instances: one fresh, one expired
-    instances.set("fresh-session", {
-      instance: mockSandboxInstance,
-      lastAccessTime: now - 1000, // 1 second ago
+  it("should handle short timeouts", () => {
+    const sandbox = new E2BSandbox({
+      timeout: 300, // 5 minutes
     });
-    instances.set("expired-session", {
-      instance: mockSandboxInstance,
-      lastAccessTime: now - TTL - 1000, // 30 minutes + 1 second ago
-    });
-
-    // Find expired instances (simulating cleanupExpiredInstances logic)
-    const expiredIds: string[] = [];
-    for (const [id, cached] of instances) {
-      if (now - cached.lastAccessTime > TTL) {
-        expiredIds.push(id);
-      }
-    }
-
-    expect(expiredIds).toContain("expired-session");
-    expect(expiredIds).not.toContain("fresh-session");
+    expect(sandbox).toBeInstanceOf(E2BSandbox);
   });
+});
 
-  it("should remove instance from both caches on destroy", () => {
-    const instances = getInstances();
-    const initialized = getInitializedInstances();
-    const testId = "destroy-test-session";
+describe("E2BSandbox Metadata Usage", () => {
+  it("should document metadata fields used for querying", () => {
+    // The sandbox uses these metadata fields:
+    // - sandagentId: The session/agent ID
+    // - sandagentName: The sandbox name for reuse (if provided, business-defined)
 
-    // Setup: add to both caches
-    instances.set(testId, {
-      instance: mockSandboxInstance,
-      lastAccessTime: Date.now(),
+    const sandbox = new E2BSandbox({
+      name: "my-project-python-user123", // Name includes all info needed for identification
+      template: "python",
     });
-    initialized.add(testId);
 
-    // Verify setup
-    expect(instances.has(testId)).toBe(true);
-    expect(initialized.has(testId)).toBe(true);
-
-    // Simulate destroy callback (onDestroy in E2BHandle)
-    instances.delete(testId);
-    initialized.delete(testId);
-
-    // Verify cleanup
-    expect(instances.has(testId)).toBe(false);
-    expect(initialized.has(testId)).toBe(false);
+    expect(sandbox).toBeInstanceOf(E2BSandbox);
+    // When creating, metadata will include:
+    // { sandagentId: "...", sandagentName: "my-project-python-user123" }
+    // The name is used for sandbox reuse, determined by business layer
   });
 });

@@ -188,6 +188,7 @@ export function AskUserQuestionUI({
         toolCallId: part.toolCallId,
         questions,
         answers: answersMap,
+        template: config.template || "default",
         E2B_API_KEY: config.E2B_API_KEY,
         SANDOCK_API_KEY: config.SANDOCK_API_KEY,
         SANDBOX_PROVIDER: config.SANDBOX_PROVIDER || "e2b",

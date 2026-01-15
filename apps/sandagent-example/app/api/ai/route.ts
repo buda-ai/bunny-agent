@@ -32,7 +32,7 @@ const TEMPLATES_PATH = path.join(MONOREPO_ROOT, "templates");
  *   AWS_BEARER_TOKEN_BEDROCK?: string,   // Client-provided AWS Bedrock token (optional)
  *   E2B_API_KEY?: string,                // Client-provided E2B key
  *   SANDOCK_API_KEY?: string,            // Client-provided Sandock key
- *   SANDBOX_PROVIDER?: string,           // 'e2b' or 'sandock'
+ *   SANDBOX_PROVIDER?: string,           // 'e2b', 'sandock', or 'daytona'
  *   workspace?: { path?: string }
  * }
  *
@@ -177,14 +177,26 @@ export async function POST(request: Request) {
 
   // Create sandbox based on provider
   let sandbox;
+  const sandboxName = `sandagent-${template}`;
 
   if (SANDBOX_PROVIDER === "daytona") {
+    // For Daytona, use template as sandbox name to enable sandbox reuse
+    // Sandboxes with the same name will be reused instead of creating new ones
+
     sandbox = new DaytonaSandbox({
       apiKey: DAYTONA_API_KEY,
       runnerBundlePath: RUNNER_BUNDLE_PATH,
       templatesPath: path.join(TEMPLATES_PATH, template),
-      volumeName: `sandagent-${template}`,
+      volumeName: sandboxName,
+      // Name enables sandbox reuse - same name = same sandbox
+      name: sandboxName,
+      // Auto-stop after 15 minutes of inactivity
+      autoStopInterval: 15,
+      // Disable auto-delete (sandbox persists until manually deleted)
+      autoDeleteInterval: -1,
     });
+
+    console.log(`[API] Daytona sandbox configured with name: ${sandboxName}`);
   } else if (SANDBOX_PROVIDER === "sandock") {
     sandbox = new SandockSandbox({
       apiKey: SANDOCK_API_KEY,
@@ -196,6 +208,7 @@ export async function POST(request: Request) {
       apiKey: E2B_API_KEY,
       runnerBundlePath: RUNNER_BUNDLE_PATH,
       templatesPath: path.join(TEMPLATES_PATH, template),
+      name: sandboxName,
     });
   }
 
