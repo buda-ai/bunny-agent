@@ -27,6 +27,8 @@ export interface SandockSandboxOptions {
   keep?: boolean;
   /** Timeout for sandbox operations in milliseconds (default: 300000 = 5 min) */
   timeout?: number;
+  /** Path to runner bundle.js (required for running sandagent) */
+  runnerBundlePath?: string;
   /** Path to template directory to upload */
   templatesPath?: string;
 
@@ -66,6 +68,7 @@ export class SandockSandbox implements SandboxAdapter {
   private readonly cpuShares?: number;
   private readonly keep: boolean;
   private readonly timeout: number;
+  private readonly runnerBundlePath?: string;
   private readonly templatesPath?: string;
   private readonly env: Record<string, string>;
   private readonly agentTemplate: string;
@@ -102,6 +105,7 @@ export class SandockSandbox implements SandboxAdapter {
     this.cpuShares = options.cpuShares;
     this.keep = options.keep ?? true;
     this.timeout = options.timeout ?? 300000;
+    this.runnerBundlePath = options.runnerBundlePath;
     this.templatesPath = options.templatesPath;
     this.env = options.env ?? {};
     this.agentTemplate = options.agentTemplate ?? "default";
@@ -282,17 +286,33 @@ export class SandockSandbox implements SandboxAdapter {
     handle: SandockHandle,
     id: string,
   ): Promise<void> {
-    // Install @sandagent/runner-cli and claude-agent-sdk globally
-    console.log(
-      `[Sandock] Installing @sandagent/runner-cli and @anthropic-ai/claude-agent-sdk in sandbox ${id}`,
-    );
-    const installResult = await handle.runCommand(
-      "npm install -g @sandagent/runner-cli @anthropic-ai/claude-agent-sdk",
-    );
-    if (installResult.exitCode !== 0) {
-      console.error(
-        `[Sandock] Failed to install packages: ${installResult.stderr}`,
+    // Upload runner bundle to /sandagent (fixed location for node to find it)
+    if (this.runnerBundlePath && fs.existsSync(this.runnerBundlePath)) {
+      const bundleContent = fs.readFileSync(this.runnerBundlePath);
+      const bundleFileName = path.basename(this.runnerBundlePath);
+      const runnerFiles = [
+        {
+          path: `runner/${bundleFileName}`,
+          content: bundleContent,
+        },
+      ];
+      console.log(
+        `[Sandock] Uploading runner bundle (${bundleFileName}) to /sandagent in sandbox ${id}`,
       );
+      await handle.upload(runnerFiles, "/sandagent");
+
+      // Install claude-agent-sdk in sandbox
+      console.log(
+        `[Sandock] Installing @anthropic-ai/claude-agent-sdk in sandbox ${id}`,
+      );
+      const installResult = await handle.runCommand(
+        "npm install --prefix /sandagent @anthropic-ai/claude-agent-sdk",
+      );
+      if (installResult.exitCode !== 0) {
+        console.error(
+          `[Sandock] Failed to install claude-agent-sdk: ${installResult.stderr}`,
+        );
+      }
     }
 
     // Upload template to workdir (where runner will execute)

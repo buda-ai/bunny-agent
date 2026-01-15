@@ -22,6 +22,8 @@ export interface DaytonaSandboxOptions {
   apiUrl?: string;
   /** Timeout in seconds (0 means no timeout, default is 60) */
   timeout?: number;
+  /** Path to runner bundle.js (required for running sandagent) */
+  runnerBundlePath?: string;
   /** Path to template directory to upload */
   templatesPath?: string;
   /** Volume name for persistence (will be created if not exists) */
@@ -83,6 +85,7 @@ export class DaytonaSandbox implements SandboxAdapter {
   private readonly apiKey?: string;
   private readonly apiUrl?: string;
   private readonly timeout: number;
+  private readonly runnerBundlePath?: string;
   private readonly templatesPath?: string;
   private readonly volumeName?: string;
   private readonly volumeMountPath: string;
@@ -97,6 +100,7 @@ export class DaytonaSandbox implements SandboxAdapter {
     this.apiKey = options.apiKey ?? process.env.DAYTONA_API_KEY;
     this.apiUrl = options.apiUrl ?? process.env.DAYTONA_API_URL;
     this.timeout = options.timeout ?? 0;
+    this.runnerBundlePath = options.runnerBundlePath;
     this.templatesPath = options.templatesPath;
     this.volumeName = options.volumeName;
     this.volumeMountPath = options.volumeMountPath ?? "/sandagent";
@@ -307,17 +311,32 @@ export class DaytonaSandbox implements SandboxAdapter {
     handle: DaytonaHandle,
     id: string,
   ): Promise<void> {
-    // Install @sandagent/runner-cli and claude-agent-sdk globally
-    console.log(
-      `[Daytona] Installing @sandagent/runner-cli and @anthropic-ai/claude-agent-sdk in sandbox ${id}`,
-    );
-    const installResult = await handle.runCommand(
-      "npm install -g @sandagent/runner-cli @anthropic-ai/claude-agent-sdk",
-    );
-    if (installResult.exitCode !== 0) {
-      console.error(
-        `[Daytona] Failed to install packages: ${installResult.stderr}`,
+    // Upload runner bundle to /sandagent (fixed location for node to find it)
+    if (this.runnerBundlePath && fs.existsSync(this.runnerBundlePath)) {
+      const bundleContent = fs.readFileSync(this.runnerBundlePath);
+      const bundleFileName = path.basename(this.runnerBundlePath);
+      const runnerFiles = [
+        {
+          path: `runner/${bundleFileName}`,
+          content: bundleContent,
+        },
+      ];
+      console.log(
+        `[Daytona] Uploading runner bundle (${bundleFileName}) to /sandagent in sandbox ${id}`,
       );
+      await handle.upload(runnerFiles, "/sandagent");
+
+      console.log(
+        `[Daytona] Installing @anthropic-ai/claude-agent-sdk in sandbox ${id}`,
+      );
+      const installResult = await handle.runCommand(
+        "npm install --prefix /sandagent @anthropic-ai/claude-agent-sdk",
+      );
+      if (installResult.exitCode !== 0) {
+        console.error(
+          `[Daytona] Failed to install claude-agent-sdk: ${installResult.stderr}`,
+        );
+      }
     }
 
     // Upload template to workdir (where runner will execute)

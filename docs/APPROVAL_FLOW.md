@@ -279,6 +279,7 @@ export async function POST(request: Request) {
     // 1. Attach 到 Sandbox 实例（不需要 templatesPath）
     const sandbox = new E2BSandbox({
       apiKey: E2B_API_KEY,
+      runnerBundlePath: RUNNER_BUNDLE_PATH,
     });
     const handle = await sandbox.attach(sessionId);
 

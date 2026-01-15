@@ -146,6 +146,7 @@ describe("E2BSandbox Name-based Reuse", () => {
       template: "nodejs",
       timeout: 3600,
       name: "my-project",
+      runnerBundlePath: "/path/to/runner.js",
       templatesPath: "/path/to/templates",
     });
 
