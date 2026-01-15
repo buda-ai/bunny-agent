@@ -4,4 +4,4 @@ export {
   type ClaudeRunner,
   type ClaudeRunnerOptions,
 } from "./claude-runner.js";
-export type { BaseRunnerOptions } from "./types.js";
+export type { BaseRunnerOptions, OutputFormat } from "./types.js";

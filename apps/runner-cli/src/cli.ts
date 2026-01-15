@@ -14,6 +14,7 @@
  */
 
 import { parseArgs } from "node:util";
+import type { OutputFormat } from "@sandagent/runner-claude";
 import { runAgent } from "./runner.js";
 
 interface ParsedArgs {
@@ -25,6 +26,7 @@ interface ParsedArgs {
   allowedTools?: string[];
   resume?: string;
   approvalDir?: string;
+  outputFormat?: OutputFormat;
   userInput: string;
 }
 
@@ -65,6 +67,10 @@ function parseCliArgs(): ParsedArgs {
       "approval-dir": {
         type: "string",
       },
+      "output-format": {
+        type: "string",
+        short: "o",
+      },
       help: {
         type: "boolean",
         short: "h",
@@ -102,6 +108,18 @@ function parseCliArgs(): ParsedArgs {
     process.exit(1);
   }
 
+  // Validate output-format
+  const outputFormat = values["output-format"] as OutputFormat | undefined;
+  if (
+    outputFormat &&
+    !["text", "json", "stream-json", "stream"].includes(outputFormat)
+  ) {
+    console.error(
+      'Error: --output-format must be one of: "text", "json", "stream-json", "stream"',
+    );
+    process.exit(1);
+  }
+
   return {
     model: values.model!,
     cwd: values.cwd!,
@@ -113,6 +131,7 @@ function parseCliArgs(): ParsedArgs {
     allowedTools: values["allowed-tools"]?.split(",").map((t) => t.trim()),
     resume: values.resume,
     approvalDir: values["approval-dir"],
+    outputFormat: (outputFormat as OutputFormat) ?? "stream",
     userInput,
   };
 }
@@ -140,6 +159,8 @@ Options:
   -t, --max-turns <n>          Maximum conversation turns
   -a, --allowed-tools <tools>  Comma-separated list of allowed tools
   -r, --resume <session-id>    Resume a previous session
+  -o, --output-format <format> Output format(default: stream)
+                               Available: text, json(single result), stream-json(realtime streaming), stream(ai sdk ui sse format)
   -h, --help                   Show this help message
 
 Environment Variables:
@@ -186,6 +207,7 @@ async function main(): Promise<void> {
     allowedTools: args.allowedTools,
     resume: args.resume,
     approvalDir: args.approvalDir,
+    outputFormat: args.outputFormat,
   });
 }
 

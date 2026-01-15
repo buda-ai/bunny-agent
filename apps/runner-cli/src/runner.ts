@@ -52,6 +52,7 @@ export async function runAgent(options: RunAgentOptions): Promise<void> {
       allowedTools: options.allowedTools,
       resume: options.resume,
       approvalDir: options.approvalDir,
+      outputFormat: options.outputFormat,
     };
 
     const runner = createClaudeRunner(runnerOptions);
