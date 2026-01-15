@@ -114,6 +114,14 @@ export interface BenchmarkConfig {
 }
 
 /**
+ * CLI arguments for run command
+ */
+export interface RunCommandArgs extends BenchmarkConfig {
+  /** Agent runner to use */
+  runner: AgentRunner;
+}
+
+/**
  * Configuration for a specific agent runner
  */
 export interface RunnerConfig {
