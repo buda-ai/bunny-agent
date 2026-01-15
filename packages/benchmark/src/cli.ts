@@ -40,7 +40,7 @@ import {
   loadAllRunnerResults,
   saveComparisonReport,
 } from "./compare.js";
-import { downloadGaiaDataset, fetchGaiaTasks } from "./downloader.js";
+import { downloadGaiaDataset } from "./downloader.js";
 import { runBenchmark } from "./evaluator.js";
 import {
   createRunnerConfig,
@@ -154,9 +154,6 @@ async function handleRun(args: RunCommandArgs): Promise<void> {
   console.log(`Resume:   ${args.resume ?? false}`);
   console.log("=".repeat(60));
 
-  // Fetch GAIA tasks
-  const tasks = await fetchGaiaTasks(args.dataset);
-
   // Create runner config
   const runnerConfig = createRunnerConfig(args.runner);
 
@@ -166,7 +163,7 @@ async function handleRun(args: RunCommandArgs): Promise<void> {
   }
 
   // Run benchmark (args already matches BenchmarkConfig structure)
-  await runBenchmark(tasks, runnerConfig, args);
+  await runBenchmark(runnerConfig, args);
 
   console.log("✅ Benchmark complete!");
 }

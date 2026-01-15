@@ -6,6 +6,7 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { fetchGaiaTasks } from "./downloader.js";
 import { runTask, runTaskWithReflection } from "./runner.js";
 import type {
   AgentRunner,
@@ -280,12 +281,13 @@ export function displaySummary(
  * Run benchmark with a specific runner
  */
 export async function runBenchmark(
-  tasks: GaiaTask[],
   runnerConfig: RunnerConfig,
   config: BenchmarkConfig,
 ): Promise<BenchmarkResult[]> {
   const runner = runnerConfig.runner;
 
+  // Fetch ALl GAIA tasks
+  const tasks = await fetchGaiaTasks(config.dataset);
   // Filter tasks
   let filteredTasks = filterTasks(tasks, config);
 
