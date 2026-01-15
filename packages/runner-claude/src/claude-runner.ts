@@ -291,7 +291,7 @@ async function* runWithClaudeAgentSDK(
   let systemMessage: SDKSystemMessage | undefined;
   let messageId: string | undefined;
 
-  const sdkOptions: ClaudeAgentSDKOptions = {
+  const sdkOptions: Options = {
     model: options.model,
     systemPrompt: options.systemPrompt,
     maxTurns: options.maxTurns,
@@ -299,7 +299,7 @@ async function* runWithClaudeAgentSDK(
     cwd: options.cwd,
     env: options.env,
     resume: options.resume,
-    settingSources: [SettingSource.project, SettingSource.user],
+    settingSources: ["project", "user"],
     canUseTool: createCanUseToolCallback(options),
     // Bypass all permission checks for automated execution
     permissionMode: "bypassPermissions",
