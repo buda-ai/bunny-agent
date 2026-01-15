@@ -50,6 +50,23 @@ export interface SandboxAdapter {
    * @returns A handle to the sandbox
    */
   attach(id: string): Promise<SandboxHandle>;
+
+  /**
+   * Get the environment variables configured for this sandbox.
+   * These will be passed to all commands executed in the sandbox.
+   */
+  getEnv?(): Record<string, string>;
+
+  /**
+   * Get the agent template configured for this sandbox.
+   * (e.g., "default", "coder", "analyst", "researcher")
+   */
+  getAgentTemplate?(): string;
+
+  /**
+   * Get the working directory configured for this sandbox.
+   */
+  getWorkdir?(): string;
 }
 
 /**

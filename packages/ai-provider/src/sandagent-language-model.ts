@@ -259,20 +259,28 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
       `[sandagent] Starting stream with ${messages.length} messages`,
     );
 
+    // Get sandbox-level settings (if available)
+    const sandbox = this.settings.sandbox;
+    const sandboxEnv = sandbox.getEnv?.() ?? {};
+    const sandboxTemplate = sandbox.getAgentTemplate?.() ?? "default";
+    const sandboxWorkdir = sandbox.getWorkdir?.() ?? "/workspace";
+
     // Create SandAgent instance
+    // Settings priority: settings > sandbox > defaults
     const agent = new SandAgent({
       id: this.sessionId ?? `sandagent-${generateId()}`,
-      sandbox: this.settings.sandbox,
+      sandbox,
       runner: {
         kind: "claude-agent-sdk",
         model: this.modelId,
-        template: this.settings.template ?? "default",
+        template: this.settings.template ?? sandboxTemplate,
         systemPrompt: this.settings.systemPrompt,
         maxTurns: this.settings.maxTurns,
         allowedTools: this.settings.allowedTools,
         approvalDir: this.settings.approvalDir,
       },
-      env: this.settings.env,
+      // Merge sandbox env with settings env (settings takes precedence)
+      env: { ...sandboxEnv, ...this.settings.env },
     });
 
     try {
@@ -280,7 +288,7 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
       const response = await agent.stream({
         messages,
         workspace: {
-          path: this.settings.cwd ?? "/workspace",
+          path: this.settings.cwd ?? sandboxWorkdir,
         },
         resume: this.settings.resume ?? this.sessionId,
         signal: abortSignal,

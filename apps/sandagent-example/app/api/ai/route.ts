@@ -1,5 +1,5 @@
 import path from "node:path";
-import { SandAgent } from "@sandagent/core";
+import { createSandAgent } from "@sandagent/ai-provider";
 import { DaytonaSandbox } from "@sandagent/sandbox-daytona";
 import { E2BSandbox } from "@sandagent/sandbox-e2b";
 import { SandockSandbox } from "@sandagent/sandbox-sandock";
@@ -7,6 +7,7 @@ import {
   type UIMessage,
   isToolUIPart,
   lastAssistantMessageIsCompleteWithToolCalls,
+  streamText,
 } from "ai";
 
 // Resolve paths relative to the monorepo root
@@ -175,33 +176,44 @@ export async function POST(request: Request) {
 
   const normalizedMessages = [normalizedMessage];
 
+  // Build env object, filtering out undefined values
+  const env: Record<string, string> = {};
+  if (ANTHROPIC_API_KEY) env.ANTHROPIC_API_KEY = ANTHROPIC_API_KEY;
+  if (ANTHROPIC_BASE_URL) env.ANTHROPIC_BASE_URL = ANTHROPIC_BASE_URL;
+  if (AWS_BEARER_TOKEN_BEDROCK) {
+    env.AWS_BEARER_TOKEN_BEDROCK = AWS_BEARER_TOKEN_BEDROCK;
+    env.CLAUDE_CODE_USE_BEDROCK = "1";
+  }
+
   // Create sandbox based on provider
+  // env, agentTemplate, and workdir are now part of sandbox config
   let sandbox;
   const sandboxName = `sandagent-${template}`;
 
   if (SANDBOX_PROVIDER === "daytona") {
-    // For Daytona, use template as sandbox name to enable sandbox reuse
-    // Sandboxes with the same name will be reused instead of creating new ones
-
     sandbox = new DaytonaSandbox({
       apiKey: DAYTONA_API_KEY,
       runnerBundlePath: RUNNER_BUNDLE_PATH,
       templatesPath: path.join(TEMPLATES_PATH, template),
       volumeName: sandboxName,
-      // Name enables sandbox reuse - same name = same sandbox
       name: sandboxName,
-      // Auto-stop after 15 minutes of inactivity
       autoStopInterval: 15,
-      // Disable auto-delete (sandbox persists until manually deleted)
       autoDeleteInterval: -1,
+      // Sandbox-level config
+      env,
+      agentTemplate: template,
+      workdir: "/workspace",
     });
-
     console.log(`[API] Daytona sandbox configured with name: ${sandboxName}`);
   } else if (SANDBOX_PROVIDER === "sandock") {
     sandbox = new SandockSandbox({
       apiKey: SANDOCK_API_KEY,
       runnerBundlePath: RUNNER_BUNDLE_PATH,
       templatesPath: path.join(TEMPLATES_PATH, template),
+      // Sandbox-level config
+      env,
+      agentTemplate: template,
+      workdir: "/workspace",
     });
   } else {
     sandbox = new E2BSandbox({
@@ -209,6 +221,10 @@ export async function POST(request: Request) {
       runnerBundlePath: RUNNER_BUNDLE_PATH,
       templatesPath: path.join(TEMPLATES_PATH, template),
       name: sandboxName,
+      // Sandbox-level config
+      env,
+      agentTemplate: template,
+      workdir: "/workspace",
     });
   }
 
@@ -217,34 +233,22 @@ export async function POST(request: Request) {
     ? "claude-sonnet-4-20250514" // Standard Anthropic model ID
     : "us.anthropic.claude-sonnet-4-20250514-v1:0"; // AWS Bedrock model ID
 
-  const agent = new SandAgent({
-    id: sessionId,
+  // Create the provider with a sandbox adapter
+  // env, template, and workdir are now configured in sandbox
+  const sandagent = createSandAgent({
     sandbox,
-    runner: {
-      kind: "claude-agent-sdk",
-      model,
-      template,
-      approvalDir: "/sandagent/approvals",
-    },
-    // Pass environment variables to the sandbox
-    // Prioritize ANTHROPIC_API_KEY over AWS_BEARER_TOKEN_BEDROCK
-    env: ANTHROPIC_API_KEY
-      ? {
-          ANTHROPIC_API_KEY,
-          ...(ANTHROPIC_BASE_URL && { ANTHROPIC_BASE_URL }),
-        }
-      : AWS_BEARER_TOKEN_BEDROCK
-        ? {
-            CLAUDE_CODE_USE_BEDROCK: "1",
-            AWS_BEARER_TOKEN_BEDROCK,
-          }
-        : {},
+  });
+  // Streaming works too
+  const result = streamText({
+    model: sandagent(model),
+    messages: normalizedMessages,
   });
 
-  return agent.stream({
-    messages: normalizedMessages,
-    workspace: { path: "/sandagent" },
-    resume,
-    signal, // Pass signal to SandAgent
-  });
+  return result.toUIMessageStreamResponse();
+  // return agent.stream({
+  //   messages: normalizedMessages,
+  //   workspace: { path: "/sandagent" },
+  //   resume,
+  //   signal, // Pass signal to SandAgent
+  // });
 }
