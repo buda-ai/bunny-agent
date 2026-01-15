@@ -1,4 +1,3 @@
-import path from "node:path";
 import { E2BSandbox } from "@sandagent/sandbox-e2b";
 import { SandockSandbox } from "@sandagent/sandbox-sandock";
 
@@ -51,13 +50,6 @@ export async function POST(request: Request) {
   }
 
   try {
-    // Resolve paths relative to the monorepo root
-    const MONOREPO_ROOT = path.resolve(process.cwd(), "../..");
-    const RUNNER_BUNDLE_PATH = path.join(
-      MONOREPO_ROOT,
-      "apps/runner-cli/dist/bundle.mjs",
-    );
-
     // Validate sandbox provider and API key
     if (SANDBOX_PROVIDER === "e2b" && !E2B_API_KEY) {
       return Response.json(
@@ -85,11 +77,9 @@ export async function POST(request: Request) {
       SANDBOX_PROVIDER === "sandock"
         ? new SandockSandbox({
             apiKey: SANDOCK_API_KEY,
-            runnerBundlePath: RUNNER_BUNDLE_PATH,
           })
         : new E2BSandbox({
             apiKey: E2B_API_KEY,
-            runnerBundlePath: RUNNER_BUNDLE_PATH,
             name: sandboxName,
           });
 

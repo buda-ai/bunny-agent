@@ -12,10 +12,6 @@ import {
 
 // Resolve paths relative to the monorepo root
 const MONOREPO_ROOT = path.resolve(process.cwd(), "../..");
-const RUNNER_BUNDLE_PATH = path.join(
-  MONOREPO_ROOT,
-  "apps/runner-cli/dist/bundle.mjs",
-);
 const TEMPLATES_PATH = path.join(MONOREPO_ROOT, "templates");
 
 /**
@@ -193,13 +189,11 @@ export async function POST(request: Request) {
   if (SANDBOX_PROVIDER === "daytona") {
     sandbox = new DaytonaSandbox({
       apiKey: DAYTONA_API_KEY,
-      runnerBundlePath: RUNNER_BUNDLE_PATH,
       templatesPath: path.join(TEMPLATES_PATH, template),
       volumeName: sandboxName,
       name: sandboxName,
       autoStopInterval: 15,
       autoDeleteInterval: -1,
-      // Sandbox-level config
       env,
       agentTemplate: template,
       workdir: "/workspace",
@@ -208,9 +202,7 @@ export async function POST(request: Request) {
   } else if (SANDBOX_PROVIDER === "sandock") {
     sandbox = new SandockSandbox({
       apiKey: SANDOCK_API_KEY,
-      runnerBundlePath: RUNNER_BUNDLE_PATH,
       templatesPath: path.join(TEMPLATES_PATH, template),
-      // Sandbox-level config
       env,
       agentTemplate: template,
       workdir: "/workspace",
@@ -218,10 +210,8 @@ export async function POST(request: Request) {
   } else {
     sandbox = new E2BSandbox({
       apiKey: E2B_API_KEY,
-      runnerBundlePath: RUNNER_BUNDLE_PATH,
       templatesPath: path.join(TEMPLATES_PATH, template),
       name: sandboxName,
-      // Sandbox-level config
       env,
       agentTemplate: template,
       workdir: "/workspace",

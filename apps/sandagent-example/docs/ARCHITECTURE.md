@@ -20,7 +20,7 @@
 │                                                                             │
 │   route.ts creates:                                                         │
 │   ┌─────────────────────────────────────────────────────────────────────┐  │
-│   │  const sandbox = new E2BSandbox({ apiKey, runnerBundlePath })       │  │
+│   │  const sandbox = new E2BSandbox({ apiKey, templatesPath })          │  │
 │   │  const agent = new SandAgent({ id, sandbox, runner, env })          │  │
 │   │  return agent.stream({ messages, workspace })                       │  │
 │   └─────────────────────────────────────────────────────────────────────┘  │

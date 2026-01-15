@@ -50,9 +50,7 @@ export class SandAgent {
    * Build the CLI command to execute
    */
   private buildCommand(input: StreamInput): string[] {
-    // const cmd: string[] = ["sandagent", "run"];
-
-    const cmd: string[] = ["node", "/sandagent/runner/bundle.mjs", "run"];
+    const cmd: string[] = ["sandagent", "run"];
 
     // Add model
     cmd.push("--model", this.runner.model);
