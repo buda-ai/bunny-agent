@@ -1,0 +1,31 @@
+# Data files (contain sensitive analytics data)
+data/*.csv
+data/*.json
+data/*.xlsx
+
+# Exclude data README
+!data/README.md
+
+# Credentials (NEVER commit these!)
+*credentials*.json
+gsc-credentials.json
+
+# Local settings
+.claude/settings.local.json
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+
+# SEO analysis cache (temporary processing files)
+analysis-cache/
