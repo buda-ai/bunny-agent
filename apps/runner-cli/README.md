@@ -22,9 +22,8 @@ sandagent run [options] -- "<user input>"
 # Simple task
 sandagent run -- "Create a hello world script"
 
-# From a template directory
-cd templates/coder
-sandagent run -- "Build a REST API with Express"
+# With custom system prompt
+sandagent run --system-prompt "You are a coding assistant" -- "Build a REST API with Express"
 ```
 
 ## Options
@@ -33,7 +32,6 @@ sandagent run -- "Build a REST API with Express"
 |--------|-------|-------------|---------|
 | `--model <model>` | `-m` | Model to use | `claude-sonnet-4-20250514` |
 | `--cwd <path>` | `-c` | Working directory | Current directory |
-| `--template <name>` | `-T` | Template to use | `default` |
 | `--system-prompt <prompt>` | `-s` | Custom system prompt | - |
 | `--max-turns <n>` | `-t` | Maximum conversation turns | - |
 | `--allowed-tools <tools>` | `-a` | Comma-separated list of allowed tools | - |
@@ -68,30 +66,15 @@ sandagent run --output-format json -- "Calculate 2+2"
 sandagent run -o json -- "Calculate 2+2"
 ```
 
-## Templates
-
-Available templates:
-- `default` - General-purpose assistant
-- `coder` - Optimized for software development
-- `analyst` - Optimized for data analysis
-- `researcher` - Optimized for research tasks
-
 ## Environment Variables
 
 | Variable | Description | Required |
 |----------|-------------|----------|
 | `ANTHROPIC_API_KEY` | Anthropic API key | Yes |
 | `SANDAGENT_WORKSPACE` | Default workspace path | No |
-| `SANDAGENT_TEMPLATE` | Default template to use | No |
 | `SANDAGENT_LOG_LEVEL` | Logging level (debug, info, warn, error) | No |
 
 ## Advanced Examples
-
-### Use Specific Template
-
-```bash
-sandagent run --template analyst -- "Analyze sales.csv"
-```
 
 ### Specify Working Directory
 
@@ -115,7 +98,7 @@ sandagent run -o json -- "What is 2+2?" | jq '.content[0].text'
 sandagent run \
   -o json \
   -m claude-sonnet-4-20250514 \
-  --template coder \
+  --system-prompt "You are a helpful coding assistant" \
   --max-turns 10 \
   -- "Build a REST API"
 ```
@@ -123,7 +106,7 @@ sandagent run \
 ## Architecture
 
 The CLI is designed to:
-1. Execute in a specific working directory (template directory)
+1. Execute in a specific working directory
 2. Load settings from `.claude/settings.json` and `CLAUDE.md` in the project
 3. Stream AI SDK UI messages directly to stdout
 4. Support both SSE stream and JSON output formats
