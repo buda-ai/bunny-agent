@@ -22,27 +22,17 @@ import type {
   SDKSystemMessage,
   SDKUserMessage,
 } from "@anthropic-ai/claude-agent-sdk";
+import type { BaseRunnerOptions } from "./types";
 
 /**
  * Options for creating a Claude runner
+ * Extends BaseRunnerOptions with internal runtime options
  */
-export interface ClaudeRunnerOptions {
-  /** Model to use (e.g., "claude-sonnet-4-20250514", "claude-3-5-sonnet-20241022") */
-  model: string;
-  /** Custom system prompt */
-  systemPrompt?: string;
-  /** Maximum conversation turns */
-  maxTurns?: number;
-  /** Allowed tools */
-  allowedTools?: string[];
+export interface ClaudeRunnerOptions extends BaseRunnerOptions {
   /** Working directory for the agent */
   cwd?: string;
   /** Environment variables to pass to the agent */
   env?: Record<string, string>;
-  /** Resume session ID for multi-turn conversation */
-  resume?: string;
-  /** Approval file directory for tool approval flow (e.g., "/sandagent/approvals") */
-  approvalDir?: string;
   /** AbortSignal for cancelling operations */
   signal?: AbortSignal;
 }

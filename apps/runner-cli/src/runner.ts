@@ -1,28 +1,18 @@
 import {
+  type BaseRunnerOptions,
   type ClaudeRunnerOptions,
   createClaudeRunner,
 } from "@sandagent/runner-claude";
 
 /**
  * Options for running the agent
+ * Extends BaseRunnerOptions with CLI-specific fields
  */
-export interface RunAgentOptions {
-  /** Model to use */
-  model: string;
+export interface RunAgentOptions extends BaseRunnerOptions {
   /** User input/task */
   userInput: string;
   /** Template to use (e.g., "default", "coder", "analyst", "researcher") */
   template?: string;
-  /** Custom system prompt (overrides template) */
-  systemPrompt?: string;
-  /** Maximum conversation turns */
-  maxTurns?: number;
-  /** Allowed tools */
-  allowedTools?: string[];
-  /** Resume session ID for multi-turn conversation */
-  resume?: string;
-  /** Approval file directory for tool approval flow (e.g., "/sandagent/approvals") */
-  approvalDir?: string;
 }
 
 /**
