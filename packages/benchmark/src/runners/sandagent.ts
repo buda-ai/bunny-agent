@@ -1,40 +1,24 @@
 /**
  * SandAgent Runner
  *
- * Handles SandAgent CLI with SSE output format
+ * Handles SandAgent CLI with stream-json output format
  */
 
-import type { GaiaTask, RunnerConfig } from "../types.js";
-import type { RunnerCommand, RunnerDefaults, RunnerHandler } from "./types.js";
+import { BaseRunner } from "./base.js";
 
-export const sandagentRunner: RunnerHandler = {
-  name: "sandagent",
-
-  defaults: {
+class SandAgentRunner extends BaseRunner {
+  readonly name = "sandagent";
+  readonly defaults = {
     command: "sandagent",
     args: ["run", "--output-format", "stream-json", "--"],
     timeout: 300000, // 5 minutes
-  },
+  };
 
-  buildCommand(task: GaiaTask, config: RunnerConfig): RunnerCommand {
-    const command = config.command ?? this.defaults.command;
-
-    let prompt = task.question;
-    if (task.files && task.files.length > 0) {
-      const fileInfo = task.files
-        .map((f) => `[Attached file: ${f.name} at ${f.path}]`)
-        .join("\n");
-      prompt = `${fileInfo}\n\n${task.question}`;
+  extractAnswer(output: string): string {
+    if (!output || !output.trim()) {
+      return "";
     }
 
-    const defaultArgs = this.defaults.args ?? [];
-    return {
-      command: command,
-      args: [...defaultArgs, prompt],
-    };
-  },
-
-  extractAnswer(output: string): string | null {
     // Parse NDJSON format (each line is a JSON object)
     const lines = output.split("\n").filter((line) => line.trim());
 
@@ -75,28 +59,10 @@ export const sandagentRunner: RunnerHandler = {
       }
     }
 
-    // Prefer final result if available, otherwise use collected text
+    // Return final result if available, otherwise collected text
     const answer = finalResult || collectedText.trim();
+    return answer || "";
+  }
+}
 
-    if (!answer) {
-      return null;
-    }
-
-    // Extract answer from common patterns
-    const patterns = [
-      /(?:final answer|answer)[:\s]+(.+?)(?:\n|$)/i,
-      /(?:the answer is)[:\s]+(.+?)(?:\n|$)/i,
-      /(?:result)[:\s]+(.+?)(?:\n|$)/i,
-    ];
-
-    for (const pattern of patterns) {
-      const match = answer.match(pattern);
-      if (match) {
-        return match[1].trim();
-      }
-    }
-
-    // Return the answer as-is if no pattern matches
-    return answer;
-  },
-};
+export const sandagentRunner = new SandAgentRunner();

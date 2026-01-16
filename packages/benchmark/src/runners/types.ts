@@ -4,7 +4,7 @@
  * Shared type definitions for agent CLI runners
  */
 
-import type { GaiaTask, RunnerConfig } from "../types.js";
+import type { GaiaTask } from "../types.js";
 
 /**
  * Command with arguments to execute
@@ -44,13 +44,13 @@ export interface RunnerHandler {
   /**
    * Build command to execute for a task
    */
-  buildCommand(task: GaiaTask, config: RunnerConfig): RunnerCommand;
+  buildCommand(task: GaiaTask): RunnerCommand;
 
   /**
    * Extract the final answer from raw output
    * Returns null if this runner cannot handle the output format
    */
-  extractAnswer(output: string): string | null;
+  extractAnswer(output: string): string;
 
   /**
    * Optional: Post-run setup (e.g., login)

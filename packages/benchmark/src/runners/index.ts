@@ -13,6 +13,7 @@ import { sandagentRunner } from "./sandagent.js";
 import type { RunnerHandler } from "./types.js";
 
 export type { RunnerCommand, RunnerDefaults, RunnerHandler } from "./types.js";
+export { BaseRunner } from "./base.js";
 
 /**
  * Registry of all available runners
@@ -42,10 +43,3 @@ export function getRunner(name: AgentRunner): RunnerHandler {
 export function getRunnerNames(): AgentRunner[] {
   return Object.keys(runners) as AgentRunner[];
 }
-
-// Re-export individual runners for direct import
-export { claudecodeRunner } from "./claudecode.js";
-export { codexCliRunner } from "./codex-cli.js";
-export { geminiCliRunner } from "./gemini-cli.js";
-export { opencodeRunner } from "./opencode.js";
-export { sandagentRunner } from "./sandagent.js";
