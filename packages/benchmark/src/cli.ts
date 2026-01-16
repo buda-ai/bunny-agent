@@ -141,6 +141,13 @@ async function handleRun(args: RunCommandArgs): Promise<void> {
     process.exit(1);
   }
 
+  // Ensure runner setup (e.g., codex-cli login)
+  const setupSuccess = await ensureRunnerSetup(args.runner);
+  if (!setupSuccess) {
+    console.error(`❌ Runner "${args.runner}" setup failed. Aborting.`);
+    process.exit(1);
+  }
+
   console.log(`\n🤖 GAIA Benchmark Runner`);
   console.log("=".repeat(60));
   console.log(`Runner:   ${args.runner}`);
@@ -158,9 +165,6 @@ async function handleRun(args: RunCommandArgs): Promise<void> {
 
   // Create runner config
   const runnerConfig = createRunnerConfig(args.runner);
-
-  // Ensure runner setup (e.g., codex-cli login)
-  await ensureRunnerSetup(args.runner);
 
   // Run benchmark (args already matches BenchmarkConfig structure)
   await runBenchmark(runnerConfig, args);
