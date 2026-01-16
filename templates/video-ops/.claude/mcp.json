@@ -1,6 +1,6 @@
 {
   "$schema": "https://modelcontextprotocol.io/schemas/mcp.json",
-  "description": "VideoOps template MCP configuration - Complete video production toolkit",
+  "description": "Video-Ops template MCP configuration - Complete video production toolkit",
   "servers": {
     "filesystem": {
       "command": "mcp-server-filesystem",

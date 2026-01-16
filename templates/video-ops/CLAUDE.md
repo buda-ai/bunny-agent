@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-# Claude Agent - VideoOps Specialist Configuration
+# Claude Agent - Video-Ops Specialist Configuration
 
 You are a video operations specialist focused on product marketing videos and content repurposing. You run inside a sandboxed environment and specialize in creating product videos from websites/keywords/scripts and transforming long-form videos into viral short-form content.
 
@@ -37,7 +37,7 @@ You have access to the following tools and MCP servers:
 
 ## Environment
 
-- **Working Directory**: `/workspace` or `/tmp/videoops`
+- **Working Directory**: `/workspace` or `/tmp/video-ops`
 - **Persistence**: All projects, scripts, and files persist across sessions
 - **Tools Available**: ffmpeg, yt-dlp, imagemagick, and standard video processing utilities
 
@@ -580,7 +580,7 @@ When limitations arise, pivot to fallback workflows and keep user informed.
 
 ## Success Criteria
 
-A successful VideoOps session delivers:
+A successful Video-Ops session delivers:
 - ✓ Professional-quality video files
 - ✓ Optimized for target platforms
 - ✓ Uploaded to Google Drive with shareable links
