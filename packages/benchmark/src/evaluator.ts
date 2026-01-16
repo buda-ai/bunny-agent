@@ -7,6 +7,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fetchGaiaTasks } from "./downloader.js";
+import { shouldUpdateReadme, updateReadmeMatrix } from "./readme-updater.js";
 import { runTask, runTaskWithReflection } from "./runner.js";
 import type {
   AgentRunner,
@@ -201,6 +202,8 @@ export async function saveResults(
     accuracy,
     runner,
     incremental,
+    level: config.level,
+    category: config.category,
   };
 
   const report: BenchmarkReport = {
@@ -215,7 +218,7 @@ export async function saveResults(
   );
   writeFileSync(latestPath, JSON.stringify(report, null, 2));
 
-  // Save timestamped results (non-incremental only)
+  // Save final results (non-incremental only)
   if (!incremental) {
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
     const timestampedPath = join(
@@ -227,6 +230,23 @@ export async function saveResults(
 
     // Update wrong answers collection (only on final save)
     await updateWrongAnswers(results, tasks, config.outputDir);
+
+    // If this is a full run (shouldUpdateReadme), save to config-specific path and update README cell
+    if (shouldUpdateReadme(config)) {
+      // Generate config-based filename: {dataset}-l{level}-{runner}.json
+      const configKey = config.level
+        ? `${config.dataset}-l${config.level}`
+        : config.category
+          ? `${config.dataset}-${config.category}`
+          : `${config.dataset}-all`;
+      const configPath = join(config.outputDir, `${configKey}-${runner}.json`);
+      writeFileSync(configPath, JSON.stringify(report, null, 2));
+      console.log(`💾 Results saved to: ${configPath}`);
+
+      // Update only the specific cell in README matrix
+      console.log("\n📝 Updating README matrix...");
+      updateReadmeMatrix(config, runner, results);
+    }
   }
 }
 

@@ -141,6 +141,10 @@ export interface BenchmarkMetadata {
   runnerInfo?: string;
   /** Whether this was an incremental save */
   incremental?: boolean;
+  /** Level filter used (if any) */
+  level?: GaiaLevel;
+  /** Category filter used (if any) */
+  category?: TaskCategory;
 }
 
 /**
