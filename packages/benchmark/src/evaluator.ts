@@ -15,7 +15,6 @@ import type {
   BenchmarkReport,
   BenchmarkResult,
   GaiaTask,
-  RunnerConfig,
   TaskCategory,
 } from "./types.js";
 import { updateWrongAnswers } from "./wrong-answers.js";
@@ -281,11 +280,9 @@ export function displaySummary(
  * Run benchmark with a specific runner
  */
 export async function runBenchmark(
-  runnerConfig: RunnerConfig,
+  runner: AgentRunner,
   config: BenchmarkConfig,
 ): Promise<BenchmarkResult[]> {
-  const runner = runnerConfig.runner;
-
   // Fetch ALl GAIA tasks
   const tasks = await fetchGaiaTasks(config.dataset);
   // Filter tasks
@@ -326,10 +323,10 @@ export async function runBenchmark(
     }
 
     const result = config.reflect
-      ? await runTaskWithReflection(task, runnerConfig, {
+      ? await runTaskWithReflection(task, runner, {
           verbose: config.verbose,
         })
-      : await runTask(task, runnerConfig);
+      : await runTask(task, runner);
     results.push(result);
 
     if (config.verbose) {

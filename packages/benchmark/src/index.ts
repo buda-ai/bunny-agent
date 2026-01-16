@@ -15,7 +15,6 @@ export type {
   BenchmarkResult,
   BenchmarkReport,
   BenchmarkMetadata,
-  RunnerConfig,
   ComparisonResult,
   ComparisonSummary,
 } from "./types.js";
@@ -36,7 +35,6 @@ export {
   checkAnswer,
   isRunnerAvailable,
   getAvailableRunners,
-  createRunnerConfig,
 } from "./runner.js";
 
 // Evaluator

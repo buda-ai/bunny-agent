@@ -105,7 +105,6 @@ Tasks are automatically categorized based on their content:
 import {
   downloadGaiaDataset,
   runBenchmark,
-  createRunnerConfig,
   compareResults,
   loadAllRunnerResults,
 } from "@sandagent/benchmark";
@@ -114,8 +113,7 @@ import {
 const tasks = await downloadGaiaDataset("validation");
 
 // Run benchmark with sandagent
-const runnerConfig = createRunnerConfig("sandagent");
-const results = await runBenchmark(tasks, runnerConfig, {
+const results = await runBenchmark(tasks, "sandagent", {
   dataset: "validation",
   level: 1,
   limit: 10,

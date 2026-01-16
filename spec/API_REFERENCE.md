@@ -378,15 +378,13 @@ sandagent-benchmark compare
 import {
   downloadGaiaDataset,
   runBenchmark,
-  createRunnerConfig,
 } from "@sandagent/benchmark";
 
 // Download dataset
 const tasks = await downloadGaiaDataset("validation");
 
 // Run benchmark
-const runnerConfig = createRunnerConfig("sandagent");
-const results = await runBenchmark(tasks, runnerConfig, {
+const results = await runBenchmark(tasks, "sandagent", {
   dataset: "validation",
   level: 1,
   outputDir: "./results",

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkAnswer, createRunnerConfig, normalizeAnswer } from "../runner.js";
+import { checkAnswer, normalizeAnswer } from "../runner.js";
 
 describe("normalizeAnswer", () => {
   it("should lowercase the answer", () => {
@@ -57,45 +57,5 @@ describe("checkAnswer", () => {
   it("should handle whitespace and punctuation differences", () => {
     expect(checkAnswer("Paris, France", "Paris France")).toBe(true);
     expect(checkAnswer("forty-two", "fortytwo")).toBe(true);
-  });
-});
-
-describe("createRunnerConfig", () => {
-  it("should create config for sandagent", () => {
-    const config = createRunnerConfig("sandagent");
-    expect(config.runner).toBe("sandagent");
-    expect(config.command).toBe("sandagent");
-  });
-
-  it("should create config for gemini-cli", () => {
-    const config = createRunnerConfig("gemini-cli");
-    expect(config.runner).toBe("gemini-cli");
-    expect(config.command).toBe("gemini");
-  });
-
-  it("should create config for claudecode", () => {
-    const config = createRunnerConfig("claudecode");
-    expect(config.runner).toBe("claudecode");
-    expect(config.command).toBe("claude");
-  });
-
-  it("should create config for codex-cli", () => {
-    const config = createRunnerConfig("codex-cli");
-    expect(config.runner).toBe("codex-cli");
-    expect(config.command).toBe("codex");
-  });
-
-  it("should apply overrides", () => {
-    const config = createRunnerConfig("sandagent", {
-      timeout: 60000,
-      cwd: "/custom/path",
-    });
-    expect(config.timeout).toBe(60000);
-    expect(config.cwd).toBe("/custom/path");
-  });
-
-  it("should include default timeout", () => {
-    const config = createRunnerConfig("sandagent");
-    expect(config.timeout).toBe(300000);
   });
 });

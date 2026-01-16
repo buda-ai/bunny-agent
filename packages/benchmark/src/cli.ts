@@ -43,7 +43,6 @@ import {
 import { downloadGaiaDataset } from "./downloader.js";
 import { runBenchmark } from "./evaluator.js";
 import {
-  createRunnerConfig,
   ensureRunnerSetup,
   getAvailableRunners,
   isRunnerAvailable,
@@ -163,11 +162,8 @@ async function handleRun(args: RunCommandArgs): Promise<void> {
   console.log(`Resume:   ${args.resume ?? false}`);
   console.log("=".repeat(60));
 
-  // Create runner config
-  const runnerConfig = createRunnerConfig(args.runner);
-
   // Run benchmark (args already matches BenchmarkConfig structure)
-  await runBenchmark(runnerConfig, args);
+  await runBenchmark(args.runner, args);
 
   console.log("✅ Benchmark complete!");
 }
