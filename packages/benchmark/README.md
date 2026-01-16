@@ -216,6 +216,27 @@ pnpm benchmark:compare
 
 > **Note**: Use the appropriate runner after ensuring the required API keys are correctly configured and the corresponding CLI tools are installed.
 
+## Benchmark Results Overview
+
+Overview of benchmark results across different runners and configurations:
+
+- Columns: Different agent runners
+- Rows: Different configurations (dataset/level/categories/limit)
+- Cells: `Correct/Total (Accuracy%)`, with links to detailed reports (stable links, incrementally updated)
+
+<!-- SANDAGENT_BENCHMARK_MATRIX_BEGIN -->
+| Configuration | SandAgent | Claude Code | Gemini CLI | Codex CLI | OpenCode |
+|---|---:|---:|---:|---:|---:|
+| validation:L1 | [15/53（28.30%）](./benchmark-results/latest/validation-l1.md#sandagent)  | [21/53（39.62%）](./benchmark-results/latest/validation-l1.md#claudecode) | [27/53（50.94%）](./benchmark-results/latest/validation-l1.md#gemini-cli) | [39/53（73.58%）](./benchmark-results/latest/validation-l1.md#codex-cli) | [16/53（30.18%）](./benchmark-results/latest/validation-l1.md#opencode) |
+| validation:L2 | - | - | [35/86（40.70%）](./benchmark-results/latest/validation-l2.md#gemini-cli) | [52/86（60.47%）](./benchmark-results/latest/validation-l2.md#codex-cli) | - |
+| validation:L3 | - | - | - | [15/26（57.69%）](./benchmark-results/latest/validation-l3.md#codex-cli) | - |
+| test:L1 | - | - | - | - | - |
+| test:L2 | - | - | - | - | - |
+| test:L3 | - | - | - | - | - |
+<!-- SANDAGENT_BENCHMARK_MATRIX_END -->
+
+> **Note**: The table above is automatically updated by the benchmark runner. Run benchmarks to populate the results.
+
 ## License
 
 Apache 2.0

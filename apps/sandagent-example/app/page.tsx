@@ -359,11 +359,19 @@ function DynamicToolUI({
     <div className="my-2 rounded-lg border border-border bg-muted/50 p-3">
       <div className="flex items-center gap-2 text-sm">
         <span className="font-medium text-foreground">{toolName}</span>
-        <span className="text-xs text-muted-foreground">
+        <span
+          className={`text-xs ${
+            state === "output-error"
+              ? "text-destructive"
+              : state === "output-available"
+                ? "text-green-500"
+                : "text-muted-foreground"
+          }`}
+        >
           {state === "input-streaming" && "输入中..."}
           {state === "input-available" && "准备执行..."}
-          {state === "output-available" && "完成"}
-          {state === "output-error" && "错误"}
+          {state === "output-available" && "✓ 完成"}
+          {state === "output-error" && "✗ 错误"}
         </span>
       </div>
       {input && (
@@ -440,7 +448,15 @@ function WriteToolCard({
               <span className="font-medium text-foreground text-sm">
                 写入文件
               </span>
-              <span className="text-xs text-muted-foreground">
+              <span
+                className={`text-xs ${
+                  state === "output-error"
+                    ? "text-destructive"
+                    : state === "output-available"
+                      ? "text-green-500"
+                      : "text-muted-foreground"
+                }`}
+              >
                 {state === "input-streaming" && "输入中..."}
                 {state === "input-available" && "准备执行..."}
                 {state === "output-available" && "✓ 完成"}

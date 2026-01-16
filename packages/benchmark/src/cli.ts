@@ -40,11 +40,7 @@ import {
   loadAllRunnerResults,
   saveComparisonReport,
 } from "./compare.js";
-import {
-  downloadGaiaDataset,
-  loadTasksFromJson,
-  saveTasksToJson,
-} from "./downloader.js";
+import { downloadGaiaDataset, fetchGaiaTasks } from "./downloader.js";
 import { runBenchmark } from "./evaluator.js";
 import {
   createRunnerConfig,
@@ -87,6 +83,7 @@ Options:
   --task-id <id>        Run a specific task by ID
   --output <dir>        Output directory (default: ./benchmark-results)
   --verbose, -v         Enable verbose output
+  --reflect             Enable reflection during task execution
   --resume              Resume from last checkpoint
   --help, -h            Show this help message
 
@@ -121,13 +118,8 @@ async function handleDownload(args: {
 
   const tasks = await downloadGaiaDataset(args.dataset);
 
-  // Save to JSON for offline use
-  const outputPath = join(args.output, `gaia-${args.dataset}-tasks.json`);
-  await saveTasksToJson(tasks, outputPath);
-
   console.log(`\n✅ Download complete!`);
   console.log(`   Tasks: ${tasks.length}`);
-  console.log(`   Saved: ${outputPath}`);
 }
 
 /**
@@ -143,6 +135,7 @@ async function handleRun(args: {
   taskId?: string;
   output: string;
   verbose: boolean;
+  reflect: boolean;
   resume: boolean;
 }): Promise<void> {
   // Check if runner is available
@@ -169,21 +162,12 @@ async function handleRun(args: {
   console.log(`Task ID:  ${args.taskId ?? "none"}`);
   console.log(`Output:   ${args.output}`);
   console.log(`Verbose:  ${args.verbose}`);
+  console.log(`Reflect:  ${args.reflect}`);
   console.log(`Resume:   ${args.resume}`);
   console.log("=".repeat(60));
 
-  // Load tasks
-  const tasksPath = join(args.output, `gaia-${args.dataset}-tasks.json`);
-  let tasks;
-
-  if (existsSync(tasksPath)) {
-    console.log(`📂 Loading cached tasks from: ${tasksPath}`);
-    tasks = loadTasksFromJson(tasksPath);
-  } else {
-    console.log(`📥 Downloading ${args.dataset} dataset...`);
-    tasks = await downloadGaiaDataset(args.dataset);
-    await saveTasksToJson(tasks, tasksPath);
-  }
+  // Fetch GAIA tasks
+  const tasks = await fetchGaiaTasks(args.dataset);
 
   // Create runner config
   const runnerConfig = createRunnerConfig(args.runner);
@@ -203,6 +187,7 @@ async function handleRun(args: {
     taskId: args.taskId,
     outputDir: args.output,
     verbose: args.verbose,
+    reflect: args.reflect,
     resume: args.resume,
   };
 
@@ -287,6 +272,10 @@ async function main(): Promise<void> {
         short: "v",
         default: false,
       },
+      reflect: {
+        type: "boolean",
+        default: false,
+      },
       resume: {
         type: "boolean",
         default: false,
@@ -337,6 +326,7 @@ async function main(): Promise<void> {
         taskId: values["task-id"] as string | undefined,
         output: values.output as string,
         verbose: values.verbose as boolean,
+        reflect: values.reflect as boolean,
         resume: values.resume as boolean,
       });
       break;

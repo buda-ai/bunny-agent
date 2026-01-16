@@ -31,6 +31,7 @@ export {
 // Runner
 export {
   runTask,
+  runTaskWithReflection,
   normalizeAnswer,
   checkAnswer,
   isRunnerAvailable,

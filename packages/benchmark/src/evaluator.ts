@@ -6,7 +6,7 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { normalizeAnswer, runTask } from "./runner.js";
+import { runTask, runTaskWithReflection } from "./runner.js";
 import type {
   AgentRunner,
   BenchmarkConfig,
@@ -17,6 +17,7 @@ import type {
   RunnerConfig,
   TaskCategory,
 } from "./types.js";
+import { updateWrongAnswers } from "./wrong-answers.js";
 
 /**
  * Categorize a task based on its content and files
@@ -174,14 +175,15 @@ export function loadCheckpoint(
 }
 
 /**
- * Save benchmark results
+ * Save benchmark results and update wrong answers collection
  */
-export function saveResults(
+export async function saveResults(
   results: BenchmarkResult[],
+  tasks: GaiaTask[],
   runner: AgentRunner,
   config: BenchmarkConfig,
   incremental = false,
-): void {
+): Promise<void> {
   // Ensure output directory exists
   if (!existsSync(config.outputDir)) {
     mkdirSync(config.outputDir, { recursive: true });
@@ -222,6 +224,9 @@ export function saveResults(
     );
     writeFileSync(timestampedPath, JSON.stringify(report, null, 2));
     console.log(`💾 Results saved to: ${timestampedPath}`);
+
+    // Update wrong answers collection (only on final save)
+    await updateWrongAnswers(results, tasks, config.outputDir);
   }
 }
 
@@ -304,6 +309,11 @@ export async function runBenchmark(
 
   console.log(`\n🚀 Running ${filteredTasks.length} tasks with ${runner}...\n`);
 
+  // Show reflection mode status
+  if (config.reflect) {
+    console.log("💭 Reflection mode: ENABLED (prompt-based)\n");
+  }
+
   // Run tasks sequentially
   for (const [index, task] of filteredTasks.entries()) {
     const progress = `[${index + 1 + results.length}/${results.length + filteredTasks.length}]`;
@@ -313,7 +323,11 @@ export async function runBenchmark(
       console.log(`   Question: ${task.question.substring(0, 80)}...`);
     }
 
-    const result = await runTask(task, runnerConfig);
+    const result = config.reflect
+      ? await runTaskWithReflection(task, runnerConfig, {
+          verbose: config.verbose,
+        })
+      : await runTask(task, runnerConfig);
     results.push(result);
 
     if (config.verbose) {
@@ -328,7 +342,7 @@ export async function runBenchmark(
     }
 
     // Save incremental results
-    saveResults(results, runner, config, true);
+    await saveResults(results, tasks, runner, config, true);
 
     // Small delay to avoid rate limits
     if (index < filteredTasks.length - 1) {
@@ -337,7 +351,7 @@ export async function runBenchmark(
   }
 
   // Save final results
-  saveResults(results, runner, config, false);
+  await saveResults(results, tasks, runner, config, false);
 
   // Display summary
   displaySummary(results, runner);
