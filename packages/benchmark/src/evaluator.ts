@@ -318,7 +318,7 @@ export async function runBenchmark(
 
   // Run tasks sequentially
   for (const [index, task] of filteredTasks.entries()) {
-    const progress = `[${index + 1 + results.length}/${results.length + filteredTasks.length}]`;
+    const progress = `[${index + 1}/${filteredTasks.length}]`;
     console.log(`${progress} Evaluating ${task.id} (Level ${task.level})...`);
 
     if (config.verbose) {
