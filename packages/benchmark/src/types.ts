@@ -114,21 +114,11 @@ export interface BenchmarkConfig {
 }
 
 /**
- * Configuration for a specific agent runner
+ * CLI arguments for run command
  */
-export interface RunnerConfig {
-  /** Runner type */
+export interface RunCommandArgs extends BenchmarkConfig {
+  /** Agent runner to use */
   runner: AgentRunner;
-  /** Command to execute (defaults to runner name) */
-  command?: string;
-  /** Additional command line arguments */
-  args?: string[];
-  /** Environment variables to set */
-  env?: Record<string, string>;
-  /** Timeout in milliseconds */
-  timeout?: number;
-  /** Working directory */
-  cwd?: string;
 }
 
 /**

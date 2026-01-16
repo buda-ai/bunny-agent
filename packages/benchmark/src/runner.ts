@@ -20,12 +20,7 @@ import {
   shouldTriggerReflection,
 } from "./reflection-helper.js";
 import { getRunner, getRunnerNames } from "./runners/index.js";
-import type {
-  AgentRunner,
-  BenchmarkResult,
-  GaiaTask,
-  RunnerConfig,
-} from "./types.js";
+import type { AgentRunner, BenchmarkResult, GaiaTask } from "./types.js";
 
 /**
  * Execute a command and capture output
@@ -158,52 +153,19 @@ function detectApiError(output: string): string | undefined {
 }
 
 /**
- * Extract the final answer from agent output using the appropriate runner
- */
-function extractFinalAnswer(output: string, runner: AgentRunner): string {
-  const runnerHandler = getRunner(runner);
-
-  // Try the specific runner's extractor first
-  const answer = runnerHandler.extractAnswer(output);
-  if (answer !== null) {
-    return answer;
-  }
-
-  // Fallback: try all runners
-  for (const name of getRunnerNames()) {
-    if (name !== runner) {
-      const otherRunner = getRunner(name);
-      const otherAnswer = otherRunner.extractAnswer(output);
-      if (otherAnswer !== null) {
-        return otherAnswer;
-      }
-    }
-  }
-
-  // Ultimate fallback: return last non-empty line
-  const lines = output
-    .split("\n")
-    .map((l) => l.trim())
-    .filter((l) => l.length > 0);
-  return lines[lines.length - 1] ?? output.trim();
-}
-
-/**
  * Run a single benchmark task with a specific runner
  */
 export async function runTask(
   task: GaiaTask,
-  config: RunnerConfig,
+  runner: AgentRunner,
 ): Promise<BenchmarkResult> {
   const startTime = Date.now();
-  const runnerHandler = getRunner(config.runner);
-  const { command, args } = runnerHandler.buildCommand(task, config);
+  const runnerHandler = getRunner(runner);
+  const { command, args } = runnerHandler.buildCommand(task);
 
   try {
     const result = await executeCommand(command, args, {
-      env: config.env,
-      cwd: config.cwd,
-      timeout: config.timeout ?? runnerHandler.defaults.timeout,
+      timeout: runnerHandler.defaults.timeout,
     });
 
     const durationMs = Date.now() - startTime;
@@ -225,7 +187,7 @@ export async function runTask(
       };
     }
 
-    const answer = extractFinalAnswer(rawOutput, config.runner);
+    const answer = runnerHandler.extractAnswer(rawOutput);
     const correct = result.exitCode === 0 && checkAnswer(answer, task.answer);
 
     return {
@@ -283,14 +245,6 @@ export async function ensureRunnerSetup(runner: AgentRunner): Promise<boolean> {
 }
 
 /**
- * Ensure codex-cli is logged in with OPENAI_API_KEY
- * @deprecated Use ensureRunnerSetup('codex-cli') instead
- */
-export async function ensureCodexLogin(): Promise<boolean> {
-  return ensureRunnerSetup("codex-cli");
-}
-
-/**
  * Get available runners on the system
  */
 export async function getAvailableRunners(): Promise<AgentRunner[]> {
@@ -306,29 +260,12 @@ export async function getAvailableRunners(): Promise<AgentRunner[]> {
 }
 
 /**
- * Create a runner configuration
- */
-export function createRunnerConfig(
-  runner: AgentRunner,
-  overrides?: Partial<RunnerConfig>,
-): RunnerConfig {
-  const runnerHandler = getRunner(runner);
-  return {
-    runner,
-    command: runnerHandler.defaults.command,
-    args: runnerHandler.defaults.args,
-    timeout: runnerHandler.defaults.timeout,
-    ...overrides,
-  };
-}
-
-/**
  * Run task with reflection loop
  * Executes CLI runner multiple times with reflection prompts injected between iterations
  */
 export async function runTaskWithReflection(
   task: GaiaTask,
-  config: RunnerConfig,
+  runner: AgentRunner,
   options: {
     verbose?: boolean;
     maxReflections?: number;
@@ -364,7 +301,7 @@ export async function runTaskWithReflection(
 
     // Run task with current question
     const modifiedTask = { ...task, question: currentQuestion };
-    const result = await runTask(modifiedTask, config);
+    const result = await runTask(modifiedTask, runner);
     lastResult = result;
 
     // Track commands used (extract from output if possible)

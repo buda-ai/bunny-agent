@@ -40,17 +40,17 @@ import {
   loadAllRunnerResults,
   saveComparisonReport,
 } from "./compare.js";
-import { downloadGaiaDataset, fetchGaiaTasks } from "./downloader.js";
+import { downloadGaiaDataset } from "./downloader.js";
 import { runBenchmark } from "./evaluator.js";
 import {
-  createRunnerConfig,
-  ensureCodexLogin,
+  ensureRunnerSetup,
   getAvailableRunners,
+  isRunnerAvailable,
 } from "./runner.js";
 import type {
   AgentRunner,
-  BenchmarkConfig,
   GaiaLevel,
+  RunCommandArgs,
   TaskCategory,
 } from "./types.js";
 
@@ -125,29 +125,25 @@ async function handleDownload(args: {
 /**
  * Run command handler
  */
-async function handleRun(args: {
-  runner: AgentRunner;
-  dataset: "validation" | "test";
-  level?: GaiaLevel;
-  category?: TaskCategory;
-  limit?: number;
-  random: boolean;
-  taskId?: string;
-  output: string;
-  verbose: boolean;
-  reflect: boolean;
-  resume: boolean;
-}): Promise<void> {
+async function handleRun(args: RunCommandArgs): Promise<void> {
   // Check if runner is available
-  const availableRunners = await getAvailableRunners();
-  if (!availableRunners.includes(args.runner)) {
+  const isAvailable = await isRunnerAvailable(args.runner);
+  if (!isAvailable) {
     console.error(
       `❌ Runner "${args.runner}" is not available on this system.`,
     );
+    const availableRunners = await getAvailableRunners();
     console.error(
       `   Available runners: ${availableRunners.join(", ") || "none"}`,
     );
     console.error(`   Please install the runner CLI and try again.`);
+    process.exit(1);
+  }
+
+  // Ensure runner setup (e.g., codex-cli login)
+  const setupSuccess = await ensureRunnerSetup(args.runner);
+  if (!setupSuccess) {
+    console.error(`❌ Runner "${args.runner}" setup failed. Aborting.`);
     process.exit(1);
   }
 
@@ -160,39 +156,14 @@ async function handleRun(args: {
   console.log(`Limit:    ${args.limit ?? "none"}`);
   console.log(`Random:   ${args.random ? "yes" : "no"}`);
   console.log(`Task ID:  ${args.taskId ?? "none"}`);
-  console.log(`Output:   ${args.output}`);
+  console.log(`Output:   ${args.outputDir}`);
   console.log(`Verbose:  ${args.verbose}`);
-  console.log(`Reflect:  ${args.reflect}`);
-  console.log(`Resume:   ${args.resume}`);
+  console.log(`Reflect:  ${args.reflect ?? false}`);
+  console.log(`Resume:   ${args.resume ?? false}`);
   console.log("=".repeat(60));
 
-  // Fetch GAIA tasks
-  const tasks = await fetchGaiaTasks(args.dataset);
-
-  // Create runner config
-  const runnerConfig = createRunnerConfig(args.runner);
-
-  // Ensure codex-cli is logged in if using that runner
-  if (args.runner === "codex-cli") {
-    await ensureCodexLogin();
-  }
-
-  // Create benchmark config
-  const benchmarkConfig: BenchmarkConfig = {
-    dataset: args.dataset,
-    level: args.level,
-    category: args.category,
-    limit: args.limit,
-    random: args.random,
-    taskId: args.taskId,
-    outputDir: args.output,
-    verbose: args.verbose,
-    reflect: args.reflect,
-    resume: args.resume,
-  };
-
-  // Run benchmark
-  await runBenchmark(tasks, runnerConfig, benchmarkConfig);
+  // Run benchmark (args already matches BenchmarkConfig structure)
+  await runBenchmark(args.runner, args);
 
   console.log("✅ Benchmark complete!");
 }
@@ -308,7 +279,7 @@ async function main(): Promise<void> {
       if (!values.runner) {
         console.error("❌ Error: --runner is required for run command");
         console.error(
-          "   Available runners: sandagent, gemini-cli, claudecode, codex-cli",
+          "   Available runners: sandagent, gemini-cli, claudecode, codex-cli, opencode",
         );
         process.exit(1);
       }
@@ -324,7 +295,7 @@ async function main(): Promise<void> {
           : undefined,
         random: values.random as boolean,
         taskId: values["task-id"] as string | undefined,
-        output: values.output as string,
+        outputDir: values.output as string,
         verbose: values.verbose as boolean,
         reflect: values.reflect as boolean,
         resume: values.resume as boolean,

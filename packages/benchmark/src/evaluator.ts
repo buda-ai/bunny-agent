@@ -6,6 +6,7 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { fetchGaiaTasks } from "./downloader.js";
 import { runTask, runTaskWithReflection } from "./runner.js";
 import type {
   AgentRunner,
@@ -14,7 +15,6 @@ import type {
   BenchmarkReport,
   BenchmarkResult,
   GaiaTask,
-  RunnerConfig,
   TaskCategory,
 } from "./types.js";
 import { updateWrongAnswers } from "./wrong-answers.js";
@@ -280,12 +280,11 @@ export function displaySummary(
  * Run benchmark with a specific runner
  */
 export async function runBenchmark(
-  tasks: GaiaTask[],
-  runnerConfig: RunnerConfig,
+  runner: AgentRunner,
   config: BenchmarkConfig,
 ): Promise<BenchmarkResult[]> {
-  const runner = runnerConfig.runner;
-
+  // Fetch ALl GAIA tasks
+  const tasks = await fetchGaiaTasks(config.dataset);
   // Filter tasks
   let filteredTasks = filterTasks(tasks, config);
 
@@ -316,7 +315,7 @@ export async function runBenchmark(
 
   // Run tasks sequentially
   for (const [index, task] of filteredTasks.entries()) {
-    const progress = `[${index + 1 + results.length}/${results.length + filteredTasks.length}]`;
+    const progress = `[${index + 1}/${filteredTasks.length}]`;
     console.log(`${progress} Evaluating ${task.id} (Level ${task.level})...`);
 
     if (config.verbose) {
@@ -324,10 +323,10 @@ export async function runBenchmark(
     }
 
     const result = config.reflect
-      ? await runTaskWithReflection(task, runnerConfig, {
+      ? await runTaskWithReflection(task, runner, {
           verbose: config.verbose,
         })
-      : await runTask(task, runnerConfig);
+      : await runTask(task, runner);
     results.push(result);
 
     if (config.verbose) {
