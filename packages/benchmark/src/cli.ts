@@ -128,11 +128,12 @@ async function handleDownload(args: {
  */
 async function handleRun(args: RunCommandArgs): Promise<void> {
   // Check if runner is available
-  const availableRunners = await getAvailableRunners();
-  if (!availableRunners.includes(args.runner)) {
+  const isAvailable = await isRunnerAvailable(args.runner);
+  if (!isAvailable) {
     console.error(
       `❌ Runner "${args.runner}" is not available on this system.`,
     );
+    const availableRunners = await getAvailableRunners();
     console.error(
       `   Available runners: ${availableRunners.join(", ") || "none"}`,
     );
