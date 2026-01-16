@@ -252,14 +252,6 @@ export async function ensureRunnerSetup(runner: AgentRunner): Promise<boolean> {
 }
 
 /**
- * Ensure codex-cli is logged in with OPENAI_API_KEY
- * @deprecated Use ensureRunnerSetup('codex-cli') instead
- */
-export async function ensureCodexLogin(): Promise<boolean> {
-  return ensureRunnerSetup("codex-cli");
-}
-
-/**
  * Get available runners on the system
  */
 export async function getAvailableRunners(): Promise<AgentRunner[]> {

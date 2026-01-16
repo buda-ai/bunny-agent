@@ -44,8 +44,9 @@ import { downloadGaiaDataset } from "./downloader.js";
 import { runBenchmark } from "./evaluator.js";
 import {
   createRunnerConfig,
-  ensureCodexLogin,
+  ensureRunnerSetup,
   getAvailableRunners,
+  isRunnerAvailable,
 } from "./runner.js";
 import type {
   AgentRunner,
@@ -157,10 +158,8 @@ async function handleRun(args: RunCommandArgs): Promise<void> {
   // Create runner config
   const runnerConfig = createRunnerConfig(args.runner);
 
-  // Ensure codex-cli is logged in if using that runner
-  if (args.runner === "codex-cli") {
-    await ensureCodexLogin();
-  }
+  // Ensure runner setup (e.g., codex-cli login)
+  await ensureRunnerSetup(args.runner);
 
   // Run benchmark (args already matches BenchmarkConfig structure)
   await runBenchmark(runnerConfig, args);
