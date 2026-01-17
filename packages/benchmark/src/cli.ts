@@ -42,11 +42,7 @@ import {
 } from "./compare.js";
 import { downloadGaiaDataset } from "./downloader.js";
 import { runBenchmark } from "./evaluator.js";
-import {
-  ensureRunnerSetup,
-  getAvailableRunners,
-  isRunnerAvailable,
-} from "./runner.js";
+import { ensureRunnerSetup, getAvailableRunners } from "./runner.js";
 import type {
   AgentRunner,
   GaiaLevel,
@@ -127,12 +123,11 @@ async function handleDownload(args: {
  */
 async function handleRun(args: RunCommandArgs): Promise<void> {
   // Check if runner is available
-  const isAvailable = await isRunnerAvailable(args.runner);
-  if (!isAvailable) {
+  const availableRunners = await getAvailableRunners();
+  if (!availableRunners.includes(args.runner)) {
     console.error(
       `❌ Runner "${args.runner}" is not available on this system.`,
     );
-    const availableRunners = await getAvailableRunners();
     console.error(
       `   Available runners: ${availableRunners.join(", ") || "none"}`,
     );
