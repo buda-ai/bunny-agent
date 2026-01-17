@@ -161,10 +161,11 @@ export async function runTask(
 ): Promise<BenchmarkResult> {
   const startTime = Date.now();
   const runnerHandler = getRunner(runner);
-  const { command, args } = runnerHandler.buildCommand(task);
+  const { command, args, env } = runnerHandler.buildCommand(task);
 
   try {
     const result = await executeCommand(command, args, {
+      env,
       timeout: runnerHandler.defaults.timeout,
     });
 

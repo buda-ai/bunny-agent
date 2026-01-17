@@ -12,6 +12,7 @@ import type { GaiaTask } from "../types.js";
 export interface RunnerCommand {
   command: string;
   args: string[];
+  env?: Record<string, string>;
 }
 
 /**
