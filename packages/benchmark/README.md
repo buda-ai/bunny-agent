@@ -228,7 +228,7 @@ Overview of benchmark results across different runners and configurations:
 <!-- SANDAGENT_BENCHMARK_MATRIX_BEGIN -->
 | Configuration | SandAgent | Claude Code | Gemini CLI | Codex CLI | OpenCode |
 |---|---:|---:|---:|---:|---:|
-| validation:L1 | [15/53（28.30%）](./benchmark-results/validation-l1-sandagent.json) | [21/53（39.62%）](./benchmark-results/validation-l1-claudecode.json) | [27/53（50.94%）](./benchmark-results/validation-l1-gemini-cli.json) | [39/53（73.58%）](./benchmark-results/validation-l1-codex-cli.json) | [16/53（30.18%）](./benchmark-results/validation-l1-opencode.json) |
+| validation:L1 | [20/40（50.00%）](./benchmark-results/validation-l1-sandagent.json) | [21/53（39.62%）](./benchmark-results/validation-l1-claudecode.json) | [27/53（50.94%）](./benchmark-results/validation-l1-gemini-cli.json) | [39/53（73.58%）](./benchmark-results/validation-l1-codex-cli.json) | [16/53（30.18%）](./benchmark-results/validation-l1-opencode.json) |
 | validation:L2 | - | - | [35/86（40.70%）](./benchmark-results/validation-l2-gemini-cli.json) | [52/86（60.47%）](./benchmark-results/validation-l2-codex-cli.json) | - |
 | validation:L3 | - | - | - | [15/26（57.69%）](./benchmark-results/validation-l3-codex-cli.json) | - |
 | test:L1 | - | - | - | - | - |
