@@ -24,8 +24,9 @@ class CodexCliRunner extends BaseRunner {
 
     // codex exec --full-auto --color never <prompt>
     return {
-      command: `CODEX_API_KEY=${apiKey} ${command}`,
+      command,
       args: ["exec", "--full-auto", "--color", "never", prompt],
+      env: apiKey ? { CODEX_API_KEY: apiKey } : undefined,
     };
   }
 
