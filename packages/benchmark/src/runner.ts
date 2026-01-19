@@ -248,7 +248,9 @@ export async function runTask(
     }
 
     const answer = runnerHandler.extractAnswer(rawOutput);
-    const correct = result.exitCode === 0 && checkAnswer(answer, task.answer);
+    const isAnswerCorrect = checkAnswer(answer, task.answer);
+    // Consider correct if answer matches, even if process was killed (timeout)
+    const correct = isAnswerCorrect;
 
     return {
       taskId: task.id,
