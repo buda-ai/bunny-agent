@@ -5,7 +5,7 @@
  * Reference: gemini_agent.py
  */
 
-import type { GaiaTask } from "../types.js";
+import type { BenchmarkResult, GaiaTask } from "../types.js";
 import { BaseRunner } from "./base.js";
 import type { RunnerCommand } from "./types.js";
 
@@ -28,19 +28,23 @@ class GeminiCliRunner extends BaseRunner {
     };
   }
 
-  extractAnswer(output: string): string {
-    // Try to parse as JSON
-    try {
-      const json = JSON.parse(output);
-      const result = this.extractFromJsonFields(json);
-      if (result) {
-        return result;
+  extractAnswer(rawOutput: Required<BenchmarkResult['rawOutput']>): string {
+    // Handle string output - try to parse as JSON first
+    if (typeof rawOutput === 'string') {
+      try {
+        const json = JSON.parse(rawOutput);
+        const result = this.extractFromJsonFields(json);
+        if (result) {
+          return result;
+        }
+      } catch {
+        // Not JSON, return as-is
+        return rawOutput.trim();
       }
-    } catch {
-      // Not JSON, fall back to base extraction
     }
-    // Fallback to base extraction (plain text)
-    return super.extractAnswer(output);
+
+    // For arrays or objects, use parent implementation
+    return super.extractAnswer(rawOutput);
   }
 }
 

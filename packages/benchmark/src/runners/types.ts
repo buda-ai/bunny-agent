@@ -4,7 +4,7 @@
  * Shared type definitions for agent CLI runners
  */
 
-import type { GaiaTask } from "../types.js";
+import type { BenchmarkResult, GaiaTask } from "../types.js";
 
 /**
  * Command with arguments to execute
@@ -51,7 +51,7 @@ export interface RunnerHandler {
    * Extract the final answer from raw output
    * Returns null if this runner cannot handle the output format
    */
-  extractAnswer(output: string): string;
+  extractAnswer(rawOutput: Required<BenchmarkResult['rawOutput']>): string;
 
   /**
    * Optional: Post-run setup (e.g., login)

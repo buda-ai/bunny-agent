@@ -4,6 +4,7 @@
  * Handles SandAgent CLI with stream-json output format
  */
 
+import type { BenchmarkResult } from "../types.js";
 import { BaseRunner } from "./base.js";
 
 class SandAgentRunner extends BaseRunner {
@@ -14,33 +15,42 @@ class SandAgentRunner extends BaseRunner {
     timeout: 300000, // 5 minutes
   };
 
-  extractAnswer(output: string): string {
-    if (!output || !output.trim()) {
-      return "";
+  extractAnswer(rawOutput: Required<BenchmarkResult['rawOutput']>): string {
+    // Handle string output
+    if (typeof rawOutput === 'string') {
+      return rawOutput.trim();
     }
 
-    // Parse NDJSON format (each line is a JSON object)
-    const lines = output.split("\n").filter((line) => line.trim());
-
+    // Handle array of messages (NDJSON format)
+    if (Array.isArray(rawOutput)) {
     let collectedText = "";
     let finalResult: string | null = null;
 
-    for (const line of lines) {
-      try {
-        const message = JSON.parse(line);
+      for (const message of rawOutput) {
+        if (typeof message === 'string') {
+          collectedText += message;
+          continue;
+        }
+
+        if (typeof message !== 'object' || message === null) {
+          continue;
+        }
+
+        // biome-ignore lint/suspicious/noExplicitAny: message type is dynamic
+        const msg = message as any;
 
         // Handle assistant messages with text content
-        if (message.type === "assistant" && message.message) {
+        if (msg.type === "assistant" && msg.message) {
           // If message is a string
-          if (typeof message.message === "string") {
-            collectedText += message.message;
+          if (typeof msg.message === "string") {
+            collectedText += msg.message;
           }
           // If message has content array
           else if (
-            message.message.content &&
-            Array.isArray(message.message.content)
+            msg.message.content &&
+            Array.isArray(msg.message.content)
           ) {
-            for (const block of message.message.content) {
+            for (const block of msg.message.content) {
               if (block.type === "text" && block.text) {
                 collectedText += block.text;
               }
@@ -49,19 +59,25 @@ class SandAgentRunner extends BaseRunner {
         }
 
         // Handle result message (final output)
-        if (message.type === "result" && message.subtype === "success") {
-          if (message.result) {
-            finalResult = message.result;
+        if (msg.type === "result" && msg.subtype === "success") {
+          if (msg.result) {
+            finalResult = msg.result;
           }
-        }
-      } catch {
-        // Skip invalid JSON lines
       }
     }
 
     // Return final result if available, otherwise collected text
     const answer = finalResult || collectedText.trim();
     return answer || "";
+    }
+
+    // Handle object output
+    const result = this.extractFromJsonFields(rawOutput);
+    if (result) {
+      return result;
+    }
+
+    return String(rawOutput).trim();
   }
 }
 

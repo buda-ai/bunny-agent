@@ -247,7 +247,7 @@ export async function runTask(
       };
     }
 
-    const answer = runnerHandler.extractAnswer(result.stdout);
+    const answer = runnerHandler.extractAnswer(rawOutput);
     const correct = result.exitCode === 0 && checkAnswer(answer, task.answer);
 
     return {
