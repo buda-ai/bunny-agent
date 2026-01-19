@@ -18,7 +18,6 @@ describe("Transcript Writers", () => {
       const entry: TranscriptEntry = {
         timestamp: new Date().toISOString(),
         type: "chunk",
-        agentId: "test-agent",
         text: "Hello, world!",
       };
 
@@ -33,13 +32,11 @@ describe("Transcript Writers", () => {
       writer.write({
         timestamp: new Date().toISOString(),
         type: "chunk",
-        agentId: "test-agent",
         text: "Hello, ",
       });
       writer.write({
         timestamp: new Date().toISOString(),
         type: "chunk",
-        agentId: "test-agent",
         text: "world!",
       });
 
@@ -50,13 +47,11 @@ describe("Transcript Writers", () => {
       writer.write({
         timestamp: new Date().toISOString(),
         type: "chunk",
-        agentId: "test-agent",
         text: "Hello, ",
       });
       writer.write({
         timestamp: new Date().toISOString(),
         type: "chunk",
-        agentId: "test-agent",
         text: "world!",
       });
 
@@ -67,12 +62,10 @@ describe("Transcript Writers", () => {
       writer.write({
         timestamp: "2024-01-01T00:00:00.000Z",
         type: "start",
-        agentId: "test-agent",
       });
       writer.write({
         timestamp: "2024-01-01T00:00:01.000Z",
         type: "chunk",
-        agentId: "test-agent",
         text: "test",
       });
 
@@ -92,7 +85,6 @@ describe("Transcript Writers", () => {
       writer.write({
         timestamp: new Date().toISOString(),
         type: "chunk",
-        agentId: "test-agent",
         text: "test",
       });
       expect(writer.getEntries()).toHaveLength(1);
@@ -110,7 +102,6 @@ describe("Transcript Writers", () => {
       writer.write({
         timestamp: "2024-01-01T00:00:00.000Z",
         type: "chunk",
-        agentId: "test-agent",
         text: "Hello",
       });
 
@@ -130,7 +121,6 @@ describe("Transcript Writers", () => {
       writer.write({
         timestamp: "2024-01-01T00:00:00.000Z",
         type: "start",
-        agentId: "test-agent",
       });
 
       const call = consoleSpy.mock.calls[0][0] as string;
@@ -146,7 +136,6 @@ describe("Transcript Writers", () => {
       writer.write({
         timestamp: "2024-01-01T00:00:00.000Z",
         type: "error",
-        agentId: "test-agent",
         text: "Something went wrong",
       });
 
@@ -168,7 +157,6 @@ describe("Transcript Writers", () => {
       const entry: TranscriptEntry = {
         timestamp: new Date().toISOString(),
         type: "chunk",
-        agentId: "test-agent",
         text: "test",
       };
 

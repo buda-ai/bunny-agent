@@ -13,7 +13,7 @@
  * import { E2BSandbox } from '@sandagent/sandbox-e2b';
  * import { generateText, streamText } from 'ai';
  *
- * // Create the provider
+ * // Create the provider (runner is auto-created from modelId)
  * const sandagent = createSandAgent({
  *   sandbox: new E2BSandbox({ apiKey: process.env.E2B_API_KEY! }),
  *   env: {
@@ -29,7 +29,7 @@
  *
  * // Streaming works too
  * const { textStream } = await streamText({
- *   model: sandagent('sonnet', { template: 'coder' }),
+ *   model: sandagent('sonnet'),
  *   prompt: 'Build a REST API server',
  * });
  *
@@ -50,12 +50,8 @@ export { createSandAgent } from "./sandagent-provider.js";
 /**
  * Provider interface types.
  * @see {@link SandAgentProvider} for the provider interface
- * @see {@link SandAgentProviderSettings} for provider configuration options
  */
-export type {
-  SandAgentProvider,
-  SandAgentProviderSettings,
-} from "./sandagent-provider.js";
+export type { SandAgentProvider } from "./sandagent-provider.js";
 
 /**
  * Language model implementation for SandAgent.
@@ -71,12 +67,12 @@ export type { SandAgentLanguageModelOptions } from "./sandagent-language-model.j
 
 /**
  * Settings and type definitions for SandAgent.
- * @see {@link SandAgentSettings} for detailed configuration options
+ * @see {@link SandAgentProviderSettings} for detailed configuration options
  * @see {@link SandAgentModelId} for supported model identifiers
  * @see {@link Logger} for custom logging interface
  */
 export type {
-  SandAgentSettings,
+  SandAgentProviderSettings,
   SandAgentModelId,
   Logger,
 } from "./types.js";

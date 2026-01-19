@@ -1,4 +1,8 @@
-import type { SandboxAdapter, TranscriptWriter } from "@sandagent/core";
+import type {
+  SandAgentOptions,
+  SandboxAdapter,
+  TranscriptWriter,
+} from "@sandagent/core";
 
 /**
  * Logger interface for custom logging.
@@ -40,95 +44,21 @@ export interface Logger {
 }
 
 /**
- * Configuration settings for SandAgent AI SDK provider.
- * These settings control how the agent runs inside the sandbox.
+ * AI Provider specific settings that extend SandAgentOptions.
+ * These are used for stream input configuration and logging.
  *
- * @example
- * ```typescript
- * const settings: SandAgentSettings = {
- *   sandbox: new E2BSandbox({ apiKey: 'xxx' }),
- *   template: 'coder',
- *   maxTurns: 10,
- *   env: {
- *     ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY!,
- *   },
- * };
- * ```
+ * Note: Runner is automatically created based on modelId in createModel.
  */
-export interface SandAgentSettings {
-  /**
-   * Sandbox adapter to use for running the agent.
-   * This is required - the provider needs a sandbox to run in.
-   *
-   * @example
-   * ```typescript
-   * import { E2BSandbox } from '@sandagent/sandbox-e2b';
-   * const sandbox = new E2BSandbox({ apiKey: 'xxx' });
-   * ```
-   */
-  sandbox: SandboxAdapter;
-
-  /**
-   * Session ID for the agent.
-   * If not provided, a unique ID will be generated.
-   * The same session ID allows resuming conversations.
-   */
-  sessionId?: string;
-
-  /**
-   * Template to use for the agent.
-   * Corresponds to templates in /sandagent/templates/{template}/CLAUDE.md
-   *
-   * @default 'default'
-   */
-  template?: string;
-
-  /**
-   * Custom system prompt to override the template's CLAUDE.md.
-   */
-  systemPrompt?: string;
-
-  /**
-   * Maximum number of conversation turns.
-   */
-  maxTurns?: number;
-
-  /**
-   * Tools to explicitly allow during execution.
-   * If not set, all tools are available.
-   *
-   * @example ['Read', 'LS', 'Bash(git log:*)']
-   */
-  allowedTools?: string[];
-
+export interface SandAgentProviderSettings
+  extends Omit<SandAgentOptions, "runner"> {
+  /** Optional runner configuration (kind and model are auto-determined from modelId) */
+  runner?: Omit<SandAgentOptions["runner"], "kind" | "model">;
   /**
    * Working directory for CLI operations inside the sandbox.
    *
    * @default '/workspace'
    */
   cwd?: string;
-
-  /**
-   * Environment variables to pass to the sandbox.
-   * Must include ANTHROPIC_API_KEY or AWS_BEARER_TOKEN_BEDROCK for real API calls.
-   *
-   * @example
-   * ```typescript
-   * env: {
-   *   ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY!,
-   *   GITHUB_TOKEN: process.env.GITHUB_TOKEN,
-   * }
-   * ```
-   */
-  env?: Record<string, string>;
-
-  /**
-   * Approval file directory for tool approval flow.
-   * Used to enable interactive tool approval in the sandbox.
-   *
-   * @example '/sandagent/approvals'
-   */
-  approvalDir?: string;
 
   /**
    * Resume session ID for multi-turn conversation.
@@ -201,4 +131,32 @@ export function resolveModelId(modelId: SandAgentModelId): string {
     default:
       return modelId;
   }
+}
+
+/**
+ * Determine the runner kind based on model ID
+ * @param modelId - The model identifier
+ * @returns The runner kind to use
+ */
+export function getRunnerKindForModel(
+  modelId: SandAgentModelId,
+): "claude-agent-sdk" {
+  const resolvedId = resolveModelId(modelId);
+
+  // Check if it's a Claude model (all current models are Claude)
+  if (
+    resolvedId.startsWith("claude") ||
+    resolvedId.includes("anthropic") ||
+    resolvedId.startsWith("us.anthropic")
+  ) {
+    return "claude-agent-sdk";
+  }
+
+  // Future: Add codex detection here
+  // if (resolvedId.startsWith("codex") || ...) {
+  //   return "codex-agent-sdk";
+  // }
+
+  // Default to claude for now (all current models are Claude)
+  return "claude-agent-sdk";
 }

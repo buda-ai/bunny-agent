@@ -16,12 +16,18 @@ import type {
   Options,
   PermissionUpdate,
   Query,
-  SDKAssistantMessage,
   SDKMessage,
   SDKResultMessage,
-  SDKSystemMessage,
   SDKUserMessage,
 } from "@anthropic-ai/claude-agent-sdk";
+import {
+  AISDKStreamConverter,
+  convertUsageToAISDK,
+  formatDataStream,
+  generateId,
+  mapFinishReason,
+  streamSDKMessagesToAISDKUI,
+} from "./ai-sdk-stream.js";
 import type { BaseRunnerOptions } from "./types";
 
 /**
@@ -35,6 +41,8 @@ export interface ClaudeRunnerOptions extends BaseRunnerOptions {
   env?: Record<string, string>;
   /** AbortSignal for cancelling operations */
   signal?: AbortSignal;
+  /** Include partial messages for streaming */
+  includePartialMessages?: boolean;
 }
 
 /**
@@ -200,173 +208,6 @@ function createCanUseToolCallback(
   };
 }
 
-/**
- * Usage data from Claude Agent SDK
- */
-interface ClaudeCodeUsage {
-  input_tokens?: number | null;
-  output_tokens?: number | null;
-  cache_creation_input_tokens?: number | null;
-  cache_read_input_tokens?: number | null;
-}
-
-/**
- * Converts Claude Agent SDK usage to AI SDK usage format
- */
-function convertUsageToAISDK(usage?: ClaudeCodeUsage): {
-  inputTokens: {
-    total: number;
-    noCache: number;
-    cacheRead: number;
-    cacheWrite: number;
-  };
-  outputTokens: {
-    total: number;
-    text?: number;
-    reasoning?: number;
-  };
-  raw?: ClaudeCodeUsage;
-} {
-  if (!usage) {
-    return {
-      inputTokens: { total: 0, noCache: 0, cacheRead: 0, cacheWrite: 0 },
-      outputTokens: { total: 0 },
-    };
-  }
-
-  const inputTokens = usage.input_tokens ?? 0;
-  const outputTokens = usage.output_tokens ?? 0;
-  const cacheWrite = usage.cache_creation_input_tokens ?? 0;
-  const cacheRead = usage.cache_read_input_tokens ?? 0;
-
-  return {
-    inputTokens: {
-      total: inputTokens + cacheWrite + cacheRead,
-      noCache: inputTokens,
-      cacheRead,
-      cacheWrite,
-    },
-    outputTokens: {
-      total: outputTokens,
-    },
-    raw: usage,
-  };
-}
-
-/**
- * Maps Claude Agent SDK result subtypes to AI SDK finish reasons
- */
-function mapFinishReason(
-  subtype?: string,
-  isError?: boolean,
-): {
-  unified:
-    | "stop"
-    | "length"
-    | "content-filter"
-    | "tool-calls"
-    | "error"
-    | "other";
-  raw: string | undefined;
-} {
-  // If explicitly marked as error
-  if (isError) {
-    return { unified: "error", raw: subtype ?? "error" };
-  }
-
-  switch (subtype) {
-    case "success":
-      return { unified: "stop", raw: subtype };
-    case "error_max_turns":
-      return { unified: "length", raw: subtype };
-    case "error_during_execution":
-      return { unified: "error", raw: subtype };
-    case "error_max_structured_output_retries":
-      return { unified: "error", raw: subtype };
-    case undefined:
-      return { unified: "stop", raw: undefined };
-    default:
-      // Unknown subtypes mapped to 'other'
-      return { unified: "other", raw: subtype };
-  }
-}
-
-/**
- * Check if an error is an AbortError
- */
-function isAbortError(err: unknown): boolean {
-  if (err && typeof err === "object") {
-    const e = err as { name?: unknown; code?: unknown };
-    if (typeof e.name === "string" && e.name === "AbortError") return true;
-    if (typeof e.code === "string" && e.code.toUpperCase() === "ABORT_ERR")
-      return true;
-  }
-  return false;
-}
-
-const MIN_TRUNCATION_LENGTH = 512;
-
-/**
- * Detects if an error represents a truncated SDK JSON stream.
- *
- * The Claude Code SDK can truncate JSON responses mid-stream, producing a SyntaxError.
- * This function distinguishes genuine truncation from normal JSON syntax errors.
- */
-function isClaudeCodeTruncationError(
-  error: unknown,
-  bufferedText: string,
-): boolean {
-  const isSyntaxError =
-    error instanceof SyntaxError ||
-    (typeof (error as { name?: string })?.name === "string" &&
-      (error as { name: string }).name.toLowerCase() === "syntaxerror");
-
-  if (!isSyntaxError) {
-    return false;
-  }
-
-  if (!bufferedText) {
-    return false;
-  }
-
-  const rawMessage =
-    typeof (error as { message?: string })?.message === "string"
-      ? (error as { message: string }).message
-      : "";
-  const message = rawMessage.toLowerCase();
-
-  const truncationIndicators = [
-    "unexpected end of json input",
-    "unexpected end of input",
-    "unexpected end of string",
-    "unexpected eof",
-    "end of file",
-    "unterminated string",
-    "unterminated string constant",
-  ];
-
-  if (!truncationIndicators.some((indicator) => message.includes(indicator))) {
-    return false;
-  }
-
-  if (bufferedText.length < MIN_TRUNCATION_LENGTH) {
-    return false;
-  }
-
-  return true;
-}
-
-/**
- * Tracks the streaming lifecycle state for a single tool invocation.
- */
-interface ToolStreamState {
-  name: string;
-  lastSerializedInput?: string;
-  inputStarted: boolean;
-  inputClosed: boolean;
-  callEmitted: boolean;
-}
-
 // Module registry for optional dependencies
 const OPTIONAL_MODULES: Record<string, string> = {
   "claude-agent-sdk": "@anthropic-ai/claude-agent-sdk",
@@ -476,7 +317,7 @@ function createSDKOptions(options: ClaudeRunnerOptions): Options {
     permissionMode: "bypassPermissions",
     allowDangerouslySkipPermissions: true,
     // Enable partial messages for streaming
-    includePartialMessages: true,
+    includePartialMessages: options.includePartialMessages,
   };
 }
 
@@ -612,427 +453,28 @@ async function* runWithAISDKUIOutput(
   userInput: string | AsyncIterable<SDKUserMessage>,
   signal?: AbortSignal,
 ): AsyncIterable<string> {
-  const usage: AccumulatedUsage = { inputTokens: 0, outputTokens: 0 };
-  let systemMessage: SDKSystemMessage | undefined;
-  let messageId: string | undefined;
-  let hasEmittedStart = false;
-  let accumulatedText = "";
-
-  // Tool state tracking for proper streaming lifecycle
-  const toolStates = new Map<string, ToolStreamState>();
-
-  const sdkOptions = createSDKOptions(options);
+  const sdkOptions = createSDKOptions({
+    ...options,
+    includePartialMessages: true,
+  });
   const queryIterator = sdk.query({ prompt: userInput, options: sdkOptions });
   const abortHandler = setupAbortHandler(queryIterator, signal);
-  /**
-   * Helper to close tool input stream
-   */
-  function closeToolInput(
-    toolId: string,
-    state: ToolStreamState,
-    chunks: string[],
-  ): void {
-    if (!state.inputClosed && state.inputStarted) {
-      chunks.push(
-        formatDataStream({
-          type: "tool-input-end",
-          toolCallId: toolId,
-        }),
-      );
-      state.inputClosed = true;
-    }
-  }
-
-  /**
-   * Finalize all pending tool calls at end of stream
-   */
-  function finalizeToolCalls(chunks: string[]): void {
-    for (const [toolId, state] of toolStates) {
-      closeToolInput(toolId, state, chunks);
-    }
-    toolStates.clear();
-  }
-  try {
-    for await (const message of queryIterator) {
-      // Handle system init message
-      if (message.type === "system" && message.subtype === "init") {
-        systemMessage = message;
-        continue;
+  console.error(
+    "[ClaudeRunner] Starting query with sdkOptions:",
+    JSON.stringify(sdkOptions, null, 2),
+  );
+  console.error(
+    "[ClaudeRunner] Passing queryIterator to streamSDKMessagesToAISDKUI",
+  );
+  // Use ai-sdk-stream to handle the conversion
+  yield* streamSDKMessagesToAISDKUI(queryIterator, {
+    signal,
+    onCleanup: () => {
+      if (signal) {
+        signal.removeEventListener("abort", abortHandler);
       }
-
-      // Emit start message on first assistant message
-      if (message.type === "assistant" && !hasEmittedStart && systemMessage) {
-        const assistantMsg = message as SDKAssistantMessage;
-        messageId = assistantMsg.message?.id ?? generateId();
-        hasEmittedStart = true;
-
-        yield formatDataStream({
-          type: "start",
-          messageId,
-        });
-
-        yield formatDataStream({
-          type: "message-metadata",
-          messageMetadata: {
-            tools: systemMessage.tools,
-            model: systemMessage.model,
-            sessionId: systemMessage.session_id,
-          },
-        });
-      }
-
-      // Convert and output messages
-      const chunks = convertSDKMessageToAISDKUI(
-        message,
-        toolStates,
-        accumulatedText,
-      );
-
-      // Track accumulated text for truncation detection
-      if (message.type === "assistant") {
-        const assistantMsg = message as SDKAssistantMessage;
-        if (assistantMsg.message?.content) {
-          for (const block of assistantMsg.message.content) {
-            if (block.type === "text" && block.text) {
-              accumulatedText += block.text;
-            }
-          }
-        }
-      }
-
-      for (const chunk of chunks) {
-        yield chunk;
-      }
-    }
-
-    // Finalize any pending tool calls
-    const finalChunks: string[] = [];
-    finalizeToolCalls(finalChunks);
-    for (const chunk of finalChunks) {
-      yield chunk;
-    }
-  } catch (error) {
-    // Check for truncation error
-    if (isClaudeCodeTruncationError(error, accumulatedText)) {
-      console.warn(
-        `[ClaudeRunner] Detected truncated stream response, returning ${accumulatedText.length} characters of buffered text`,
-      );
-
-      // Finalize tool calls
-      const finalChunks: string[] = [];
-      finalizeToolCalls(finalChunks);
-      for (const chunk of finalChunks) {
-        yield chunk;
-      }
-
-      yield formatDataStream({
-        type: "finish",
-        finishReason: { unified: "length", raw: "truncation" },
-        usage: convertUsageToAISDK(undefined),
-        messageMetadata: {
-          truncated: true,
-        },
-      });
-    } else if (isAbortError(error)) {
-      // Handle abort gracefully
-      console.log("[ClaudeRunner] Operation aborted by user");
-      const finalChunks: string[] = [];
-      finalizeToolCalls(finalChunks);
-      for (const chunk of finalChunks) {
-        yield chunk;
-      }
-    } else {
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error occurred";
-      console.error("[ClaudeRunner] Error:", errorMessage);
-
-      yield formatDataStream({ type: "error", errorText: errorMessage });
-      yield formatDataStream({
-        type: "finish",
-        finishReason: mapFinishReason("error_during_execution", true),
-        usage: convertUsageToAISDK(undefined),
-      });
-    }
-  } finally {
-    // Remove abort event listener
-    if (signal) {
-      signal.removeEventListener("abort", abortHandler);
-    }
-    yield `data: [DONE]\n\n`;
-  }
-}
-
-/**
- * Convert Claude Agent SDK message to AI SDK UI format (SSE-based Data Stream Protocol)
- *
- * AI SDK UI Data Stream Protocol uses Server-Sent Events format:
- * - message-start: Beginning of a new message
- * - text-start/text-delta/text-end: Text content streaming
- * - tool-input-start/tool-input-delta/tool-input-end: Tool input streaming
- * - tool-call: Tool call with complete input
- * - tool-result: Tool execution results
- * - error: Error messages
- * - finish: Message completion
- *
- * @see https://ai-sdk.dev/docs/ai-sdk-ui/stream-protocol
- */
-function convertSDKMessageToAISDKUI(
-  message: SDKMessage,
-  toolStates: Map<string, ToolStreamState>,
-  _accumulatedText: string,
-): string[] {
-  const chunks: string[] = [];
-
-  switch (message.type) {
-    case "assistant": {
-      // Assistant response - can contain text and tool_use content blocks
-      const assistantMsg = message as SDKAssistantMessage;
-
-      // Check for error in the message
-      if (assistantMsg.error) {
-        const errorDetail =
-          assistantMsg.message?.content
-            ?.map((c: { type: string; text?: string }) => c.text ?? "")
-            .filter(Boolean)
-            .join("\n") ?? "";
-        chunks.push(
-          formatDataStream({
-            type: "error",
-            errorText: errorDetail
-              ? `${assistantMsg.error}: ${errorDetail}`
-              : assistantMsg.error,
-          }),
-        );
-        break;
-      }
-
-      // Handle message content
-      if (assistantMsg.message) {
-        // If message is a string (simple text response)
-        if (typeof assistantMsg.message === "string") {
-          const textId = generateId();
-          chunks.push(formatDataStream({ type: "text-start", id: textId }));
-          chunks.push(
-            formatDataStream({
-              type: "text-delta",
-              id: textId,
-              delta: assistantMsg.message,
-            }),
-          );
-          chunks.push(formatDataStream({ type: "text-end", id: textId }));
-        }
-        // If message is an object with content array
-        else if (
-          assistantMsg.message.content &&
-          Array.isArray(assistantMsg.message.content)
-        ) {
-          for (const block of assistantMsg.message.content) {
-            if (block.type === "text" && block.text) {
-              const textId = generateId();
-              chunks.push(formatDataStream({ type: "text-start", id: textId }));
-              chunks.push(
-                formatDataStream({
-                  type: "text-delta",
-                  id: textId,
-                  delta: block.text,
-                }),
-              );
-              chunks.push(formatDataStream({ type: "text-end", id: textId }));
-            } else if (block.type === "tool_use") {
-              const toolCallId = block.id || generateId();
-              const toolName = block.name || "unknown-tool";
-
-              // Get or create tool state
-              let state = toolStates.get(toolCallId);
-              if (!state) {
-                state = {
-                  name: toolName,
-                  inputStarted: false,
-                  inputClosed: false,
-                  callEmitted: false,
-                };
-                toolStates.set(toolCallId, state);
-              }
-
-              // Emit tool-input-start if not started
-              if (!state.inputStarted) {
-                chunks.push(
-                  formatDataStream({
-                    type: "tool-input-start",
-                    toolCallId,
-                    toolName,
-                    dynamic: true,
-                    providerExecuted: true,
-                  }),
-                );
-                state.inputStarted = true;
-              }
-
-              if (block.input && !state.callEmitted) {
-                // Serialize input
-                const serializedInput =
-                  typeof block.input === "string"
-                    ? block.input
-                    : JSON.stringify(block.input);
-
-                // Emit delta if input changed
-                if (serializedInput !== state.lastSerializedInput) {
-                  chunks.push(
-                    formatDataStream({
-                      type: "tool-input-delta",
-                      toolCallId,
-                      delta: serializedInput,
-                    }),
-                  );
-                  state.lastSerializedInput = serializedInput;
-                }
-
-                // Close input and emit tool-call
-                if (!state.inputClosed) {
-                  chunks.push(
-                    formatDataStream({
-                      type: "tool-input-end",
-                      toolCallId,
-                    }),
-                  );
-                  state.inputClosed = true;
-                }
-
-                // Emit tool-call with stringified input for AI SDK V3 compatibility
-                chunks.push(
-                  formatDataStream({
-                    type: "tool-call",
-                    toolCallId,
-                    toolName,
-                    input: serializedInput,
-                    providerExecuted: true,
-                  }),
-                );
-                state.callEmitted = true;
-              }
-            }
-          }
-        }
-      }
-      break;
-    }
-    case "result": {
-      // Result message - indicates completion
-      const resultMsg = message as SDKResultMessage;
-
-      // Handle structured output errors (SDK 0.1.45+)
-      if (
-        (resultMsg.subtype as string) === "error_max_structured_output_retries"
-      ) {
-        chunks.push(
-          formatDataStream({
-            type: "error",
-            errorText:
-              "Failed to generate valid structured output after maximum retries. " +
-              "The model could not produce a response matching the required schema.",
-          }),
-        );
-      }
-
-      // Map finish reason properly
-      const finishReason = mapFinishReason(
-        resultMsg.subtype,
-        resultMsg.is_error,
-      );
-
-      // Convert usage to proper format
-      const usage = convertUsageToAISDK(resultMsg.usage);
-
-      // Emit finish with proper format
-      chunks.push(
-        formatDataStream({
-          type: "finish",
-          finishReason,
-          usage,
-          messageMetadata: {
-            sessionId: resultMsg.session_id,
-            duration_ms: resultMsg.duration_ms,
-            num_turns: resultMsg.num_turns,
-            total_cost_usd: resultMsg.total_cost_usd,
-          },
-        }),
-      );
-      break;
-    }
-    case "user": {
-      const usrMsg = message as SDKUserMessage;
-
-      // Skip synthetic messages (SDK-injected skill content)
-      if ((usrMsg as { isSynthetic?: boolean }).isSynthetic) {
-        break;
-      }
-      const contentArray = usrMsg.message.content;
-
-      // this is a tool use result
-      if (
-        usrMsg.tool_use_result ||
-        (Array.isArray(contentArray) &&
-          contentArray.some((c) => c.type === "tool_result"))
-      ) {
-        for (const tool of contentArray) {
-          if (tool.type !== "tool_result") continue;
-
-          const toolCallId = tool.tool_use_id;
-
-          if (tool.is_error) {
-            chunks.push(
-              formatDataStream({
-                type: "tool-result",
-                toolCallId,
-                toolName: "",
-                result: tool.content ?? "Error executing tool",
-                isError: true,
-              }),
-            );
-          } else {
-            // Format result properly - ensure it's a string or JSON
-            const resultContent = usrMsg.tool_use_result ?? tool.content;
-            const result =
-              typeof resultContent === "string"
-                ? resultContent
-                : JSON.stringify(resultContent);
-
-            chunks.push(
-              formatDataStream({
-                type: "tool-result",
-                toolCallId,
-                toolName: "",
-                result,
-                dynamic: true,
-              }),
-            );
-          }
-        }
-      }
-      break;
-    }
-
-    default:
-      // Other message types - skip for now
-      break;
-  }
-
-  return chunks;
-}
-
-/**
- * Format a message as AI SDK UI Data Stream format
- * Format: data: {json}\n\n
- */
-function formatDataStream(data: Record<string, unknown>): string {
-  return `data: ${JSON.stringify(data)}\n\n`;
-}
-
-/**
- * Generate a unique ID for message parts
- */
-function generateId(): string {
-  return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    },
+  });
 }
 
 /**

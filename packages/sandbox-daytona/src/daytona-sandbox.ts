@@ -135,7 +135,7 @@ export class DaytonaSandbox implements SandboxAdapter {
     return this.workdir;
   }
 
-  async attach(id: string): Promise<SandboxHandle> {
+  async attach(): Promise<SandboxHandle> {
     if (!this.apiKey) {
       throw new Error(
         "Daytona API key not found. Please set DAYTONA_API_KEY environment variable or pass apiKey option.",
@@ -147,7 +147,7 @@ export class DaytonaSandbox implements SandboxAdapter {
       apiUrl: this.apiUrl,
     });
 
-    console.log(`[Daytona] Attaching sandbox for agent: ${id}`);
+    console.log(`[Daytona] Attaching sandbox`);
 
     // Get or create volume if volumeName is provided
     let volumes: VolumeConfig[] | undefined;
@@ -274,7 +274,7 @@ export class DaytonaSandbox implements SandboxAdapter {
     // Initialize sandbox if needed (upload files, install dependencies)
     // Files are stored in volume, so existing sandboxes don't need re-initialization
     if (needsInit) {
-      await this.initializeSandbox(handle, id);
+      await this.initializeSandbox(handle);
     }
 
     return handle;
@@ -307,10 +307,7 @@ export class DaytonaSandbox implements SandboxAdapter {
     return sandbox;
   }
 
-  private async initializeSandbox(
-    handle: DaytonaHandle,
-    id: string,
-  ): Promise<void> {
+  private async initializeSandbox(handle: DaytonaHandle): Promise<void> {
     // Upload runner bundle to /sandagent (fixed location for node to find it)
     if (this.runnerBundlePath && fs.existsSync(this.runnerBundlePath)) {
       const bundleContent = fs.readFileSync(this.runnerBundlePath);
@@ -322,12 +319,12 @@ export class DaytonaSandbox implements SandboxAdapter {
         },
       ];
       console.log(
-        `[Daytona] Uploading runner bundle (${bundleFileName}) to /sandagent in sandbox ${id}`,
+        `[Daytona] Uploading runner bundle (${bundleFileName}) to /sandagent`,
       );
       await handle.upload(runnerFiles, "/sandagent");
 
       console.log(
-        `[Daytona] Installing @anthropic-ai/claude-agent-sdk in sandbox ${id}`,
+        `[Daytona] Installing @anthropic-ai/claude-agent-sdk`,
       );
       const installResult = await handle.runCommand(
         "npm install --prefix /sandagent @anthropic-ai/claude-agent-sdk",
@@ -343,7 +340,7 @@ export class DaytonaSandbox implements SandboxAdapter {
     if (this.templatesPath && fs.existsSync(this.templatesPath)) {
       const templateFiles = this.collectFiles(this.templatesPath, "");
       console.log(
-        `[Daytona] Uploading ${templateFiles.length} template files to ${this.workdir} in sandbox ${id}`,
+        `[Daytona] Uploading ${templateFiles.length} template files to ${this.workdir}`,
       );
       await handle.upload(templateFiles, this.workdir);
     }

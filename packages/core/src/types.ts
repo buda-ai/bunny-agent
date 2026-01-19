@@ -45,11 +45,10 @@ export interface SandboxHandle {
  */
 export interface SandboxAdapter {
   /**
-   * Attach to or create a sandbox with the given ID
-   * @param id - Unique identifier for the sandbox
+   * Attach to or create a sandbox
    * @returns A handle to the sandbox
    */
-  attach(id: string): Promise<SandboxHandle>;
+  attach(): Promise<SandboxHandle>;
 
   /**
    * Get the environment variables configured for this sandbox.
@@ -77,8 +76,6 @@ export interface RunnerSpec {
   kind: "claude-agent-sdk";
   /** The model to use */
   model: string;
-  /** Template to use (e.g., "default", "coder", "analyst", "researcher") */
-  template?: string;
   /** Optional system prompt override (overrides template's CLAUDE.md) */
   systemPrompt?: string;
   /** Maximum number of conversation turns */
@@ -93,8 +90,6 @@ export interface RunnerSpec {
  * Options for creating a SandAgent instance
  */
 export interface SandAgentOptions {
-  /** Unique identifier for the agent (determines sandbox + volume) */
-  id: string;
   /** Sandbox adapter to use */
   sandbox: SandboxAdapter;
   /** Runner specification */
@@ -142,8 +137,6 @@ export interface TranscriptEntry {
   timestamp: string;
   /** Type of entry */
   type: "chunk" | "metadata" | "error" | "start" | "end";
-  /** Agent ID */
-  agentId: string;
   /** Raw data (base64 encoded for binary) */
   data?: string;
   /** Decoded text (if data is text) */

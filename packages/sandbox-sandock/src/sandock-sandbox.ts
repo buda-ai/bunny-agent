@@ -169,7 +169,7 @@ export class SandockSandbox implements SandboxAdapter {
       if (cached) {
         console.log(`[Sandock] Removing expired sandbox instance: ${id}`);
         client.sandbox.stop(cached.sandboxId).catch((e) => {
-          console.error(`[Sandock] Error stopping expired sandbox ${id}:`, e);
+          console.error(`[Sandock] Error stopping expired sandbox:`, e);
         });
         SandockSandbox.instances.delete(id);
         SandockSandbox.initializedInstances.delete(id);
@@ -213,53 +213,28 @@ export class SandockSandbox implements SandboxAdapter {
   }
 
   /**
-   * Attach to or create a sandbox with the given ID
+   * Attach to or create a sandbox
    */
-  async attach(id: string): Promise<SandboxHandle> {
-    const cached = SandockSandbox.instances.get(id);
-    let sandboxId = cached?.sandboxId;
-    let needsInit = false;
+  async attach(): Promise<SandboxHandle> {
+    // Create sandbox using high-level API
+    const createResult = await this.client.sandbox.create({
+      image: this.image,
+      memory: this.memoryLimitMb,
+      cpu: this.cpuShares,
+    });
 
-    if (sandboxId) {
-      // Update last access time
-      SandockSandbox.instances.set(id, {
-        sandboxId,
-        lastAccessTime: Date.now(),
-      });
-      console.log(`[Sandock] Reusing cached sandbox instance: ${id}`);
-    } else {
-      // Evict oldest if cache is full before adding new instance
-      this.evictOldestIfNeeded();
-
-      // Create sandbox using high-level API
-      const createResult = await this.client.sandbox.create({
-        image: this.image,
-        memory: this.memoryLimitMb,
-        cpu: this.cpuShares,
-      });
-
-      console.log(
-        `[Sandock] Sandbox creation result: ${JSON.stringify(createResult)}`,
-      );
-      sandboxId = createResult.data.id;
-      if (!sandboxId) {
-        throw new Error("No sandbox ID returned from Sandock API");
-      }
-
-      console.log(`[Sandock] Created new sandbox: ${sandboxId}`);
-
-      // Start the sandbox using high-level API
-      await this.client.sandbox.start(sandboxId);
-
-      SandockSandbox.instances.set(id, {
-        sandboxId,
-        lastAccessTime: Date.now(),
-      });
-
-      // Remove old initialized flag for this user ID when creating new sandbox
-      SandockSandbox.initializedInstances.delete(id);
-      needsInit = true;
+    console.log(
+      `[Sandock] Sandbox creation result: ${JSON.stringify(createResult)}`,
+    );
+    const sandboxId = createResult.data.id;
+    if (!sandboxId) {
+      throw new Error("No sandbox ID returned from Sandock API");
     }
+
+    console.log(`[Sandock] Created new sandbox: ${sandboxId}`);
+
+    // Start the sandbox using high-level API
+    await this.client.sandbox.start(sandboxId);
 
     const handle = new SandockHandle(
       this.client,
@@ -267,25 +242,18 @@ export class SandockSandbox implements SandboxAdapter {
       this.workdir,
       this.timeout,
       () => {
-        SandockSandbox.instances.delete(id);
-        SandockSandbox.initializedInstances.delete(id);
+        // Cleanup callback - no-op since we don't cache
       },
       this.env,
     );
 
-    // Upload runner and templates on first attach
-    if (needsInit && !SandockSandbox.initializedInstances.has(id)) {
-      await this.initializeSandbox(handle, id);
-      SandockSandbox.initializedInstances.add(id);
-    }
+    // Initialize sandbox with runner and templates
+    await this.initializeSandbox(handle);
 
     return handle;
   }
 
-  private async initializeSandbox(
-    handle: SandockHandle,
-    id: string,
-  ): Promise<void> {
+  private async initializeSandbox(handle: SandockHandle): Promise<void> {
     // Upload runner bundle to /sandagent (fixed location for node to find it)
     if (this.runnerBundlePath && fs.existsSync(this.runnerBundlePath)) {
       const bundleContent = fs.readFileSync(this.runnerBundlePath);
@@ -297,13 +265,13 @@ export class SandockSandbox implements SandboxAdapter {
         },
       ];
       console.log(
-        `[Sandock] Uploading runner bundle (${bundleFileName}) to /sandagent in sandbox ${id}`,
+        `[Sandock] Uploading runner bundle (${bundleFileName}) to /sandagent`,
       );
       await handle.upload(runnerFiles, "/sandagent");
 
       // Install claude-agent-sdk in sandbox
       console.log(
-        `[Sandock] Installing @anthropic-ai/claude-agent-sdk in sandbox ${id}`,
+        `[Sandock] Installing @anthropic-ai/claude-agent-sdk`,
       );
       const installResult = await handle.runCommand(
         "npm install --prefix /sandagent @anthropic-ai/claude-agent-sdk",
@@ -319,7 +287,7 @@ export class SandockSandbox implements SandboxAdapter {
     if (this.templatesPath && fs.existsSync(this.templatesPath)) {
       const templateFiles = this.collectFiles(this.templatesPath, "");
       console.log(
-        `[Sandock] Uploading ${templateFiles.length} template files to ${this.workdir} in sandbox ${id}`,
+        `[Sandock] Uploading ${templateFiles.length} template files to ${this.workdir}`,
       );
       await handle.upload(templateFiles, this.workdir);
     } else if (this.templatesPath) {

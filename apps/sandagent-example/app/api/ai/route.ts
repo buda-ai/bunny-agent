@@ -1,12 +1,19 @@
 import path from "node:path";
 import { createSandAgent } from "@sandagent/ai-provider";
+import { SandAgent } from "@sandagent/core";
 import { DaytonaSandbox } from "@sandagent/sandbox-daytona";
 import { E2BSandbox } from "@sandagent/sandbox-e2b";
 import { SandockSandbox } from "@sandagent/sandbox-sandock";
 import {
   type UIMessage,
+  type UIMessageChunk,
+  createUIMessageStream,
+  createUIMessageStreamResponse,
   isToolUIPart,
   lastAssistantMessageIsCompleteWithToolCalls,
+  pipeTextStreamToResponse,
+  pipeUIMessageStreamToResponse,
+  readUIMessageStream,
   streamText,
 } from "ai";
 
@@ -177,7 +184,7 @@ export async function POST(request: Request) {
   const normalizedMessages = [normalizedMessage];
 
   // Build env object, filtering out undefined values
-  const env: Record<string, string> = {};
+  const env: Record<string, string> = { DEBUG_STREAM: "true" };
   if (ANTHROPIC_API_KEY) env.ANTHROPIC_API_KEY = ANTHROPIC_API_KEY;
   if (ANTHROPIC_BASE_URL) env.ANTHROPIC_BASE_URL = ANTHROPIC_BASE_URL;
   if (AWS_BEARER_TOKEN_BEDROCK) {
@@ -220,7 +227,7 @@ export async function POST(request: Request) {
       apiKey: E2B_API_KEY,
       runnerBundlePath: RUNNER_BUNDLE_PATH,
       templatesPath: path.join(TEMPLATES_PATH, template),
-      name: sandboxName,
+      // name: sandboxName,
       // Sandbox-level config
       env,
       agentTemplate: template,
@@ -235,20 +242,47 @@ export async function POST(request: Request) {
 
   // Create the provider with a sandbox adapter
   // env, template, and workdir are now configured in sandbox
-  const sandagent = createSandAgent({
+  // const sandagent = createSandAgent({
+  //   sandbox,
+  // });
+  // // Streaming works too
+  // const result = streamText({
+  //   model: sandagent(model),
+  //   messages: normalizedMessages,
+  // });
+
+  // return result.toUIMessageStreamResponse();
+  const agent = new SandAgent({
     sandbox,
-  });
-  // Streaming works too
-  const result = streamText({
-    model: sandagent(model),
-    messages: normalizedMessages,
+    runner: {
+      kind: "claude-agent-sdk",
+      model,
+      approvalDir: "/sandagent/approvals",
+    },
+    // Pass environment variables to the sandbox
+    // Prioritize ANTHROPIC_API_KEY over AWS_BEARER_TOKEN_BEDROCK
+    env: env,
   });
 
-  return result.toUIMessageStreamResponse();
-  // return agent.stream({
-  //   messages: normalizedMessages,
-  //   workspace: { path: "/sandagent" },
-  //   resume,
-  //   signal, // Pass signal to SandAgent
-  // });
+  const sseStream = await agent.stream({
+    messages: normalizedMessages,
+    workspace: { path: "/sandagent" },
+    resume,
+    signal, // Pass signal to SandAgent
+  });
+
+  // DEBUG: Return raw SSE stream to see debug comments in Response tab
+  // When debugging is done, uncomment the UIMessageStreamResponse version below
+  return new Response(sseStream, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+      "X-Accel-Buffering": "no",
+    },
+  });
+
+  // // Convert SSE stream to UIMessageChunk stream and return as UIMessageStreamResponse
+  // const uiMessageChunkStream = sseStreamToUIMessageChunkStream(sseStream);
+  // return createUIMessageStreamResponse({ stream: uiMessageChunkStream });
 }

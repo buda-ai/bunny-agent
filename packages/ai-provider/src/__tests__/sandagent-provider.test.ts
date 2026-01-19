@@ -32,6 +32,8 @@ function createMockSandbox(): SandboxAdapter {
 }
 
 describe("createSandAgent", () => {
+  // Runner is now optional - automatically created from modelId
+
   it("should throw error when sandbox is not provided", () => {
     expect(() => {
       // @ts-expect-error - Testing invalid input
@@ -39,10 +41,26 @@ describe("createSandAgent", () => {
     }).toThrow("SandAgent provider requires a sandbox adapter");
   });
 
-  it("should create a provider with sandbox", () => {
+  it("should auto-create runner from modelId when runner is not provided", () => {
     const sandbox = createMockSandbox();
     const provider = createSandAgent({
       sandbox,
+      env: { ANTHROPIC_API_KEY: "test-key" },
+      // runner is optional - automatically created from modelId
+    });
+
+    const model = provider("sonnet");
+    expect(model).toBeDefined();
+    expect(model.modelId).toBe("claude-sonnet-4-20250514");
+  });
+
+  it("should create a provider with sandbox and optional runner config", () => {
+    const sandbox = createMockSandbox();
+    const provider = createSandAgent({
+      sandbox,
+      runner: {
+        systemPrompt: "You are a helpful assistant",
+      },
       env: { ANTHROPIC_API_KEY: "test-key" },
     });
 
@@ -88,11 +106,9 @@ describe("createSandAgent", () => {
     const provider = createSandAgent({
       sandbox,
       env: { ANTHROPIC_API_KEY: "test-key", DEFAULT_VAR: "default" },
-      template: "default",
     });
 
     const model = provider("sonnet", {
-      template: "coder",
       env: { CUSTOM_VAR: "custom" },
     });
 

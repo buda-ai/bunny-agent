@@ -16,24 +16,15 @@ import type {
  * - Direct passthrough of AI SDK UI messages
  */
 export class SandAgent {
-  private readonly id: string;
   private readonly sandbox: SandboxAdapter;
   private readonly runner: RunnerSpec;
   private readonly env: Record<string, string>;
   private handle: SandboxHandle | null = null;
 
   constructor(options: SandAgentOptions) {
-    this.id = options.id;
     this.sandbox = options.sandbox;
     this.runner = options.runner;
     this.env = options.env ?? {};
-  }
-
-  /**
-   * Get the unique identifier for this agent
-   */
-  getId(): string {
-    return this.id;
   }
 
   /**
@@ -41,7 +32,7 @@ export class SandAgent {
    */
   private async ensureAttached(): Promise<SandboxHandle> {
     if (!this.handle) {
-      this.handle = await this.sandbox.attach(this.id);
+      this.handle = await this.sandbox.attach();
     }
     return this.handle;
   }
@@ -60,10 +51,6 @@ export class SandAgent {
     // Add workspace path
     const workspacePath = input.workspace?.path ?? "/workspace";
     cmd.push("--cwd", workspacePath);
-
-    // Add template (defaults to "default")
-    const template = this.runner.template ?? "default";
-    cmd.push("--template", template);
 
     // Add optional system prompt
     if (this.runner.systemPrompt) {
@@ -111,22 +98,20 @@ export class SandAgent {
    * This method:
    * 1. Attaches to the sandbox
    * 2. Executes the CLI runner inside the sandbox
-   * 3. Streams AI SDK UI messages from stdout to the response
-   * 4. Returns the response for direct passthrough to the client
+   * 3. Returns a ReadableStream of AI SDK UI messages from stdout
    *
    * The server NEVER parses or modifies the stream.
    *
    * @param input - Stream input including messages and optional transcript writer
-   * @returns Response with AI SDK UI stream
+   * @returns ReadableStream of AI SDK UI messages
    */
-  async stream(input: StreamInput): Promise<Response> {
+  async stream(input: StreamInput): Promise<ReadableStream<Uint8Array>> {
     const handle = await this.ensureAttached();
 
     const command = this.buildCommand(input);
 
     const workspacePath = input.workspace?.path ?? "/workspace";
     const transcriptWriter = input.transcriptWriter;
-    const agentId = this.id;
     const signal = input.signal;
 
     // Check if signal is already aborted
@@ -139,7 +124,6 @@ export class SandAgent {
       await transcriptWriter.write({
         timestamp: new Date().toISOString(),
         type: "start",
-        agentId,
         metadata: {
           command: command.join(" "),
           workspace: workspacePath,
@@ -157,7 +141,7 @@ export class SandAgent {
 
     // Create a ReadableStream that passes through the stdout chunks
     // and optionally writes to transcript
-    const readableStream = new ReadableStream<Uint8Array>({
+    return new ReadableStream<Uint8Array>({
       async start(controller) {
         let controllerClosed = false;
 
@@ -169,7 +153,6 @@ export class SandAgent {
               await transcriptWriter.write({
                 timestamp: new Date().toISOString(),
                 type: "chunk",
-                agentId,
                 data: Buffer.from(chunk).toString("base64"),
                 text,
               });
@@ -184,7 +167,6 @@ export class SandAgent {
             await transcriptWriter.write({
               timestamp: new Date().toISOString(),
               type: "end",
-              agentId,
             });
           }
 
@@ -203,7 +185,6 @@ export class SandAgent {
               await transcriptWriter.write({
                 timestamp: new Date().toISOString(),
                 type: "error",
-                agentId,
                 text: errorMessage,
               });
             }
@@ -214,18 +195,6 @@ export class SandAgent {
             controller.error(error);
           }
         }
-      },
-    });
-
-    // Return a Response with the stream and appropriate headers
-    // Use configurable content type for flexibility with different AI SDK versions
-    const contentType = input.contentType ?? "text/event-stream";
-    return new Response(readableStream, {
-      headers: {
-        "Content-Type": contentType,
-        "Cache-Control": "no-cache",
-        Connection: "keep-alive",
-        "X-Accel-Buffering": "no",
       },
     });
   }

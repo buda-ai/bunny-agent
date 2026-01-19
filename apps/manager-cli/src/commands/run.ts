@@ -109,29 +109,25 @@ export async function runCommand(args: string[]): Promise<void> {
 
   // Create and run the agent
   const agent = new SandAgent({
-    id: values.id!,
     sandbox: sandboxAdapter,
     runner: {
       kind: "claude-agent-sdk",
       model: values.model!,
-      template: values.template,
     },
   });
 
-  const response = await agent.stream({
+  const stream = await agent.stream({
     messages: [{ role: "user", content: task }],
     workspace: { path: values.workspace! },
   });
 
   // Stream the response to stdout
-  const reader = response.body?.getReader();
-  if (reader) {
-    const decoder = new TextDecoder();
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      process.stdout.write(decoder.decode(value, { stream: true }));
-    }
+  const reader = stream.getReader();
+  const decoder = new TextDecoder();
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    process.stdout.write(decoder.decode(value, { stream: true }));
   }
 
   console.log("");

@@ -184,7 +184,7 @@ export class E2BSandbox implements SandboxAdapter {
     }
   }
 
-  async attach(id: string): Promise<SandboxHandle> {
+  async attach(): Promise<SandboxHandle> {
     if (!this.apiKey) {
       throw new Error(
         "E2B API key not found. Please set E2B_API_KEY environment variable or pass apiKey option.",
@@ -204,13 +204,13 @@ export class E2BSandbox implements SandboxAdapter {
         instance = existingSandbox;
       } else {
         // No existing sandbox found or connection failed, create new one
-        instance = await this.createNewSandbox(id);
+        instance = await this.createNewSandbox();
         needsInit = true;
       }
     } else {
       // No name provided - always create new sandbox
       console.log(`[E2B] No name provided, creating new sandbox`);
-      instance = await this.createNewSandbox(id);
+      instance = await this.createNewSandbox();
       needsInit = true;
     }
 
@@ -218,7 +218,7 @@ export class E2BSandbox implements SandboxAdapter {
 
     // Initialize sandbox if it's new (upload files, install dependencies)
     if (needsInit) {
-      await this.initializeSandbox(handle, id);
+      await this.initializeSandbox(handle);
     }
 
     return handle;
@@ -227,10 +227,8 @@ export class E2BSandbox implements SandboxAdapter {
   /**
    * Create a new sandbox with metadata for later querying
    */
-  private async createNewSandbox(id: string): Promise<Sandbox> {
-    const metadata: Record<string, string> = {
-      sandagentId: id,
-    };
+  private async createNewSandbox(): Promise<Sandbox> {
+    const metadata: Record<string, string> = {};
 
     // Add name to metadata if provided (for sandbox reuse)
     if (this.name) {
@@ -251,10 +249,7 @@ export class E2BSandbox implements SandboxAdapter {
     return instance;
   }
 
-  private async initializeSandbox(
-    handle: E2BHandle,
-    id: string,
-  ): Promise<void> {
+  private async initializeSandbox(handle: E2BHandle): Promise<void> {
     // Upload runner bundle to /sandagent (fixed location for node to find it)
     if (this.runnerBundlePath && fs.existsSync(this.runnerBundlePath)) {
       const bundleContent = fs.readFileSync(this.runnerBundlePath);
@@ -266,13 +261,13 @@ export class E2BSandbox implements SandboxAdapter {
         },
       ];
       console.log(
-        `[E2B] Uploading runner bundle (${bundleFileName}) to /sandagent in sandbox ${id}`,
+        `[E2B] Uploading runner bundle (${bundleFileName}) to /sandagent`,
       );
       await handle.upload(runnerFiles, "/sandagent");
 
       // Install claude-agent-sdk in sandbox
       console.log(
-        `[E2B] Installing @anthropic-ai/claude-agent-sdk in sandbox ${id}`,
+        `[E2B] Installing @anthropic-ai/claude-agent-sdk`,
       );
       const installResult = await handle.runCommand(
         "npm install --prefix /sandagent @anthropic-ai/claude-agent-sdk",
@@ -288,7 +283,7 @@ export class E2BSandbox implements SandboxAdapter {
     if (this.templatesPath && fs.existsSync(this.templatesPath)) {
       const templateFiles = this.collectFiles(this.templatesPath, "");
       console.log(
-        `[E2B] Uploading ${templateFiles.length} template files to ${this.workdir} in sandbox ${id}`,
+        `[E2B] Uploading ${templateFiles.length} template files to ${this.workdir}`,
       );
       await handle.upload(templateFiles, this.workdir);
     } else if (this.templatesPath) {

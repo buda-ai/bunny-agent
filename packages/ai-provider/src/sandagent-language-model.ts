@@ -12,8 +12,12 @@ import type {
   SharedV3Warning,
 } from "@ai-sdk/provider";
 import { generateId } from "@ai-sdk/provider-utils";
-import { type Message, SandAgent } from "@sandagent/core";
-import type { Logger, SandAgentModelId, SandAgentSettings } from "./types.js";
+import { type Message, type RunnerSpec, SandAgent } from "@sandagent/core";
+import type {
+  Logger,
+  SandAgentModelId,
+  SandAgentProviderSettings,
+} from "./types.js";
 import { resolveModelId } from "./types.js";
 
 /**
@@ -26,15 +30,15 @@ export interface SandAgentLanguageModelOptions {
   id: SandAgentModelId;
 
   /**
-   * Settings to configure the model behavior.
+   * SandAgent options and provider-specific settings.
    */
-  settings: SandAgentSettings;
+  options: SandAgentProviderSettings;
 }
 
 /**
  * Get a logger instance based on settings.
  */
-function getLogger(settings: SandAgentSettings): Logger {
+function getLogger(settings: SandAgentProviderSettings): Logger {
   if (settings.logger === false) {
     return {
       debug: () => {},
@@ -114,29 +118,13 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
     "image/*": [/.*/], // Support all image URLs
   };
 
-  private readonly settings: SandAgentSettings;
+  private readonly options: SandAgentProviderSettings;
   private readonly logger: Logger;
-  private sessionId: string | undefined;
 
-  constructor(options: SandAgentLanguageModelOptions) {
-    this.modelId = resolveModelId(options.id);
-    this.settings = options.settings;
-    this.logger = getLogger(options.settings);
-    this.sessionId = options.settings.sessionId;
-  }
-
-  /**
-   * Get the session ID for resuming conversations.
-   */
-  getSessionId(): string | undefined {
-    return this.sessionId;
-  }
-
-  /**
-   * Set the session ID (usually from response metadata).
-   */
-  setSessionId(sessionId: string): void {
-    this.sessionId = sessionId;
+  constructor(modelOptions: SandAgentLanguageModelOptions) {
+    this.modelId = resolveModelId(modelOptions.id);
+    this.options = modelOptions.options;
+    this.logger = getLogger(modelOptions.options);
   }
 
   /**
@@ -259,46 +247,34 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
       `[sandagent] Starting stream with ${messages.length} messages`,
     );
 
-    // Get sandbox-level settings (if available)
-    const sandbox = this.settings.sandbox;
+    const sandbox = this.options.sandbox;
     const sandboxEnv = sandbox.getEnv?.() ?? {};
-    const sandboxTemplate = sandbox.getAgentTemplate?.() ?? "default";
     const sandboxWorkdir = sandbox.getWorkdir?.() ?? "/workspace";
 
-    // Create SandAgent instance
-    // Settings priority: settings > sandbox > defaults
+    // Create SandAgent - runner is auto-created in createModel with kind and model
+    // The runner in options is guaranteed to have kind and model set by createModel
     const agent = new SandAgent({
-      id: this.sessionId ?? `sandagent-${generateId()}`,
-      sandbox,
-      runner: {
-        kind: "claude-agent-sdk",
-        model: this.modelId,
-        template: this.settings.template ?? sandboxTemplate,
-        systemPrompt: this.settings.systemPrompt,
-        maxTurns: this.settings.maxTurns,
-        allowedTools: this.settings.allowedTools,
-        approvalDir: this.settings.approvalDir,
-      },
-      // Merge sandbox env with settings env (settings takes precedence)
-      env: { ...sandboxEnv, ...this.settings.env },
+      sandbox: this.options.sandbox,
+      runner: this.options.runner as RunnerSpec, // Runner is fully created in createModel
+      env: { ...sandboxEnv, ...this.options.env },
     });
 
     try {
       // Get the streaming response from sandbox
-      const response = await agent.stream({
+      const stream = await agent.stream({
         messages,
         workspace: {
-          path: this.settings.cwd ?? sandboxWorkdir,
+          path: this.options.cwd ?? sandboxWorkdir,
         },
-        resume: this.settings.resume ?? this.sessionId,
+        resume: this.options.resume,
         signal: abortSignal,
-        transcriptWriter: this.settings.transcriptWriter,
-        contentType: this.settings.contentType,
+        transcriptWriter: this.options.transcriptWriter,
+        contentType: this.options.contentType,
       });
 
       // Create a ReadableStream that parses SSE and emits LanguageModelV3StreamPart
       const self = this;
-      const reader = response.body?.getReader();
+      const reader = stream.getReader();
 
       if (!reader) {
         throw new Error("Response body is not readable");
@@ -423,9 +399,6 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
     switch (parsed.type) {
       case "start": {
         // Session started
-        if (parsed.messageId) {
-          this.setSessionId(parsed.messageId as string);
-        }
         break;
       }
 
@@ -593,11 +566,8 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
           finishReason,
           usage,
           providerMetadata: {
-            sandagent: {
-              sessionId: this.sessionId ?? "",
-              ...(parsed.messageMetadata as Record<string, unknown>),
-            },
-          },
+            sandagent: parsed.messageMetadata,
+          } as SharedV3ProviderMetadata,
         });
         break;
       }
