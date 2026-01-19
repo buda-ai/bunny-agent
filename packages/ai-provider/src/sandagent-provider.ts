@@ -138,11 +138,6 @@ function getLogger(settings: Partial<SandAgentProviderSettings>): Logger {
  * // Runner is auto-created from modelId (claude models -> claude-agent-sdk)
  * const sandagent = createSandAgent({
  *   sandbox: new E2BSandbox({ apiKey: process.env.E2B_API_KEY! }),
- *   // Optional: provide runner config (kind and model are auto-determined)
- *   runner: {
- *     systemPrompt: 'You are a helpful assistant',
- *     maxTurns: 10,
- *   },
  *   env: {
  *     ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY!,
  *   },
@@ -175,22 +170,16 @@ export function createSandAgent(
     const runnerKind = getRunnerKindForModel(modelId);
     const resolvedModelId = resolveModelId(modelId);
 
-    // Merge runner options (kind and model are auto-determined, only merge other options)
-    const baseRunner = defaultOptions.runner ?? {};
-    const overrideRunner = options.runner ?? {};
-
     // Build runner: kind and model are auto-determined from modelId
+    // All runner options come from modelId, no default runner config needed
     const runner: RunnerSpec = {
       kind: runnerKind,
       model: resolvedModelId,
-      systemPrompt: overrideRunner.systemPrompt ?? baseRunner.systemPrompt,
-      maxTurns: overrideRunner.maxTurns ?? baseRunner.maxTurns,
-      allowedTools: overrideRunner.allowedTools ?? baseRunner.allowedTools,
-      approvalDir: overrideRunner.approvalDir ?? baseRunner.approvalDir,
     };
 
     // Create merged options - runner is now a complete RunnerSpec
-    const mergedOptions: SandAgentProviderSettings & { runner: RunnerSpec } = {
+    // We need to add runner to the options for SandAgentLanguageModel
+    const mergedOptions = {
       ...defaultOptions,
       ...options,
       runner, // runner is now a complete RunnerSpec with kind and model
@@ -199,7 +188,7 @@ export function createSandAgent(
         ...defaultOptions.env,
         ...options.env,
       },
-    };
+    } as SandAgentProviderSettings & { runner: RunnerSpec };
 
     logger.debug(
       `[sandagent] Creating model: ${modelId} with runner: ${runner.kind}`,

@@ -54,13 +54,10 @@ describe("createSandAgent", () => {
     expect(model.modelId).toBe("claude-sonnet-4-20250514");
   });
 
-  it("should create a provider with sandbox and optional runner config", () => {
+  it("should create a provider with sandbox only", () => {
     const sandbox = createMockSandbox();
     const provider = createSandAgent({
       sandbox,
-      runner: {
-        systemPrompt: "You are a helpful assistant",
-      },
       env: { ANTHROPIC_API_KEY: "test-key" },
     });
 

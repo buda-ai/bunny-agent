@@ -89,7 +89,6 @@ export { resolveModelId } from "./types.js";
 export type {
   SandboxAdapter,
   SandboxHandle,
-  TranscriptWriter,
   TranscriptEntry,
   Message,
 } from "@sandagent/core";

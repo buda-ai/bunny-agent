@@ -266,9 +266,7 @@ export class E2BSandbox implements SandboxAdapter {
       await handle.upload(runnerFiles, "/sandagent");
 
       // Install claude-agent-sdk in sandbox
-      console.log(
-        `[E2B] Installing @anthropic-ai/claude-agent-sdk`,
-      );
+      console.log(`[E2B] Installing @anthropic-ai/claude-agent-sdk`);
       const installResult = await handle.runCommand(
         "npm install --prefix /sandagent @anthropic-ai/claude-agent-sdk",
       );

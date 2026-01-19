@@ -231,7 +231,7 @@ export async function POST(request: Request) {
       // Sandbox-level config
       env,
       agentTemplate: template,
-      workdir: "/workspace",
+      workdir: "/sandagent",
     });
   }
 
@@ -266,7 +266,7 @@ export async function POST(request: Request) {
 
   const sseStream = await agent.stream({
     messages: normalizedMessages,
-    workspace: { path: "/sandagent" },
+    workspace: { path: sandbox.getWorkdir() }, // Use the same workdir where templates are uploaded
     resume,
     signal, // Pass signal to SandAgent
   });

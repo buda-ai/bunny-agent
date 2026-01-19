@@ -1,8 +1,4 @@
-import type {
-  SandAgentOptions,
-  SandboxAdapter,
-  TranscriptWriter,
-} from "@sandagent/core";
+import type { SandAgentOptions, SandboxAdapter } from "@sandagent/core";
 
 /**
  * Logger interface for custom logging.
@@ -48,11 +44,10 @@ export interface Logger {
  * These are used for stream input configuration and logging.
  *
  * Note: Runner is automatically created based on modelId in createModel.
+ * No need to provide runner configuration.
  */
 export interface SandAgentProviderSettings
   extends Omit<SandAgentOptions, "runner"> {
-  /** Optional runner configuration (kind and model are auto-determined from modelId) */
-  runner?: Omit<SandAgentOptions["runner"], "kind" | "model">;
   /**
    * Working directory for CLI operations inside the sandbox.
    *
@@ -65,19 +60,6 @@ export interface SandAgentProviderSettings
    * Obtained from previous response metadata.
    */
   resume?: string;
-
-  /**
-   * Content type for streaming response.
-   *
-   * @default 'text/event-stream'
-   */
-  contentType?: string;
-
-  /**
-   * Transcript writer for recording all streamed data.
-   * Useful for debugging and logging.
-   */
-  transcriptWriter?: TranscriptWriter;
 
   /**
    * Enable verbose logging for debugging.
@@ -104,6 +86,10 @@ export interface SandAgentProviderSettings
 export type SandAgentModelId =
   | "claude-sonnet-4-20250514"
   | "claude-opus-4-20250514"
+  | "claude-sonnet-4.5-20250514"
+  | "claude-opus-4.5-20250514"
+  | "claude-4-5-sonnet-20250514"
+  | "claude-4-5-opus-20250514"
   | "claude-3-7-sonnet-20250219"
   | "claude-3-5-sonnet-20241022"
   | "claude-3-5-haiku-20241022"

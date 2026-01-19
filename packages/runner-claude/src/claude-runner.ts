@@ -307,7 +307,12 @@ function createSDKOptions(options: ClaudeRunnerOptions): Options {
     model: options.model,
     systemPrompt: options.systemPrompt,
     maxTurns: options.maxTurns,
-    allowedTools: [...(options.allowedTools ?? []), "Skill"],
+    allowedTools: [
+      ...(options.allowedTools ?? []),
+      "Skill",
+      "WebSearch",
+      "WebFetch",
+    ],
     cwd: options.cwd,
     env: options.env,
     resume: options.resume,

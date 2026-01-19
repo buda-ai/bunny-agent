@@ -31,8 +31,9 @@ export interface SandAgentLanguageModelOptions {
 
   /**
    * SandAgent options and provider-specific settings.
+   * Runner is guaranteed to be set by createModel.
    */
-  options: SandAgentProviderSettings;
+  options: SandAgentProviderSettings & { runner: RunnerSpec };
 }
 
 /**
@@ -118,7 +119,7 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
     "image/*": [/.*/], // Support all image URLs
   };
 
-  private readonly options: SandAgentProviderSettings;
+  private readonly options: SandAgentProviderSettings & { runner: RunnerSpec };
   private readonly logger: Logger;
 
   constructor(modelOptions: SandAgentLanguageModelOptions) {
@@ -268,8 +269,6 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
         },
         resume: this.options.resume,
         signal: abortSignal,
-        transcriptWriter: this.options.transcriptWriter,
-        contentType: this.options.contentType,
       });
 
       // Create a ReadableStream that parses SSE and emits LanguageModelV3StreamPart

@@ -93,6 +93,25 @@ const ENV_CONFIGS: EnvConfig[] = [
     category: "debug",
     placeholder: "true",
   },
+  {
+    name: "Google API Key",
+    key: "GOOGLE_API_KEY",
+    description:
+      "Optional. For Google Custom Search API. Get one at https://console.cloud.google.com/",
+    required: false,
+    category: "api",
+    placeholder: "AIza...",
+    isSecret: true,
+  },
+  {
+    name: "Google Search Engine ID",
+    key: "GOOGLE_SEARCH_ENGINE_ID",
+    description:
+      "Optional. Custom Search Engine ID from https://programmablesearchengine.google.com/",
+    required: false,
+    category: "api",
+    placeholder: "012345678901234567890:abc...",
+  },
 ];
 
 export const STORAGE_KEY = "sandagent-config";
