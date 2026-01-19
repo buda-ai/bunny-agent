@@ -26,7 +26,7 @@ This agent analyzes GSC data to:
    - Save the JSON key as `gsc-credentials.json` in the project root
 
 2. **Configure MCP**
-   The `.claude/mcp.json` is already configured to use credentials at `gsc-credentials.json`
+   The `mcp.json` is already configured to use credentials at `gsc-credentials.json` (relative to the template directory).
 
    Just place your `gsc-credentials.json` file in the project root directory.
 
