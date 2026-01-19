@@ -6,28 +6,12 @@
 import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { BenchmarkResult, GaiaTask } from "./types.js";
-
-export interface WrongAnswerEntry {
-  taskId: string;
-  question: string;
-  expectedAnswer: string;
-  agentAnswer: string;
-  level: number;
-  firstFailedAt: string;
-  lastFailedAt: string;
-  attemptCount: number;
-  error?: string;
-  rawOutput?: string;
-}
-
-export interface WrongAnswersCollection {
-  metadata: {
-    totalWrong: number;
-    lastUpdated: string;
-  };
-  tasks: Record<string, WrongAnswerEntry>;
-}
+import type {
+  BenchmarkResult,
+  GaiaTask,
+  WrongAnswerEntry,
+  WrongAnswersCollection,
+} from "./types.js";
 
 const WRONG_ANSWERS_FILE = "wrong-answers.json";
 
