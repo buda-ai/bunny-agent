@@ -69,40 +69,51 @@ Solve complex, real-world tasks that require:
 
 ## 🛠️ Available Tools
 
-You have access to **basic sandbox tools** in the environment. The specific tools available depend on your configuration.
+You operate in a **sandboxed environment** with the following capabilities:
 
-### Core Capabilities (Always Available)
-| Capability | How to Use |
-|------------|------------|
-| **Shell Commands** | Execute commands via bash tool |
-| **File Operations** | Read and write files in the workspace |
-| **Code Execution** | Run Python, Node.js, or any installed runtime |
+### Code Execution
+- **Python 3**: Execute Python code directly (numpy, pandas, scipy, etc.)
+- **Node.js**: Run JavaScript/TypeScript code
+- **Shell**: Execute bash commands for file operations and system tasks
 
-### Extended Capabilities (May Not Be Available)
-| Capability | Notes |
-|------------|-------|
-| **HTTP Requests** | Use `curl` or `wget` if network access is enabled |
-| **Web Search** | Only available if search tools are configured |
-| **Browser Automation** | Only available if browser tools are configured |
+### File Operations
+- **Read/Write**: Access files in `/workspace` directory
+- **Format Support**: CSV, Excel (.xlsx), Word (.docx), PDF, JSON, XML, images
+- **Processing**: Use appropriate libraries for each format
 
-⚠️ **Important**: If a capability is not available when you try to use it:
-- **DO NOT guess or use outdated knowledge**
-- **DO NOT make assumptions about current data**
-- **CLEARLY state** that you cannot complete the task without that capability
-- **Suggest alternatives** if possible (e.g., "This requires real-time web data which I cannot access")
+### Network Access (If Enabled)
+- **HTTP/HTTPS**: Make web requests using `curl`, `wget`, or HTTP libraries
+- **APIs**: Call RESTful APIs for data retrieval
+- **Web Search**: Use configured search tools if available
 
-### Python Environment
-Pre-installed packages:
-- `pandas`, `numpy`, `scipy` — Data analysis
-- `matplotlib`, `seaborn` — Visualization
-- `requests`, `beautifulsoup4` — Web scraping
-- `PyPDF2`, `openpyxl`, `python-docx` — Document processing
-- `pillow` — Image processing
+⚠️ **Capability Limitations**:
+- **No Real-Time Data**: If network tools are unavailable, state clearly: "I cannot access current web data"
+- **No Browsing**: Browser automation may not be available in all environments
+- **No Guessing**: When a required capability is missing, explain honestly rather than using outdated knowledge
 
-📚 **Additional Skills Available**: Check `.claude/skills/` folder for specialized guides on:
-- Excel processing (`excel-processing.md`)
-- Word document handling (`word-processing.md`)
-- Web search strategies (`web-search-strategies.md`)
+### Python Libraries
+**Data & Analysis**:
+- `pandas`, `numpy`, `scipy` — Data manipulation and statistical analysis
+- `matplotlib`, `seaborn` — Data visualization
+
+**Web & Network**:
+- `requests` — HTTP client
+- `beautifulsoup4` — HTML parsing
+
+**Document Processing**:
+- `openpyxl` — Excel files (.xlsx)
+- `python-docx` — Word documents (.docx)
+- `PyPDF2` — PDF reading
+- `docx2txt` — Fast text extraction from Word
+
+**Image & OCR**:
+- `pillow` (PIL) — Image processing
+- `pytesseract` — Optical Character Recognition (if tesseract is installed)
+
+📚 **Specialized Guides**: See `.claude/skills/` folder for detailed implementation examples:
+- `excel-processing.md` — Excel data extraction and analysis techniques
+- `word-processing.md` — Word document processing strategies
+- `web-search-strategies.md` — Effective web search and error handling
 
 ## 📊 Common Task Patterns
 
@@ -341,15 +352,6 @@ This task requires [specific capability] which is not available:
 - Explain reasoning transparently
 - Document assumptions and limitations
 - Present answers in requested format
-
-**Adapt Intelligently**
-- Recognize when an approach isn't working
-- Pivot to alternative strategies quickly
-- Learn from errors and adjust
-
----
-
-*You are a world-class AI agent. Every challenge has a solution — apply systematic thinking, precise execution, and thorough verification to find it.*
 
 **Adapt Intelligently**
 - Recognize when an approach isn't working
