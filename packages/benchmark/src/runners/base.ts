@@ -23,6 +23,28 @@ export abstract class BaseRunner implements RunnerHandler {
     const defaultArgs = this.defaults.args ?? [];
     const prompt = this.buildPrompt(task);
 
+    const model = process.env.AI_MODEL;
+    if (model) {
+      // Insert model argument if not already present
+      const modelArgIndex = defaultArgs.findIndex(
+        (arg) => arg === "--model" || arg === "-m",
+      );
+      if (modelArgIndex === -1) {
+        // Find the position of '--' separator
+        const separatorIndex = defaultArgs.findIndex((arg) => arg === "--");
+        if (separatorIndex !== -1) {
+          // Insert before '--' separator
+          defaultArgs.splice(separatorIndex, 0, "--model", model);
+        } else {
+          // No separator found, append at the end
+          defaultArgs.push("--model", model);
+        }
+      } else {
+        // Update existing model argument
+        defaultArgs[modelArgIndex + 1] = model;
+      }
+    }
+
     return {
       command,
       args: [...defaultArgs, prompt],
@@ -48,8 +70,8 @@ export abstract class BaseRunner implements RunnerHandler {
    * Default implementation: return plain text output
    * @param rawOutput - Parsed JSONL output or raw string
    */
-  extractAnswer(rawOutput: Required<BenchmarkResult['rawOutput']>): string {
-    if (typeof rawOutput === 'string') {
+  extractAnswer(rawOutput: Required<BenchmarkResult["rawOutput"]>): string {
+    if (typeof rawOutput === "string") {
       return rawOutput.trim();
     }
 
@@ -57,7 +79,7 @@ export abstract class BaseRunner implements RunnerHandler {
     if (Array.isArray(rawOutput)) {
       // Return last item if it's a string
       const lastItem = rawOutput[rawOutput.length - 1];
-      if (typeof lastItem === 'string') {
+      if (typeof lastItem === "string") {
         return lastItem.trim();
       }
       // Try to extract from common fields
