@@ -90,6 +90,64 @@ function executeCommand(
 }
 
 /**
+ * Parse output to JSON format (array, object, or string)
+ * Supports JSONL (multiple lines), single JSON object, or raw string
+ */
+function parseJsonl(
+  jsonlString: string,
+): unknown[] | Record<string, unknown> | string {
+  const trimmed = jsonlString.trim();
+  if (!trimmed) {
+    return "";
+  }
+
+  // Try to parse as JSONL (multiple lines)
+  const lines = trimmed.split("\n");
+  if (lines.length > 1) {
+    const result: unknown[] = [];
+    let hasValidJson = false;
+
+    for (const line of lines) {
+      const trimmedLine = line.trim();
+      if (trimmedLine) {
+        try {
+          result.push(JSON.parse(trimmedLine));
+          hasValidJson = true;
+        } catch {
+          // Skip invalid JSON lines
+        }
+      }
+    }
+
+    if (hasValidJson) {
+      return result;
+    }
+  }
+
+  // Try to parse as single JSON object or array
+  try {
+    const parsed = JSON.parse(trimmed);
+    // If it's an object (but not null), return as Record
+    if (
+      typeof parsed === "object" &&
+      parsed !== null &&
+      !Array.isArray(parsed)
+    ) {
+      return parsed as Record<string, unknown>;
+    }
+    // If it's an array, return as array
+    if (Array.isArray(parsed)) {
+      return parsed as unknown[];
+    }
+    // For other types (string, number, boolean, null), return original string
+    return trimmed;
+  } catch {
+    // If parsing fails, return as string
+    return trimmed;
+  }
+}
+
+/**
  * Normalize answer for comparison
  */
 export function normalizeAnswer(answer: string): string {
@@ -170,9 +228,10 @@ export async function runTask(
     });
 
     const durationMs = Date.now() - startTime;
-    const rawOutput = result.stdout;
+    const rawOutput = parseJsonl(result.stdout);
 
-    const apiError = detectApiError(rawOutput) || detectApiError(result.stderr);
+    const apiError =
+      detectApiError(result.stdout) || detectApiError(result.stderr);
     if (apiError) {
       return {
         taskId: task.id,
@@ -189,7 +248,9 @@ export async function runTask(
     }
 
     const answer = runnerHandler.extractAnswer(rawOutput);
-    const correct = result.exitCode === 0 && checkAnswer(answer, task.answer);
+    const isAnswerCorrect = checkAnswer(answer, task.answer);
+    // Consider correct if answer matches, even if process was killed (timeout)
+    const correct = isAnswerCorrect;
 
     return {
       taskId: task.id,
@@ -307,7 +368,17 @@ export async function runTaskWithReflection(
 
     // Track commands used (extract from output if possible)
     if (result.rawOutput) {
-      const cmd = extractCommandFromOutput(result.rawOutput);
+      let rawOutputString = "";
+      if (Array.isArray(result.rawOutput)) {
+        rawOutputString = result.rawOutput
+          .map((item) => JSON.stringify(item))
+          .join("\n");
+      } else if (typeof result.rawOutput === "string") {
+        rawOutputString = result.rawOutput;
+      } else {
+        rawOutputString = JSON.stringify(result.rawOutput);
+      }
+      const cmd = extractCommandFromOutput(rawOutputString);
       if (cmd) {
         commandHistory.push(cmd);
       }

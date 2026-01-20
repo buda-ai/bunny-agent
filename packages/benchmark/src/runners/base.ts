@@ -4,7 +4,7 @@
  * Provides common functionality for all agent CLI runners
  */
 
-import type { GaiaTask } from "../types.js";
+import type { BenchmarkResult, GaiaTask } from "../types.js";
 import type { RunnerCommand, RunnerDefaults, RunnerHandler } from "./types.js";
 
 /**
@@ -22,6 +22,28 @@ export abstract class BaseRunner implements RunnerHandler {
     const command = this.defaults.command;
     const defaultArgs = this.defaults.args ?? [];
     const prompt = this.buildPrompt(task);
+
+    const model = process.env.AI_MODEL;
+    if (model) {
+      // Insert model argument if not already present
+      const modelArgIndex = defaultArgs.findIndex(
+        (arg) => arg === "--model" || arg === "-m",
+      );
+      if (modelArgIndex === -1) {
+        // Find the position of '--' separator
+        const separatorIndex = defaultArgs.findIndex((arg) => arg === "--");
+        if (separatorIndex !== -1) {
+          // Insert before '--' separator
+          defaultArgs.splice(separatorIndex, 0, "--model", model);
+        } else {
+          // No separator found, append at the end
+          defaultArgs.push("--model", model);
+        }
+      } else {
+        // Update existing model argument
+        defaultArgs[modelArgIndex + 1] = model;
+      }
+    }
 
     return {
       command,
@@ -44,21 +66,37 @@ export abstract class BaseRunner implements RunnerHandler {
   }
 
   /**
-   * Extract answer from output
+   * Extract answer from raw output
    * Default implementation: return plain text output
+   * @param rawOutput - Parsed JSONL output or raw string
    */
-  extractAnswer(output: string): string {
-    if (!output || !output.trim()) {
-      return "";
+  extractAnswer(rawOutput: Required<BenchmarkResult["rawOutput"]>): string {
+    if (typeof rawOutput === "string") {
+      return rawOutput.trim();
     }
 
-    // Skip SSE format (should be handled by specific runners)
-    if (this.isSSEFormat(output)) {
-      return "";
+    // For arrays or objects, try to extract answer from common fields
+    if (Array.isArray(rawOutput)) {
+      // Return last item if it's a string
+      const lastItem = rawOutput[rawOutput.length - 1];
+      if (typeof lastItem === "string") {
+        return lastItem.trim();
+      }
+      // Try to extract from common fields
+      const result = this.extractFromJsonFields(lastItem);
+      if (result) {
+        return result;
+      }
     }
 
-    // Return plain text output
-    return output.trim();
+    // For objects, try to extract from common fields
+    const result = this.extractFromJsonFields(rawOutput);
+    if (result) {
+      return result;
+    }
+
+    // Fallback: stringify the output
+    return String(rawOutput).trim();
   }
 
   /**

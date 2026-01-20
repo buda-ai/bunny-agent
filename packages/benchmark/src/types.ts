@@ -83,8 +83,36 @@ export interface BenchmarkResult {
   durationMs: number;
   /** Error message if task failed */
   error?: string;
-  /** Raw output from the agent */
-  rawOutput?: string;
+  /** Raw output from the agent (JSON array, JSON object, or string) */
+  rawOutput?: unknown[] | Record<string, unknown> | string;
+}
+
+/**
+ * Wrong answer entry for tracking failed tasks
+ */
+export interface WrongAnswerEntry {
+  taskId: string;
+  question: string;
+  expectedAnswer: string;
+  agentAnswer: string;
+  level: number;
+  firstFailedAt: string;
+  lastFailedAt: string;
+  attemptCount: number;
+  error?: string;
+  /** Raw output from the agent (JSON array, JSON object, or string) */
+  rawOutput?: unknown[] | Record<string, unknown> | string;
+}
+
+/**
+ * Collection of wrong answers
+ */
+export interface WrongAnswersCollection {
+  metadata: {
+    totalWrong: number;
+    lastUpdated: string;
+  };
+  tasks: Record<string, WrongAnswerEntry>;
 }
 
 /**
