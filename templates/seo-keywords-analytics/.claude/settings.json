@@ -1,0 +1,39 @@
+{
+  "max_tokens": 8096,
+  "temperature": 0.3,
+  "timeout_ms": 600000,
+  "max_turns": 100,
+  "streaming": true,
+  "permissions": {
+    "allow": [
+      "Skill",
+      "WebSearch",
+      "WebFetch",
+      "Write(output/*)",
+      "Write(data/*)",
+      "Edit(output/*)",
+      "Read(*)",
+      "Bash(mkdir:*)",
+      "Bash(cat:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(wc:*)",
+      "Bash(ls:*)",
+      "Bash(pwd:*)",
+      "Bash(sort:*)",
+      "Bash(uniq:*)",
+      "Bash(grep:*)",
+      "Bash(awk:*)",
+      "Bash(cut:*)"
+    ],
+    "ask": [
+      "AskUserQuestion"
+    ],
+    "deny": [
+      "Bash(rm:*)",
+      "Bash(rmdir:*)",
+      "Bash(curl:*)",
+      "Bash(wget:*)"
+    ]
+  }
+}
