@@ -23,5 +23,6 @@ export interface BaseRunnerOptions {
   resume?: string;
   /** Approval file directory for tool approval flow (e.g., "/sandagent/approvals") */
   approvalDir?: string;
+  /** Output format for streaming responses */
   outputFormat?: OutputFormat;
 }

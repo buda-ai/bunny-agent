@@ -175,6 +175,8 @@ export function createSandAgent(
     const runner: RunnerSpec = {
       kind: runnerKind,
       model: resolvedModelId,
+      // Use AI SDK UI Data Stream format for streaming responses
+      outputFormat: "stream",
     };
 
     // Create merged options - runner is now a complete RunnerSpec

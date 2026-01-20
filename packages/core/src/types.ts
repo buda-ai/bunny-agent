@@ -69,6 +69,15 @@ export interface SandboxAdapter {
 }
 
 /**
+ * Output format types
+ * - "text": Plain text output (final result only)
+ * - "json": Single JSON result object
+ * - "stream-json": Realtime streaming JSON (NDJSON)
+ * - "stream": SSE-based AI SDK UI Data Stream format
+ */
+export type OutputFormat = "text" | "json" | "stream-json" | "stream";
+
+/**
  * Specification for the agent runner
  */
 export interface RunnerSpec {
@@ -84,6 +93,8 @@ export interface RunnerSpec {
   allowedTools?: string[];
   /** Approval file directory for tool approval flow (e.g., "/sandagent/approvals") */
   approvalDir?: string;
+  /** Output format for streaming responses */
+  outputFormat?: OutputFormat;
 }
 
 /**

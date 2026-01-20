@@ -242,47 +242,45 @@ export async function POST(request: Request) {
 
   // Create the provider with a sandbox adapter
   // env, template, and workdir are now configured in sandbox
-  // const sandagent = createSandAgent({
-  //   sandbox,
-  // });
-  // // Streaming works too
-  // const result = streamText({
-  //   model: sandagent(model),
-  //   messages: normalizedMessages,
-  // });
-
-  // return result.toUIMessageStreamResponse();
-  const agent = new SandAgent({
+  const sandagent = createSandAgent({
     sandbox,
-    runner: {
-      kind: "claude-agent-sdk",
-      model,
-      approvalDir: "/sandagent/approvals",
-    },
-    // Pass environment variables to the sandbox
-    // Prioritize ANTHROPIC_API_KEY over AWS_BEARER_TOKEN_BEDROCK
-    env: env,
+    cwd: "/sandagent",
+    verbose: true,
   });
-
-  const sseStream = await agent.stream({
+  // Streaming works too
+  const result = streamText({
+    model: sandagent(model),
     messages: normalizedMessages,
-    workspace: { path: sandbox.getWorkdir() }, // Use the same workdir where templates are uploaded
-    resume,
-    signal, // Pass signal to SandAgent
   });
+  return result.toUIMessageStreamResponse();
 
-  // DEBUG: Return raw SSE stream to see debug comments in Response tab
-  // When debugging is done, uncomment the UIMessageStreamResponse version below
-  return new Response(sseStream, {
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      Connection: "keep-alive",
-      "X-Accel-Buffering": "no",
-    },
-  });
+  // const agent = new SandAgent({
+  //   sandbox,
+  //   runner: {
+  //     kind: "claude-agent-sdk",
+  //     model,
+  //     approvalDir: "/sandagent/approvals",
+  //   },
+  //   // Pass environment variables to the sandbox
+  //   // Prioritize ANTHROPIC_API_KEY over AWS_BEARER_TOKEN_BEDROCK
+  //   env: env,
+  // });
 
-  // // Convert SSE stream to UIMessageChunk stream and return as UIMessageStreamResponse
-  // const uiMessageChunkStream = sseStreamToUIMessageChunkStream(sseStream);
-  // return createUIMessageStreamResponse({ stream: uiMessageChunkStream });
+  // const sseStream = await agent.stream({
+  //   messages: normalizedMessages,
+  //   workspace: { path: sandbox.getWorkdir() }, // Use the same workdir where templates are uploaded
+  //   resume,
+  //   signal, // Pass signal to SandAgent
+  // });
+
+  // // DEBUG: Return raw SSE stream to see debug comments in Response tab
+  // // When debugging is done, uncomment the UIMessageStreamResponse version below
+  // return new Response(sseStream, {
+  //   headers: {
+  //     "Content-Type": "text/event-stream",
+  //     "Cache-Control": "no-cache",
+  //     Connection: "keep-alive",
+  //     "X-Accel-Buffering": "no",
+  //   },
+  // });
 }

@@ -424,6 +424,7 @@ export class AISDKStreamConverter {
         toolCallId,
         toolName: event.content_block.name,
         dynamic: true,
+        providerExecuted: true,
       });
     }
     if (
@@ -553,6 +554,7 @@ export class AISDKStreamConverter {
               toolName: tool.name,
               input: tool.input,
               dynamic: true,
+              providerExecuted: true,
             });
           }
         }
@@ -568,6 +570,7 @@ export class AISDKStreamConverter {
                 toolCallId: part.tool_use_id,
                 output: message.tool_use_result || part.content,
                 dynamic: true,
+                providerExecuted: true,
               });
             }
           }

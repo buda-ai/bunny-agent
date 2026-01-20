@@ -1,4 +1,5 @@
 import type {
+  JSONValue,
   LanguageModelV3,
   LanguageModelV3CallOptions,
   LanguageModelV3Content,
@@ -256,7 +257,7 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
     // The runner in options is guaranteed to have kind and model set by createModel
     const agent = new SandAgent({
       sandbox: this.options.sandbox,
-      runner: this.options.runner as RunnerSpec, // Runner is fully created in createModel
+      runner: this.options.runner,
       env: { ...sandboxEnv, ...this.options.env },
     });
 
@@ -265,7 +266,7 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
       const stream = await agent.stream({
         messages,
         workspace: {
-          path: this.options.cwd ?? sandboxWorkdir,
+          path: sandboxWorkdir,
         },
         resume: this.options.resume,
         signal: abortSignal,
@@ -279,14 +280,11 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
         throw new Error("Response body is not readable");
       }
 
+      // When outputFormat is "stream", SandAgent outputs AI SDK UI Data Stream format
+      // We passthrough the SSE data directly without conversion
+
       const outputStream = new ReadableStream<LanguageModelV3StreamPart>({
         async start(controller) {
-          // Emit stream-start with empty warnings
-          controller.enqueue({
-            type: "stream-start",
-            warnings: [],
-          });
-
           try {
             let buffer = "";
 
@@ -319,8 +317,8 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
                   if (data === "[DONE]") {
                     continue; // Skip DONE marker
                   }
-
                   try {
+                    // Convert: parse and transform to LanguageModelV3StreamPart
                     const parts = self.parseSSEData(data);
                     for (const part of parts) {
                       controller.enqueue(part);
@@ -395,6 +393,8 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
     const parts: LanguageModelV3StreamPart[] = [];
     const parsed = JSON.parse(data) as Record<string, unknown>;
 
+    console.log("parsed", JSON.stringify(parsed, null, 2));
+
     switch (parsed.type) {
       case "start": {
         // Session started
@@ -443,7 +443,8 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
           type: "tool-input-start",
           id: parsed.toolCallId as string,
           toolName: parsed.toolName as string,
-          providerExecuted: (parsed.dynamic as boolean) ?? true,
+          dynamic: parsed.dynamic as boolean,
+          providerExecuted: parsed.providerExecuted as boolean,
         });
         break;
       }
@@ -452,21 +453,11 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
         parts.push({
           type: "tool-input-delta",
           id: parsed.toolCallId as string,
-          delta: parsed.delta as string,
+          delta: parsed.inputTextDelta as string,
         });
         break;
       }
-
-      case "tool-input-end": {
-        parts.push({
-          type: "tool-input-end",
-          id: parsed.toolCallId as string,
-        });
-        break;
-      }
-
       case "tool-input-available": {
-        // Legacy format - Tool input is fully available
         const toolCallId = parsed.toolCallId as string;
         const toolName = parsed.toolName as string;
         const input = parsed.input as Record<string, unknown>;
@@ -476,59 +467,23 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
           toolCallId,
           toolName,
           input: JSON.stringify(input),
-          providerExecuted: true,
-        });
-        break;
-      }
-
-      case "tool-call": {
-        // New format - tool-call with input already stringified
-        parts.push({
-          type: "tool-call",
-          toolCallId: parsed.toolCallId as string,
-          toolName: parsed.toolName as string,
-          input: parsed.input as string,
-          providerExecuted: (parsed.providerExecuted as boolean) ?? true,
-        });
-        break;
-      }
-
-      case "tool-result": {
-        // Tool result from runner
-        parts.push({
-          type: "tool-result",
-          toolCallId: parsed.toolCallId as string,
-          toolName: (parsed.toolName as string) ?? "",
-          result: parsed.result as string,
-          isError: parsed.isError as boolean,
+          dynamic: parsed.dynamic as boolean,
+          providerExecuted: parsed.providerExecuted as boolean,
         });
         break;
       }
 
       case "tool-output-available": {
-        // Legacy format
-        const resultValue =
-          typeof parsed.output === "string"
-            ? parsed.output
-            : JSON.stringify(parsed.output);
         parts.push({
           type: "tool-result",
           toolCallId: parsed.toolCallId as string,
-          toolName: "",
-          result: resultValue,
+          toolName: parsed.toolName as string,
+          result: parsed.output as NonNullable<JSONValue>,
+          isError: parsed.isError as boolean,
+          dynamic: parsed.dynamic as boolean,
         });
         break;
       }
-
-      case "tool-output-error": {
-        // Tool error - emit as error
-        parts.push({
-          type: "error",
-          error: new Error(parsed.errorText as string),
-        });
-        break;
-      }
-
       case "error": {
         parts.push({
           type: "error",

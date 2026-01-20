@@ -77,6 +77,11 @@ export class SandAgent {
       cmd.push("--approval-dir", this.runner.approvalDir);
     }
 
+    // Add output format
+    if (this.runner.outputFormat) {
+      cmd.push("--output-format", this.runner.outputFormat);
+    }
+
     // Add separator and user input
     cmd.push("--");
 
