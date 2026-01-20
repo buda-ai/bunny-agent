@@ -28,9 +28,9 @@ class GeminiCliRunner extends BaseRunner {
     };
   }
 
-  extractAnswer(rawOutput: Required<BenchmarkResult['rawOutput']>): string {
+  extractAnswer(rawOutput: Required<BenchmarkResult["rawOutput"]>): string {
     // Handle string output - try to parse as JSON first
-    if (typeof rawOutput === 'string') {
+    if (typeof rawOutput === "string") {
       try {
         const json = JSON.parse(rawOutput);
         const result = this.extractFromJsonFields(json);

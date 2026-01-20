@@ -48,50 +48,54 @@ class CodexCliRunner extends BaseRunner {
    * Extract answer from codex-cli NDJSON output
    * Looks for the last agent_message item
    */
-  extractAnswer(rawOutput: Required<BenchmarkResult['rawOutput']>): string {
+  extractAnswer(rawOutput: Required<BenchmarkResult["rawOutput"]>): string {
     // Handle string output - parse NDJSON
-    if (typeof rawOutput === 'string') {
-      const lines = rawOutput.split('\n').filter(line => line.trim());
-      let answer = '';
-      
+    if (typeof rawOutput === "string") {
+      const lines = rawOutput.split("\n").filter((line) => line.trim());
+      let answer = "";
+
       for (const line of lines) {
         try {
           const message = JSON.parse(line);
-          
+
           // Look for completed agent_message items
-          if (message.type === 'item.completed' && 
-              message.item?.type === 'agent_message' && 
-              message.item?.text) {
+          if (
+            message.type === "item.completed" &&
+            message.item?.type === "agent_message" &&
+            message.item?.text
+          ) {
             answer = message.item.text;
           }
         } catch {
           // Skip invalid JSON lines
         }
       }
-      
+
       return answer.trim();
     }
 
     // Handle array output
     if (Array.isArray(rawOutput)) {
-      let answer = '';
-      
+      let answer = "";
+
       for (const message of rawOutput) {
-        if (typeof message !== 'object' || message === null) {
+        if (typeof message !== "object" || message === null) {
           continue;
         }
-        
+
         // biome-ignore lint/suspicious/noExplicitAny: message type is dynamic
         const msg = message as any;
-        
+
         // Look for completed agent_message items
-        if (msg.type === 'item.completed' && 
-            msg.item?.type === 'agent_message' && 
-            msg.item?.text) {
+        if (
+          msg.type === "item.completed" &&
+          msg.item?.type === "agent_message" &&
+          msg.item?.text
+        ) {
           answer = msg.item.text;
         }
       }
-      
+
       return answer.trim();
     }
 

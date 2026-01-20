@@ -51,7 +51,7 @@ export interface RunnerHandler {
    * Extract the final answer from raw output
    * Returns null if this runner cannot handle the output format
    */
-  extractAnswer(rawOutput: Required<BenchmarkResult['rawOutput']>): string;
+  extractAnswer(rawOutput: Required<BenchmarkResult["rawOutput"]>): string;
 
   /**
    * Optional: Post-run setup (e.g., login)

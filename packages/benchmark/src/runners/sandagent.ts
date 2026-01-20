@@ -15,24 +15,24 @@ class SandAgentRunner extends BaseRunner {
     timeout: 300000, // 5 minutes
   };
 
-  extractAnswer(rawOutput: Required<BenchmarkResult['rawOutput']>): string {
+  extractAnswer(rawOutput: Required<BenchmarkResult["rawOutput"]>): string {
     // Handle string output
-    if (typeof rawOutput === 'string') {
+    if (typeof rawOutput === "string") {
       return rawOutput.trim();
     }
 
     // Handle array of messages (NDJSON format)
     if (Array.isArray(rawOutput)) {
-    let collectedText = "";
-    let finalResult: string | null = null;
+      let collectedText = "";
+      let finalResult: string | null = null;
 
       for (const message of rawOutput) {
-        if (typeof message === 'string') {
+        if (typeof message === "string") {
           collectedText += message;
           continue;
         }
 
-        if (typeof message !== 'object' || message === null) {
+        if (typeof message !== "object" || message === null) {
           continue;
         }
 
@@ -46,10 +46,7 @@ class SandAgentRunner extends BaseRunner {
             collectedText += msg.message;
           }
           // If message has content array
-          else if (
-            msg.message.content &&
-            Array.isArray(msg.message.content)
-          ) {
+          else if (msg.message.content && Array.isArray(msg.message.content)) {
             for (const block of msg.message.content) {
               if (block.type === "text" && block.text) {
                 collectedText += block.text;
@@ -63,12 +60,12 @@ class SandAgentRunner extends BaseRunner {
           if (msg.result) {
             finalResult = msg.result;
           }
+        }
       }
-    }
 
-    // Return final result if available, otherwise collected text
-    const answer = finalResult || collectedText.trim();
-    return answer || "";
+      // Return final result if available, otherwise collected text
+      const answer = finalResult || collectedText.trim();
+      return answer || "";
     }
 
     // Handle object output
