@@ -24,7 +24,7 @@ class GeminiCliRunner extends BaseRunner {
     // gemini -p <prompt> --output-format json
     return {
       command,
-      args: ["-p", prompt, "--output-format", "json"],
+      args: ["-p", prompt, "--output-format", "stream-json"],
     };
   }
 
@@ -40,6 +40,27 @@ class GeminiCliRunner extends BaseRunner {
       } catch {
         // Not JSON, return as-is
         return rawOutput.trim();
+      }
+    }
+
+    // Handle stream-json format (array of event objects)
+    if (Array.isArray(rawOutput)) {
+      // Extract all assistant messages and concatenate their content
+      const assistantMessages = rawOutput
+        .filter(
+          (item): item is { type: string; role: string; content: string } =>
+            typeof item === "object" &&
+            item !== null &&
+            "type" in item &&
+            item.type === "message" &&
+            "role" in item &&
+            item.role === "assistant" &&
+            "content" in item,
+        )
+        .map((item) => item.content);
+
+      if (assistantMessages.length > 0) {
+        return assistantMessages.join("").trim();
       }
     }
 
