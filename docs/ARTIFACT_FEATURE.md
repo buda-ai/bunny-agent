@@ -57,14 +57,32 @@ Sandbox 中有很多文件
 ❓ 如何传递给 UI 展示？
 ```
 
-## 3. 用户定义入口：artifact.json
+## 3. 用户定义入口
 
-用户通过指导 Agent 生成 `artifact.json` 清单文件来定义产物。
+**所有路径都由用户自己定义：**
 
-**关键点：文件路径由用户自由指定，不是约定目录。**
+1. **清单文件路径**：用户指定 artifact.json 的位置
+2. **产物文件路径**：用户在清单中指定任意路径
+
+### 3.1 用户指定清单路径
+
+用户在调用 API 时指定清单文件路径：
+
+```typescript
+// 前端调用
+GET /api/artifacts?sessionId=xxx&manifest=/workspace/output/artifact.json
+
+// 或者在 streamText 配置中
+const sandagent = createSandAgent({
+  sandbox,
+  artifactManifest: "/workspace/output/artifact.json",  // 用户指定
+});
+```
+
+### 3.2 清单文件内容
 
 ```json
-// /sandagent/artifact.json（清单文件位置固定）
+// 路径由用户指定，比如 /workspace/output/artifact.json
 {
   "artifacts": [
     {
@@ -86,9 +104,19 @@ Sandbox 中有很多文件
 }
 ```
 
-- **清单文件位置固定**：`/sandagent/artifact.json`
-- **产物文件位置自由**：用户在清单中指定任意路径
-- **用户指导生成**：在 CLAUDE.md 中告诉 Agent 如何生成清单
+### 3.3 用户指导 Agent 生成
+
+用户在 CLAUDE.md 中告诉 Agent：
+- 清单文件写到哪里
+- 产物文件写到哪里
+
+```markdown
+## 产物输出规范
+
+任务完成后：
+1. 将产物文件写入 /workspace/output/ 目录
+2. 生成清单文件 /workspace/output/artifact.json
+```
 
 ## 4. 从 Sandbox 获取 Artifact
 
@@ -206,14 +234,19 @@ return result.toUIMessageStreamResponse();
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const sessionId = searchParams.get("sessionId");
+  const manifestPath = searchParams.get("manifest");  // 用户指定清单路径
+  
+  if (!manifestPath) {
+    return Response.json({ error: "manifest path required" }, { status: 400 });
+  }
   
   // 根据 provider 创建 sandbox
   const sandbox = createSandbox(/* 从 session 获取配置 */);
   const handle = await sandbox.attach(sessionId);
   
   try {
-    // 读取 artifact 清单
-    const manifest = await handle.readFile("/sandagent/artifact.json");
+    // 读取用户指定路径的 artifact 清单
+    const manifest = await handle.readFile(manifestPath);
     const { artifacts } = JSON.parse(manifest);
     
     return Response.json({ artifacts });
@@ -573,20 +606,24 @@ Sandbox 生命周期          S3 生命周期
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  1. 用户指导（CLAUDE.md 中定义产物规范）                     │
+│  1. 用户定义（所有路径都由用户指定）                         │
 │                                                             │
-│  "任务完成后生成 /sandagent/artifact.json"                   │
+│  CLAUDE.md: "产物写入 /workspace/output/"                   │
+│             "清单写入 /workspace/output/artifact.json"      │
+│                                                             │
+│  API 调用: manifest=/workspace/output/artifact.json         │
 └─────────────────────────────────────────────────────────────┘
                             │
                             ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  2. Agent 生成 artifact.json（路径由用户自由指定）           │
+│  2. Agent 生成 artifact.json（路径由用户指定）               │
 │                                                             │
+│  // /workspace/output/artifact.json（用户指定的路径）       │
 │  {                                                          │
 │    "artifacts": [                                           │
-│      { "path": "/workspace/report.md", "title": "报告" },   │
-│      { "path": "/tmp/data.csv", "title": "数据" },          │
-│      { "path": "/home/video.mp4", "s3Key": "xxx" }          │
+│      { "path": "/workspace/output/report.md" },             │
+│      { "path": "/workspace/output/data.csv" },              │
+│      { "path": "/mnt/s3/video.mp4", "s3Key": "xxx" }        │
 │    ]                                                        │
 │  }                                                          │
 └─────────────────────────────────────────────────────────────┘
@@ -595,12 +632,10 @@ Sandbox 生命周期          S3 生命周期
 ┌─────────────────────────────────────────────────────────────┐
 │  3. Sandbox + S3 存储                                        │
 │                                                             │
-│  产物文件可以在任意位置：                                    │
-│    /workspace/report.md                                     │
-│    /tmp/data.csv                                            │
-│    /home/video.mp4  ←── 挂载到 S3 的目录                     │
-│                                                             │
-│  /sandagent/artifact.json  ← 清单文件（位置固定）           │
+│  所有路径都由用户定义：                                      │
+│    /workspace/output/artifact.json  ← 清单文件              │
+│    /workspace/output/report.md      ← 产物文件              │
+│    /mnt/s3/video.mp4               ← 大文件（可选挂载 S3）  │
 └─────────────────────────────────────────────────────────────┘
                             │
                             ▼
@@ -662,8 +697,13 @@ interface FileInfo {
 
 ### API 端点
 
-| 端点 | 方法 | 描述 |
-|------|------|------|
-| `/api/artifacts` | GET | 获取 artifact 清单 |
-| `/api/artifacts/[id]` | GET | 获取单个 artifact 内容（支持 stream） |
-| `/api/artifacts/[id]/download` | GET | 下载文件（返回 S3 URL 或直接流） |
+| 端点 | 方法 | 参数 | 描述 |
+|------|------|------|------|
+| `/api/artifacts` | GET | `sessionId`, `manifest` | 获取 artifact 清单 |
+| `/api/artifacts/[id]` | GET | `sessionId` | 获取单个 artifact 内容（支持 stream） |
+| `/api/artifacts/[id]/download` | GET | `sessionId` | 下载文件（返回 S3 URL 或直接流） |
+
+**示例**：
+```
+GET /api/artifacts?sessionId=xxx&manifest=/workspace/output/artifact.json
+```
