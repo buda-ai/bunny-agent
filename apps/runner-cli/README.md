@@ -14,17 +14,20 @@ Like gemini-cli, claude-code, or codex-cli, this tool runs **directly on your lo
 ## 📐 Architecture
 
 ```
-runner-cli → runner-* (direct)
+runner-cli → runner-* (direct, NO dependencies on manager or sandbox)
              ├─ runner-claude ✅
              ├─ runner-codex 🚧
              └─ runner-copilot 🚧
 
-NO manager, NO sandbox needed!
+Dependencies:
+✅ @sandagent/runner-claude (runtime)
+❌ NO @sandagent/manager
+❌ NO @sandagent/sandbox-*
 ```
 
 **Difference from manager-cli:**
-- `runner-cli`: Local filesystem, no isolation, lightweight
-- `manager-cli`: Sandboxed execution, uses manager + sandbox adapters
+- `runner-cli`: Local filesystem, no isolation, lightweight, direct runner usage
+- `manager-cli`: Sandboxed execution, uses manager + sandbox adapters + runner
 
 ## Installation
 
