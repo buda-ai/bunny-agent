@@ -303,7 +303,7 @@ describe("AI Provider Real Integration Tests", () => {
       // Try to use an invalid/unsupported model ID
       // Should either throw or use default model
       try {
-        const model = provider("invalid-model-id" as any);
+        const model = provider("invalid-model-id" as string);
         expect(model).toBeDefined();
         expect(model.modelId).toBeTruthy();
       } catch (error) {
@@ -315,12 +315,19 @@ describe("AI Provider Real Integration Tests", () => {
 
   describe("Integration with LocalSandbox", () => {
     it("should work with LocalSandbox implementation", async () => {
-      let LocalSandbox: any;
+      let LocalSandbox:
+        | typeof import("@sandagent/sandbox-local").LocalSandbox
+        | undefined;
       try {
         const module = await import("@sandagent/sandbox-local");
         LocalSandbox = module.LocalSandbox;
       } catch {
         console.log("Skipping: @sandagent/sandbox-local not available");
+        return;
+      }
+
+      if (!LocalSandbox) {
+        console.log("LocalSandbox not available");
         return;
       }
 
@@ -344,12 +351,19 @@ describe("AI Provider Real Integration Tests", () => {
     });
 
     it("should configure custom workspace with LocalSandbox", async () => {
-      let LocalSandbox: any;
+      let LocalSandbox:
+        | typeof import("@sandagent/sandbox-local").LocalSandbox
+        | undefined;
       try {
         const module = await import("@sandagent/sandbox-local");
         LocalSandbox = module.LocalSandbox;
       } catch {
         console.log("Skipping: @sandagent/sandbox-local not available");
+        return;
+      }
+
+      if (!LocalSandbox) {
+        console.log("LocalSandbox not available");
         return;
       }
 
