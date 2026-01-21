@@ -122,6 +122,7 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
 
   private readonly options: SandAgentProviderSettings & { runner: RunnerSpec };
   private readonly logger: Logger;
+  private sessionId: string | undefined;
 
   constructor(modelOptions: SandAgentLanguageModelOptions) {
     this.modelId = resolveModelId(modelOptions.id);
@@ -323,6 +324,46 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
                     const parts = self.parseSSEData(data);
                     for (const part of parts) {
                       controller.enqueue(part);
+
+                      // Process artifact processors asynchronously
+                      if (
+                        self.options.artifactProcessors?.length &&
+                        self.sessionId
+                      ) {
+                        for (const processor of self.options
+                          .artifactProcessors) {
+                          processor
+                            .onChange(self.sessionId, part)
+                            .then((artifactResult) => {
+                              if (artifactResult) {
+                                // Handle both single result and array of results
+                                const results = Array.isArray(artifactResult)
+                                  ? artifactResult
+                                  : [artifactResult];
+                                for (const result of results) {
+                                  // Add data-artifact part to the stream
+                                  controller.enqueue({
+                                    type: "raw",
+                                    rawValue: {
+                                      type: "artifact",
+                                      data: {
+                                        artifactId: result.artifactId,
+                                        content: result.content,
+                                        mimeType:
+                                          result.mimeType ?? "text/plain",
+                                      },
+                                    },
+                                  });
+                                }
+                              }
+                            })
+                            .catch((e) => {
+                              self.logger.error(
+                                `[sandagent] Artifact processor error: ${e}`,
+                              );
+                            });
+                        }
+                      }
                     }
                   } catch (e) {
                     self.logger.error(
@@ -403,12 +444,26 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
       case "message-metadata": {
         // Emit response metadata
         const metadata = parsed.messageMetadata as Record<string, unknown>;
-        parts.push({
-          type: "response-metadata",
-          id: generateId(),
-          modelId: (metadata?.model as string) ?? this.modelId,
-          timestamp: new Date(),
-        });
+        // Extract and store sessionId (taskId)
+        if (metadata?.sessionId && typeof metadata.sessionId === "string") {
+          this.sessionId = metadata.sessionId;
+          this.logger.debug(
+            `[sandagent] Session ID extracted: ${this.sessionId}`,
+          );
+        }
+        // parts.push({
+        //   type: "raw",
+        //   rawValue: {
+        //     type: "message-metadata",
+        //     data: metadata,
+        //   },
+        // });
+        // parts.push({
+        //   type: "response-metadata",
+        //   id: generateId(),
+        //   modelId: (metadata?.model as string) ?? this.modelId,
+        //   timestamp: new Date(),
+        // });
         break;
       }
 

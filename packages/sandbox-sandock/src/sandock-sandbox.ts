@@ -52,6 +52,7 @@ export interface SandockSandboxOptions {
 interface CachedInstance {
   sandboxId: string;
   lastAccessTime: number;
+  handle?: SandboxHandle;
 }
 
 /**
@@ -213,6 +214,16 @@ export class SandockSandbox implements SandboxAdapter {
   }
 
   /**
+   * Get the current handle if already attached, or null if not attached yet.
+   */
+  getHandle(): SandboxHandle | null {
+    // For Sandock, we need to check the instances cache
+    // Since we don't have a single current handle, return null
+    // The caller should use attach() with the id
+    return null;
+  }
+
+  /**
    * Attach to or create a sandbox
    * @param id - Unique identifier for this sandbox instance (used for caching and logging)
    */
@@ -227,6 +238,12 @@ export class SandockSandbox implements SandboxAdapter {
       );
       cached.lastAccessTime = Date.now();
 
+      // Return cached handle if it exists
+      if (cached?.handle) {
+        return cached.handle;
+      }
+
+      // Create new handle if not cached
       const handle = new SandockHandle(
         this.client,
         cached.sandboxId,
@@ -245,6 +262,9 @@ export class SandockSandbox implements SandboxAdapter {
         await this.initializeSandbox(handle);
         SandockSandbox.initializedInstances.add(id);
       }
+
+      // Cache the handle
+      cached.handle = handle;
 
       return handle;
     }
@@ -269,12 +289,6 @@ export class SandockSandbox implements SandboxAdapter {
 
     console.log(`[Sandock] Created new sandbox: ${sandboxId} (user id: ${id})`);
 
-    // Cache the instance before starting
-    SandockSandbox.instances.set(id, {
-      sandboxId,
-      lastAccessTime: Date.now(),
-    });
-
     // Start the sandbox using high-level API
     await this.client.sandbox.start(sandboxId);
 
@@ -294,6 +308,13 @@ export class SandockSandbox implements SandboxAdapter {
     // Initialize sandbox with runner and templates
     await this.initializeSandbox(handle);
     SandockSandbox.initializedInstances.add(id);
+
+    // Cache the instance with handle
+    SandockSandbox.instances.set(id, {
+      sandboxId,
+      lastAccessTime: Date.now(),
+      handle,
+    });
 
     return handle;
   }
@@ -672,6 +693,17 @@ class SandockHandle implements SandboxHandle {
       // Use high-level fs.write API
       await this.client.fs.write(this.sandboxId, fullPath, content);
     }
+  }
+
+  async readFile(filePath: string): Promise<string> {
+    const result = await this.client.fs.read(this.sandboxId, filePath);
+    // Sandock fs.read returns { success: true, data: { path: string, content: string } }
+    if (result.success && result.data) {
+      return typeof result.data === "string"
+        ? result.data
+        : (result.data as { content?: string }).content || "";
+    }
+    throw new Error(`Failed to read file ${filePath}`);
   }
 
   /**

@@ -99,6 +99,9 @@ export class E2BSandbox implements SandboxAdapter {
   private readonly agentTemplate: string;
   private readonly workdir: string;
 
+  /** Current handle for the sandbox instance */
+  private currentHandle: SandboxHandle | null = null;
+
   /** Default timeout in seconds (1 hour for hobby tier) */
   private static readonly DEFAULT_TIMEOUT_SEC = 3600;
 
@@ -184,11 +187,20 @@ export class E2BSandbox implements SandboxAdapter {
     }
   }
 
-  async attach(id: string): Promise<SandboxHandle> {
+  getHandle(): SandboxHandle | null {
+    return this.currentHandle;
+  }
+
+  async attach(id?: string): Promise<SandboxHandle> {
     if (!this.apiKey) {
       throw new Error(
         "E2B API key not found. Please set E2B_API_KEY environment variable or pass apiKey option.",
       );
+    }
+
+    // Return existing handle if already attached
+    if (this.currentHandle) {
+      return this.currentHandle;
     }
 
     let instance: Sandbox;
@@ -225,6 +237,9 @@ export class E2BSandbox implements SandboxAdapter {
     if (needsInit) {
       await this.initializeSandbox(handle);
     }
+
+    // Store the handle
+    this.currentHandle = handle;
 
     return handle;
   }
@@ -568,6 +583,12 @@ class E2BHandle implements SandboxHandle {
           : file.content;
       await this.instance.files.write(fullPath, content);
     }
+  }
+
+  async readFile(filePath: string): Promise<string> {
+    // E2B files.read() defaults to text format and returns Promise<string>
+    const content = await this.instance.files.read(filePath);
+    return content;
   }
 
   async destroy(): Promise<void> {

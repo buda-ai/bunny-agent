@@ -35,6 +35,13 @@ export interface SandboxHandle {
   ): Promise<void>;
 
   /**
+   * Read a file from the sandbox
+   * @param filePath - Path to the file in the sandbox
+   * @returns The file content as a string
+   */
+  readFile(filePath: string): Promise<string>;
+
+  /**
    * Destroy the sandbox and release resources
    */
   destroy(): Promise<void>;
@@ -49,7 +56,13 @@ export interface SandboxAdapter {
    * @param id - Unique identifier for the sandbox instance
    * @returns A handle to the sandbox
    */
-  attach(id: string): Promise<SandboxHandle>;
+  attach(id?: string): Promise<SandboxHandle>;
+
+  /**
+   * Get the current handle if already attached, or null if not attached yet.
+   * @returns A handle to the sandbox if already attached, null otherwise
+   */
+  getHandle(): SandboxHandle | null;
 
   /**
    * Get the environment variables configured for this sandbox.

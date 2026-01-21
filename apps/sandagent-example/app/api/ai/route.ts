@@ -1,10 +1,14 @@
 import path from "node:path";
-import { createSandAgent } from "@sandagent/ai-provider";
-import { SandAgent } from "@sandagent/manager";
+import { TaskDrivenArtifactProcessor } from "@/lib/artifact-processor";
+import {
+  type SandAgentProviderSettings,
+  createSandAgent,
+} from "@sandagent/ai-provider";
 import { DaytonaSandbox } from "@sandagent/sandbox-daytona";
 import { E2BSandbox } from "@sandagent/sandbox-e2b";
 import { SandockSandbox } from "@sandagent/sandbox-sandock";
 import {
+  type ModelMessage,
   type UIMessage,
   type UIMessageChunk,
   createUIMessageStream,
@@ -240,61 +244,36 @@ export async function POST(request: Request) {
     ? "claude-sonnet-4-20250514" // Standard Anthropic model ID
     : "us.anthropic.claude-sonnet-4-20250514-v1:0"; // AWS Bedrock model ID
 
-  // Create the provider with a sandbox adapter
-  // env, template, and workdir are now configured in sandbox
-  // const sandagent = createSandAgent({
-  //   sandbox,
-  //   cwd: "/sandagent",
-  //   verbose: true,
-  //   resume,
-  // });
-  // // Streaming works too
-  // const result = streamText({
-  //   model: sandagent(model),
-  //   messages: normalizedMessages,
-  //   abortSignal: signal,
-  // });
-  // return result.toUIMessageStreamResponse({
-  //   // messageMetadata: ({ part }) => {
-  //   //   console.log(
-  //   //     "[API] Message metadata part:",
-  //   //     JSON.stringify(part, null, 2),
-  //   //   );
-  //   //   return undefined;
-  //   // },
-  //   onFinish: (event) => {
-  //     console.log("[API] Finish event:", JSON.stringify(event, null, 2));
-  //   },
-  // });
-
-  const agent = new SandAgent({
-    sandboxId: `ai-sdk-${Date.now()}`,
+  // Create artifact processor with sandbox and sessionId
+  const artifactProcessor = new TaskDrivenArtifactProcessor({
     sandbox,
-    runner: {
-      kind: "claude-agent-sdk",
-      model,
-      approvalDir: "/sandagent/approvals",
-    },
-    // Pass environment variables to the sandbox
-    // Prioritize ANTHROPIC_API_KEY over AWS_BEARER_TOKEN_BEDROCK
-    env: env,
+    workdir: sandbox.getWorkdir?.() || "/sandagent",
   });
 
-  const sseStream = await agent.stream({
+  // Create the provider with sandbox and artifact processor
+  const sandagentOptions: SandAgentProviderSettings = {
+    sandbox,
+    cwd: "/sandagent",
+    verbose: true,
+    sandboxId: sandboxName,
+    artifactProcessors: [artifactProcessor],
+  };
+  const sandagent = createSandAgent(sandagentOptions);
+
+  // Streaming - artifact processing happens inside the provider
+  const result = streamText({
+    model: sandagent(model),
     messages: normalizedMessages,
-    workspace: { path: sandbox.getWorkdir() }, // Use the same workdir where templates are uploaded
-    resume,
-    signal,
+    abortSignal: signal,
+    onChunk: ({ chunk }) => {
+      // console.log("[Stream] Chunk:", chunk.type);
+    },
   });
 
-  // DEBUG: Return raw SSE stream to see debug comments in Response tab
-  // When debugging is done, uncomment the UIMessageStreamResponse version below
-  return new Response(sseStream, {
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      Connection: "keep-alive",
-      "X-Accel-Buffering": "no",
+  return result.toUIMessageStreamResponse({
+    sendSources: true,
+    onFinish: async ({ responseMessage }) => {
+      console.log("[Stream] Finished:", responseMessage.id);
     },
   });
 }

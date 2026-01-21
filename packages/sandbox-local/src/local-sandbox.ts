@@ -38,6 +38,9 @@ export class LocalSandbox implements SandboxAdapter {
   private readonly defaultTimeout: number;
   private readonly env: Record<string, string>;
 
+  /** Current handle for the sandbox instance */
+  private currentHandle: SandboxHandle | null = null;
+
   constructor(options: LocalSandboxOptions = {}) {
     this.baseDir = options.baseDir ?? process.cwd();
     this.isolate = options.isolate ?? true;
@@ -45,16 +48,35 @@ export class LocalSandbox implements SandboxAdapter {
     this.env = options.env ?? {};
   }
 
-  async attach(id: string): Promise<SandboxHandle> {
+  getHandle(): SandboxHandle | null {
+    return this.currentHandle;
+  }
+
+  async attach(id?: string): Promise<SandboxHandle> {
+    // Return existing handle if already attached
+    if (this.currentHandle) {
+      return this.currentHandle;
+    }
+
     // Determine the working directory for this sandbox
-    const workDir = this.isolate ? path.join(this.baseDir, id) : this.baseDir;
+    const workDir =
+      this.isolate && id ? path.join(this.baseDir, id) : this.baseDir;
 
     // Create the directory if it doesn't exist
     await fs.mkdir(workDir, { recursive: true });
 
     console.log(`[LocalSandbox] Created/using directory: ${workDir}`);
 
-    return new LocalSandboxHandle(workDir, this.defaultTimeout, this.env);
+    const handle = new LocalSandboxHandle(
+      workDir,
+      this.defaultTimeout,
+      this.env,
+    );
+
+    // Store the handle
+    this.currentHandle = handle;
+
+    return handle;
   }
 }
 
@@ -218,6 +240,12 @@ class LocalSandboxHandle implements SandboxHandle {
       await fs.writeFile(filePath, content);
       console.log(`[LocalSandbox] Wrote file: ${filePath}`);
     }
+  }
+
+  async readFile(filePath: string): Promise<string> {
+    const resolvedPath = path.resolve(this.workDir, filePath);
+    const content = await fs.readFile(resolvedPath, "utf-8");
+    return content;
   }
 
   /**
