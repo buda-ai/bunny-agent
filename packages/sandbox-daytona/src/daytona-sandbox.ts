@@ -233,7 +233,11 @@ export class DaytonaSandbox implements SandboxAdapter {
               `[Daytona] Deleting non-recoverable sandbox: ${existingSandbox.id}`,
             );
             await existingSandbox.delete();
-            sandbox = await this.createNewSandbox(daytona, volumes, sandboxName);
+            sandbox = await this.createNewSandbox(
+              daytona,
+              volumes,
+              sandboxName,
+            );
             needsInit = true;
           }
         } else if (existingSandbox.state === "starting") {

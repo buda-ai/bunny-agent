@@ -199,7 +199,9 @@ export class E2BSandbox implements SandboxAdapter {
 
     // If name is provided, try to find and connect to existing sandbox
     if (sandboxName) {
-      console.log(`[E2B] Looking for existing sandbox with name: ${sandboxName}`);
+      console.log(
+        `[E2B] Looking for existing sandbox with name: ${sandboxName}`,
+      );
 
       const existingSandbox = await this.findSandboxByName(sandboxName);
 

@@ -1,6 +1,6 @@
+import { spawn } from "node:child_process";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { spawn } from "node:child_process";
 import type {
   ExecOptions,
   SandboxAdapter,

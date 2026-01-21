@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeAll } from "vitest";
 import { SandAgent } from "@sandagent/manager";
+import { beforeAll, describe, expect, it } from "vitest";
 
 /**
  * Integration tests for SandAgent with LocalSandbox
@@ -8,7 +8,9 @@ import { SandAgent } from "@sandagent/manager";
  * ensuring that commands execute correctly in the local environment.
  */
 describe("SandAgent + LocalSandbox Integration", () => {
-  let LocalSandbox: typeof import("@sandagent/sandbox-local").LocalSandbox | undefined;
+  let LocalSandbox:
+    | typeof import("@sandagent/sandbox-local").LocalSandbox
+    | undefined;
 
   beforeAll(async () => {
     try {
@@ -55,9 +57,10 @@ describe("SandAgent + LocalSandbox Integration", () => {
       const handle = await sandbox.attach("test-ls");
 
       // Create a test file
-      await handle.upload([
-        { path: "test.txt", content: "test content" },
-      ], "/tmp/sandagent-test");
+      await handle.upload(
+        [{ path: "test.txt", content: "test content" }],
+        "/tmp/sandagent-test",
+      );
 
       // List files
       const result = await handle.runCommand("ls /tmp/sandagent-test");
@@ -76,12 +79,16 @@ describe("SandAgent + LocalSandbox Integration", () => {
       const handle = await sandbox.attach("test-node");
 
       // Create a simple Node.js script
-      await handle.upload([
-        {
-          path: "test.js",
-          content: "console.log('Hello from Node.js'); console.log(process.version);",
-        },
-      ], "/tmp/sandagent-test");
+      await handle.upload(
+        [
+          {
+            path: "test.js",
+            content:
+              "console.log('Hello from Node.js'); console.log(process.version);",
+          },
+        ],
+        "/tmp/sandagent-test",
+      );
 
       // Execute the script
       const result = await handle.runCommand(
@@ -160,12 +167,16 @@ describe("SandAgent + LocalSandbox Integration", () => {
       const handle = await sandbox.attach("test-python");
 
       // Create Python script
-      await handle.upload([
-        {
-          path: "test.py",
-          content: "print('Hello from Python')\nfor i in range(3): print(f'Count: {i}')",
-        },
-      ], "/tmp/sandagent-test");
+      await handle.upload(
+        [
+          {
+            path: "test.py",
+            content:
+              "print('Hello from Python')\nfor i in range(3): print(f'Count: {i}')",
+          },
+        ],
+        "/tmp/sandagent-test",
+      );
 
       // Execute Python script
       const result = await handle.runCommand(

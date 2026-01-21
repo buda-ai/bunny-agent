@@ -66,7 +66,7 @@ describe("runAgent", () => {
         systemPrompt: "You are a helpful assistant",
         maxTurns: 5,
         allowedTools: ["bash", "write_file"],
-      })
+      }),
     );
   });
 

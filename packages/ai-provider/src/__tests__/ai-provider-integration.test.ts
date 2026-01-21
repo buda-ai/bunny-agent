@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeAll } from "vitest";
-import { createSandAgent } from "../sandagent-provider.js";
 import type { SandboxAdapter, SandboxHandle } from "@sandagent/manager";
+import { beforeAll, describe, expect, it } from "vitest";
+import { createSandAgent } from "../sandagent-provider.js";
 
 /**
  * Real integration tests for ai-provider with actual AI SDK model configuration.
@@ -166,7 +166,7 @@ describe("AI Provider Real Integration Tests", () => {
 
       expect(model).toBeDefined();
       expect(model.modelId).toContain("claude");
-      
+
       // Verify model accepts AI SDK parameters
       // These are standard AI SDK model settings
     });
