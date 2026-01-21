@@ -57,65 +57,38 @@ Sandbox 中有很多文件
 ❓ 如何传递给 UI 展示？
 ```
 
-## 3. 用户定义入口
+## 3. 用户定义入口：artifact.json
 
-### 3.1 方案 A：API 参数定义
+用户通过指导 Agent 生成 `artifact.json` 清单文件来定义产物。
 
-用户在调用 `SandAgent.stream()` 时定义 artifact 规则：
-
-```typescript
-const result = await agent.stream({
-  messages,
-  // 用户自定义 artifact 规则
-  artifacts: {
-    // 方式1：指定目录
-    paths: ["/workspace/output/*", "/workspace/reports/*.md"],
-    
-    // 方式2：指定文件类型
-    extensions: [".md", ".csv", ".png", ".html"],
-    
-    // 方式3：指定具体文件
-    files: ["/workspace/output/report.md"],
-  },
-});
-```
-
-### 3.2 方案 B：Sandbox 约定目录
-
-约定一个固定目录作为 artifact 输出目录：
-
-```
-/sandagent/artifacts/    # 约定目录
-├── report.md
-├── data.csv
-└── chart.png
-```
-
-Agent 把产物写入这个目录，Chat 结束后自动收集。
-
-### 3.3 方案 C：artifact.json 清单文件
-
-Agent 运行结束时生成 `artifact.json` 清单：
+**关键点：文件路径由用户自由指定，不是约定目录。**
 
 ```json
-// /sandagent/artifact.json
+// /sandagent/artifact.json（清单文件位置固定）
 {
   "artifacts": [
     {
-      "path": "/workspace/output/report.md",
+      "path": "/workspace/output/report.md",      // 任意路径
       "type": "markdown",
       "title": "分析报告"
     },
     {
-      "path": "/workspace/output/data.csv",
+      "path": "/home/user/data/result.csv",       // 任意路径
       "type": "csv",
       "title": "数据表格"
+    },
+    {
+      "path": "/tmp/generated/chart.png",         // 任意路径
+      "type": "image",
+      "title": "图表"
     }
   ]
 }
 ```
 
-系统读取清单，按清单获取文件。
+- **清单文件位置固定**：`/sandagent/artifact.json`
+- **产物文件位置自由**：用户在清单中指定任意路径
+- **用户指导生成**：在 CLAUDE.md 中告诉 Agent 如何生成清单
 
 ## 4. 从 Sandbox 获取 Artifact
 
@@ -464,10 +437,11 @@ Sandbox 磁盘可以挂载到 S3，大文件处理方案：
 ┌─────────────────────────────────────────────────────────────┐
 │  Sandbox                                                     │
 │                                                             │
-│  /workspace/output/  ←──── 挂载到 S3 bucket                  │
-│    ├── report.md     (小文件，直接读取)                      │
-│    ├── data.csv      (中等文件，stream 读取)                 │
-│    └── video.mp4     (大文件，返回 S3 URL)                   │
+│  文件可以在任意位置，部分目录可挂载 S3：                      │
+│                                                             │
+│  /workspace/report.md   (小文件，直接读取)                   │
+│  /tmp/data.csv          (中等文件，stream 读取)              │
+│  /mnt/s3/video.mp4      (大文件，返回 S3 URL)  ← 挂载到 S3   │
 └─────────────────────────────────────────────────────────────┘
                             │
                             ▼
@@ -575,21 +549,25 @@ if (artifact.s3Key && stat.size > 10 * 1024 * 1024) {
 
 ### 10.3 Artifact 持久化
 
-**方案：S3 挂载自动持久化**
+**方案：S3 挂载自动持久化（用户配置挂载目录）**
 
-由于 sandbox 磁盘挂载到 S3：
-- 文件写入 `/workspace/output/` 时自动同步到 S3
+用户可以配置 sandbox 的某些目录挂载到 S3：
+- 挂载目录中的文件自动同步到 S3
 - Sandbox 销毁后，S3 中的文件仍然存在
 - 可以设置 S3 生命周期策略自动清理过期文件
 
 ```
+用户配置挂载：/mnt/s3 → S3 Bucket
+
 Sandbox 生命周期          S3 生命周期
 ─────────────────        ─────────────────
 创建 sandbox              
-写入文件 ───────────────→ 同步到 S3
+写入 /mnt/s3/file ──────→ 同步到 S3
 销毁 sandbox              文件保留
                          7天后自动删除（可配置）
 ```
+
+**注意**：artifact 文件不要求必须在 S3 挂载目录，只是大文件建议放在挂载目录以便直接返回 S3 URL。
 
 ## 11. 总结
 
@@ -602,12 +580,13 @@ Sandbox 生命周期          S3 生命周期
                             │
                             ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  2. Agent 生成 artifact.json                                 │
+│  2. Agent 生成 artifact.json（路径由用户自由指定）           │
 │                                                             │
 │  {                                                          │
 │    "artifacts": [                                           │
-│      { "path": "/output/report.md", "title": "报告" },      │
-│      { "path": "/output/video.mp4", "s3Key": "xxx" }        │
+│      { "path": "/workspace/report.md", "title": "报告" },   │
+│      { "path": "/tmp/data.csv", "title": "数据" },          │
+│      { "path": "/home/video.mp4", "s3Key": "xxx" }          │
 │    ]                                                        │
 │  }                                                          │
 └─────────────────────────────────────────────────────────────┘
@@ -616,11 +595,12 @@ Sandbox 生命周期          S3 生命周期
 ┌─────────────────────────────────────────────────────────────┐
 │  3. Sandbox + S3 存储                                        │
 │                                                             │
-│  /workspace/output/  ←──── 挂载到 S3                         │
-│    ├── report.md     (小文件)                               │
-│    └── video.mp4     (大文件，同步到 S3)                     │
+│  产物文件可以在任意位置：                                    │
+│    /workspace/report.md                                     │
+│    /tmp/data.csv                                            │
+│    /home/video.mp4  ←── 挂载到 S3 的目录                     │
 │                                                             │
-│  /sandagent/artifact.json  ← 清单文件                       │
+│  /sandagent/artifact.json  ← 清单文件（位置固定）           │
 └─────────────────────────────────────────────────────────────┘
                             │
                             ▼
