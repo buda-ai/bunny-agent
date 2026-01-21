@@ -533,6 +533,10 @@ export class AISDKStreamConverter {
             `[AISDKStream] Emitting finish event:`,
             JSON.stringify(finishEvent, null, 2),
           );
+          yield this.emit(finishEvent);
+          console.error(`[AISDKStream] Finish event emitted`);
+        }
+
         // // Process result message
         // if (message.type === "result") {
         //   const resultMsg = message as SDKResultMessage;
@@ -580,6 +584,7 @@ export class AISDKStreamConverter {
       //   yield this.emit({ type: "text-end", id: this.textPartId });
       // }
     } catch (error) {
+      debugMessages.push(error);
       // Handle truncation
       // if (isClaudeCodeTruncationError(error, this.accumulatedText)) {
       //   console.warn(
