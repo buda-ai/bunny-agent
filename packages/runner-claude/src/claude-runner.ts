@@ -39,10 +39,10 @@ export interface ClaudeRunnerOptions extends BaseRunnerOptions {
   cwd?: string;
   /** Environment variables to pass to the agent */
   env?: Record<string, string>;
-  /** AbortSignal for cancelling operations */
-  signal?: AbortSignal;
   /** Include partial messages for streaming */
   includePartialMessages?: boolean;
+  /** AbortController for cancelling operations */
+  abortController?: AbortController;
 }
 
 /**
@@ -77,7 +77,7 @@ export interface ClaudeRunner {
    * @param signal - Optional AbortSignal for cancelling the operation
    * @returns An async iterable of AI SDK UI message chunks
    */
-  run(userInput: string, signal?: AbortSignal): AsyncIterable<string>;
+  run(userInput: string): AsyncIterable<string>;
 }
 
 /**
@@ -218,12 +218,7 @@ const OPTIONAL_MODULES: Record<string, string> = {
  */
 export function createClaudeRunner(options: ClaudeRunnerOptions): ClaudeRunner {
   return {
-    async *run(userInput: string, signal?: AbortSignal): AsyncIterable<string> {
-      // Check if signal is already aborted - just return without sending messages
-      if (signal?.aborted) {
-        return;
-      }
-
+    async *run(userInput: string): AsyncIterable<string> {
       // Check for API key
       const apiKey =
         process.env.ANTHROPIC_API_KEY || process.env.AWS_BEARER_TOKEN_BEDROCK;
@@ -235,7 +230,7 @@ export function createClaudeRunner(options: ClaudeRunnerOptions): ClaudeRunner {
             "2. Install the SDK: npm install @anthropic-ai/claude-agent-sdk",
         );
 
-        yield* runMockAgent(options, userInput, signal);
+        yield* runMockAgent(options, userInput);
         return;
       }
 
@@ -244,14 +239,14 @@ export function createClaudeRunner(options: ClaudeRunnerOptions): ClaudeRunner {
 
       if (sdk) {
         // Use the real Claude Agent SDK
-        yield* runWithClaudeAgentSDK(sdk, options, userInput, signal);
+        yield* runWithClaudeAgentSDK(sdk, options, userInput);
       } else {
         // Fallback to mock implementation
         console.error(
           "[SandAgent] Warning: @anthropic-ai/claude-agent-sdk not installed. Using mock response.\n" +
             "Install the SDK: npm install @anthropic-ai/claude-agent-sdk",
         );
-        yield* runMockAgent(options, userInput, signal);
+        yield* runMockAgent(options, userInput);
       }
     },
   };
@@ -278,23 +273,22 @@ async function* runWithClaudeAgentSDK(
   sdk: ClaudeAgentSDKModule,
   options: ClaudeRunnerOptions,
   userInput: string | AsyncIterable<SDKUserMessage>,
-  signal?: AbortSignal,
 ): AsyncIterable<string> {
   const outputFormat = options.outputFormat || "stream-json";
 
   switch (outputFormat) {
     case "text":
-      yield* runWithTextOutput(sdk, options, userInput, signal);
+      yield* runWithTextOutput(sdk, options, userInput);
       break;
     case "json":
-      yield* runWithJSONOutput(sdk, options, userInput, signal);
+      yield* runWithJSONOutput(sdk, options, userInput);
       break;
     case "stream-json":
-      yield* runWithStreamJSONOutput(sdk, options, userInput, signal);
+      yield* runWithStreamJSONOutput(sdk, options, userInput);
       break;
     // case "stream":
     default:
-      yield* runWithAISDKUIOutput(sdk, options, userInput, signal);
+      yield* runWithAISDKUIOutput(sdk, options, userInput);
       break;
   }
 }
@@ -335,9 +329,10 @@ function setupAbortHandler(
 ): () => void {
   const abortHandler = async () => {
     console.error(
-      "[ClaudeRunner] Operation aborted, calling query.interrupt()",
+      "[ClaudeRunner] Abort signal received, will call query.interrupt()...",
     );
     await queryIterator.interrupt();
+    console.error("[ClaudeRunner] query.interrupt() completed");
   };
 
   if (signal) {
@@ -366,7 +361,10 @@ async function* runWithTextOutput(
 ): AsyncIterable<string> {
   const sdkOptions = createSDKOptions(options);
   const queryIterator = sdk.query({ prompt: userInput, options: sdkOptions });
-  const abortHandler = setupAbortHandler(queryIterator, signal);
+  const abortHandler = setupAbortHandler(
+    queryIterator,
+    options.abortController?.signal,
+  );
 
   try {
     let resultText = "";
@@ -456,30 +454,16 @@ async function* runWithAISDKUIOutput(
   sdk: ClaudeAgentSDKModule,
   options: ClaudeRunnerOptions,
   userInput: string | AsyncIterable<SDKUserMessage>,
-  signal?: AbortSignal,
 ): AsyncIterable<string> {
   const sdkOptions = createSDKOptions({
     ...options,
     includePartialMessages: true,
   });
   const queryIterator = sdk.query({ prompt: userInput, options: sdkOptions });
-  const abortHandler = setupAbortHandler(queryIterator, signal);
-  console.error(
-    "[ClaudeRunner] Starting query with sdkOptions:",
-    JSON.stringify(sdkOptions, null, 2),
-  );
-  console.error(
-    "[ClaudeRunner] Passing queryIterator to streamSDKMessagesToAISDKUI",
-  );
+  setupAbortHandler(queryIterator, options.abortController?.signal);
+
   // Use ai-sdk-stream to handle the conversion
-  yield* streamSDKMessagesToAISDKUI(queryIterator, {
-    signal,
-    onCleanup: () => {
-      if (signal) {
-        signal.removeEventListener("abort", abortHandler);
-      }
-    },
-  });
+  yield* streamSDKMessagesToAISDKUI(queryIterator);
 }
 
 /**
@@ -543,7 +527,12 @@ async function* runMockAgent(
     yield formatDataStream({
       type: "finish",
       finishReason: mapFinishReason("success"),
-      usage: convertUsageToAISDK(undefined),
+      usage: convertUsageToAISDK({
+        input_tokens: 0,
+        output_tokens: 0,
+        cache_creation_input_tokens: 0,
+        cache_read_input_tokens: 0,
+      }),
     });
 
     // Stream termination
@@ -556,7 +545,12 @@ async function* runMockAgent(
     yield formatDataStream({
       type: "finish",
       finishReason: mapFinishReason("error_during_execution", true),
-      usage: convertUsageToAISDK(undefined),
+      usage: convertUsageToAISDK({
+        input_tokens: 0,
+        output_tokens: 0,
+        cache_creation_input_tokens: 0,
+        cache_read_input_tokens: 0,
+      }),
     });
     yield `data: [DONE]\n\n`;
   }

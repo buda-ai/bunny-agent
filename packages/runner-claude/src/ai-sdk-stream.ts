@@ -194,14 +194,7 @@ export function isClaudeCodeTruncationError(
 /**
  * Converts Claude Code SDK usage to AI SDK usage format
  */
-export function convertUsageToAISDK(usage?: ClaudeCodeUsage): AISDKUsage {
-  if (!usage) {
-    return {
-      inputTokens: { total: 0, noCache: 0, cacheRead: 0, cacheWrite: 0 },
-      outputTokens: { total: 0 },
-    };
-  }
-
+export function convertUsageToAISDK(usage: ClaudeCodeUsage): AISDKUsage {
   const inputTokens = usage.input_tokens ?? 0;
   const outputTokens = usage.output_tokens ?? 0;
   const cacheWrite = usage.cache_creation_input_tokens ?? 0;
@@ -294,43 +287,6 @@ function extractToolUses(content: unknown): ToolUse[] {
     }));
 }
 
-function extractToolResults(content: unknown): ToolResult[] {
-  if (!Array.isArray(content)) return [];
-
-  return content
-    .filter(
-      (
-        item,
-      ): item is {
-        type: string;
-        tool_use_id?: string;
-        content?: unknown;
-        is_error?: boolean;
-        name?: string;
-      } =>
-        typeof item === "object" &&
-        item !== null &&
-        "type" in item &&
-        item.type === "tool_result",
-    )
-    .map((item) => ({
-      id: item.tool_use_id || generateId(),
-      name: item.name,
-      result: item.content,
-      isError: Boolean(item.is_error),
-    }));
-}
-
-function serializeInput(input: unknown): string {
-  if (typeof input === "string") return input;
-  if (input === undefined) return "";
-  try {
-    return JSON.stringify(input);
-  } catch {
-    return String(input);
-  }
-}
-
 // ============================================================================
 // Main Stream Class
 // ============================================================================
@@ -380,30 +336,6 @@ export class AISDKStreamConverter {
       return this.partIdMap.get(partIdKey) ?? "";
     }
     throw new Error("Part ID not found");
-  }
-
-  getPartEndType(index: number): "text-end" | "tool-input-available" {
-    const partIdKey = `${this.currentSessionId}-${index}`;
-    if (!this.partIdMap.has(partIdKey)) {
-      throw new Error("Part ID not found");
-    }
-    const partId = this.partIdMap.get(partIdKey) ?? "";
-    // 如果 ID 以 "text-" 开头，是文本块；否则是工具块
-    return partId.startsWith("text-") ? "text-end" : "tool-input-available";
-  }
-
-  /**
-   * Helper to close tool input
-   */
-  private closeToolInput(
-    toolId: string,
-    state: ToolStreamState,
-  ): string | null {
-    if (!state.inputClosed && state.inputStarted) {
-      state.inputClosed = true;
-      return this.emit({ type: "tool-input-end", id: toolId });
-    }
-    return null;
   }
 
   /**
@@ -478,9 +410,15 @@ export class AISDKStreamConverter {
     messageIterator: AsyncIterable<SDKMessage>,
     options?: StreamToAISDKUIOptions,
   ): AsyncGenerator<string> {
+    // Collect messages for debugging
+    const debugMessages: unknown[] = [];
+    const debugFile = `ai-sdk-stream-debug-${Date.now()}.json`;
+    let finishEmitted = false;
+
     try {
       for await (const message of messageIterator) {
-        console.log("original message", JSON.stringify(message, null, 2));
+        // Collect message for debug file
+        debugMessages.push(message);
         // Handle system init message
         if (message.type === "system" && message.subtype === "init") {
           this.systemMessage = message as SDKSystemMessage;
@@ -576,6 +514,25 @@ export class AISDKStreamConverter {
           }
         }
 
+        if (message.type === "result") {
+          const resultMsg = message as SDKResultMessage;
+          console.error(
+            `[AISDKStream] Processing result message, usage:`,
+            JSON.stringify(resultMsg.usage, null, 2),
+          );
+          finishEmitted = true;
+          const finishEvent = {
+            type: "finish",
+            finishReason: mapFinishReason(
+              resultMsg.subtype,
+              resultMsg.is_error,
+            ),
+            usage: convertUsageToAISDK(resultMsg.usage),
+          };
+          console.error(
+            `[AISDKStream] Emitting finish event:`,
+            JSON.stringify(finishEvent, null, 2),
+          );
         // // Process result message
         // if (message.type === "result") {
         //   const resultMsg = message as SDKResultMessage;

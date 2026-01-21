@@ -251,6 +251,7 @@ export async function POST(request: Request) {
   const result = streamText({
     model: sandagent(model),
     messages: normalizedMessages,
+    abortSignal: signal,
   });
   return result.toUIMessageStreamResponse();
 
@@ -270,7 +271,7 @@ export async function POST(request: Request) {
   //   messages: normalizedMessages,
   //   workspace: { path: sandbox.getWorkdir() }, // Use the same workdir where templates are uploaded
   //   resume,
-  //   signal, // Pass signal to SandAgent
+  //   signal: abortController.signal, // Use our own signal for graceful shutdown
   // });
 
   // // DEBUG: Return raw SSE stream to see debug comments in Response tab
