@@ -2,116 +2,36 @@
 
 ## 1. 概述
 
-Artifact 是 Sandbox 中需要展示给用户的文件。分为三种类型：
+**Artifact = 文件路径 → 从 Sandbox 获取内容**
 
-| 类型 | 说明 | 示例 |
-|------|------|------|
-| **claude.md** | Agent 的配置/指令文件 | `/workspace/CLAUDE.md` |
-| **workdir** | 工作目录中的文件 | `/workspace/*` |
-| **chat 产物** | Chat 结束后的输出产物 | `/workspace/output/report.md` |
+就这么简单。用户配置路径，系统获取并展示。
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│  Sandbox                                                     │
-│                                                             │
-│  📄 claude.md artifact                                       │
-│     /workspace/CLAUDE.md                                    │
-│                                                             │
-│  📁 workdir artifact                                         │
-│     /workspace/                                             │
-│     ├── src/                                                │
-│     ├── data/                                               │
-│     └── ...                                                 │
-│                                                             │
-│  📦 chat 产物 artifact                                       │
-│     /workspace/output/artifact.json  ← 清单                 │
-│     /workspace/output/report.md      ← 产物                 │
-│     /workspace/output/data.csv       ← 产物                 │
-└─────────────────────────────────────────────────────────────┘
-```
-
-## 2. Artifact 配置
-
-**所有 Artifact 都由用户自定义**，没有预设类型。
-
-### 2.1 配置方式
+## 2. 配置
 
 ```typescript
-const sandagent = createSandAgent({
-  sandbox,
-  
-  // 用户自定义 artifact 列表
-  artifacts: {
-    // key: 显示名称, value: 路径（支持变量）
-    "CLAUDE.md": "/workspace/CLAUDE.md",
-    "工作目录": "/workspace",
-    "输出产物": "${ARTIFACT_DIR}/artifact.json",
-    // 可以定义任意数量...
-  },
-  
+createSandAgent({
+  // 用户配置 artifact 路径（支持变量）
+  artifacts: [
+    "/workspace/CLAUDE.md",
+    "/workspace",
+    "${OUTPUT_DIR}/artifact.json",
+  ],
   env: {
-    ARTIFACT_DIR: "/workspace/output",
+    OUTPUT_DIR: "/workspace/output",
   },
 });
 ```
 
-### 2.2 路径类型自动识别
-
-系统根据路径自动识别类型：
-
-| 路径特征 | 识别为 | 行为 |
-|----------|--------|------|
-| 以 `.md` 结尾 | 文件 | 显示编辑器 |
-| 以 `/` 结尾或是目录 | 目录 | 显示文件浏览器 |
-| 以 `artifact.json` 结尾 | 清单 | 解析并显示产物列表 |
-| 其他 | 文件 | 显示预览/下载 |
-
-### 2.3 配置示例
+或者带名称：
 
 ```typescript
-// 示例1：最小配置
 createSandAgent({
   artifacts: {
-    "输出": "/workspace/output/artifact.json",
-  }
-})
-
-// 示例2：完整配置
-createSandAgent({
-  artifacts: {
-    "Agent 配置": "/workspace/CLAUDE.md",
-    "项目文件": "/workspace",
-    "分析报告": "${OUTPUT_DIR}/artifact.json",
+    "配置文件": "/workspace/CLAUDE.md",
+    "工作目录": "/workspace",
+    "输出产物": "${OUTPUT_DIR}/artifact.json",
   },
-  env: { OUTPUT_DIR: "/workspace/output" },
-})
-
-// 示例3：多个产物清单
-createSandAgent({
-  artifacts: {
-    "SEO 报告": "/workspace/seo/artifact.json",
-    "数据分析": "/workspace/analytics/artifact.json",
-  }
-})
-
-// 示例4：不配置 artifact
-createSandAgent({
-  // artifacts 不配置或为空
-})
-```
-
-### 2.4 变量支持
-
-路径支持 `${VAR}` 格式的变量，从 `env` 中解析：
-
-```typescript
-artifacts: {
-  "输出": "${OUTPUT_DIR}/artifact.json",  // 变量
-  "配置": "/workspace/CLAUDE.md",          // 直接路径
-},
-env: {
-  OUTPUT_DIR: "/workspace/output",
-}
+});
 ```
 
 ## 3. 当前数据流
@@ -715,38 +635,26 @@ Sandbox 生命周期          S3 生命周期
 ## 11. 总结
 
 ```
+用户配置路径
+      │
+      ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  1. 用户配置（全部自定义）                                   │
-│                                                             │
-│  createSandAgent({                                          │
-│    artifacts: {                                             │
-│      "Agent 配置": "/workspace/CLAUDE.md",                  │
-│      "项目文件": "/workspace",                              │
-│      "输出产物": "${OUTPUT_DIR}/artifact.json",             │
-│    },                                                       │
-│    env: { OUTPUT_DIR: "/workspace/output" },                │
-│  })                                                         │
+│  artifacts: ["/workspace/CLAUDE.md", "/workspace/output"]   │
 └─────────────────────────────────────────────────────────────┘
-                            │
-                            ▼
+      │
+      ▼
+ArtifactProcessor.read(path)
+      │
+      ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  2. 路径类型自动识别                                         │
-│                                                             │
-│  /workspace/CLAUDE.md      → 📄 文件 (编辑器)               │
-│  /workspace                → 📁 目录 (文件浏览器)           │
-│  /output/artifact.json     → 📦 清单 (产物列表)             │
+│  从 Sandbox 获取文件内容                                     │
+│  - 小文件：直接返回                                          │
+│  - 大文件：stream 返回                                       │
+│  - 超大文件：返回 S3 URL                                     │
 └─────────────────────────────────────────────────────────────┘
-                            │
-                            ▼
-┌─────────────────────────────────────────────────────────────┐
-│  3. UI（根据配置动态生成）                                   │
-│                                                             │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────────────────┐│
-│  │ Agent 配置  │ │  项目文件   │ │  输出产物              ││
-│  │ CLAUDE.md   │ │  /workspace │ │  📄 报告 [预览][下载]   ││
-│  │ [编辑]      │ │  [浏览]     │ │  📊 数据 [预览][下载]   ││
-│  └─────────────┘ └─────────────┘ └─────────────────────────┘│
-└─────────────────────────────────────────────────────────────┘
+      │
+      ▼
+UI 展示
 ```
                             │
                             ▼
@@ -773,57 +681,15 @@ Sandbox 生命周期          S3 生命周期
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## 12. 架构考虑：是否统一 ArtifactProcessor
-
-### 12.1 方案对比
-
-| 方案 | 优点 | 缺点 |
-|------|------|------|
-| **统一 ArtifactProcessor** | 接口统一、代码复用、易扩展 | 过度抽象、三种逻辑差异大 |
-| **分开处理** | 简单直接、逻辑清晰 | 代码重复、扩展性差 |
-
-### 12.2 路径类型的差异
-
-| 路径类型 | 读取 | 写入 | 大文件 | S3 URL | Stream |
-|----------|------|------|--------|--------|--------|
-| 文件 | 单文件 | 支持 | 可能 | 可能 | 可能 |
-| 目录 | 目录+文件 | 支持 | 可能 | 可能 | 可能 |
-| 清单 | 清单+文件 | 不支持 | 是 | 是 | 是 |
-
-### 12.3 推荐：统一 ArtifactProcessor
-
-虽然三种 artifact 有差异，但统一处理有明显好处：
+## 12. ArtifactProcessor
 
 ```typescript
 interface ArtifactProcessor {
-  /**
-   * 读取 artifact 内容
-   */
   read(path: string): Promise<ArtifactContent>;
-  
-  /**
-   * 读取 artifact 内容（stream）
-   */
   readStream(path: string): AsyncIterable<Uint8Array>;
-  
-  /**
-   * 写入 artifact 内容（仅 claude.md/workdir 支持）
-   */
   write(path: string, content: string): Promise<void>;
-  
-  /**
-   * 列出目录（仅 workdir 支持）
-   */
   list(path: string): Promise<FileInfo[]>;
-  
-  /**
-   * 获取文件信息
-   */
   stat(path: string): Promise<FileStat>;
-  
-  /**
-   * 获取 S3 URL（大文件）
-   */
   getS3Url(path: string): Promise<string | null>;
 }
 
@@ -831,96 +697,27 @@ interface ArtifactContent {
   content: string | Uint8Array;
   mimeType: string;
   size: number;
-  s3Url?: string;  // 大文件返回 S3 URL
+  s3Url?: string;
 }
 ```
 
-### 12.4 使用方式
+### 使用
 
 ```typescript
-const sandagent = createSandAgent({
-  sandbox,
-  artifacts: {
-    "Agent 配置": "/workspace/CLAUDE.md",
-    "项目文件": "/workspace",
-    "输出产物": "${OUTPUT_DIR}/artifact.json",
-  },
-  env: { OUTPUT_DIR: "/workspace/output" },
-});
-
-// 统一通过 processor 获取
 const processor = sandagent.getArtifactProcessor();
 
-// 读取文件
-const claudeMd = await processor.read("/workspace/CLAUDE.md");
+// 读取
+const content = await processor.read("/workspace/CLAUDE.md");
 
-// 列出目录
+// 列目录
 const files = await processor.list("/workspace");
-const file = await processor.read("/workspace/src/index.ts");
 
-// 解析清单
-const manifest = await processor.read("/workspace/output/artifact.json");
-const { artifacts } = JSON.parse(manifest.content);
+// stream
+const stream = processor.readStream("/workspace/output/report.md");
 
-// 大文件 stream
-const report = await processor.readStream("/workspace/output/report.md");
-
-// 超大文件 S3 URL
-const videoUrl = await processor.getS3Url("/mnt/s3/video.mp4");
+// S3 URL
+const url = await processor.getS3Url("/mnt/s3/video.mp4");
 ```
-
-### 12.5 API 层实现
-
-```typescript
-// apps/sandagent-example/app/api/artifacts/route.ts
-
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const sessionId = searchParams.get("sessionId");
-  
-  // 获取用户配置的 artifacts
-  const config = getSessionConfig(sessionId);
-  
-  return Response.json({
-    artifacts: config.artifacts,  // { "Agent 配置": "/workspace/CLAUDE.md", ... }
-  });
-}
-
-// apps/sandagent-example/app/api/artifacts/read/route.ts
-
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const sessionId = searchParams.get("sessionId");
-  const path = searchParams.get("path");
-  
-  const processor = await getArtifactProcessor(sessionId);
-  const content = await processor.read(path);
-  
-  return Response.json(content);
-}
-
-// apps/sandagent-example/app/api/artifacts/list/route.ts
-
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const sessionId = searchParams.get("sessionId");
-  const path = searchParams.get("path");
-  
-  const processor = await getArtifactProcessor(sessionId);
-  const files = await processor.list(path);
-  
-  return Response.json({ files });
-}
-```
-
-### 12.6 决策
-
-**推荐统一 ArtifactProcessor**，理由：
-
-1. **接口统一**：前端只需要调用一套 API
-2. **代码复用**：read/readStream/stat 等逻辑共享
-3. **易扩展**：未来增加新的 artifact 类型更容易
-4. **大文件统一处理**：S3 URL、stream 等逻辑集中
 
 ## 13. 需要实现的接口
 
@@ -968,34 +765,12 @@ interface FileInfo {
 }
 ```
 
-### API 端点（统一）
+### API
 
-| 端点 | 方法 | 描述 |
-|------|------|------|
-| `/api/artifacts` | GET | 获取 artifact 配置列表 |
-| `/api/artifacts/read` | GET | 读取文件内容 |
-| `/api/artifacts/read` | GET | 读取文件内容（stream） |
-| `/api/artifacts/write` | PUT | 写入文件内容 |
-| `/api/artifacts/list` | GET | 列出目录内容 |
-| `/api/artifacts/manifest` | GET | 解析清单文件 |
-| `/api/artifacts/download` | GET | 下载文件（S3 URL 或 stream） |
-
-```typescript
-// 获取配置的 artifact 列表
-GET /api/artifacts?sessionId=xxx
-
-// 读取文件
-GET /api/artifacts/read?sessionId=xxx&path=/workspace/CLAUDE.md
-
-// 列出目录
-GET /api/artifacts/list?sessionId=xxx&path=/workspace
-
-// 解析清单
-GET /api/artifacts/manifest?sessionId=xxx&path=/workspace/output/artifact.json
-
-// 写入文件
-PUT /api/artifacts/write { sessionId, path, content }
-
-// 下载（自动选择 stream 或 S3 URL）
-GET /api/artifacts/download?sessionId=xxx&path=/workspace/output/report.md
+```
+GET  /api/artifacts?sessionId=xxx                    → 配置的路径列表
+GET  /api/artifacts/read?sessionId=xxx&path=xxx      → 读取内容
+GET  /api/artifacts/list?sessionId=xxx&path=xxx      → 列目录
+PUT  /api/artifacts/write { sessionId, path, content } → 写入
+GET  /api/artifacts/download?sessionId=xxx&path=xxx  → 下载（stream 或 S3 URL）
 ```
