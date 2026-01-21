@@ -270,9 +270,7 @@ export class SandockSandbox implements SandboxAdapter {
       await handle.upload(runnerFiles, "/sandagent");
 
       // Install claude-agent-sdk in sandbox
-      console.log(
-        `[Sandock] Installing @anthropic-ai/claude-agent-sdk`,
-      );
+      console.log(`[Sandock] Installing @anthropic-ai/claude-agent-sdk`);
       const installResult = await handle.runCommand(
         "npm install --prefix /sandagent @anthropic-ai/claude-agent-sdk",
       );

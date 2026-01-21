@@ -323,9 +323,7 @@ export class DaytonaSandbox implements SandboxAdapter {
       );
       await handle.upload(runnerFiles, "/sandagent");
 
-      console.log(
-        `[Daytona] Installing @anthropic-ai/claude-agent-sdk`,
-      );
+      console.log(`[Daytona] Installing @anthropic-ai/claude-agent-sdk`);
       const installResult = await handle.runCommand(
         "npm install --prefix /sandagent @anthropic-ai/claude-agent-sdk",
       );
