@@ -643,14 +643,21 @@ Sandbox 生命周期          S3 生命周期
 └─────────────────────────────────────────────────────────────┘
       │
       ▼
-handle.readFile(path) / handle.readFileStream(path)
-      │
+┌─────────────────────────────────────────────────────────────┐
+│  ArtifactStore.get(sessionId, path)                         │
+│                                                             │
+│  1. 查 db 缓存                                               │
+│  2. 命中 → 直接返回                                          │
+│  3. 未命中 → sandbox 读取 → 写入 db → 返回                   │
+└─────────────────────────────────────────────────────────────┘
+      │ (缓存未命中)
       ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  从 Sandbox 获取文件内容                                     │
-│  - 小文件：readFile() 直接返回                               │
-│  - 大文件：readFileStream() stream 返回                      │
-│  - 超大文件：S3 挂载目录，返回 presigned URL                  │
+│  SandboxHandle.readFile(path)                               │
+│                                                             │
+│  - 小文件：直接返回                                          │
+│  - 大文件：stream 返回                                       │
+│  - 超大文件：返回 S3 URL                                     │
 └─────────────────────────────────────────────────────────────┘
       │
       ▼
@@ -681,9 +688,35 @@ UI 展示
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## 12. 扩展 SandboxHandle
+## 12. 架构：SandboxHandle + ArtifactStore
 
-不需要额外的 processor，直接扩展 SandboxHandle：
+需要两层：
+1. **SandboxHandle**：从 sandbox 读取文件（底层）
+2. **ArtifactStore**：缓存到 db，避免重复读取（抽象层）
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  API 请求                                                    │
+└─────────────────────────────────────────────────────────────┘
+      │
+      ▼
+┌─────────────────────────────────────────────────────────────┐
+│  ArtifactStore（抽象层）                                     │
+│                                                             │
+│  1. 先查 db 缓存                                             │
+│  2. 缓存命中 → 直接返回                                      │
+│  3. 缓存未命中 → 从 sandbox 读取 → 写入 db → 返回            │
+└─────────────────────────────────────────────────────────────┘
+      │
+      ▼ (缓存未命中时)
+┌─────────────────────────────────────────────────────────────┐
+│  SandboxHandle（底层）                                       │
+│                                                             │
+│  readFile / readFileStream / listDir / stat                 │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 12.1 SandboxHandle 扩展
 
 ```typescript
 interface SandboxHandle {
@@ -701,25 +734,129 @@ interface SandboxHandle {
 }
 ```
 
-### 使用
+### 12.2 ArtifactStore 接口
 
 ```typescript
-// attach 到 sandbox
-const handle = await sandbox.attach(sessionId);
-
-// 读取
-const content = await handle.readFile("/workspace/CLAUDE.md");
-
-// 列目录
-const files = await handle.listDir("/workspace");
-
-// stream
-for await (const chunk of handle.readFileStream("/workspace/output/large.csv")) {
-  // ...
+interface ArtifactStore {
+  /**
+   * 获取 artifact 内容（先查缓存，未命中则从 sandbox 读取并缓存）
+   */
+  get(sessionId: string, path: string): Promise<ArtifactContent>;
+  
+  /**
+   * 获取 artifact 内容（stream，大文件）
+   */
+  getStream(sessionId: string, path: string): AsyncIterable<Uint8Array>;
+  
+  /**
+   * 列出目录
+   */
+  list(sessionId: string, path: string): Promise<FileInfo[]>;
+  
+  /**
+   * 写入（同时更新 sandbox 和缓存）
+   */
+  put(sessionId: string, path: string, content: string): Promise<void>;
+  
+  /**
+   * 使缓存失效
+   */
+  invalidate(sessionId: string, path?: string): Promise<void>;
 }
 
-// 写入
-await handle.writeFile("/workspace/CLAUDE.md", newContent);
+interface ArtifactContent {
+  content: string;
+  mimeType: string;
+  size: number;
+  cachedAt: string;      // 缓存时间
+  s3Url?: string;        // 大文件 S3 URL
+}
+```
+
+### 12.3 缓存策略
+
+```typescript
+class ArtifactStoreImpl implements ArtifactStore {
+  constructor(
+    private db: Database,           // 缓存存储
+    private sandboxFactory: SandboxFactory,
+  ) {}
+  
+  async get(sessionId: string, path: string): Promise<ArtifactContent> {
+    // 1. 查缓存
+    const cached = await this.db.artifacts.findOne({ sessionId, path });
+    if (cached && !this.isExpired(cached)) {
+      return cached;
+    }
+    
+    // 2. 从 sandbox 读取
+    const handle = await this.sandboxFactory.attach(sessionId);
+    const content = await handle.readFile(path);
+    const stat = await handle.stat(path);
+    
+    // 3. 写入缓存
+    const artifact: ArtifactContent = {
+      content,
+      mimeType: getMimeType(path),
+      size: stat.size,
+      cachedAt: new Date().toISOString(),
+    };
+    await this.db.artifacts.upsert({ sessionId, path }, artifact);
+    
+    return artifact;
+  }
+  
+  private isExpired(cached: ArtifactContent): boolean {
+    // 缓存 5 分钟失效，或者 sandbox 有更新时失效
+    const cachedAt = new Date(cached.cachedAt);
+    return Date.now() - cachedAt.getTime() > 5 * 60 * 1000;
+  }
+}
+```
+
+### 12.4 使用
+
+```typescript
+// 创建 store
+const store = new ArtifactStoreImpl(db, sandboxFactory);
+
+// 获取（自动缓存）
+const content = await store.get(sessionId, "/workspace/CLAUDE.md");
+
+// 第二次获取（从缓存读取，不访问 sandbox）
+const content2 = await store.get(sessionId, "/workspace/CLAUDE.md");
+
+// 写入（更新 sandbox + 缓存）
+await store.put(sessionId, "/workspace/CLAUDE.md", newContent);
+
+// 手动失效缓存
+await store.invalidate(sessionId, "/workspace/CLAUDE.md");
+```
+
+### 12.5 大文件处理
+
+大文件不缓存到 db，而是：
+1. 缓存元数据（路径、大小、S3 URL）
+2. 内容存 S3 或直接 stream 读取
+
+```typescript
+async get(sessionId: string, path: string): Promise<ArtifactContent> {
+  const stat = await this.getStat(sessionId, path);
+  
+  // 大文件：返回 S3 URL，不缓存内容
+  if (stat.size > 10 * 1024 * 1024) {
+    return {
+      content: "",
+      mimeType: getMimeType(path),
+      size: stat.size,
+      cachedAt: new Date().toISOString(),
+      s3Url: await this.getS3Url(sessionId, path),
+    };
+  }
+  
+  // 小文件：正常缓存
+  // ...
+}
 ```
 
 ## 13. 需要实现的接口
