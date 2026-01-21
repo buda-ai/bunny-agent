@@ -394,8 +394,6 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
     const parts: LanguageModelV3StreamPart[] = [];
     const parsed = JSON.parse(data) as Record<string, unknown>;
 
-    console.log("parsed", JSON.stringify(parsed, null, 2));
-
     switch (parsed.type) {
       case "start": {
         // Session started

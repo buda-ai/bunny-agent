@@ -242,46 +242,59 @@ export async function POST(request: Request) {
 
   // Create the provider with a sandbox adapter
   // env, template, and workdir are now configured in sandbox
-  const sandagent = createSandAgent({
-    sandbox,
-    cwd: "/sandagent",
-    verbose: true,
-  });
-  // Streaming works too
-  const result = streamText({
-    model: sandagent(model),
-    messages: normalizedMessages,
-    abortSignal: signal,
-  });
-  return result.toUIMessageStreamResponse();
-
-  // const agent = new SandAgent({
+  // const sandagent = createSandAgent({
   //   sandbox,
-  //   runner: {
-  //     kind: "claude-agent-sdk",
-  //     model,
-  //     approvalDir: "/sandagent/approvals",
-  //   },
-  //   // Pass environment variables to the sandbox
-  //   // Prioritize ANTHROPIC_API_KEY over AWS_BEARER_TOKEN_BEDROCK
-  //   env: env,
-  // });
-
-  // const sseStream = await agent.stream({
-  //   messages: normalizedMessages,
-  //   workspace: { path: sandbox.getWorkdir() }, // Use the same workdir where templates are uploaded
+  //   cwd: "/sandagent",
+  //   verbose: true,
   //   resume,
-  //   signal: abortController.signal, // Use our own signal for graceful shutdown
   // });
-
-  // // DEBUG: Return raw SSE stream to see debug comments in Response tab
-  // // When debugging is done, uncomment the UIMessageStreamResponse version below
-  // return new Response(sseStream, {
-  //   headers: {
-  //     "Content-Type": "text/event-stream",
-  //     "Cache-Control": "no-cache",
-  //     Connection: "keep-alive",
-  //     "X-Accel-Buffering": "no",
+  // // Streaming works too
+  // const result = streamText({
+  //   model: sandagent(model),
+  //   messages: normalizedMessages,
+  //   abortSignal: signal,
+  // });
+  // return result.toUIMessageStreamResponse({
+  //   // messageMetadata: ({ part }) => {
+  //   //   console.log(
+  //   //     "[API] Message metadata part:",
+  //   //     JSON.stringify(part, null, 2),
+  //   //   );
+  //   //   return undefined;
+  //   // },
+  //   onFinish: (event) => {
+  //     console.log("[API] Finish event:", JSON.stringify(event, null, 2));
   //   },
   // });
+
+  const agent = new SandAgent({
+    sandboxId: `ai-sdk-${Date.now()}`,
+    sandbox,
+    runner: {
+      kind: "claude-agent-sdk",
+      model,
+      approvalDir: "/sandagent/approvals",
+    },
+    // Pass environment variables to the sandbox
+    // Prioritize ANTHROPIC_API_KEY over AWS_BEARER_TOKEN_BEDROCK
+    env: env,
+  });
+
+  const sseStream = await agent.stream({
+    messages: normalizedMessages,
+    workspace: { path: sandbox.getWorkdir() }, // Use the same workdir where templates are uploaded
+    resume,
+    signal,
+  });
+
+  // DEBUG: Return raw SSE stream to see debug comments in Response tab
+  // When debugging is done, uncomment the UIMessageStreamResponse version below
+  return new Response(sseStream, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+      "X-Accel-Buffering": "no",
+    },
+  });
 }
