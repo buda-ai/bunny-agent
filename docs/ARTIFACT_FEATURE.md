@@ -30,70 +30,62 @@ Artifact 是 Sandbox 中需要展示给用户的文件。分为三种类型：
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## 2. 三种 Artifact 类型
+## 2. Artifact 配置
 
-### 2.1 claude.md Artifact
+### 2.1 三种 Artifact
 
-Agent 的配置/指令文件，用户可以查看和编辑。
+| 类型 | 性质 | 配置方式 |
+|------|------|----------|
+| **claude.md** | 默认 | 开启/关闭 |
+| **workdir** | 默认 | 开启/关闭 |
+| **artifact** | 用户自定义 | 配置路径变量 |
 
-```typescript
-interface ClaudeMdArtifact {
-  type: "claude.md";
-  path: string;           // 如 "/workspace/CLAUDE.md"
-}
-```
-
-**用途**：
-- 展示当前 Agent 的指令配置
-- 允许用户编辑并保存到 sandbox
-- 实时生效，影响后续对话
-
-### 2.2 workdir Artifact
-
-工作目录中的文件/文件夹，用户可以浏览。
-
-```typescript
-interface WorkdirArtifact {
-  type: "workdir";
-  path: string;           // 如 "/workspace"
-}
-```
-
-**用途**：
-- 浏览 sandbox 中的文件结构
-- 查看/编辑文件内容
-- 上传/下载文件
-
-### 2.3 Chat 产物 Artifact
-
-Chat 结束后的输出产物，通过 artifact.json 清单定义。
-
-```typescript
-interface ChatArtifact {
-  type: "chat";
-  manifestPath: string;   // 如 "/workspace/output/artifact.json"
-}
-```
-
-**用途**：
-- 展示 Agent 生成的最终交付物
-- 预览（Markdown、代码、图片等）
-- 下载
-
-### 2.4 统一配置
-
-用户在创建 SandAgent 时配置三种 artifact：
+### 2.2 配置方式
 
 ```typescript
 const sandagent = createSandAgent({
   sandbox,
-  artifacts: {
-    claudeMd: "/workspace/CLAUDE.md",           // claude.md 路径
-    workdir: "/workspace",                       // 工作目录路径
-    chatManifest: "/workspace/output/artifact.json",  // chat 产物清单路径
-  },
+  
+  // 默认的，可开启/关闭
+  showClaudeMd: true,   // 默认 true，显示 CLAUDE.md
+  showWorkdir: true,    // 默认 true，显示工作目录
+  
+  // 用户自定义 artifact，配置 manifest 路径
+  // 不配置则不显示 artifact
+  artifactManifest: "${ARTIFACT_DIR}/artifact.json",
 });
 ```
+
+### 2.3 环境变量配置 artifact 路径
+
+artifact.json 的路径通过变量配置，更灵活：
+
+```typescript
+// 方式1：直接路径
+artifactManifest: "/workspace/output/artifact.json"
+
+// 方式2：使用变量
+artifactManifest: "${ARTIFACT_DIR}/artifact.json"
+
+// 方式3：不配置，不显示 artifact
+artifactManifest: undefined
+```
+
+变量在运行时解析：
+```typescript
+// sandbox 环境变量
+env: {
+  ARTIFACT_DIR: "/workspace/output",
+}
+```
+
+### 2.4 默认行为
+
+| 配置项 | 默认值 | 说明 |
+|--------|--------|------|
+| `showClaudeMd` | `true` | 显示 CLAUDE.md 编辑器 |
+| `showWorkdir` | `true` | 显示文件浏览器 |
+| `artifactManifest` | `undefined` | 不显示 artifact，配置后显示 |
 
 ## 3. 当前数据流
 
@@ -695,55 +687,68 @@ Sandbox 生命周期          S3 生命周期
 
 ## 11. 总结
 
-### 三种 Artifact 类型
-
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  1. 用户配置三种 Artifact                                    │
+│  1. 配置                                                     │
 │                                                             │
 │  createSandAgent({                                          │
-│    artifacts: {                                             │
-│      claudeMd: "/workspace/CLAUDE.md",                      │
-│      workdir: "/workspace",                                 │
-│      chatManifest: "/workspace/output/artifact.json",       │
-│    }                                                        │
+│    showClaudeMd: true,      // 默认开启                     │
+│    showWorkdir: true,       // 默认开启                     │
+│    artifactManifest: "${ARTIFACT_DIR}/artifact.json",       │
+│    env: { ARTIFACT_DIR: "/workspace/output" },              │
 │  })                                                         │
 └─────────────────────────────────────────────────────────────┘
                             │
                             ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  2. Sandbox 中的三种 Artifact                                │
+│  2. Sandbox                                                  │
 │                                                             │
-│  📄 claude.md: /workspace/CLAUDE.md                         │
-│     - 查看/编辑 Agent 指令                                  │
+│  📄 CLAUDE.md (默认，可关闭)                                 │
+│     showClaudeMd: true → 显示编辑器                         │
 │                                                             │
-│  📁 workdir: /workspace/                                    │
-│     - 浏览/编辑工作目录文件                                 │
+│  📁 workdir (默认，可关闭)                                   │
+│     showWorkdir: true → 显示文件浏览器                      │
 │                                                             │
-│  📦 chat 产物: /workspace/output/artifact.json              │
-│     - 展示 Agent 生成的交付物                               │
+│  📦 artifact (用户自定义，配置后显示)                        │
+│     artifactManifest 配置 → 显示产物列表                    │
 └─────────────────────────────────────────────────────────────┘
                             │
                             ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  3. API 获取                                                 │
-│                                                             │
-│  GET /api/artifacts/claude-md    → CLAUDE.md 内容           │
-│  GET /api/artifacts/workdir      → 目录列表                 │
-│  GET /api/artifacts/chat         → chat 产物清单            │
-└─────────────────────────────────────────────────────────────┘
-                            │
-                            ▼
-┌─────────────────────────────────────────────────────────────┐
-│  4. UI 展示                                                  │
+│  3. UI                                                       │
 │                                                             │
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────────────────┐│
-│  │ CLAUDE.md   │ │  文件浏览器  │ │  Chat 产物              ││
+│  │ CLAUDE.md   │ │  文件浏览器  │ │  Artifact              ││
+│  │ (默认开启)  │ │  (默认开启)  │ │  (配置后显示)          ││
 │  │ [编辑]      │ │  /workspace │ │  📄 报告 [预览][下载]   ││
-│  │             │ │  ├─ src/    │ │  📊 数据 [预览][下载]   ││
-│  │             │ │  └─ data/   │ │                         ││
 │  └─────────────┘ └─────────────┘ └─────────────────────────┘│
 └─────────────────────────────────────────────────────────────┘
+```
+
+### 配置示例
+
+```typescript
+// 示例1：全部开启
+createSandAgent({
+  showClaudeMd: true,
+  showWorkdir: true,
+  artifactManifest: "/workspace/output/artifact.json",
+})
+
+// 示例2：只显示 artifact
+createSandAgent({
+  showClaudeMd: false,
+  showWorkdir: false,
+  artifactManifest: "${OUTPUT_DIR}/artifact.json",
+  env: { OUTPUT_DIR: "/workspace/output" },
+})
+
+// 示例3：只显示默认的，不显示 artifact
+createSandAgent({
+  showClaudeMd: true,
+  showWorkdir: true,
+  // artifactManifest 不配置
+})
 ```
                             │
                             ▼
