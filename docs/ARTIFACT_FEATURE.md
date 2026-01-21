@@ -2,9 +2,100 @@
 
 ## 1. 概述
 
-Artifact 是 Chat 结束后从 Sandbox 中提取的产物文件。用户需要自己定义哪些文件是 artifact，系统负责从 sandbox 中获取并展示到 UI。
+Artifact 是 Sandbox 中需要展示给用户的文件。分为三种类型：
 
-## 2. 当前数据流
+| 类型 | 说明 | 示例 |
+|------|------|------|
+| **claude.md** | Agent 的配置/指令文件 | `/workspace/CLAUDE.md` |
+| **workdir** | 工作目录中的文件 | `/workspace/*` |
+| **chat 产物** | Chat 结束后的输出产物 | `/workspace/output/report.md` |
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Sandbox                                                     │
+│                                                             │
+│  📄 claude.md artifact                                       │
+│     /workspace/CLAUDE.md                                    │
+│                                                             │
+│  📁 workdir artifact                                         │
+│     /workspace/                                             │
+│     ├── src/                                                │
+│     ├── data/                                               │
+│     └── ...                                                 │
+│                                                             │
+│  📦 chat 产物 artifact                                       │
+│     /workspace/output/artifact.json  ← 清单                 │
+│     /workspace/output/report.md      ← 产物                 │
+│     /workspace/output/data.csv       ← 产物                 │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## 2. 三种 Artifact 类型
+
+### 2.1 claude.md Artifact
+
+Agent 的配置/指令文件，用户可以查看和编辑。
+
+```typescript
+interface ClaudeMdArtifact {
+  type: "claude.md";
+  path: string;           // 如 "/workspace/CLAUDE.md"
+}
+```
+
+**用途**：
+- 展示当前 Agent 的指令配置
+- 允许用户编辑并保存到 sandbox
+- 实时生效，影响后续对话
+
+### 2.2 workdir Artifact
+
+工作目录中的文件/文件夹，用户可以浏览。
+
+```typescript
+interface WorkdirArtifact {
+  type: "workdir";
+  path: string;           // 如 "/workspace"
+}
+```
+
+**用途**：
+- 浏览 sandbox 中的文件结构
+- 查看/编辑文件内容
+- 上传/下载文件
+
+### 2.3 Chat 产物 Artifact
+
+Chat 结束后的输出产物，通过 artifact.json 清单定义。
+
+```typescript
+interface ChatArtifact {
+  type: "chat";
+  manifestPath: string;   // 如 "/workspace/output/artifact.json"
+}
+```
+
+**用途**：
+- 展示 Agent 生成的最终交付物
+- 预览（Markdown、代码、图片等）
+- 下载
+
+### 2.4 统一配置
+
+用户在创建 SandAgent 时配置三种 artifact：
+
+```typescript
+const sandagent = createSandAgent({
+  sandbox,
+  artifacts: {
+    claudeMd: "/workspace/CLAUDE.md",           // claude.md 路径
+    workdir: "/workspace",                       // 工作目录路径
+    chatManifest: "/workspace/output/artifact.json",  // chat 产物清单路径
+  },
+});
+```
+
+## 3. 当前数据流
 
 ```typescript
 // apps/sandagent-example/app/api/ai/route.ts
@@ -604,39 +695,56 @@ Sandbox 生命周期          S3 生命周期
 
 ## 11. 总结
 
+### 三种 Artifact 类型
+
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  1. 用户定义（所有路径都由用户指定）                         │
+│  1. 用户配置三种 Artifact                                    │
 │                                                             │
-│  CLAUDE.md: "产物写入 /workspace/output/"                   │
-│             "清单写入 /workspace/output/artifact.json"      │
-│                                                             │
-│  API 调用: manifest=/workspace/output/artifact.json         │
+│  createSandAgent({                                          │
+│    artifacts: {                                             │
+│      claudeMd: "/workspace/CLAUDE.md",                      │
+│      workdir: "/workspace",                                 │
+│      chatManifest: "/workspace/output/artifact.json",       │
+│    }                                                        │
+│  })                                                         │
 └─────────────────────────────────────────────────────────────┘
                             │
                             ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  2. Agent 生成 artifact.json（路径由用户指定）               │
+│  2. Sandbox 中的三种 Artifact                                │
 │                                                             │
-│  // /workspace/output/artifact.json（用户指定的路径）       │
-│  {                                                          │
-│    "artifacts": [                                           │
-│      { "path": "/workspace/output/report.md" },             │
-│      { "path": "/workspace/output/data.csv" },              │
-│      { "path": "/mnt/s3/video.mp4", "s3Key": "xxx" }        │
-│    ]                                                        │
-│  }                                                          │
+│  📄 claude.md: /workspace/CLAUDE.md                         │
+│     - 查看/编辑 Agent 指令                                  │
+│                                                             │
+│  📁 workdir: /workspace/                                    │
+│     - 浏览/编辑工作目录文件                                 │
+│                                                             │
+│  📦 chat 产物: /workspace/output/artifact.json              │
+│     - 展示 Agent 生成的交付物                               │
 └─────────────────────────────────────────────────────────────┘
                             │
                             ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  3. Sandbox + S3 存储                                        │
+│  3. API 获取                                                 │
 │                                                             │
-│  所有路径都由用户定义：                                      │
-│    /workspace/output/artifact.json  ← 清单文件              │
-│    /workspace/output/report.md      ← 产物文件              │
-│    /mnt/s3/video.mp4               ← 大文件（可选挂载 S3）  │
+│  GET /api/artifacts/claude-md    → CLAUDE.md 内容           │
+│  GET /api/artifacts/workdir      → 目录列表                 │
+│  GET /api/artifacts/chat         → chat 产物清单            │
 └─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│  4. UI 展示                                                  │
+│                                                             │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────────────────┐│
+│  │ CLAUDE.md   │ │  文件浏览器  │ │  Chat 产物              ││
+│  │ [编辑]      │ │  /workspace │ │  📄 报告 [预览][下载]   ││
+│  │             │ │  ├─ src/    │ │  📊 数据 [预览][下载]   ││
+│  │             │ │  └─ data/   │ │                         ││
+│  └─────────────┘ └─────────────┘ └─────────────────────────┘│
+└─────────────────────────────────────────────────────────────┘
+```
                             │
                             ▼
 ┌─────────────────────────────────────────────────────────────┐
@@ -697,13 +805,41 @@ interface FileInfo {
 
 ### API 端点
 
-| 端点 | 方法 | 参数 | 描述 |
-|------|------|------|------|
-| `/api/artifacts` | GET | `sessionId`, `manifest` | 获取 artifact 清单 |
-| `/api/artifacts/[id]` | GET | `sessionId` | 获取单个 artifact 内容（支持 stream） |
-| `/api/artifacts/[id]/download` | GET | `sessionId` | 下载文件（返回 S3 URL 或直接流） |
+#### claude.md Artifact API
 
-**示例**：
+| 端点 | 方法 | 描述 |
+|------|------|------|
+| `/api/artifacts/claude-md` | GET | 获取 CLAUDE.md 内容 |
+| `/api/artifacts/claude-md` | PUT | 更新 CLAUDE.md 内容 |
+
+```typescript
+// GET /api/artifacts/claude-md?sessionId=xxx&path=/workspace/CLAUDE.md
+// PUT /api/artifacts/claude-md { sessionId, path, content }
 ```
-GET /api/artifacts?sessionId=xxx&manifest=/workspace/output/artifact.json
+
+#### workdir Artifact API
+
+| 端点 | 方法 | 描述 |
+|------|------|------|
+| `/api/artifacts/workdir` | GET | 列出目录内容 |
+| `/api/artifacts/workdir/file` | GET | 读取文件内容 |
+| `/api/artifacts/workdir/file` | PUT | 写入文件内容 |
+| `/api/artifacts/workdir/file` | DELETE | 删除文件 |
+
+```typescript
+// GET /api/artifacts/workdir?sessionId=xxx&path=/workspace
+// GET /api/artifacts/workdir/file?sessionId=xxx&path=/workspace/src/index.ts
+```
+
+#### Chat 产物 Artifact API
+
+| 端点 | 方法 | 描述 |
+|------|------|------|
+| `/api/artifacts/chat` | GET | 获取 chat 产物清单 |
+| `/api/artifacts/chat/[id]` | GET | 获取单个产物内容（支持 stream） |
+| `/api/artifacts/chat/[id]/download` | GET | 下载文件 |
+
+```typescript
+// GET /api/artifacts/chat?sessionId=xxx&manifest=/workspace/output/artifact.json
+// GET /api/artifacts/chat/art-001?sessionId=xxx
 ```
