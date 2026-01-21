@@ -9,7 +9,7 @@ import type { TranscriptEntry, TranscriptWriter } from "./types.js";
  *
  * @example
  * ```ts
- * import { JsonlTranscriptWriter } from "@sandagent/core";
+ * import { JsonlTranscriptWriter } from "@sandagent/manager";
  *
  * const writer = new JsonlTranscriptWriter("./transcript.jsonl");
  *

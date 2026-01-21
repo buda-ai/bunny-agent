@@ -1,4 +1,4 @@
-import type { SandAgentOptions, SandboxAdapter } from "@sandagent/core";
+import type { SandAgentOptions, SandboxAdapter } from "@sandagent/manager";
 
 /**
  * Logger interface for custom logging.
@@ -45,9 +45,18 @@ export interface Logger {
  *
  * Note: Runner is automatically created based on modelId in createModel.
  * No need to provide runner configuration.
+ * sandboxId is also automatically generated if not provided.
  */
 export interface SandAgentProviderSettings
-  extends Omit<SandAgentOptions, "runner"> {
+  extends Omit<SandAgentOptions, "runner" | "sandboxId"> {
+  /**
+   * Unique identifier for the sandbox instance.
+   * If not provided, will be auto-generated based on timestamp.
+   *
+   * @default `ai-sdk-${Date.now()}`
+   */
+  sandboxId?: string;
+
   /**
    * Working directory for CLI operations inside the sandbox.
    *

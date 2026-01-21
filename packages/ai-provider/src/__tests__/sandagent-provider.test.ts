@@ -1,4 +1,4 @@
-import type { SandboxAdapter, SandboxHandle } from "@sandagent/core";
+import type { SandboxAdapter, SandboxHandle } from "@sandagent/manager";
 import { describe, expect, it, vi } from "vitest";
 import { createSandAgent } from "../sandagent-provider.js";
 

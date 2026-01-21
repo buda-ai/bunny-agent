@@ -48,6 +48,7 @@ describe("SandAgent", () => {
     it("should attach to sandbox and execute command", async () => {
       const sandbox = createMockSandbox();
       const agent = new SandAgent({
+        sandboxId: "test-agent",
         sandbox,
         runner: {
           kind: "claude-agent-sdk",
@@ -66,6 +67,7 @@ describe("SandAgent", () => {
     it("should use default workspace path", async () => {
       const sandbox = createMockSandbox();
       const agent = new SandAgent({
+        sandboxId: "test-agent",
         sandbox,
         runner: {
           kind: "claude-agent-sdk",
@@ -86,6 +88,7 @@ describe("SandAgent", () => {
     it("should use custom workspace path", async () => {
       const sandbox = createMockSandbox();
       const agent = new SandAgent({
+        sandboxId: "test-agent",
         sandbox,
         runner: {
           kind: "claude-agent-sdk",
@@ -107,6 +110,7 @@ describe("SandAgent", () => {
     it("should include user message in command", async () => {
       const sandbox = createMockSandbox();
       const agent = new SandAgent({
+        sandboxId: "test-agent",
         sandbox,
         runner: {
           kind: "claude-agent-sdk",
@@ -136,6 +140,7 @@ describe("SandAgent", () => {
         );
 
       const agent = new SandAgent({
+        sandboxId: "test-agent",
         sandbox,
         runner: {
           kind: "claude-agent-sdk",
@@ -159,6 +164,7 @@ describe("SandAgent", () => {
     it("should upload files to the sandbox", async () => {
       const sandbox = createMockSandbox();
       const agent = new SandAgent({
+        sandboxId: "test-agent",
         sandbox,
         runner: {
           kind: "claude-agent-sdk",
@@ -177,6 +183,7 @@ describe("SandAgent", () => {
     it("should upload files to custom directory", async () => {
       const sandbox = createMockSandbox();
       const agent = new SandAgent({
+        sandboxId: "test-agent",
         sandbox,
         runner: {
           kind: "claude-agent-sdk",
@@ -200,6 +207,7 @@ describe("SandAgent", () => {
     it("should destroy the sandbox", async () => {
       const sandbox = createMockSandbox();
       const agent = new SandAgent({
+        sandboxId: "test-agent",
         sandbox,
         runner: {
           kind: "claude-agent-sdk",
@@ -221,6 +229,7 @@ describe("SandAgent", () => {
     it("should do nothing if not attached", async () => {
       const sandbox = createMockSandbox();
       const agent = new SandAgent({
+        sandboxId: "test-agent",
         sandbox,
         runner: {
           kind: "claude-agent-sdk",
@@ -239,6 +248,7 @@ describe("SandAgent", () => {
     it("should pass signal to exec()", async () => {
       const sandbox = createMockSandbox();
       const agent = new SandAgent({
+        sandboxId: "test-agent",
         sandbox,
         runner: {
           kind: "claude-agent-sdk",
@@ -263,6 +273,7 @@ describe("SandAgent", () => {
     it("should throw error if signal is already aborted", async () => {
       const sandbox = createMockSandbox();
       const agent = new SandAgent({
+        sandboxId: "test-agent",
         sandbox,
         runner: {
           kind: "claude-agent-sdk",
@@ -293,6 +304,7 @@ describe("SandAgent", () => {
         );
 
       const agent = new SandAgent({
+        sandboxId: "test-agent",
         sandbox,
         runner: {
           kind: "claude-agent-sdk",
@@ -343,6 +355,7 @@ describe("SandAgent", () => {
       });
 
       const agent = new SandAgent({
+        sandboxId: "test-agent",
         sandbox,
         runner: {
           kind: "claude-agent-sdk",

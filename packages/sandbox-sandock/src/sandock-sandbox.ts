@@ -4,7 +4,7 @@ import type {
   ExecOptions,
   SandboxAdapter,
   SandboxHandle,
-} from "@sandagent/core";
+} from "@sandagent/manager";
 import { type SandockClient, createSandockClient } from "sandock";
 
 /**
@@ -214,8 +214,44 @@ export class SandockSandbox implements SandboxAdapter {
 
   /**
    * Attach to or create a sandbox
+   * @param id - Unique identifier for this sandbox instance (used for caching and logging)
    */
-  async attach(): Promise<SandboxHandle> {
+  async attach(id: string): Promise<SandboxHandle> {
+    console.log(`[Sandock] Attaching sandbox with id: ${id}`);
+
+    // Check if we already have a cached instance for this id
+    const cached = SandockSandbox.instances.get(id);
+    if (cached) {
+      console.log(
+        `[Sandock] Reusing cached sandbox: ${cached.sandboxId} for id: ${id}`,
+      );
+      cached.lastAccessTime = Date.now();
+
+      const handle = new SandockHandle(
+        this.client,
+        cached.sandboxId,
+        this.workdir,
+        this.timeout,
+        () => {
+          // Cleanup callback when handle is destroyed
+          SandockSandbox.instances.delete(id);
+          SandockSandbox.initializedInstances.delete(id);
+        },
+        this.env,
+      );
+
+      // Only initialize if this is the first time we're using this instance
+      if (!SandockSandbox.initializedInstances.has(id)) {
+        await this.initializeSandbox(handle);
+        SandockSandbox.initializedInstances.add(id);
+      }
+
+      return handle;
+    }
+
+    // Evict oldest instance if cache is full
+    this.evictOldestIfNeeded();
+
     // Create sandbox using high-level API
     const createResult = await this.client.sandbox.create({
       image: this.image,
@@ -231,7 +267,13 @@ export class SandockSandbox implements SandboxAdapter {
       throw new Error("No sandbox ID returned from Sandock API");
     }
 
-    console.log(`[Sandock] Created new sandbox: ${sandboxId}`);
+    console.log(`[Sandock] Created new sandbox: ${sandboxId} (user id: ${id})`);
+
+    // Cache the instance before starting
+    SandockSandbox.instances.set(id, {
+      sandboxId,
+      lastAccessTime: Date.now(),
+    });
 
     // Start the sandbox using high-level API
     await this.client.sandbox.start(sandboxId);
@@ -242,13 +284,16 @@ export class SandockSandbox implements SandboxAdapter {
       this.workdir,
       this.timeout,
       () => {
-        // Cleanup callback - no-op since we don't cache
+        // Cleanup callback when handle is explicitly destroyed
+        SandockSandbox.instances.delete(id);
+        SandockSandbox.initializedInstances.delete(id);
       },
       this.env,
     );
 
     // Initialize sandbox with runner and templates
     await this.initializeSandbox(handle);
+    SandockSandbox.initializedInstances.add(id);
 
     return handle;
   }
