@@ -5,7 +5,7 @@ import type {
   ExecOptions,
   SandboxAdapter,
   SandboxHandle,
-} from "@sandagent/core";
+} from "@sandagent/manager";
 
 /**
  * Type alias for VolumeMount configuration
@@ -135,7 +135,7 @@ export class DaytonaSandbox implements SandboxAdapter {
     return this.workdir;
   }
 
-  async attach(): Promise<SandboxHandle> {
+  async attach(id: string): Promise<SandboxHandle> {
     if (!this.apiKey) {
       throw new Error(
         "Daytona API key not found. Please set DAYTONA_API_KEY environment variable or pass apiKey option.",
@@ -147,7 +147,9 @@ export class DaytonaSandbox implements SandboxAdapter {
       apiUrl: this.apiUrl,
     });
 
-    console.log(`[Daytona] Attaching sandbox`);
+    // Use the provided id parameter, fallback to this.name
+    const sandboxName = id || this.name;
+    console.log(`[Daytona] Attaching sandbox with name: ${sandboxName}`);
 
     // Get or create volume if volumeName is provided
     let volumes: VolumeConfig[] | undefined;
@@ -180,13 +182,13 @@ export class DaytonaSandbox implements SandboxAdapter {
     let needsInit = false;
 
     // Try to get existing sandbox by name
-    if (this.name) {
+    if (sandboxName) {
       console.log(
-        `[Daytona] Looking for existing sandbox with name: ${this.name}`,
+        `[Daytona] Looking for existing sandbox with name: ${sandboxName}`,
       );
 
       try {
-        const existingSandbox = await daytona.get(this.name);
+        const existingSandbox = await daytona.get(sandboxName);
         console.log(
           `[Daytona] Found existing sandbox: ${existingSandbox.id}, state: ${existingSandbox.state}`,
         );
@@ -231,7 +233,7 @@ export class DaytonaSandbox implements SandboxAdapter {
               `[Daytona] Deleting non-recoverable sandbox: ${existingSandbox.id}`,
             );
             await existingSandbox.delete();
-            sandbox = await this.createNewSandbox(daytona, volumes);
+            sandbox = await this.createNewSandbox(daytona, volumes, sandboxName);
             needsInit = true;
           }
         } else if (existingSandbox.state === "starting") {
@@ -246,7 +248,7 @@ export class DaytonaSandbox implements SandboxAdapter {
           console.log(
             `[Daytona] Unknown sandbox state: ${existingSandbox.state}, creating new sandbox`,
           );
-          sandbox = await this.createNewSandbox(daytona, volumes);
+          sandbox = await this.createNewSandbox(daytona, volumes, sandboxName);
           needsInit = true;
         }
 
@@ -255,15 +257,15 @@ export class DaytonaSandbox implements SandboxAdapter {
       } catch (error) {
         // get() throws if not found, create new sandbox with the name
         console.log(
-          `[Daytona] Sandbox "${this.name}" not found, creating new one`,
+          `[Daytona] Sandbox "${sandboxName}" not found, creating new one`,
         );
-        sandbox = await this.createNewSandbox(daytona, volumes);
+        sandbox = await this.createNewSandbox(daytona, volumes, sandboxName);
         needsInit = true;
       }
     } else {
       // No name provided - always create new sandbox
       console.log(`[Daytona] No name provided, creating new sandbox`);
-      sandbox = await this.createNewSandbox(daytona, volumes);
+      sandbox = await this.createNewSandbox(daytona, volumes, sandboxName);
       needsInit = true;
     }
 
@@ -286,14 +288,17 @@ export class DaytonaSandbox implements SandboxAdapter {
   private async createNewSandbox(
     daytona: Daytona,
     volumes?: VolumeConfig[],
+    name?: string,
   ): Promise<Sandbox> {
+    // Use provided name parameter, fallback to this.name
+    const sandboxName = name || this.name;
     console.log(
-      `[Daytona] Creating new sandbox${this.name ? ` with name "${this.name}"` : ""}, autoStopInterval=${this.autoStopInterval}min, autoDeleteInterval=${this.autoDeleteInterval}min`,
+      `[Daytona] Creating new sandbox${sandboxName ? ` with name "${sandboxName}"` : ""}, autoStopInterval=${this.autoStopInterval}min, autoDeleteInterval=${this.autoDeleteInterval}min`,
     );
 
     const sandbox = await daytona.create(
       {
-        name: this.name,
+        name: sandboxName,
         language: "typescript",
         volumes,
         autoStopInterval: this.autoStopInterval,

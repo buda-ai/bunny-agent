@@ -5,7 +5,7 @@ import type {
   ExecOptions,
   SandboxAdapter,
   SandboxHandle,
-} from "@sandagent/core";
+} from "@sandagent/manager";
 
 /**
  * Options for creating a LocalSandbox instance
@@ -17,6 +17,8 @@ export interface LocalSandboxOptions {
   isolate?: boolean;
   /** Default timeout for commands in milliseconds (default: 60000) */
   defaultTimeout?: number;
+  /** Environment variables to pass to all commands */
+  env?: Record<string, string>;
 }
 
 /**
@@ -34,11 +36,13 @@ export class LocalSandbox implements SandboxAdapter {
   private readonly baseDir: string;
   private readonly isolate: boolean;
   private readonly defaultTimeout: number;
+  private readonly env: Record<string, string>;
 
   constructor(options: LocalSandboxOptions = {}) {
     this.baseDir = options.baseDir ?? process.cwd();
     this.isolate = options.isolate ?? true;
     this.defaultTimeout = options.defaultTimeout ?? 60000;
+    this.env = options.env ?? {};
   }
 
   async attach(id: string): Promise<SandboxHandle> {
@@ -50,7 +54,7 @@ export class LocalSandbox implements SandboxAdapter {
 
     console.log(`[LocalSandbox] Created/using directory: ${workDir}`);
 
-    return new LocalSandboxHandle(workDir, this.defaultTimeout);
+    return new LocalSandboxHandle(workDir, this.defaultTimeout, this.env);
   }
 }
 
@@ -60,10 +64,16 @@ export class LocalSandbox implements SandboxAdapter {
 class LocalSandboxHandle implements SandboxHandle {
   private readonly workDir: string;
   private readonly defaultTimeout: number;
+  private readonly env: Record<string, string>;
 
-  constructor(workDir: string, defaultTimeout: number) {
+  constructor(
+    workDir: string,
+    defaultTimeout: number,
+    env: Record<string, string>,
+  ) {
     this.workDir = workDir;
     this.defaultTimeout = defaultTimeout;
+    this.env = env;
   }
 
   async *exec(
@@ -76,7 +86,7 @@ class LocalSandboxHandle implements SandboxHandle {
 
     const cwd = opts.cwd ? path.resolve(this.workDir, opts.cwd) : this.workDir;
     const timeout = opts.timeout ?? this.defaultTimeout;
-    const env = { ...process.env, ...opts.env };
+    const env = { ...process.env, ...this.env, ...opts.env };
 
     console.log(`[LocalSandbox] Executing command: ${command.join(" ")}`);
     console.log(`[LocalSandbox] Working directory: ${cwd}`);
@@ -208,6 +218,58 @@ class LocalSandboxHandle implements SandboxHandle {
       await fs.writeFile(filePath, content);
       console.log(`[LocalSandbox] Wrote file: ${filePath}`);
     }
+  }
+
+  /**
+   * Execute a command and wait for completion, returning stdout, stderr, and exit code
+   */
+  async runCommand(command: string): Promise<{
+    stdout: string;
+    stderr: string;
+    exitCode: number;
+  }> {
+    console.log(`[LocalSandbox] Running command: ${command}`);
+
+    return new Promise((resolve, reject) => {
+      // Use sh -c to execute the command
+      const child = spawn("sh", ["-c", command], {
+        cwd: this.workDir,
+        env: { ...process.env, ...this.env }, // Use instance env
+        stdio: "pipe",
+      });
+
+      let stdout = "";
+      let stderr = "";
+
+      child.stdout?.on("data", (data) => {
+        stdout += data.toString();
+      });
+
+      child.stderr?.on("data", (data) => {
+        stderr += data.toString();
+      });
+
+      child.on("close", (code) => {
+        resolve({
+          stdout,
+          stderr,
+          exitCode: code ?? 0,
+        });
+      });
+
+      child.on("error", reject);
+
+      // Timeout handling
+      const timeout = this.defaultTimeout;
+      const timeoutId = setTimeout(() => {
+        child.kill();
+        reject(new Error(`Command timed out after ${timeout}ms`));
+      }, timeout);
+
+      child.on("close", () => {
+        clearTimeout(timeoutId);
+      });
+    });
   }
 
   async destroy(): Promise<void> {

@@ -16,12 +16,14 @@ import type {
  * - Direct passthrough of AI SDK UI messages
  */
 export class SandAgent {
+  private readonly sandboxId: string;
   private readonly sandbox: SandboxAdapter;
   private readonly runner: RunnerSpec;
   private readonly env: Record<string, string>;
   private handle: SandboxHandle | null = null;
 
   constructor(options: SandAgentOptions) {
+    this.sandboxId = options.sandboxId;
     this.sandbox = options.sandbox;
     this.runner = options.runner;
     this.env = options.env ?? {};
@@ -32,7 +34,7 @@ export class SandAgent {
    */
   private async ensureAttached(): Promise<SandboxHandle> {
     if (!this.handle) {
-      this.handle = await this.sandbox.attach();
+      this.handle = await this.sandbox.attach(this.sandboxId);
     }
     return this.handle;
   }

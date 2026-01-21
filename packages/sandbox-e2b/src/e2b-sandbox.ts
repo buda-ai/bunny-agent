@@ -4,7 +4,7 @@ import type {
   ExecOptions,
   SandboxAdapter,
   SandboxHandle,
-} from "@sandagent/core";
+} from "@sandagent/manager";
 import { Sandbox, type SandboxInfo } from "e2b";
 
 /**
@@ -184,7 +184,7 @@ export class E2BSandbox implements SandboxAdapter {
     }
   }
 
-  async attach(): Promise<SandboxHandle> {
+  async attach(id: string): Promise<SandboxHandle> {
     if (!this.apiKey) {
       throw new Error(
         "E2B API key not found. Please set E2B_API_KEY environment variable or pass apiKey option.",
@@ -194,17 +194,20 @@ export class E2BSandbox implements SandboxAdapter {
     let instance: Sandbox;
     let needsInit = false;
 
-    // If name is provided, try to find and connect to existing sandbox
-    if (this.name) {
-      console.log(`[E2B] Looking for existing sandbox with name: ${this.name}`);
+    // Use the provided id parameter, fallback to this.name
+    const sandboxName = id || this.name;
 
-      const existingSandbox = await this.findSandboxByName(this.name);
+    // If name is provided, try to find and connect to existing sandbox
+    if (sandboxName) {
+      console.log(`[E2B] Looking for existing sandbox with name: ${sandboxName}`);
+
+      const existingSandbox = await this.findSandboxByName(sandboxName);
 
       if (existingSandbox) {
         instance = existingSandbox;
       } else {
         // No existing sandbox found or connection failed, create new one
-        instance = await this.createNewSandbox();
+        instance = await this.createNewSandbox(sandboxName);
         needsInit = true;
       }
     } else {
@@ -227,16 +230,19 @@ export class E2BSandbox implements SandboxAdapter {
   /**
    * Create a new sandbox with metadata for later querying
    */
-  private async createNewSandbox(): Promise<Sandbox> {
+  private async createNewSandbox(name?: string): Promise<Sandbox> {
     const metadata: Record<string, string> = {};
 
+    // Use provided name or fallback to this.name
+    const sandboxName = name || this.name;
+
     // Add name to metadata if provided (for sandbox reuse)
-    if (this.name) {
-      metadata.sandagentName = this.name;
+    if (sandboxName) {
+      metadata.sandagentName = sandboxName;
     }
 
     console.log(
-      `[E2B] Creating new sandbox with template "${this.template}"${this.name ? `, name "${this.name}"` : ""}, timeout=${this.timeout / 1000}s`,
+      `[E2B] Creating new sandbox with template "${this.template}"${sandboxName ? `, name "${sandboxName}"` : ""}, timeout=${this.timeout / 1000}s`,
     );
 
     const instance = await Sandbox.create(this.template, {

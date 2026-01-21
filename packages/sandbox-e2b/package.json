@@ -28,7 +28,7 @@
   },
   "license": "Apache-2.0",
   "dependencies": {
-    "@sandagent/core": "workspace:*",
+    "@sandagent/manager": "workspace:*",
     "e2b": "^2.9.0"
   },
   "devDependencies": {

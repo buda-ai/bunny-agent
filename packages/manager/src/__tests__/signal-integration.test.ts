@@ -47,6 +47,7 @@ describe("Signal Integration Tests", () => {
 
   it("should pass signal from StreamInput to sandbox exec", async () => {
     const agent = new SandAgent({
+      sandboxId: "test-agent",
       sandbox: mockSandbox,
       runner: {
         kind: "claude-agent-sdk",
@@ -69,6 +70,7 @@ describe("Signal Integration Tests", () => {
 
   it("should stop streaming when signal is aborted", async () => {
     const agent = new SandAgent({
+      sandboxId: "test-agent",
       sandbox: mockSandbox,
       runner: {
         kind: "claude-agent-sdk",
@@ -107,6 +109,7 @@ describe("Signal Integration Tests", () => {
 
   it("should handle pre-aborted signal", async () => {
     const agent = new SandAgent({
+      sandboxId: "test-agent",
       sandbox: mockSandbox,
       runner: {
         kind: "claude-agent-sdk",
@@ -127,6 +130,7 @@ describe("Signal Integration Tests", () => {
 
   it("should work without signal (backward compatibility)", async () => {
     const agent = new SandAgent({
+      sandboxId: "test-agent",
       sandbox: mockSandbox,
       runner: {
         kind: "claude-agent-sdk",
