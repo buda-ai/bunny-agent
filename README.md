@@ -146,7 +146,7 @@ JSONL transcript recording for debugging and replay
 |-----|------------|----------|
 | **sandagent-example** | Complete Next.js web app with AI chat UI | First-time users, web integration |
 | **manager-cli** | Command-line sandbox management (`sandagent-manager`) | DevOps, server-side orchestration |
-| **runner-cli** | Terminal-based agent (`sandagent`, like claude-code, gemini-cli) | Local development, CLI enthusiasts |
+| **runner-cli** | Terminal-based agent runner (`sandagent`) - choose Claude, Codex, or Copilot | Local development, CLI enthusiasts |
 
 ### Option A: Web UI (Recommended)
 
@@ -200,10 +200,19 @@ cd apps/runner-cli && pnpm build
 # Set environment variables
 export ANTHROPIC_API_KEY=your_key
 
-# Run from a template directory
+# Run with Claude (default)
 cd templates/coder
 npx sandagent run -- "Build a REST API with Express"
+
+# Or explicitly choose a runner
+npx sandagent run --runner claude -- "Build a REST API with Express"
+
+# Future: Use Codex or Copilot
+# npx sandagent run --runner codex -- "Build a REST API with Express"
+# npx sandagent run --runner copilot -- "Build a REST API with Express"
 ```
+
+**Key Feature**: runner-cli is a universal CLI that can run different agent backends (Claude, Codex, Copilot) with the same interface!
 
 ### Option D: Use Claude Code Directly
 
@@ -246,6 +255,8 @@ pnpm test  # 93 tests
 
 ## 🏗️ How It Works
 
+SandAgent acts as a **universal adapter** that redirects coding agents to your use case:
+
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │  Your Template (CLAUDE.md + skills/)                        │
@@ -254,13 +265,19 @@ pnpm test  # 93 tests
                             │
                             ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  Coding Agent (Claude Code / Codex CLI)                     │
+│  Runner (Claude Code / Codex CLI / GitHub Copilot)          │
 │  Memory ✓  Tools ✓  MCP ✓  Prompts ✓                        │
 └─────────────────────────────────────────────────────────────┘
                             │
                             ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  Sandbox (E2B / Sandock)                                    │
+│  Manager (@sandagent/manager)                               │
+│  Orchestrates runner ↔ sandbox lifecycle                    │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│  Sandbox (E2B / Sandock / Local / Daytona)                  │
 │  Isolated filesystem, persistent state, safe execution      │
 └─────────────────────────────────────────────────────────────┘
                             │
@@ -273,6 +290,143 @@ pnpm test  # 93 tests
 
 **You focus on the template. SandAgent handles everything else.**
 
+### 🔌 Pluggable Architecture
+
+The power of SandAgent comes from its **interface-driven, pluggable design**:
+
+#### 1. Manager Layer (`@sandagent/manager`)
+
+The core orchestrator that:
+- Defines `Runner` and `SandboxAdapter` interfaces
+- Manages session lifecycle and state
+- Binds runners to sandboxes
+- **Has zero dependencies** — only defines contracts
+
+```typescript
+// What manager provides
+export interface Runner {
+  run(input: string, options?: RunOptions): AsyncIterable<RunnerOutput>;
+}
+
+export interface SandboxAdapter {
+  attach(id: string): Promise<SandboxHandle>;
+}
+
+export class SandAgentManager {
+  constructor(options: {
+    runner: Runner;           // Accept any runner implementation
+    sandbox: SandboxAdapter;  // Accept any sandbox implementation
+  })
+}
+```
+
+#### 2. Runner Implementations
+
+Runners execute the actual agent logic. Each runner is **independent** and implements the `Runner` interface:
+
+| Package | What It Runs | Status |
+|---------|--------------|--------|
+| `@sandagent/runner-claude` | Claude Agent SDK | ✅ Production |
+| `@sandagent/runner-codex` | Codex CLI | 🚧 Planned |
+| `@sandagent/runner-copilot` | GitHub Copilot | 🚧 Planned |
+
+```typescript
+// Runners don't depend on manager - just implement the interface
+export class ClaudeRunner {
+  async *run(input: string, options?: RunOptions) {
+    // Execute using @anthropic-ai/claude-agent-sdk
+  }
+}
+```
+
+#### 3. Sandbox Implementations
+
+Sandboxes provide isolated execution environments. Each sandbox is **independent** and implements the `SandboxAdapter` interface:
+
+| Package | Provider | Best For |
+|---------|----------|----------|
+| `@sandagent/sandbox-e2b` | E2B Cloud | Production, cloud-native |
+| `@sandagent/sandbox-sandock` | Sandock | Development, Docker-based |
+| `@sandagent/sandbox-local` | Local FS | Testing, no isolation |
+| `@sandagent/sandbox-daytona` | Daytona | Enterprise workspaces |
+
+```typescript
+// Sandboxes don't depend on manager - just implement the interface
+export class E2BSandbox {
+  async attach(id: string): Promise<SandboxHandle> {
+    // Create/connect to E2B sandbox
+  }
+}
+```
+
+#### 4. Application Layer
+
+Applications combine runners and sandboxes through the manager:
+
+```typescript
+// In ai-provider, manager-cli, or your own app
+import { SandAgentManager } from '@sandagent/manager';
+import { ClaudeRunner } from '@sandagent/runner-claude';
+import { E2BSandbox } from '@sandagent/sandbox-e2b';
+
+const manager = new SandAgentManager({
+  runner: new ClaudeRunner(),
+  sandbox: new E2BSandbox()
+});
+
+// Or mix and match different combinations
+const localDev = new SandAgentManager({
+  runner: new ClaudeRunner(),
+  sandbox: new LocalSandbox()  // For local testing
+});
+```
+
+**runner-cli Example**: The `sandagent` command is a **lightweight, local CLI** that:
+
+- 🚀 Runs directly on your **local filesystem** (no sandbox needed)
+- 🔌 Lets you **choose different runners** with `--runner` flag
+- 💡 Does **not** use manager (no sandbox orchestration)
+- 🏃 Perfect for local development and testing
+
+```bash
+# Choose Claude runner (default) - runs on local filesystem
+sandagent run -- "Create a hello world script"
+
+# Explicitly select runner
+sandagent run --runner claude -- "Build an API"
+sandagent run --runner codex -- "Build an API"    # (planned)
+sandagent run --runner copilot -- "Build an API"  # (planned)
+```
+
+**Key Difference**:
+- `runner-cli` → Direct runner usage, local filesystem, no isolation
+- `manager-cli` → Uses manager + sandbox for isolated execution
+
+### 🎯 Why This Architecture?
+
+✅ **No Circular Dependencies**: Manager defines interfaces, implementations don't know about manager  
+✅ **Type-Safe**: TypeScript structural typing ensures compatibility  
+✅ **Extensible**: Add new runners or sandboxes without touching core code  
+✅ **Testable**: Mock runners/sandboxes easily for testing  
+✅ **Flexible**: Mix any runner with any sandbox  
+
+**Example: Adding a New Runner**
+
+```typescript
+// 1. Create a new package implementing Runner interface
+export class GeminiRunner {
+  async *run(input: string, options?: RunOptions) {
+    // Your Gemini implementation
+  }
+}
+
+// 2. Use it immediately - no changes to manager needed!
+const manager = new SandAgentManager({
+  runner: new GeminiRunner(),  // ✅ Just works
+  sandbox: new E2BSandbox()
+});
+```
+
 ---
 
 ## 📦 Monorepo Structure
@@ -282,13 +436,16 @@ sandagent/
 ├─ apps/
 │  ├─ sandagent-example/   # Complete Next.js app with AI chat UI
 │  ├─ manager-cli/         # sandagent-manager command - manage sandboxes
-│  └─ runner-cli/          # sandagent command - terminal agent runner
+│  └─ runner-cli/          # sandagent command - universal terminal agent runner (choose claude/codex/copilot)
 ├─ packages/
-│  ├─ core/                # SandAgent lifecycle & sandbox binding
-│  ├─ sdk/                 # Next.js / server passthrough helpers
-│  ├─ sandbox-sandock/     # Sandock cloud sandbox adapter
-│  ├─ sandbox-e2b/         # E2B cloud sandbox adapter
+│  ├─ manager/             # Core orchestration & interface definitions
+│  ├─ ai-provider/         # AI SDK provider integration
 │  ├─ runner-claude/       # Claude Agent SDK runtime
+│  ├─ sandbox-local/       # Local filesystem sandbox adapter
+│  ├─ sandbox-e2b/         # E2B cloud sandbox adapter
+│  ├─ sandbox-sandock/     # Sandock cloud sandbox adapter
+│  ├─ sandbox-daytona/     # Daytona sandbox adapter
+│  ├─ kui/                 # UI components
 │  └─ benchmark/           # GAIA benchmark for comparing agents
 ├─ templates/
 │  ├─ default/             # General-purpose agent template
@@ -298,6 +455,127 @@ sandagent/
 └─ spec/                   # Documentation and specifications
 ```
 
+### 🏗️ Package Architecture & Dependencies
+
+SandAgent follows a **clean, pluggable architecture** where components are loosely coupled through interfaces:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                   Applications Layer                         │
+├─────────────────────────────────────────────────────────────┤
+│                                                               │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐  │
+│  │ ai-provider  │    │ manager-cli  │    │  runner-cli  │  │
+│  │              │    │              │    │  (sandagent) │  │
+│  │              │    │              │    │  Choose:     │  │
+│  │              │    │              │    │  -r claude   │  │
+│  └──────┬───────┘    └──────┬───────┘    │  -r codex    │  │
+│         │                   │             │  -r copilot  │  │
+│         │ use manager       │ use manager └──────┬───────┘  │
+│         │                   │                    │           │
+│         └───────────────────┤                    │ direct    │
+└─────────────────────────────┼────────────────────┼───────────┘
+                              │                    │
+                              │ uses               │ uses
+                              ↓                    │
+┌─────────────────────────────────────────────────┼───────────┐
+│                   Core Manager Layer             │           │
+├──────────────────────────────────────────────────┼───────────┤
+│                                                  │           │
+│              ┌─────────────────────────┐         │           │
+│              │  @sandagent/manager     │         │           │
+│              │                         │         │           │
+│              │  Defines interfaces:    │         │           │
+│              │  • Runner               │         │           │
+│              │  • SandboxAdapter       │         │           │
+│              │                         │         │           │
+│              │  Manages:               │         │           │
+│              │  • Lifecycle            │         │           │
+│              │  • Session state        │         │           │
+│              │  • Runner ↔ Sandbox     │         │           │
+│              └────────────┬────────────┘         │           │
+│                           │                      │           │
+└───────────────────────────┼──────────────────────┼───────────┘
+                            │                      │
+                            │ accepts              │ uses directly
+             ┌──────────────┴──────────┐           │
+             │                         │           │
+             ↓                         ↓           ↓
+┌────────────────────────┐  ┌────────────────────────────┐
+│   Sandbox Adapters     │  │   Runner Adapters          │
+├────────────────────────┤  ├────────────────────────────┤
+│ • sandbox-local        │  │ • runner-claude   ✅       │
+│ • sandbox-e2b          │  │ • runner-codex    🚧       │
+│ • sandbox-sandock      │  │ • runner-copilot  🚧       │
+│ • sandbox-daytona      │  │                            │
+└────────────────────────┘  └────────────────────────────┘
+         ↑                            ↑
+         └──── Implement interfaces ──┘
+         (used by manager)    (used by manager OR directly)
+```
+
+### 📋 Package Dependency Flow
+
+```
+Applications (different use cases):
+├─ ai-provider      → manager + runner-* + sandbox-*
+│                     (needs sandbox for isolated execution)
+│
+├─ manager-cli      → manager + runner-* + sandbox-*
+│                     (manages sandbox sessions)
+│
+└─ runner-cli       → runner-* ONLY (NO manager, NO sandbox)
+                      Runs directly on local filesystem
+                      Choose via --runner flag:
+                      • runner-claude ✅
+                      • runner-codex 🚧
+                      • runner-copilot 🚧
+
+Core (defines contracts for apps that need sandboxes):
+└─ manager          → (no dependencies, only interfaces)
+
+Runner Implementations (can be used directly OR via manager):
+├─ runner-claude    → @anthropic-ai/claude-agent-sdk
+├─ runner-codex     → (TODO) codex SDK
+└─ runner-copilot   → (TODO) copilot SDK
+
+Sandbox Implementations (only used via manager):
+├─ sandbox-local    → node.js stdlib only
+├─ sandbox-e2b      → e2b SDK
+├─ sandbox-sandock  → sandock SDK
+└─ sandbox-daytona  → @daytonaio/sdk
+```
+
+**Key Design Principles:**
+
+1. **Interface-Driven**: `manager` defines `Runner` and `SandboxAdapter` interfaces
+2. **Zero Circular Dependencies**: Implementations don't depend on `manager`
+3. **Pluggable**: Any runner can work with any sandbox (via manager) OR standalone
+4. **Flexible Usage**: 
+   - Runners can be used **directly** (runner-cli) for local development
+   - Or via **manager** (ai-provider, manager-cli) for sandboxed execution
+5. **Type-Safe**: TypeScript structural typing ensures compatibility
+
+**Example Usage:**
+
+```typescript
+import { SandAgentManager } from '@sandagent/manager';
+import { ClaudeRunner } from '@sandagent/runner-claude';
+import { E2BSandbox } from '@sandagent/sandbox-e2b';
+
+// Mix and match implementations
+const manager = new SandAgentManager({
+  runner: new ClaudeRunner({ model: 'claude-sonnet-4-20250514' }),
+  sandbox: new E2BSandbox()
+});
+
+// Or use different combinations
+const localManager = new SandAgentManager({
+  runner: new ClaudeRunner(),
+  sandbox: new LocalSandbox()
+});
+```
+
 ---
 
 ## 🔧 Core API
@@ -305,17 +583,17 @@ sandagent/
 ### Creating a SandAgent
 
 ```typescript
-import { SandAgent } from "@sandagent/core";
+import { SandAgent } from "@sandagent/manager";
 import { E2BSandbox } from "@sandagent/sandbox-e2b";
+import { ClaudeRunner } from "@sandagent/runner-claude";
 
 const agent = new SandAgent({
   id: "user-123-project-a",
   sandbox: new E2BSandbox(),  // Recommended default
-  runner: {
-    kind: "claude-agent-sdk",
+  runner: new ClaudeRunner({
     model: "claude-sonnet-4-20250514",
     template: "coder",
-  },
+  }),
 });
 ```
 

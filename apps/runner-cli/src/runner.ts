@@ -9,6 +9,8 @@ import {
  * Extends BaseRunnerOptions with CLI-specific fields
  */
 export interface RunAgentOptions extends BaseRunnerOptions {
+  /** Which runner to use: claude, codex, copilot */
+  runner: string;
   /** User input/task */
   userInput: string;
   /** Template to use (e.g., "default", "coder", "analyst", "researcher") */
@@ -47,19 +49,40 @@ export async function runAgent(options: RunAgentOptions): Promise<void> {
   console.error("[Runner] Signal handlers registered");
 
   try {
-    // Build runner options - cwd is already set by cli.ts via process.chdir()
-    const runnerOptions: ClaudeRunnerOptions = {
-      model: options.model,
-      systemPrompt: options.systemPrompt,
-      maxTurns: options.maxTurns,
-      allowedTools: options.allowedTools,
-      resume: options.resume,
-      approvalDir: options.approvalDir,
-      outputFormat: options.outputFormat,
-      abortController: abortController,
-    };
+    // Select the appropriate runner based on options.runner
+    let runner: { run: (input: string) => AsyncIterable<string> };
 
-    const runner = createClaudeRunner(runnerOptions);
+    switch (options.runner) {
+      case "claude": {
+        // Build runner options - cwd is already set by cli.ts via process.chdir()
+        const runnerOptions: ClaudeRunnerOptions = {
+          model: options.model,
+          systemPrompt: options.systemPrompt,
+          maxTurns: options.maxTurns,
+          allowedTools: options.allowedTools,
+          resume: options.resume,
+          approvalDir: options.approvalDir,
+          outputFormat: options.outputFormat,
+          abortController: abortController,
+        };
+        runner = createClaudeRunner(runnerOptions);
+        break;
+      }
+      case "codex":
+        // TODO: Implement Codex runner
+        throw new Error(
+          "Codex runner not yet implemented. Use --runner=claude for now.",
+        );
+      case "copilot":
+        // TODO: Implement Copilot runner
+        throw new Error(
+          "Copilot runner not yet implemented. Use --runner=claude for now.",
+        );
+      default:
+        throw new Error(
+          `Unknown runner: ${options.runner}. Supported runners: claude, codex, copilot`,
+        );
+    }
 
     // Stream AI SDK UI messages to stdout
     for await (const chunk of runner.run(options.userInput)) {

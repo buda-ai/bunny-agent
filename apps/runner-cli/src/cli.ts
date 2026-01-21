@@ -18,6 +18,7 @@ import type { OutputFormat } from "@sandagent/runner-claude";
 import { runAgent } from "./runner.js";
 
 interface ParsedArgs {
+  runner: string;
   model: string;
   cwd: string;
   systemPrompt?: string;
@@ -32,6 +33,11 @@ interface ParsedArgs {
 function parseCliArgs(): ParsedArgs {
   const { values, positionals } = parseArgs({
     options: {
+      runner: {
+        type: "string",
+        short: "r",
+        default: "claude",
+      },
       model: {
         type: "string",
         short: "m",
@@ -102,6 +108,15 @@ function parseCliArgs(): ParsedArgs {
     process.exit(1);
   }
 
+  // Validate runner
+  const runner = values.runner!;
+  if (!["claude", "codex", "copilot"].includes(runner)) {
+    console.error(
+      'Error: --runner must be one of: "claude", "codex", "copilot"',
+    );
+    process.exit(1);
+  }
+
   // Validate output-format
   const outputFormat = values["output-format"] as OutputFormat | undefined;
   if (
@@ -115,6 +130,7 @@ function parseCliArgs(): ParsedArgs {
   }
 
   return {
+    runner,
     model: values.model!,
     cwd: values.cwd!,
     systemPrompt: values["system-prompt"],
@@ -140,6 +156,7 @@ Usage:
   sandagent run [options] -- "<user input>"
 
 Options:
+  -r, --runner <runner>        Runner to use: claude, codex, copilot (default: claude)
   -m, --model <model>          Model to use (default: claude-sonnet-4-20250514)
   -c, --cwd <path>             Working directory (default: current directory)
   -s, --system-prompt <prompt> Custom system prompt
@@ -175,6 +192,7 @@ async function main(): Promise<void> {
 
   // Run the agent and stream output to stdout
   await runAgent({
+    runner: args.runner,
     model: args.model,
     userInput: args.userInput,
     systemPrompt: args.systemPrompt,
