@@ -1,6 +1,6 @@
 import path from "node:path";
 import { createSandAgent } from "@sandagent/ai-provider";
-import { SandAgent } from "@sandagent/core";
+import { SandAgent } from "@sandagent/manager";
 import { DaytonaSandbox } from "@sandagent/sandbox-daytona";
 import { E2BSandbox } from "@sandagent/sandbox-e2b";
 import { SandockSandbox } from "@sandagent/sandbox-sandock";

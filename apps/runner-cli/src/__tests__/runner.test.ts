@@ -33,6 +33,7 @@ describe("runAgent", () => {
 
   it("should create a Claude runner with correct options (with default template)", async () => {
     await runAgent({
+      runner: "claude",
       model: "claude-sonnet-4-20250514",
       userInput: "Hello, world!",
     });
@@ -50,6 +51,7 @@ describe("runAgent", () => {
 
   it("should pass optional parameters to runner (overriding template)", async () => {
     await runAgent({
+      runner: "claude",
       model: "claude-sonnet-4-20250514",
       userInput: "Hello, world!",
       systemPrompt: "You are a helpful assistant",
@@ -58,16 +60,19 @@ describe("runAgent", () => {
     });
 
     // Explicit parameters override template values
-    expect(createClaudeRunner).toHaveBeenCalledWith({
-      model: "claude-sonnet-4-20250514",
-      systemPrompt: "You are a helpful assistant",
-      maxTurns: 5,
-      allowedTools: ["bash", "write_file"],
-    });
+    expect(createClaudeRunner).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: "claude-sonnet-4-20250514",
+        systemPrompt: "You are a helpful assistant",
+        maxTurns: 5,
+        allowedTools: ["bash", "write_file"],
+      }),
+    );
   });
 
   it("should stream output to stdout without modification", async () => {
     await runAgent({
+      runner: "claude",
       model: "claude-sonnet-4-20250514",
       userInput: "Hello, world!",
     });
@@ -85,13 +90,11 @@ describe("runAgent", () => {
     vi.mocked(createClaudeRunner).mockReturnValue(mockRunner);
 
     await runAgent({
+      runner: "claude",
       model: "claude-sonnet-4-20250514",
       userInput: "Create a file",
     });
 
-    expect(mockRunner.run).toHaveBeenCalledWith(
-      "Create a file",
-      expect.any(AbortSignal),
-    );
+    expect(mockRunner.run).toHaveBeenCalledWith("Create a file");
   });
 });

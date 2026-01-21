@@ -83,7 +83,7 @@ export type {
 export { resolveModelId } from "./types.js";
 
 /**
- * Re-exports from @sandagent/core for convenience.
+ * Re-exports from @sandagent/manager for convenience.
  * These allow users to access core types without additional imports.
  */
 export type {
@@ -91,4 +91,4 @@ export type {
   SandboxHandle,
   TranscriptEntry,
   Message,
-} from "@sandagent/core";
+} from "@sandagent/manager";

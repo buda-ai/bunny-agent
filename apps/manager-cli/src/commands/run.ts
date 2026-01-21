@@ -5,7 +5,7 @@
  */
 
 import { parseArgs } from "node:util";
-import { SandAgent } from "@sandagent/core";
+import { SandAgent } from "@sandagent/manager";
 
 export async function runCommand(args: string[]): Promise<void> {
   const { values, positionals } = parseArgs({
@@ -109,6 +109,7 @@ export async function runCommand(args: string[]): Promise<void> {
 
   // Create and run the agent
   const agent = new SandAgent({
+    sandboxId: `cli-${Date.now()}`,
     sandbox: sandboxAdapter,
     runner: {
       kind: "claude-agent-sdk",

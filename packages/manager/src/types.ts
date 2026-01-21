@@ -46,9 +46,10 @@ export interface SandboxHandle {
 export interface SandboxAdapter {
   /**
    * Attach to or create a sandbox
+   * @param id - Unique identifier for the sandbox instance
    * @returns A handle to the sandbox
    */
-  attach(): Promise<SandboxHandle>;
+  attach(id: string): Promise<SandboxHandle>;
 
   /**
    * Get the environment variables configured for this sandbox.
@@ -101,6 +102,8 @@ export interface RunnerSpec {
  * Options for creating a SandAgent instance
  */
 export interface SandAgentOptions {
+  /** Unique identifier for the sandbox instance */
+  sandboxId: string;
   /** Sandbox adapter to use */
   sandbox: SandboxAdapter;
   /** Runner specification */

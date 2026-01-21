@@ -1,8 +1,33 @@
 # @sandagent/runner-cli
 
-SandAgent Runner CLI - A command-line interface for running AI agents locally in your terminal.
+SandAgent Runner CLI - A **lightweight, local** command-line interface for running AI agents in your terminal.
 
-Like gemini-cli or claude-code, this tool runs locally and streams AI SDK UI messages directly to stdout.
+Like gemini-cli, claude-code, or codex-cli, this tool runs **directly on your local filesystem** and streams AI SDK UI messages to stdout.
+
+## 🎯 Key Features
+
+- 🔌 **Choose Different Runners**: Switch between Claude, Codex, Copilot with `--runner` flag
+- 🚀 **Local Execution**: Runs directly on your filesystem, no sandbox required
+- 💨 **Lightweight**: No manager dependency, minimal overhead
+- 📡 **Streaming**: Real-time AI SDK UI streaming
+
+## 📐 Architecture
+
+```
+runner-cli → runner-* (direct, NO dependencies on manager or sandbox)
+             ├─ runner-claude ✅
+             ├─ runner-codex 🚧
+             └─ runner-copilot 🚧
+
+Dependencies:
+✅ @sandagent/runner-claude (runtime)
+❌ NO @sandagent/manager
+❌ NO @sandagent/sandbox-*
+```
+
+**Difference from manager-cli:**
+- `runner-cli`: Local filesystem, no isolation, lightweight, direct runner usage
+- `manager-cli`: Sandboxed execution, uses manager + sandbox adapters + runner
 
 ## Installation
 
@@ -19,17 +44,27 @@ sandagent run [options] -- "<user input>"
 ### Basic Examples
 
 ```bash
-# Simple task
+# Using Claude (default)
 sandagent run -- "Create a hello world script"
 
+# Explicitly choose Claude
+sandagent run --runner claude -- "Create a hello world script"
+
+# Using Codex (when implemented)
+sandagent run --runner codex -- "Build a REST API with Express"
+
+# Using GitHub Copilot (when implemented)
+sandagent run --runner copilot -- "Refactor this code"
+
 # With custom system prompt
-sandagent run --system-prompt "You are a coding assistant" -- "Build a REST API with Express"
+sandagent run --runner claude --system-prompt "You are a coding assistant" -- "Build a REST API with Express"
 ```
 
 ## Options
 
 | Option | Short | Description | Default |
 |--------|-------|-------------|---------|
+| `--runner <runner>` | `-r` | Runner to use: `claude`, `codex`, `copilot` | `claude` |
 | `--model <model>` | `-m` | Model to use | `claude-sonnet-4-20250514` |
 | `--cwd <path>` | `-c` | Working directory | Current directory |
 | `--system-prompt <prompt>` | `-s` | Custom system prompt | - |

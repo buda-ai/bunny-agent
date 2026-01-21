@@ -28,7 +28,7 @@
   },
   "license": "Apache-2.0",
   "dependencies": {
-    "@sandagent/core": "workspace:*",
+    "@sandagent/manager": "workspace:*",
     "@daytonaio/sdk": "^0.130.0"
   },
   "devDependencies": {

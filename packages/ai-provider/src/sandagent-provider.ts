@@ -5,7 +5,7 @@ import type {
   ProviderV3,
 } from "@ai-sdk/provider";
 import { NoSuchModelError } from "@ai-sdk/provider";
-import type { RunnerSpec } from "@sandagent/core";
+import type { RunnerSpec } from "@sandagent/manager";
 import { SandAgentLanguageModel } from "./sandagent-language-model.js";
 import type { Logger, SandAgentModelId } from "./types.js";
 import {
