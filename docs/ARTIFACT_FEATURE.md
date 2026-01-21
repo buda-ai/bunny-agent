@@ -4,10 +4,49 @@
 
 Artifact 是 Chat 结束后从 Sandbox 中提取的产物文件。用户需要自己定义哪些文件是 artifact，系统负责从 sandbox 中获取并展示到 UI。
 
-## 2. 核心问题
+## 2. 当前数据流
+
+```typescript
+// apps/sandagent-example/app/api/ai/route.ts
+
+const sandagent = createSandAgent({
+  sandbox,
+  cwd: "/sandagent",
+  verbose: true,
+});
+
+const result = streamText({
+  model: sandagent(model),
+  messages: normalizedMessages,
+  abortSignal: signal,
+});
+
+return result.toUIMessageStreamResponse();
+```
 
 ```
-Chat 结束
+streamText()
+    │
+    ▼
+SandAgentLanguageModel.doStream()
+    │
+    ▼
+SandAgent.stream()  ──────→  Sandbox 执行 Agent
+    │                              │
+    ▼                              ▼
+SSE 数据流  ←─────────────  stdout 输出
+    │
+    ▼
+toUIMessageStreamResponse()
+    │
+    ▼
+前端 UI 渲染
+```
+
+## 3. 核心问题
+
+```
+streamText 结束
     │
     ▼
 Sandbox 中有很多文件
@@ -126,91 +165,112 @@ interface FileInfo {
 ### 4.3 获取 Artifact 流程
 
 ```
-1. Chat 结束
+1. streamText 结束（onFinish 回调）
        │
        ▼
-2. 根据用户定义的规则，确定要获取哪些文件
-       │
-       ├─ 方案A: 使用 artifacts.paths 匹配
-       ├─ 方案B: 列出 /sandagent/artifacts/ 目录
-       └─ 方案C: 读取 /sandagent/artifact.json
+2. 从 sandbox 读取 /sandagent/artifact.json
        │
        ▼
-3. 调用 handle.download() 或 handle.readFile() 获取文件内容
+3. 解析清单，获取 artifact 列表
        │
        ▼
-4. 返回 artifact 列表给前端
+4. 返回给前端（通过流追加 或 独立 API）
 ```
 
-## 5. 传递给 UI
+## 5. streamText 集成方案
 
-### 5.1 方案 A：流式输出 artifact 事件
+### 5.1 方案 A：onFinish 回调 + 流追加
 
-在 AI SDK 流结束后，追加 artifact 数据：
-
-```typescript
-// 流式输出格式 (AI SDK Data Stream Protocol)
-// ... 正常的 text/tool 消息 ...
-
-// 流结束前输出 artifact
-d:{"type":"artifact","data":{"id":"art-1","path":"/output/report.md","content":"# Report..."}}
-d:{"type":"artifact","data":{"id":"art-2","path":"/output/data.csv","content":"a,b,c\n1,2,3"}}
-```
-
-前端通过 `onFinish` 或自定义事件处理 artifact。
-
-### 5.2 方案 B：独立 API 获取
-
-Chat 结束后，前端调用独立 API 获取 artifact：
+利用 AI SDK `streamText` 的 `onFinish` 回调，在流结束后追加 artifact 数据：
 
 ```typescript
-// 前端
-const artifacts = await fetch(`/api/artifacts?sessionId=${sessionId}`).then(r => r.json());
+// apps/sandagent-example/app/api/ai/route.ts
 
-// 后端 API
-export async function GET(request: Request) {
-  const sessionId = new URL(request.url).searchParams.get("sessionId");
+const result = streamText({
+  model: sandagent(model),
+  messages: normalizedMessages,
+  abortSignal: signal,
   
-  // 1. attach 到 sandbox
+  // 流结束后获取 artifact
+  onFinish: async ({ response }) => {
+    try {
+      // 从 sandbox 读取 artifact 清单
+      const handle = await sandbox.attach(sessionId);
+      const manifest = await handle.readFile("/sandagent/artifact.json");
+      const { artifacts } = JSON.parse(manifest);
+      
+      // 将 artifact 信息附加到 response metadata
+      response.metadata = {
+        ...response.metadata,
+        artifacts,
+      };
+    } catch (e) {
+      // artifact.json 不存在，忽略
+    }
+  },
+});
+```
+
+### 5.2 方案 B：独立 API（推荐）
+
+streamText 只负责对话流，artifact 通过独立 API 获取：
+
+```typescript
+// 1. streamText 保持不变
+const result = streamText({
+  model: sandagent(model),
+  messages,
+});
+return result.toUIMessageStreamResponse();
+
+// 2. 前端在流结束后调用 artifact API
+// GET /api/artifacts?sessionId=xxx
+```
+
+```typescript
+// apps/sandagent-example/app/api/artifacts/route.ts
+
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const sessionId = searchParams.get("sessionId");
+  
+  // 根据 provider 创建 sandbox
+  const sandbox = createSandbox(/* 从 session 获取配置 */);
   const handle = await sandbox.attach(sessionId);
   
-  // 2. 获取 artifact 清单
-  const manifest = await handle.readFile("/sandagent/artifact.json");
-  const { artifacts } = JSON.parse(manifest);
-  
-  // 3. 获取每个 artifact 的内容
-  const result = await Promise.all(
-    artifacts.map(async (art) => ({
-      ...art,
-      content: await handle.readFile(art.path),
-    }))
-  );
-  
-  return Response.json({ artifacts: result });
-}
-```
-
-### 5.3 方案 C：通过 metadata 返回
-
-在 assistant 消息的 metadata 中包含 artifact 信息：
-
-```typescript
-// AI SDK 消息格式
-{
-  role: "assistant",
-  content: "分析完成，请查看报告。",
-  metadata: {
-    sessionId: "xxx",
-    artifacts: [
-      { id: "art-1", path: "/output/report.md", type: "markdown", title: "分析报告" }
-    ]
+  try {
+    // 读取 artifact 清单
+    const manifest = await handle.readFile("/sandagent/artifact.json");
+    const { artifacts } = JSON.parse(manifest);
+    
+    return Response.json({ artifacts });
+  } catch (e) {
+    // artifact.json 不存在
+    return Response.json({ artifacts: [] });
   }
 }
 ```
 
-前端根据 metadata 中的 artifact 信息，按需获取内容。
+### 5.3 方案 C：流结束事件携带 artifact
 
-## 6. UI 展示
+在 AI SDK 流协议中定义新的事件类型：
+
+```typescript
+// 流结束时发送 artifact 事件
+// data: {"type":"artifacts","data":[{"path":"/output/report.md","title":"报告"}]}
+```
+
+需要修改 `SandAgentLanguageModel` 在流结束时追加 artifact 数据。
+
+## 6. 推荐方案：独立 API
+
+**理由**：
+1. **解耦**：不修改现有 streamText 流程
+2. **灵活**：前端可以选择何时获取 artifact
+3. **大文件友好**：可以 stream 输出或返回 S3 URL
+4. **错误隔离**：artifact 获取失败不影响对话
+
+## 7. UI 展示
 
 ### 6.1 Artifact 列表
 
@@ -240,28 +300,6 @@ export async function GET(request: Request) {
 - `ArtifactActions` - 操作按钮
 - `ArtifactAction` - 单个操作（下载、复制等）
 - `ArtifactClose` - 关闭按钮
-
-## 7. 推荐方案
-
-### 用户定义：方案 C（artifact.json 清单）
-
-**理由**：
-- 灵活：Agent 可以动态决定产出什么
-- 明确：有清晰的清单，不需要模式匹配
-- 可扩展：清单中可以包含 title、type 等元数据
-
-### 获取方式：新增 SandboxHandle.readFile()
-
-**理由**：
-- 简单直接
-- 与现有接口风格一致
-
-### UI 传递：方案 B（独立 API）
-
-**理由**：
-- 解耦：不影响现有流式输出
-- 按需：用户点击时才加载内容
-- 大文件友好：可以分别获取
 
 ## 8. 实现步骤
 
@@ -359,7 +397,7 @@ function ArtifactPanel({ sessionId, artifacts }) {
 }
 ```
 
-## 9. artifact.json 格式
+## 9. artifact.json 格式定义
 
 ```json
 {
