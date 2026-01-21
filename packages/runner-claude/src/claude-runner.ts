@@ -16,12 +16,18 @@ import type {
   Options,
   PermissionUpdate,
   Query,
-  SDKAssistantMessage,
   SDKMessage,
   SDKResultMessage,
-  SDKSystemMessage,
   SDKUserMessage,
 } from "@anthropic-ai/claude-agent-sdk";
+import {
+  AISDKStreamConverter,
+  convertUsageToAISDK,
+  formatDataStream,
+  generateId,
+  mapFinishReason,
+  streamSDKMessagesToAISDKUI,
+} from "./ai-sdk-stream.js";
 import type { BaseRunnerOptions } from "./types";
 
 /**
@@ -33,8 +39,10 @@ export interface ClaudeRunnerOptions extends BaseRunnerOptions {
   cwd?: string;
   /** Environment variables to pass to the agent */
   env?: Record<string, string>;
-  /** AbortSignal for cancelling operations */
-  signal?: AbortSignal;
+  /** Include partial messages for streaming */
+  includePartialMessages?: boolean;
+  /** AbortController for cancelling operations */
+  abortController?: AbortController;
 }
 
 /**
@@ -69,7 +77,7 @@ export interface ClaudeRunner {
    * @param signal - Optional AbortSignal for cancelling the operation
    * @returns An async iterable of AI SDK UI message chunks
    */
-  run(userInput: string, signal?: AbortSignal): AsyncIterable<string>;
+  run(userInput: string): AsyncIterable<string>;
 }
 
 /**
@@ -161,7 +169,7 @@ function createCanUseToolCallback(
               },
             };
           }
-        } catch (error) {
+        } catch {
           // File doesn't exist yet or can't be read, continue waiting
         }
 
@@ -200,12 +208,6 @@ function createCanUseToolCallback(
   };
 }
 
-/** 累积的 usage 统计 */
-interface AccumulatedUsage {
-  inputTokens: number;
-  outputTokens: number;
-}
-
 // Module registry for optional dependencies
 const OPTIONAL_MODULES: Record<string, string> = {
   "claude-agent-sdk": "@anthropic-ai/claude-agent-sdk",
@@ -216,12 +218,7 @@ const OPTIONAL_MODULES: Record<string, string> = {
  */
 export function createClaudeRunner(options: ClaudeRunnerOptions): ClaudeRunner {
   return {
-    async *run(userInput: string, signal?: AbortSignal): AsyncIterable<string> {
-      // Check if signal is already aborted - just return without sending messages
-      if (signal?.aborted) {
-        return;
-      }
-
+    async *run(userInput: string): AsyncIterable<string> {
       // Check for API key
       const apiKey =
         process.env.ANTHROPIC_API_KEY || process.env.AWS_BEARER_TOKEN_BEDROCK;
@@ -233,7 +230,7 @@ export function createClaudeRunner(options: ClaudeRunnerOptions): ClaudeRunner {
             "2. Install the SDK: npm install @anthropic-ai/claude-agent-sdk",
         );
 
-        yield* runMockAgent(options, userInput, signal);
+        yield* runMockAgent(options, userInput);
         return;
       }
 
@@ -242,14 +239,14 @@ export function createClaudeRunner(options: ClaudeRunnerOptions): ClaudeRunner {
 
       if (sdk) {
         // Use the real Claude Agent SDK
-        yield* runWithClaudeAgentSDK(sdk, options, userInput, signal);
+        yield* runWithClaudeAgentSDK(sdk, options, userInput);
       } else {
         // Fallback to mock implementation
         console.error(
           "[SandAgent] Warning: @anthropic-ai/claude-agent-sdk not installed. Using mock response.\n" +
             "Install the SDK: npm install @anthropic-ai/claude-agent-sdk",
         );
-        yield* runMockAgent(options, userInput, signal);
+        yield* runMockAgent(options, userInput);
       }
     },
   };
@@ -276,23 +273,22 @@ async function* runWithClaudeAgentSDK(
   sdk: ClaudeAgentSDKModule,
   options: ClaudeRunnerOptions,
   userInput: string | AsyncIterable<SDKUserMessage>,
-  signal?: AbortSignal,
 ): AsyncIterable<string> {
   const outputFormat = options.outputFormat || "stream-json";
 
   switch (outputFormat) {
     case "text":
-      yield* runWithTextOutput(sdk, options, userInput, signal);
+      yield* runWithTextOutput(sdk, options, userInput);
       break;
     case "json":
-      yield* runWithJSONOutput(sdk, options, userInput, signal);
+      yield* runWithJSONOutput(sdk, options, userInput);
       break;
     case "stream-json":
-      yield* runWithStreamJSONOutput(sdk, options, userInput, signal);
+      yield* runWithStreamJSONOutput(sdk, options, userInput);
       break;
     // case "stream":
     default:
-      yield* runWithAISDKUIOutput(sdk, options, userInput, signal);
+      yield* runWithAISDKUIOutput(sdk, options, userInput);
       break;
   }
 }
@@ -305,7 +301,12 @@ function createSDKOptions(options: ClaudeRunnerOptions): Options {
     model: options.model,
     systemPrompt: options.systemPrompt,
     maxTurns: options.maxTurns,
-    allowedTools: [...(options.allowedTools ?? []), "Skill"],
+    allowedTools: [
+      ...(options.allowedTools ?? []),
+      "Skill",
+      "WebSearch",
+      "WebFetch",
+    ],
     cwd: options.cwd,
     env: options.env,
     resume: options.resume,
@@ -314,6 +315,8 @@ function createSDKOptions(options: ClaudeRunnerOptions): Options {
     // Bypass all permission checks for automated execution
     permissionMode: "bypassPermissions",
     allowDangerouslySkipPermissions: true,
+    // Enable partial messages for streaming
+    includePartialMessages: options.includePartialMessages,
   };
 }
 
@@ -326,9 +329,10 @@ function setupAbortHandler(
 ): () => void {
   const abortHandler = async () => {
     console.error(
-      "[ClaudeRunner] Operation aborted, calling query.interrupt()",
+      "[ClaudeRunner] Abort signal received, will call query.interrupt()...",
     );
     await queryIterator.interrupt();
+    console.error("[ClaudeRunner] query.interrupt() completed");
   };
 
   if (signal) {
@@ -357,7 +361,10 @@ async function* runWithTextOutput(
 ): AsyncIterable<string> {
   const sdkOptions = createSDKOptions(options);
   const queryIterator = sdk.query({ prompt: userInput, options: sdkOptions });
-  const abortHandler = setupAbortHandler(queryIterator, signal);
+  const abortHandler = setupAbortHandler(
+    queryIterator,
+    options.abortController?.signal,
+  );
 
   try {
     let resultText = "";
@@ -447,246 +454,16 @@ async function* runWithAISDKUIOutput(
   sdk: ClaudeAgentSDKModule,
   options: ClaudeRunnerOptions,
   userInput: string | AsyncIterable<SDKUserMessage>,
-  signal?: AbortSignal,
 ): AsyncIterable<string> {
-  const usage: AccumulatedUsage = { inputTokens: 0, outputTokens: 0 };
-  let systemMessage: SDKSystemMessage | undefined;
-  let messageId: string | undefined;
-
-  const sdkOptions = createSDKOptions(options);
+  const sdkOptions = createSDKOptions({
+    ...options,
+    includePartialMessages: true,
+  });
   const queryIterator = sdk.query({ prompt: userInput, options: sdkOptions });
-  const abortHandler = setupAbortHandler(queryIterator, signal);
+  setupAbortHandler(queryIterator, options.abortController?.signal);
 
-  try {
-    for await (const message of queryIterator) {
-      // console.log(
-      //   "[ClaudeRunner] get message",
-      //   JSON.stringify(message, null, 2),
-      // );
-      if (message.type === "system" && message.subtype === "init") {
-        systemMessage = message;
-        continue;
-      }
-
-      // start message
-      if (message.type === "assistant" && !messageId && systemMessage) {
-        messageId = (message as SDKAssistantMessage).message.id;
-        yield formatDataStream({
-          type: "start",
-          messageId,
-        });
-        yield formatDataStream({
-          type: "message-metadata",
-          messageMetadata: {
-            tools: systemMessage.tools,
-            model: systemMessage.model,
-            sessionId: systemMessage.session_id,
-          },
-        });
-      }
-
-      // Convert and output messages
-      const chunks = convertSDKMessageToAISDKUI(message);
-      for (const chunk of chunks) {
-        yield chunk;
-      }
-    }
-  } catch (error) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Unknown error occurred";
-    console.error("[ClaudeRunner] Error:", errorMessage);
-
-    yield formatDataStream({ type: "error", errorText: errorMessage });
-    yield formatDataStream({
-      type: "finish",
-      finishReason: "error",
-      usage: {
-        promptTokens: usage.inputTokens,
-        completionTokens: usage.outputTokens,
-      },
-    });
-  } finally {
-    // Remove abort event listener
-    if (signal) {
-      signal.removeEventListener("abort", abortHandler);
-    }
-    yield `data: [DONE]\n\n`;
-  }
-}
-
-/**
- * Convert Claude Agent SDK message to AI SDK UI format (SSE-based Data Stream Protocol)
- *
- * AI SDK UI Data Stream Protocol uses Server-Sent Events format:
- * - message-start: Beginning of a new message
- * - text-start/text-delta/text-end: Text content streaming
- * - tool-call-start/tool-call-delta/tool-call-end: Tool calls
- * - tool-result: Tool execution results
- * - error: Error messages
- * - finish-message: Message completion
- *
- * @see https://ai-sdk.dev/docs/ai-sdk-ui/stream-protocol
- */
-function convertSDKMessageToAISDKUI(message: SDKMessage): string[] {
-  const chunks: string[] = [];
-  switch (message.type) {
-    case "assistant": {
-      // Assistant response - can contain text and tool_use content blocks
-      const assistantMsg = message as SDKAssistantMessage;
-
-      // Check for error in the message
-      if (assistantMsg.error) {
-        const errorDetail = message.message.content
-          .map((c: { type: string; text: string }) => c.text)
-          .join("\n");
-        chunks.push(
-          formatDataStream({
-            type: "error",
-            errorText: `${assistantMsg.error}: ${errorDetail}`,
-          }),
-        );
-        break;
-      }
-
-      // Handle message content
-      if (assistantMsg.message) {
-        // If message is a string (simple text response)
-        if (typeof assistantMsg.message === "string") {
-          const textId = generateId();
-          chunks.push(formatDataStream({ type: "text-start", id: textId }));
-          chunks.push(
-            formatDataStream({
-              type: "text-delta",
-              id: textId,
-              delta: assistantMsg.message,
-            }),
-          );
-          chunks.push(formatDataStream({ type: "text-end", id: textId }));
-        }
-        // If message is an object with content array
-        else if (
-          assistantMsg.message.content &&
-          Array.isArray(assistantMsg.message.content)
-        ) {
-          for (const block of assistantMsg.message.content) {
-            if (block.type === "text" && block.text) {
-              const textId = generateId();
-              chunks.push(formatDataStream({ type: "text-start", id: textId }));
-              chunks.push(
-                formatDataStream({
-                  type: "text-delta",
-                  id: textId,
-                  delta: block.text,
-                }),
-              );
-              chunks.push(formatDataStream({ type: "text-end", id: textId }));
-            } else if (block.type === "tool_use") {
-              const toolCallId = block.id || generateId();
-              chunks.push(
-                formatDataStream({
-                  type: "tool-input-start",
-                  toolCallId,
-                  toolName: block.name,
-                  dynamic: true,
-                }),
-              );
-              if (block.input) {
-                chunks.push(
-                  formatDataStream({
-                    type: "tool-input-available",
-                    toolCallId,
-                    toolName: block.name,
-                    dynamic: true,
-                    input: block.input,
-                  }),
-                );
-              }
-            }
-          }
-        }
-      }
-      break;
-    }
-    case "result": {
-      // Result message - indicates completion
-      const resultMsg = message as SDKResultMessage;
-
-      // Always emit finish, with appropriate finishReason and usage in messageMetadata
-      chunks.push(
-        formatDataStream({
-          type: "finish",
-          finishReason: resultMsg.is_error ? "error" : "stop",
-          messageMetadata: {
-            usage: resultMsg.usage,
-            duration_ms: resultMsg.duration_ms,
-            num_turns: resultMsg.num_turns,
-            total_cost_usd: resultMsg.total_cost_usd,
-          },
-        }),
-      );
-      break;
-    }
-    case "user": {
-      const usrMsg = message as SDKUserMessage;
-
-      // Skip synthetic messages (SDK-injected skill content)
-      if ((usrMsg as { isSynthetic?: boolean }).isSynthetic) {
-        break;
-      }
-      const contentArray = usrMsg.message.content;
-
-      // this is a tool use result
-      if (
-        usrMsg.tool_use_result ||
-        (Array.isArray(contentArray) &&
-          contentArray.some((c) => c.type === "tool_result"))
-      ) {
-        for (const tool of contentArray) {
-          if (tool.is_error) {
-            chunks.push(
-              formatDataStream({
-                type: "tool-output-error",
-                toolCallId: tool.tool_use_id,
-                errorText: tool.content,
-                dynamic: true,
-              }),
-            );
-          } else {
-            chunks.push(
-              formatDataStream({
-                type: "tool-output-available",
-                toolCallId: tool.tool_use_id,
-                output: usrMsg.tool_use_result || tool.content,
-                dynamic: true,
-              }),
-            );
-          }
-        }
-      }
-      break;
-    }
-
-    default:
-      // Other message types - skip for now
-      break;
-  }
-
-  return chunks;
-}
-
-/**
- * Format a message as AI SDK UI Data Stream format
- * Format: data: {json}\n\n
- */
-function formatDataStream(data: Record<string, unknown>): string {
-  return `data: ${JSON.stringify(data)}\n\n`;
-}
-
-/**
- * Generate a unique ID for message parts
- */
-function generateId(): string {
-  return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+  // Use ai-sdk-stream to handle the conversion
+  yield* streamSDKMessagesToAISDKUI(queryIterator);
 }
 
 /**
@@ -707,6 +484,13 @@ async function* runMockAgent(
   }
 
   try {
+    // Emit start
+    const messageId = generateId();
+    yield formatDataStream({
+      type: "start",
+      messageId,
+    });
+
     // Output a helpful response in AI SDK UI format
     const response =
       `I received your request: "${userInput}"\n\n` +
@@ -739,10 +523,16 @@ async function* runMockAgent(
     // End text block
     yield formatDataStream({ type: "text-end", id: textId });
 
-    // Finish message
+    // Finish message with proper format
     yield formatDataStream({
       type: "finish",
-      finishReason: "stop",
+      finishReason: mapFinishReason("success"),
+      usage: convertUsageToAISDK({
+        input_tokens: 0,
+        output_tokens: 0,
+        cache_creation_input_tokens: 0,
+        cache_read_input_tokens: 0,
+      }),
     });
 
     // Stream termination
@@ -754,7 +544,13 @@ async function* runMockAgent(
     yield formatDataStream({ type: "error", errorText: errorMessage });
     yield formatDataStream({
       type: "finish",
-      finishReason: "error",
+      finishReason: mapFinishReason("error_during_execution", true),
+      usage: convertUsageToAISDK({
+        input_tokens: 0,
+        output_tokens: 0,
+        cache_creation_input_tokens: 0,
+        cache_read_input_tokens: 0,
+      }),
     });
     yield `data: [DONE]\n\n`;
   }

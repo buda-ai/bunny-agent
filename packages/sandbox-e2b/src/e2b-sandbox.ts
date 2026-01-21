@@ -39,6 +39,36 @@ export interface E2BSandboxOptions {
    * template/user/project information as needed for differentiation.
    */
   name?: string;
+
+  /**
+   * Environment variables to set in the sandbox.
+   * These will be available to all commands executed in the sandbox.
+   *
+   * @example
+   * ```typescript
+   * env: {
+   *   ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY!,
+   *   GITHUB_TOKEN: process.env.GITHUB_TOKEN,
+   * }
+   * ```
+   */
+  env?: Record<string, string>;
+
+  /**
+   * Agent template to use (e.g., "default", "coder", "analyst", "researcher").
+   * This is different from the E2B sandbox template.
+   *
+   * @default 'default'
+   */
+  agentTemplate?: string;
+
+  /**
+   * Working directory for the agent inside the sandbox.
+   * Will be created if it doesn't exist.
+   *
+   * @default '/workspace'
+   */
+  workdir?: string;
 }
 
 /**
@@ -65,6 +95,9 @@ export class E2BSandbox implements SandboxAdapter {
   private readonly runnerBundlePath?: string;
   private readonly templatesPath?: string;
   private readonly name?: string;
+  private readonly env: Record<string, string>;
+  private readonly agentTemplate: string;
+  private readonly workdir: string;
 
   /** Default timeout in seconds (1 hour for hobby tier) */
   private static readonly DEFAULT_TIMEOUT_SEC = 3600;
@@ -77,6 +110,30 @@ export class E2BSandbox implements SandboxAdapter {
     this.runnerBundlePath = options.runnerBundlePath;
     this.templatesPath = options.templatesPath;
     this.name = options.name;
+    this.env = options.env ?? {};
+    this.agentTemplate = options.agentTemplate ?? "default";
+    this.workdir = options.workdir ?? "/workspace";
+  }
+
+  /**
+   * Get the environment variables configured for this sandbox.
+   */
+  getEnv(): Record<string, string> {
+    return this.env;
+  }
+
+  /**
+   * Get the agent template configured for this sandbox.
+   */
+  getAgentTemplate(): string {
+    return this.agentTemplate;
+  }
+
+  /**
+   * Get the working directory configured for this sandbox.
+   */
+  getWorkdir(): string {
+    return this.workdir;
   }
 
   /**
@@ -127,7 +184,7 @@ export class E2BSandbox implements SandboxAdapter {
     }
   }
 
-  async attach(id: string): Promise<SandboxHandle> {
+  async attach(): Promise<SandboxHandle> {
     if (!this.apiKey) {
       throw new Error(
         "E2B API key not found. Please set E2B_API_KEY environment variable or pass apiKey option.",
@@ -147,21 +204,21 @@ export class E2BSandbox implements SandboxAdapter {
         instance = existingSandbox;
       } else {
         // No existing sandbox found or connection failed, create new one
-        instance = await this.createNewSandbox(id);
+        instance = await this.createNewSandbox();
         needsInit = true;
       }
     } else {
       // No name provided - always create new sandbox
       console.log(`[E2B] No name provided, creating new sandbox`);
-      instance = await this.createNewSandbox(id);
+      instance = await this.createNewSandbox();
       needsInit = true;
     }
 
-    const handle = new E2BHandle(instance);
+    const handle = new E2BHandle(instance, this.env);
 
     // Initialize sandbox if it's new (upload files, install dependencies)
     if (needsInit) {
-      await this.initializeSandbox(handle, id);
+      await this.initializeSandbox(handle);
     }
 
     return handle;
@@ -170,10 +227,8 @@ export class E2BSandbox implements SandboxAdapter {
   /**
    * Create a new sandbox with metadata for later querying
    */
-  private async createNewSandbox(id: string): Promise<Sandbox> {
-    const metadata: Record<string, string> = {
-      sandagentId: id,
-    };
+  private async createNewSandbox(): Promise<Sandbox> {
+    const metadata: Record<string, string> = {};
 
     // Add name to metadata if provided (for sandbox reuse)
     if (this.name) {
@@ -194,46 +249,24 @@ export class E2BSandbox implements SandboxAdapter {
     return instance;
   }
 
-  private async initializeSandbox(
-    handle: E2BHandle,
-    id: string,
-  ): Promise<void> {
-    const filesToUpload: Array<{ path: string; content: Uint8Array | string }> =
-      [];
-
-    // Upload runner bundle
+  private async initializeSandbox(handle: E2BHandle): Promise<void> {
+    // Upload runner bundle to /sandagent (fixed location for node to find it)
     if (this.runnerBundlePath && fs.existsSync(this.runnerBundlePath)) {
       const bundleContent = fs.readFileSync(this.runnerBundlePath);
       const bundleFileName = path.basename(this.runnerBundlePath);
-      filesToUpload.push({
-        path: `runner/${bundleFileName}`,
-        content: bundleContent,
-      });
+      const runnerFiles = [
+        {
+          path: `runner/${bundleFileName}`,
+          content: bundleContent,
+        },
+      ];
       console.log(
-        `[E2B] Uploading runner bundle (${bundleFileName}) to sandbox ${id}`,
+        `[E2B] Uploading runner bundle (${bundleFileName}) to /sandagent`,
       );
-    }
-
-    // Upload template from specified path to /sandagent root
-    if (this.templatesPath && fs.existsSync(this.templatesPath)) {
-      const templateFiles = this.collectFiles(this.templatesPath, "");
-      filesToUpload.push(...templateFiles);
-      console.log(
-        `[E2B] Uploading ${templateFiles.length} files from '${this.templatesPath}' to sandbox ${id}`,
-      );
-    } else if (this.templatesPath) {
-      console.warn(
-        `[E2B] Template path not found: ${this.templatesPath}, skipping`,
-      );
-    }
-
-    if (filesToUpload.length > 0) {
-      await handle.upload(filesToUpload, "/sandagent");
+      await handle.upload(runnerFiles, "/sandagent");
 
       // Install claude-agent-sdk in sandbox
-      console.log(
-        `[E2B] Installing @anthropic-ai/claude-agent-sdk in sandbox ${id}`,
-      );
+      console.log(`[E2B] Installing @anthropic-ai/claude-agent-sdk`);
       const installResult = await handle.runCommand(
         "npm install --prefix /sandagent @anthropic-ai/claude-agent-sdk",
       );
@@ -242,6 +275,19 @@ export class E2BSandbox implements SandboxAdapter {
           `[E2B] Failed to install claude-agent-sdk: ${installResult.stderr}`,
         );
       }
+    }
+
+    // Upload template to workdir (where runner will execute)
+    if (this.templatesPath && fs.existsSync(this.templatesPath)) {
+      const templateFiles = this.collectFiles(this.templatesPath, "");
+      console.log(
+        `[E2B] Uploading ${templateFiles.length} template files to ${this.workdir}`,
+      );
+      await handle.upload(templateFiles, this.workdir);
+    } else if (this.templatesPath) {
+      console.warn(
+        `[E2B] Template path not found: ${this.templatesPath}, skipping`,
+      );
     }
   }
 
@@ -279,9 +325,11 @@ export class E2BSandbox implements SandboxAdapter {
  */
 class E2BHandle implements SandboxHandle {
   private readonly instance: Sandbox;
+  private readonly sandboxEnv: Record<string, string>;
 
-  constructor(instance: Sandbox) {
+  constructor(instance: Sandbox, sandboxEnv: Record<string, string> = {}) {
     this.instance = instance;
+    this.sandboxEnv = sandboxEnv;
   }
 
   /**
@@ -325,8 +373,10 @@ class E2BHandle implements SandboxHandle {
     const self = this;
     const signal = opts?.signal;
 
+    // Merge sandbox-level env with call-level env (call-level takes precedence)
     // Add NODE_PATH so Node can find packages installed in /sandagent
     const envWithNodePath: Record<string, string> = {
+      ...this.sandboxEnv,
       ...opts?.env,
       NODE_PATH: "/sandagent/node_modules",
     };

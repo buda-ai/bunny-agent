@@ -5,7 +5,7 @@ import type { Message, SandAgent, SandAgentOptions } from "@sandagent/core";
  */
 export interface CreateAgentFromRequestConfig {
   /** Factory function to create a SandAgent */
-  createAgent: (options: { sessionId: string }) => SandAgent;
+  createAgent: (options: { sessionId: string; model: string }) => SandAgent;
 }
 
 /**
@@ -16,6 +16,8 @@ export interface AgentRequestBody {
   sessionId: string;
   /** Messages to send to the agent */
   messages: Message[];
+  /** Model to use for this stream (required) */
+  model: string;
   /** Optional workspace configuration */
   workspace?: {
     path?: string;
@@ -38,12 +40,11 @@ export interface AgentRequestBody {
  * import { SandockSandbox } from "@sandagent/sandbox-sandock";
  *
  * export const POST = createAgentHandler({
- *   createAgent: ({ sessionId }) => new SandAgent({
- *     id: sessionId,
+ *   createAgent: ({ sessionId, model }) => new SandAgent({
  *     sandbox: new SandockSandbox(),
  *     runner: {
  *       kind: "claude-agent-sdk",
- *       model: "claude-3-5-sonnet",
+ *       model,
  *     },
  *   }),
  * });
@@ -76,16 +77,33 @@ export function createAgentHandler(
         );
       }
 
-      const agent = config.createAgent({ sessionId: body.sessionId });
+      if (!body.model) {
+        return new Response(JSON.stringify({ error: "model is required" }), {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      const agent = config.createAgent({
+        sessionId: body.sessionId,
+        model: body.model,
+      });
 
       // Stream the response directly - no parsing, no modification
       // Await to catch any errors during stream setup (e.g., sandbox attachment)
-      const response = await agent.stream({
+      const stream = await agent.stream({
         messages: body.messages,
         workspace: body.workspace,
       });
 
-      return response;
+      return new Response(stream, {
+        headers: {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          Connection: "keep-alive",
+          "X-Accel-Buffering": "no",
+        },
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
       return new Response(JSON.stringify({ error: message }), {

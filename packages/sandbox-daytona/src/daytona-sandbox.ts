@@ -50,6 +50,27 @@ export interface DaytonaSandboxOptions {
    * If not provided, a new sandbox is always created (without a name).
    */
   name?: string;
+
+  /**
+   * Environment variables to set in the sandbox.
+   * These will be available to all commands executed in the sandbox.
+   */
+  env?: Record<string, string>;
+
+  /**
+   * Agent template to use (e.g., "default", "coder", "analyst", "researcher").
+   *
+   * @default 'default'
+   */
+  agentTemplate?: string;
+
+  /**
+   * Working directory for the agent inside the sandbox.
+   * Will be created if it doesn't exist.
+   *
+   * @default '/workspace'
+   */
+  workdir?: string;
 }
 
 /**
@@ -71,6 +92,9 @@ export class DaytonaSandbox implements SandboxAdapter {
   private readonly autoStopInterval: number;
   private readonly autoDeleteInterval: number;
   private readonly name?: string;
+  private readonly env: Record<string, string>;
+  private readonly agentTemplate: string;
+  private readonly workdir: string;
 
   constructor(options: DaytonaSandboxOptions = {}) {
     this.apiKey = options.apiKey ?? process.env.DAYTONA_API_KEY;
@@ -85,9 +109,33 @@ export class DaytonaSandbox implements SandboxAdapter {
     // Default auto-delete to disabled (-1),
     this.autoDeleteInterval = options.autoDeleteInterval ?? 0;
     this.name = options.name;
+    this.env = options.env ?? {};
+    this.agentTemplate = options.agentTemplate ?? "default";
+    this.workdir = options.workdir ?? "/workspace";
   }
 
-  async attach(id: string): Promise<SandboxHandle> {
+  /**
+   * Get the environment variables configured for this sandbox.
+   */
+  getEnv(): Record<string, string> {
+    return this.env;
+  }
+
+  /**
+   * Get the agent template configured for this sandbox.
+   */
+  getAgentTemplate(): string {
+    return this.agentTemplate;
+  }
+
+  /**
+   * Get the working directory configured for this sandbox.
+   */
+  getWorkdir(): string {
+    return this.workdir;
+  }
+
+  async attach(): Promise<SandboxHandle> {
     if (!this.apiKey) {
       throw new Error(
         "Daytona API key not found. Please set DAYTONA_API_KEY environment variable or pass apiKey option.",
@@ -99,7 +147,7 @@ export class DaytonaSandbox implements SandboxAdapter {
       apiUrl: this.apiUrl,
     });
 
-    console.log(`[Daytona] Attaching sandbox for agent: ${id}`);
+    console.log(`[Daytona] Attaching sandbox`);
 
     // Get or create volume if volumeName is provided
     let volumes: VolumeConfig[] | undefined;
@@ -221,12 +269,12 @@ export class DaytonaSandbox implements SandboxAdapter {
 
     console.log(`[Daytona] Sandbox ${sandbox.id} ready`);
 
-    const handle = new DaytonaHandle(sandbox);
+    const handle = new DaytonaHandle(sandbox, this.env);
 
     // Initialize sandbox if needed (upload files, install dependencies)
     // Files are stored in volume, so existing sandboxes don't need re-initialization
     if (needsInit) {
-      await this.initializeSandbox(handle, id);
+      await this.initializeSandbox(handle);
     }
 
     return handle;
@@ -259,39 +307,23 @@ export class DaytonaSandbox implements SandboxAdapter {
     return sandbox;
   }
 
-  private async initializeSandbox(
-    handle: DaytonaHandle,
-    id: string,
-  ): Promise<void> {
-    const filesToUpload: Array<{ path: string; content: Uint8Array | string }> =
-      [];
-
+  private async initializeSandbox(handle: DaytonaHandle): Promise<void> {
+    // Upload runner bundle to /sandagent (fixed location for node to find it)
     if (this.runnerBundlePath && fs.existsSync(this.runnerBundlePath)) {
       const bundleContent = fs.readFileSync(this.runnerBundlePath);
       const bundleFileName = path.basename(this.runnerBundlePath);
-      filesToUpload.push({
-        path: `runner/${bundleFileName}`,
-        content: bundleContent,
-      });
+      const runnerFiles = [
+        {
+          path: `runner/${bundleFileName}`,
+          content: bundleContent,
+        },
+      ];
       console.log(
-        `[Daytona] Uploading runner bundle (${bundleFileName}) to sandbox ${id}`,
+        `[Daytona] Uploading runner bundle (${bundleFileName}) to /sandagent`,
       );
-    }
+      await handle.upload(runnerFiles, "/sandagent");
 
-    if (this.templatesPath && fs.existsSync(this.templatesPath)) {
-      const templateFiles = this.collectFiles(this.templatesPath, "");
-      filesToUpload.push(...templateFiles);
-      console.log(
-        `[Daytona] Uploading ${templateFiles.length} files from '${this.templatesPath}' to sandbox ${id}`,
-      );
-    }
-
-    if (filesToUpload.length > 0) {
-      await handle.upload(filesToUpload, "/sandagent");
-
-      console.log(
-        `[Daytona] Installing @anthropic-ai/claude-agent-sdk in sandbox ${id}`,
-      );
+      console.log(`[Daytona] Installing @anthropic-ai/claude-agent-sdk`);
       const installResult = await handle.runCommand(
         "npm install --prefix /sandagent @anthropic-ai/claude-agent-sdk",
       );
@@ -300,6 +332,15 @@ export class DaytonaSandbox implements SandboxAdapter {
           `[Daytona] Failed to install claude-agent-sdk: ${installResult.stderr}`,
         );
       }
+    }
+
+    // Upload template to workdir (where runner will execute)
+    if (this.templatesPath && fs.existsSync(this.templatesPath)) {
+      const templateFiles = this.collectFiles(this.templatesPath, "");
+      console.log(
+        `[Daytona] Uploading ${templateFiles.length} template files to ${this.workdir}`,
+      );
+      await handle.upload(templateFiles, this.workdir);
     }
   }
 
@@ -336,9 +377,11 @@ export class DaytonaSandbox implements SandboxAdapter {
  */
 class DaytonaHandle implements SandboxHandle {
   private readonly sandbox: Sandbox;
+  private readonly sandboxEnv: Record<string, string>;
 
-  constructor(sandbox: Sandbox) {
+  constructor(sandbox: Sandbox, sandboxEnv: Record<string, string> = {}) {
     this.sandbox = sandbox;
+    this.sandboxEnv = sandboxEnv;
   }
 
   /**
@@ -387,8 +430,10 @@ class DaytonaHandle implements SandboxHandle {
     const sandbox = this.sandbox;
     const signal = opts?.signal;
 
+    // Merge sandbox-level env with call-level env (call-level takes precedence)
     // Add NODE_PATH so Node can find packages installed in /sandagent
     const envWithNodePath: Record<string, string> = {
+      ...this.sandboxEnv,
       ...opts?.env,
       NODE_PATH: "/sandagent/node_modules",
     };

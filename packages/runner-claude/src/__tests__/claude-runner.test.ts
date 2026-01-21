@@ -201,7 +201,7 @@ describe("AbortSignal Support", () => {
     const signal = controller.signal;
 
     // Should not throw when signal is passed
-    const result = runner.run("Test with signal", signal);
+    const result = runner.run("Test with signal");
     expect(result[Symbol.asyncIterator]).toBeDefined();
 
     // Collect chunks to complete the iteration
@@ -225,10 +225,7 @@ describe("AbortSignal Support", () => {
     const signal = controller.signal;
 
     const chunks: string[] = [];
-    for await (const chunk of runner.run(
-      "Test with pre-aborted signal",
-      signal,
-    )) {
+    for await (const chunk of runner.run("Test with pre-aborted signal")) {
       chunks.push(chunk);
     }
 
@@ -250,7 +247,7 @@ describe("AbortSignal Support", () => {
     let chunkCount = 0;
 
     // Start collecting chunks
-    const iterator = runner.run("Test abort during streaming", signal);
+    const iterator = runner.run("Test abort during streaming");
 
     for await (const chunk of iterator) {
       chunks.push(chunk);
@@ -282,7 +279,7 @@ describe("AbortSignal Support", () => {
     const chunks: string[] = [];
     let chunkCount = 0;
 
-    for await (const chunk of runner.run("Test completion messages", signal)) {
+    for await (const chunk of runner.run("Test completion messages")) {
       chunks.push(chunk);
       chunkCount++;
 
@@ -311,7 +308,7 @@ describe("AbortSignal Support", () => {
     const initialListenerCount = signal.addEventListener.length;
 
     const chunks: string[] = [];
-    for await (const chunk of runner.run("Test listener cleanup", signal)) {
+    for await (const chunk of runner.run("Test listener cleanup")) {
       chunks.push(chunk);
     }
 

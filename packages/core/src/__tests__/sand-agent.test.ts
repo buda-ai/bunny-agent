@@ -44,27 +44,10 @@ function createMockSandbox(): SandboxAdapter & { handle: SandboxHandle } {
 }
 
 describe("SandAgent", () => {
-  describe("constructor", () => {
-    it("should create an agent with the given options", () => {
-      const sandbox = createMockSandbox();
-      const agent = new SandAgent({
-        id: "test-agent",
-        sandbox,
-        runner: {
-          kind: "claude-agent-sdk",
-          model: "claude-sonnet-4-20250514",
-        },
-      });
-
-      expect(agent.getId()).toBe("test-agent");
-    });
-  });
-
   describe("stream", () => {
     it("should attach to sandbox and execute command", async () => {
       const sandbox = createMockSandbox();
       const agent = new SandAgent({
-        id: "test-agent",
         sandbox,
         runner: {
           kind: "claude-agent-sdk",
@@ -72,19 +55,17 @@ describe("SandAgent", () => {
         },
       });
 
-      const response = await agent.stream({
+      const stream = await agent.stream({
         messages: [{ role: "user", content: "Hello" }],
       });
 
       expect(sandbox.attach).toHaveBeenCalledWith("test-agent");
-      expect(response).toBeInstanceOf(Response);
-      expect(response.headers.get("Content-Type")).toBe("text/event-stream");
+      expect(stream).toBeInstanceOf(ReadableStream);
     });
 
     it("should use default workspace path", async () => {
       const sandbox = createMockSandbox();
       const agent = new SandAgent({
-        id: "test-agent",
         sandbox,
         runner: {
           kind: "claude-agent-sdk",
@@ -105,7 +86,6 @@ describe("SandAgent", () => {
     it("should use custom workspace path", async () => {
       const sandbox = createMockSandbox();
       const agent = new SandAgent({
-        id: "test-agent",
         sandbox,
         runner: {
           kind: "claude-agent-sdk",
@@ -127,7 +107,6 @@ describe("SandAgent", () => {
     it("should include user message in command", async () => {
       const sandbox = createMockSandbox();
       const agent = new SandAgent({
-        id: "test-agent",
         sandbox,
         runner: {
           kind: "claude-agent-sdk",
@@ -157,7 +136,6 @@ describe("SandAgent", () => {
         );
 
       const agent = new SandAgent({
-        id: "test-agent",
         sandbox,
         runner: {
           kind: "claude-agent-sdk",
@@ -165,11 +143,11 @@ describe("SandAgent", () => {
         },
       });
 
-      const response = await agent.stream({
+      const stream = await agent.stream({
         messages: [{ role: "user", content: "Hello" }],
       });
 
-      const reader = response.body!.getReader();
+      const reader = stream.getReader();
       const { value } = await reader.read();
       const text = new TextDecoder().decode(value);
 
@@ -181,7 +159,6 @@ describe("SandAgent", () => {
     it("should upload files to the sandbox", async () => {
       const sandbox = createMockSandbox();
       const agent = new SandAgent({
-        id: "test-agent",
         sandbox,
         runner: {
           kind: "claude-agent-sdk",
@@ -200,7 +177,6 @@ describe("SandAgent", () => {
     it("should upload files to custom directory", async () => {
       const sandbox = createMockSandbox();
       const agent = new SandAgent({
-        id: "test-agent",
         sandbox,
         runner: {
           kind: "claude-agent-sdk",
@@ -224,7 +200,6 @@ describe("SandAgent", () => {
     it("should destroy the sandbox", async () => {
       const sandbox = createMockSandbox();
       const agent = new SandAgent({
-        id: "test-agent",
         sandbox,
         runner: {
           kind: "claude-agent-sdk",
@@ -246,7 +221,6 @@ describe("SandAgent", () => {
     it("should do nothing if not attached", async () => {
       const sandbox = createMockSandbox();
       const agent = new SandAgent({
-        id: "test-agent",
         sandbox,
         runner: {
           kind: "claude-agent-sdk",
@@ -265,7 +239,6 @@ describe("SandAgent", () => {
     it("should pass signal to exec()", async () => {
       const sandbox = createMockSandbox();
       const agent = new SandAgent({
-        id: "test-agent",
         sandbox,
         runner: {
           kind: "claude-agent-sdk",
@@ -290,7 +263,6 @@ describe("SandAgent", () => {
     it("should throw error if signal is already aborted", async () => {
       const sandbox = createMockSandbox();
       const agent = new SandAgent({
-        id: "test-agent",
         sandbox,
         runner: {
           kind: "claude-agent-sdk",
@@ -321,7 +293,6 @@ describe("SandAgent", () => {
         );
 
       const agent = new SandAgent({
-        id: "test-agent",
         sandbox,
         runner: {
           kind: "claude-agent-sdk",
@@ -372,7 +343,6 @@ describe("SandAgent", () => {
       });
 
       const agent = new SandAgent({
-        id: "test-agent",
         sandbox,
         runner: {
           kind: "claude-agent-sdk",
@@ -380,12 +350,12 @@ describe("SandAgent", () => {
         },
       });
 
-      const response = await agent.stream({
+      const stream = await agent.stream({
         messages: [{ role: "user", content: "Hello" }],
         transcriptWriter: mockTranscriptWriter,
       });
 
-      const reader = response.body!.getReader();
+      const reader = stream.getReader();
 
       // Read first chunk
       await reader.read();

@@ -47,7 +47,6 @@ describe("Signal Integration Tests", () => {
 
   it("should pass signal from StreamInput to sandbox exec", async () => {
     const agent = new SandAgent({
-      id: "test-agent",
       sandbox: mockSandbox,
       runner: {
         kind: "claude-agent-sdk",
@@ -61,8 +60,8 @@ describe("Signal Integration Tests", () => {
       signal: controller.signal,
     };
 
-    const response = await agent.stream(input);
-    expect(response).toBeInstanceOf(Response);
+    const stream = await agent.stream(input);
+    expect(stream).toBeInstanceOf(ReadableStream);
 
     // Verify that the signal was passed to exec
     expect(execSignalReceived).toBe(controller.signal);
@@ -70,7 +69,6 @@ describe("Signal Integration Tests", () => {
 
   it("should stop streaming when signal is aborted", async () => {
     const agent = new SandAgent({
-      id: "test-agent",
       sandbox: mockSandbox,
       runner: {
         kind: "claude-agent-sdk",
@@ -84,8 +82,8 @@ describe("Signal Integration Tests", () => {
       signal: controller.signal,
     };
 
-    const response = await agent.stream(input);
-    const reader = response.body?.getReader();
+    const stream = await agent.stream(input);
+    const reader = stream.getReader();
     expect(reader).toBeDefined();
 
     // Read first chunk
@@ -109,7 +107,6 @@ describe("Signal Integration Tests", () => {
 
   it("should handle pre-aborted signal", async () => {
     const agent = new SandAgent({
-      id: "test-agent",
       sandbox: mockSandbox,
       runner: {
         kind: "claude-agent-sdk",
@@ -130,7 +127,6 @@ describe("Signal Integration Tests", () => {
 
   it("should work without signal (backward compatibility)", async () => {
     const agent = new SandAgent({
-      id: "test-agent",
       sandbox: mockSandbox,
       runner: {
         kind: "claude-agent-sdk",
@@ -143,14 +139,14 @@ describe("Signal Integration Tests", () => {
       // No signal provided
     };
 
-    const response = await agent.stream(input);
-    expect(response).toBeInstanceOf(Response);
+    const stream = await agent.stream(input);
+    expect(stream).toBeInstanceOf(ReadableStream);
 
     // Verify that exec was called without signal
     expect(execSignalReceived).toBeUndefined();
 
     // Should be able to read all chunks
-    const reader = response.body?.getReader();
+    const reader = stream.getReader();
     const chunks: Uint8Array[] = [];
     while (true) {
       const result = await reader!.read();

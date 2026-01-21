@@ -111,6 +111,37 @@ curl -o resource.pdf "https://example.com/resource.pdf"
 cat document.txt | head -100 > summary_draft.txt
 ```
 
+## Search Strategy
+
+**⚠️ CRITICAL: Extract answer from FIRST successful result - DO NOT fetch more URLs**
+
+### Rule 1: STOP when you have information
+- **If WebFetch returns 200 OK with content** → Extract answer from that content immediately
+- **DO NOT fetch additional URLs** if you already have relevant information
+- **Academic PDFs often return 403** → Don't try to access them, use the information you already have
+
+### Rule 2: Extract from search result content
+- WebFetch to search engines (Brave, Bing, DuckDuckGo) returns summaries
+- **The answer is usually in the search result summaries** - Look for numbers, values, calculations
+- If the result contains relevant text like "volume", "m³", "calculated" → Extract the answer
+
+### Rule 3: Avoid 403 errors
+- **journals.le.ac.uk, researchgate.net** → Always return 403, don't try
+- **PDF download URLs** → Usually blocked, don't try
+- If you get 403 → **STOP**, use information from previous successful fetches
+
+### Restrictions
+- **DO NOT use Google** - Blocks automated searches
+- **DO NOT fetch PDFs** - Usually blocked (403)
+- **Skip academic journal direct links** - Use search engine summaries instead
+
+### Example Workflow
+1. WebFetch to search engine (Brave/Bing) with specific query
+2. **If 200 OK** → Read the result content carefully
+3. **If result contains answer** → Respond immediately (STOP HERE)
+4. **If 403** → Don't retry, use what you have
+5. **NEVER fetch more than 2-3 URLs total**
+
 ## Limitations
 
 - Cannot access paywalled content

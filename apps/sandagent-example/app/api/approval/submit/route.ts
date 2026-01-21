@@ -93,7 +93,7 @@ export async function POST(request: Request) {
             name: sandboxName,
           });
 
-    const handle = await sandbox.attach(sessionId);
+    const handle = await sandbox.attach();
 
     // Ensure approval directory exists
     for await (const _chunk of handle.exec([

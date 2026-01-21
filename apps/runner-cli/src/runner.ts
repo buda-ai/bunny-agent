@@ -32,10 +32,13 @@ export async function runAgent(options: RunAgentOptions): Promise<void> {
   const abortController = new AbortController();
 
   // Handle SIGTERM and SIGINT signals
-  const signalHandler = () => {
+  const signalHandler = async () => {
     console.error("[Runner] Received termination signal, stopping...");
+    // Note: abort() synchronously triggers all abort event listeners,
     abortController.abort();
-    console.error("[Runner] AbortController.abort() called");
+    console.error(
+      "[Runner] AbortController.abort() completed (listeners triggered)",
+    );
   };
 
   process.on("SIGTERM", signalHandler);
@@ -53,15 +56,13 @@ export async function runAgent(options: RunAgentOptions): Promise<void> {
       resume: options.resume,
       approvalDir: options.approvalDir,
       outputFormat: options.outputFormat,
+      abortController: abortController,
     };
 
     const runner = createClaudeRunner(runnerOptions);
 
     // Stream AI SDK UI messages to stdout
-    for await (const chunk of runner.run(
-      options.userInput,
-      abortController.signal,
-    )) {
+    for await (const chunk of runner.run(options.userInput)) {
       // Write directly to stdout without modification
       // This ensures the stream is a valid AI SDK UI stream
       process.stdout.write(chunk);
