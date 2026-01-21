@@ -386,60 +386,266 @@ function ArtifactPanel({ sessionId, artifacts }) {
 }
 ```
 
-## 10. 开放问题
+## 10. 关键设计决策
 
-1. **谁来生成 artifact.json？**
-   - 选项 A：Agent 在任务结束时主动生成
-   - 选项 B：用户在 CLAUDE.md 中指导 Agent 生成
-   - 选项 C：提供一个专门的工具让 Agent 调用
+### 10.1 谁来生成 artifact.json？
 
-2. **大文件如何处理？**
-   - 图片、PDF 等二进制文件需要 base64 或直接下载链接
+**答案：用户在 CLAUDE.md 中指导 Agent 生成**
 
-3. **artifact 何时过期？**
-   - sandbox 销毁后 artifact 也会丢失
-   - 是否需要持久化存储？
+用户在模板的 CLAUDE.md 中添加指导：
+
+```markdown
+## 产物输出规范
+
+任务完成后，你需要生成 `/sandagent/artifact.json` 文件，列出所有产出物：
+
+\`\`\`json
+{
+  "artifacts": [
+    {
+      "path": "/workspace/output/report.md",
+      "type": "markdown",
+      "title": "分析报告",
+      "description": "完整的分析报告"
+    }
+  ]
+}
+\`\`\`
+
+支持的 type：markdown, csv, json, html, image, pdf, code, file
+\`\`\`
+```
+
+### 10.2 大文件如何处理？
+
+**答案：Stream 输出 + S3 挂载**
+
+Sandbox 磁盘可以挂载到 S3，大文件处理方案：
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Sandbox                                                     │
+│                                                             │
+│  /workspace/output/  ←──── 挂载到 S3 bucket                  │
+│    ├── report.md     (小文件，直接读取)                      │
+│    ├── data.csv      (中等文件，stream 读取)                 │
+│    └── video.mp4     (大文件，返回 S3 URL)                   │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│  API 响应策略                                                │
+│                                                             │
+│  小文件 (<1MB)：直接返回 content                             │
+│  中等文件 (1-10MB)：stream 输出                              │
+│  大文件 (>10MB)：返回 S3 presigned URL                       │
+└─────────────────────────────────────────────────────────────┘
+```
+
+#### Stream 输出实现
+
+```typescript
+// 扩展 SandboxHandle 接口
+interface SandboxHandle {
+  // 小文件：直接读取
+  readFile(path: string): Promise<string>;
+  
+  // 大文件：stream 读取
+  readFileStream(path: string): AsyncIterable<Uint8Array>;
+  
+  // 获取文件信息（包括 size）
+  stat(path: string): Promise<FileStat>;
+}
+
+interface FileStat {
+  size: number;
+  isDirectory: boolean;
+  modifiedAt: string;
+}
+```
+
+#### API 实现
+
+```typescript
+// GET /api/artifacts/[artifactId]
+export async function GET(request: Request, { params }) {
+  const { artifactId } = params;
+  const sessionId = request.headers.get("x-session-id");
+  
+  const handle = await sandbox.attach(sessionId);
+  const manifest = JSON.parse(await handle.readFile("/sandagent/artifact.json"));
+  const artifact = manifest.artifacts.find(a => a.id === artifactId);
+  
+  // 获取文件大小
+  const stat = await handle.stat(artifact.path);
+  
+  // 小文件：直接返回
+  if (stat.size < 1024 * 1024) {
+    const content = await handle.readFile(artifact.path);
+    return Response.json({ content });
+  }
+  
+  // 大文件：stream 输出
+  const stream = handle.readFileStream(artifact.path);
+  return new Response(
+    new ReadableStream({
+      async start(controller) {
+        for await (const chunk of stream) {
+          controller.enqueue(chunk);
+        }
+        controller.close();
+      },
+    }),
+    {
+      headers: {
+        "Content-Type": getMimeType(artifact.type),
+        "Content-Length": String(stat.size),
+      },
+    }
+  );
+}
+```
+
+#### S3 URL 方案（超大文件）
+
+如果 sandbox 磁盘挂载到 S3，可以直接生成 presigned URL：
+
+```typescript
+// artifact.json 中可以包含 s3Key
+{
+  "artifacts": [
+    {
+      "path": "/workspace/output/video.mp4",
+      "type": "video",
+      "title": "生成的视频",
+      "size": 104857600,
+      "s3Key": "sessions/xxx/output/video.mp4"  // S3 key
+    }
+  ]
+}
+
+// API 生成 presigned URL
+if (artifact.s3Key && stat.size > 10 * 1024 * 1024) {
+  const url = await s3.getSignedUrl("getObject", {
+    Bucket: process.env.S3_BUCKET,
+    Key: artifact.s3Key,
+    Expires: 3600,
+  });
+  return Response.json({ url, type: "redirect" });
+}
+```
+
+### 10.3 Artifact 持久化
+
+**方案：S3 挂载自动持久化**
+
+由于 sandbox 磁盘挂载到 S3：
+- 文件写入 `/workspace/output/` 时自动同步到 S3
+- Sandbox 销毁后，S3 中的文件仍然存在
+- 可以设置 S3 生命周期策略自动清理过期文件
+
+```
+Sandbox 生命周期          S3 生命周期
+─────────────────        ─────────────────
+创建 sandbox              
+写入文件 ───────────────→ 同步到 S3
+销毁 sandbox              文件保留
+                         7天后自动删除（可配置）
+```
 
 ## 11. 总结
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  用户定义（Agent 生成 artifact.json）                        │
+│  1. 用户指导（CLAUDE.md 中定义产物规范）                     │
+│                                                             │
+│  "任务完成后生成 /sandagent/artifact.json"                   │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│  2. Agent 生成 artifact.json                                 │
 │                                                             │
 │  {                                                          │
 │    "artifacts": [                                           │
-│      { "path": "/output/report.md", "title": "报告" }       │
+│      { "path": "/output/report.md", "title": "报告" },      │
+│      { "path": "/output/video.mp4", "s3Key": "xxx" }        │
 │    ]                                                        │
 │  }                                                          │
 └─────────────────────────────────────────────────────────────┘
                             │
                             ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  Sandbox（存储实际文件）                                     │
+│  3. Sandbox + S3 存储                                        │
 │                                                             │
-│  /sandagent/artifact.json    ← 清单                         │
-│  /workspace/output/report.md ← 实际文件                     │
+│  /workspace/output/  ←──── 挂载到 S3                         │
+│    ├── report.md     (小文件)                               │
+│    └── video.mp4     (大文件，同步到 S3)                     │
+│                                                             │
+│  /sandagent/artifact.json  ← 清单文件                       │
 └─────────────────────────────────────────────────────────────┘
                             │
                             ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  API（从 sandbox 获取）                                      │
+│  4. API（按大小选择策略）                                    │
 │                                                             │
-│  GET /api/artifacts?sessionId=xxx                           │
-│  → 返回 artifact 清单                                       │
+│  GET /api/artifacts?sessionId=xxx → 返回清单                 │
 │                                                             │
-│  POST /api/artifacts { sessionId, path }                    │
-│  → 返回文件内容                                              │
+│  GET /api/artifacts/[id]                                    │
+│    ├─ <1MB   → 直接返回 content                             │
+│    ├─ 1-10MB → stream 输出                                  │
+│    └─ >10MB  → 返回 S3 presigned URL                        │
 └─────────────────────────────────────────────────────────────┘
                             │
                             ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  UI（展示 artifact）                                         │
+│  5. UI 展示                                                  │
 │                                                             │
 │  ┌────────────────────────────────────────────────────────┐ │
 │  │ 📎 产物                                                 │ │
-│  │ ├─ 📄 SEO 分析报告          [预览] [下载]              │ │
-│  │ └─ 📊 关键词列表            [预览] [下载]              │ │
+│  │ ├─ 📄 分析报告 (5KB)        [预览] [下载]              │ │
+│  │ └─ 🎬 生成视频 (100MB)      [S3下载链接]               │ │
 │  └────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+## 12. 需要实现的接口
+
+### SandboxHandle 扩展
+
+```typescript
+interface SandboxHandle {
+  // 现有
+  exec(command: string[], opts?: ExecOptions): AsyncIterable<Uint8Array>;
+  upload(files: Array<{ path: string; content: Uint8Array | string }>, targetDir: string): Promise<void>;
+  destroy(): Promise<void>;
+  
+  // 新增
+  readFile(path: string): Promise<string>;
+  readFileStream(path: string): AsyncIterable<Uint8Array>;
+  stat(path: string): Promise<FileStat>;
+  listDir(path: string): Promise<FileInfo[]>;
+}
+
+interface FileStat {
+  size: number;
+  isDirectory: boolean;
+  modifiedAt: string;
+}
+
+interface FileInfo {
+  name: string;
+  path: string;
+  size: number;
+  isDirectory: boolean;
+  modifiedAt: string;
+}
+```
+
+### API 端点
+
+| 端点 | 方法 | 描述 |
+|------|------|------|
+| `/api/artifacts` | GET | 获取 artifact 清单 |
+| `/api/artifacts/[id]` | GET | 获取单个 artifact 内容（支持 stream） |
+| `/api/artifacts/[id]/download` | GET | 下载文件（返回 S3 URL 或直接流） |
