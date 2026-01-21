@@ -643,14 +643,14 @@ Sandbox 生命周期          S3 生命周期
 └─────────────────────────────────────────────────────────────┘
       │
       ▼
-ArtifactProcessor.read(path)
+handle.readFile(path) / handle.readFileStream(path)
       │
       ▼
 ┌─────────────────────────────────────────────────────────────┐
 │  从 Sandbox 获取文件内容                                     │
-│  - 小文件：直接返回                                          │
-│  - 大文件：stream 返回                                       │
-│  - 超大文件：返回 S3 URL                                     │
+│  - 小文件：readFile() 直接返回                               │
+│  - 大文件：readFileStream() stream 返回                      │
+│  - 超大文件：S3 挂载目录，返回 presigned URL                  │
 └─────────────────────────────────────────────────────────────┘
       │
       ▼
@@ -681,60 +681,50 @@ UI 展示
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## 12. ArtifactProcessor
+## 12. 扩展 SandboxHandle
+
+不需要额外的 processor，直接扩展 SandboxHandle：
 
 ```typescript
-interface ArtifactProcessor {
-  read(path: string): Promise<ArtifactContent>;
-  readStream(path: string): AsyncIterable<Uint8Array>;
-  write(path: string, content: string): Promise<void>;
-  list(path: string): Promise<FileInfo[]>;
+interface SandboxHandle {
+  // 现有
+  exec(command: string[], opts?: ExecOptions): AsyncIterable<Uint8Array>;
+  upload(files: Array<{ path: string; content: string }>, targetDir: string): Promise<void>;
+  destroy(): Promise<void>;
+  
+  // 新增
+  readFile(path: string): Promise<string>;
+  readFileStream(path: string): AsyncIterable<Uint8Array>;
+  writeFile(path: string, content: string): Promise<void>;
+  listDir(path: string): Promise<FileInfo[]>;
   stat(path: string): Promise<FileStat>;
-  getS3Url(path: string): Promise<string | null>;
-}
-
-interface ArtifactContent {
-  content: string | Uint8Array;
-  mimeType: string;
-  size: number;
-  s3Url?: string;
 }
 ```
 
 ### 使用
 
 ```typescript
-const processor = sandagent.getArtifactProcessor();
+// attach 到 sandbox
+const handle = await sandbox.attach(sessionId);
 
 // 读取
-const content = await processor.read("/workspace/CLAUDE.md");
+const content = await handle.readFile("/workspace/CLAUDE.md");
 
 // 列目录
-const files = await processor.list("/workspace");
+const files = await handle.listDir("/workspace");
 
 // stream
-const stream = processor.readStream("/workspace/output/report.md");
+for await (const chunk of handle.readFileStream("/workspace/output/large.csv")) {
+  // ...
+}
 
-// S3 URL
-const url = await processor.getS3Url("/mnt/s3/video.mp4");
+// 写入
+await handle.writeFile("/workspace/CLAUDE.md", newContent);
 ```
 
 ## 13. 需要实现的接口
 
-### 13.1 ArtifactProcessor 接口
-
-```typescript
-interface ArtifactProcessor {
-  read(path: string): Promise<ArtifactContent>;
-  readStream(path: string): AsyncIterable<Uint8Array>;
-  write(path: string, content: string): Promise<void>;
-  list(path: string): Promise<FileInfo[]>;
-  stat(path: string): Promise<FileStat>;
-  getS3Url(path: string): Promise<string | null>;
-}
-```
-
-### 13.2 SandboxHandle 扩展
+### 13.1 SandboxHandle 扩展
 
 ```typescript
 interface SandboxHandle {
