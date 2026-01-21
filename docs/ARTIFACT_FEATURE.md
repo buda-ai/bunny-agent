@@ -775,9 +775,149 @@ createSandAgent({
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## 12. 需要实现的接口
+## 12. 架构考虑：是否统一 ArtifactProcessor
 
-### SandboxHandle 扩展
+### 12.1 方案对比
+
+| 方案 | 优点 | 缺点 |
+|------|------|------|
+| **统一 ArtifactProcessor** | 接口统一、代码复用、易扩展 | 过度抽象、三种逻辑差异大 |
+| **分开处理** | 简单直接、逻辑清晰 | 代码重复、扩展性差 |
+
+### 12.2 三种 Artifact 的差异
+
+| 特性 | claude.md | workdir | artifact |
+|------|-----------|---------|----------|
+| 读取 | 单文件 | 目录+文件 | 清单+文件 |
+| 写入 | 支持 | 支持 | 不支持 |
+| 大文件 | 否 | 可能 | 是 |
+| S3 URL | 否 | 可能 | 是 |
+| Stream | 否 | 可能 | 是 |
+
+### 12.3 推荐：统一 ArtifactProcessor
+
+虽然三种 artifact 有差异，但统一处理有明显好处：
+
+```typescript
+interface ArtifactProcessor {
+  /**
+   * 读取 artifact 内容
+   */
+  read(path: string): Promise<ArtifactContent>;
+  
+  /**
+   * 读取 artifact 内容（stream）
+   */
+  readStream(path: string): AsyncIterable<Uint8Array>;
+  
+  /**
+   * 写入 artifact 内容（仅 claude.md/workdir 支持）
+   */
+  write(path: string, content: string): Promise<void>;
+  
+  /**
+   * 列出目录（仅 workdir 支持）
+   */
+  list(path: string): Promise<FileInfo[]>;
+  
+  /**
+   * 获取文件信息
+   */
+  stat(path: string): Promise<FileStat>;
+  
+  /**
+   * 获取 S3 URL（大文件）
+   */
+  getS3Url(path: string): Promise<string | null>;
+}
+
+interface ArtifactContent {
+  content: string | Uint8Array;
+  mimeType: string;
+  size: number;
+  s3Url?: string;  // 大文件返回 S3 URL
+}
+```
+
+### 12.4 使用方式
+
+```typescript
+const sandagent = createSandAgent({
+  sandbox,
+  showClaudeMd: true,
+  showWorkdir: true,
+  artifactManifest: "${ARTIFACT_DIR}/artifact.json",
+});
+
+// 统一通过 processor 获取
+const processor = sandagent.getArtifactProcessor();
+
+// claude.md
+const claudeMd = await processor.read("/workspace/CLAUDE.md");
+
+// workdir
+const files = await processor.list("/workspace");
+const file = await processor.read("/workspace/src/index.ts");
+
+// artifact
+const manifest = await processor.read("/workspace/output/artifact.json");
+const report = await processor.readStream("/workspace/output/report.md");
+const videoUrl = await processor.getS3Url("/mnt/s3/video.mp4");
+```
+
+### 12.5 API 层统一
+
+```typescript
+// 统一的 API 入口
+// GET /api/artifacts?sessionId=xxx&type=claude-md
+// GET /api/artifacts?sessionId=xxx&type=workdir&path=/workspace
+// GET /api/artifacts?sessionId=xxx&type=artifact&manifest=/output/artifact.json
+
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const sessionId = searchParams.get("sessionId");
+  const type = searchParams.get("type");  // claude-md | workdir | artifact
+  const path = searchParams.get("path");
+  
+  const processor = await getArtifactProcessor(sessionId);
+  
+  switch (type) {
+    case "claude-md":
+      return Response.json(await processor.read(claudeMdPath));
+    case "workdir":
+      return Response.json(await processor.list(path));
+    case "artifact":
+      const manifest = await processor.read(manifestPath);
+      return Response.json(JSON.parse(manifest.content));
+  }
+}
+```
+
+### 12.6 决策
+
+**推荐统一 ArtifactProcessor**，理由：
+
+1. **接口统一**：前端只需要调用一套 API
+2. **代码复用**：read/readStream/stat 等逻辑共享
+3. **易扩展**：未来增加新的 artifact 类型更容易
+4. **大文件统一处理**：S3 URL、stream 等逻辑集中
+
+## 13. 需要实现的接口
+
+### 13.1 ArtifactProcessor 接口
+
+```typescript
+interface ArtifactProcessor {
+  read(path: string): Promise<ArtifactContent>;
+  readStream(path: string): AsyncIterable<Uint8Array>;
+  write(path: string, content: string): Promise<void>;
+  list(path: string): Promise<FileInfo[]>;
+  stat(path: string): Promise<FileStat>;
+  getS3Url(path: string): Promise<string | null>;
+}
+```
+
+### 13.2 SandboxHandle 扩展
 
 ```typescript
 interface SandboxHandle {
