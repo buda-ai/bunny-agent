@@ -161,6 +161,9 @@ importers:
 
   packages/core:
     devDependencies:
+      '@sandagent/sandbox-local':
+        specifier: workspace:*
+        version: link:../sandbox-local
       '@types/node':
         specifier: ^20.10.0
         version: 20.19.27
@@ -404,6 +407,22 @@ importers:
       e2b:
         specifier: ^2.9.0
         version: 2.9.0
+    devDependencies:
+      '@types/node':
+        specifier: ^20.10.0
+        version: 20.19.27
+      typescript:
+        specifier: ^5.3.0
+        version: 5.9.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.27)(lightningcss@1.30.2)
+
+  packages/sandbox-local:
+    dependencies:
+      '@sandagent/core':
+        specifier: workspace:*
+        version: link:../core
     devDependencies:
       '@types/node':
         specifier: ^20.10.0

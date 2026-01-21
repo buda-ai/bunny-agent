@@ -1,7 +1,7 @@
 {
-  "name": "@sandagent/core",
+  "name": "@sandagent/sandbox-local",
   "version": "0.1.0",
-  "description": "SandAgent lifecycle & sandbox binding",
+  "description": "Local sandbox adapter for SandAgent - runs commands on local machine",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -24,11 +24,13 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/vikadata/sandagent.git",
-    "directory": "packages/core"
+    "directory": "packages/sandbox-local"
   },
   "license": "Apache-2.0",
+  "dependencies": {
+    "@sandagent/core": "workspace:*"
+  },
   "devDependencies": {
-    "@sandagent/sandbox-local": "workspace:*",
     "@types/node": "^20.10.0",
     "typescript": "^5.3.0",
     "vitest": "^1.6.1"
