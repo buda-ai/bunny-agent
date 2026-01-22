@@ -61,7 +61,7 @@ describe("SandAgent", () => {
         messages: [{ role: "user", content: "Hello" }],
       });
 
-      expect(sandbox.attach).toHaveBeenCalledWith("test-agent");
+      expect(sandbox.attach).toHaveBeenCalledWith();
       expect(stream).toBeInstanceOf(ReadableStream);
     });
 
