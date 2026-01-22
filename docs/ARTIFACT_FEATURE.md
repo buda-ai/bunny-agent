@@ -196,6 +196,158 @@ Agent 需要在 `tasks/{sessionId}/artifact.json` 创建 manifest 文件：
 - `mimeType` (可选): MIME 类型，用于前端渲染（如 `text/markdown`, `application/json`）
 - `description` (可选): 描述信息
 
+## Agent 使用 Artifact Skill
+
+### 为什么需要 Artifact Skill
+
+为了让 Agent 能够正确创建和管理 artifact 文件，需要在 Agent 的 template 中添加 `artifact` skill。这个 skill 提供了：
+
+1. **Session ID 使用说明**：`${CLAUDE_SESSION_ID}` 是 Claude Code 加载 skill 时自动提供的内置变量，无需任何代码处理
+2. **标准化的创建流程**：提供创建 `artifact.json` 的标准步骤
+3. **最佳实践指导**：说明如何正确组织 artifact 文件
+
+> **注意**：只需将 skill 文件放在 `.claude/skills/` 目录下，遵循 Claude 的 skill 规范即可。`${CLAUDE_SESSION_ID}` 会在 skill 加载时被 Claude Code 自动替换为当前会话 ID。
+
+### 如何添加 Artifact Skill
+
+在 Agent template 的 `.claude/skills/` 目录下创建 `artifact/SKILL.md` 文件：
+
+```
+templates/
+  {template-name}/
+    .claude/
+      skills/
+        artifact/
+          SKILL.md
+```
+
+### Artifact Skill 内容示例
+
+参考 `templates/researcher/.claude/skills/artifact/SKILL.md`：
+
+```markdown
+---
+name: artifact
+description: Create and manage artifact.json for task outputs. Use when creating research reports, notes, or any files that should be tracked as artifacts.
+---
+
+# Artifact Management Skill
+
+Use this skill to create and manage `artifact.json` for tracking task outputs.
+
+## Session Information
+
+- **Current Session ID**: `${CLAUDE_SESSION_ID}`
+- **Artifact Path**: `tasks/${CLAUDE_SESSION_ID}/artifact.json`
+
+## Create Task Directory and Artifact.json
+
+```bash
+# Create task directory
+mkdir -p "tasks/${CLAUDE_SESSION_ID}"
+
+# Initialize artifact.json
+cat > "tasks/${CLAUDE_SESSION_ID}/artifact.json" << 'EOF'
+{
+  "artifacts": []
+}
+EOF
+```
+
+## Add Artifact Entry
+
+When you create a file that should be tracked, update `artifact.json`:
+
+```json
+{
+  "artifacts": [
+    {
+      "id": "unique-id",
+      "path": "tasks/${CLAUDE_SESSION_ID}/reports/report.md",
+      "mimeType": "text/markdown",
+      "description": "Description of the file"
+    }
+  ]
+}
+```
+
+## Important Notes
+
+- Always use `${CLAUDE_SESSION_ID}` for the task directory
+- File paths in `artifact.json` should be relative to the working directory (`/sandagent`)
+- Update `artifact.json` whenever you create a new output file
+```
+
+### 关键要点
+
+1. **使用 `${CLAUDE_SESSION_ID}` 内置变量**：
+   - `${CLAUDE_SESSION_ID}` 是 Claude Code 加载 skill 时自动提供的内置变量
+   - **无需任何代码处理**，只需在 skill 文件中使用 `${CLAUDE_SESSION_ID}` 即可
+   - **只有 `artifact.json` 必须放在 `tasks/${CLAUDE_SESSION_ID}/artifact.json`**
+   - Artifact 文件本身可以放在任何位置，只要在 `artifact.json` 中正确引用路径即可
+
+2. **创建流程**：
+   ```bash
+   # 1. 创建任务目录
+   mkdir -p "tasks/${CLAUDE_SESSION_ID}"
+   
+   # 2. 初始化 artifact.json（如果不存在）
+   # 3. 创建 artifact 文件
+   # 4. 更新 artifact.json，添加新文件的条目
+   ```
+
+3. **路径规范**：
+   - 在 `artifact.json` 中的 `path` 字段可以使用相对路径（相对于工作目录）或绝对路径
+   - Artifact 文件可以放在任何位置，不需要包含 `${CLAUDE_SESSION_ID}`
+   - 推荐将 artifact 文件放在 `tasks/${CLAUDE_SESSION_ID}/` 目录下以便管理，但这不是必须的
+
+4. **更新时机**：
+   - 每次创建新的 artifact 文件后，立即更新 `artifact.json`
+   - 使用 Write tool 写入 `artifact.json` 时，processor 会自动检测并处理
+
+### 完整示例
+
+假设 `CLAUDE_SESSION_ID=abc123`，Agent 需要创建研究报告：
+
+```bash
+# 1. 创建目录结构
+mkdir -p "tasks/abc123/reports"
+
+# 2. 创建报告文件
+cat > "tasks/abc123/reports/marathon-research.md" << 'EOF'
+# 2025年深圳马拉松研究报告
+...
+EOF
+
+# 3. 创建或更新 artifact.json
+cat > "tasks/abc123/artifact.json" << 'EOF'
+{
+  "artifacts": [
+    {
+      "id": "marathon-research-report",
+      "path": "tasks/abc123/reports/marathon-research.md",
+      "mimeType": "text/markdown",
+      "description": "2025年深圳马拉松运动会研究报告"
+    }
+  ]
+}
+EOF
+```
+
+### 在 Template 中引用
+
+确保在 template 的 `CLAUDE.md` 中引用 artifact skill：
+
+```markdown
+# Researcher Agent
+
+You are a research assistant. When creating research outputs, use the `artifact` skill to properly track your files.
+
+## Skills
+
+- `artifact` - For managing artifact.json and tracking output files
+```
+
 ## 前端实现
 
 ### 接收 data-artifact
@@ -408,28 +560,75 @@ function ChatMessage({ message }: { message: UIMessage }) {
 
 ## 使用示例
 
-### Agent 端（Python/Shell）
+### Agent 端（使用 Artifact Skill）
 
-Agent 需要创建 manifest 文件和 artifact 文件：
+**推荐方式**：使用 artifact skill 来管理 artifact 文件。
+
+Agent 应该首先查看 artifact skill 的文档，然后按照标准流程操作。
+
+> **注意**：`${CLAUDE_SESSION_ID}` 是 Claude Code 加载 skill 时自动提供的内置变量，会被自动替换为当前会话 ID，无需任何代码处理。
+
+```bash
+# 1. 创建任务目录（${CLAUDE_SESSION_ID} 会被 Claude Code 自动替换）
+mkdir -p "tasks/${CLAUDE_SESSION_ID}/reports"
+
+# 2. 创建 artifact 文件
+cat > "tasks/${CLAUDE_SESSION_ID}/reports/marathon-research.md" << 'EOF'
+# 2025年深圳马拉松研究报告
+...
+EOF
+
+# 3. 创建或更新 artifact.json（使用 Write tool）
+cat > "tasks/${CLAUDE_SESSION_ID}/artifact.json" << 'EOF'
+{
+  "artifacts": [
+    {
+      "id": "marathon-research-report",
+      "path": "tasks/${CLAUDE_SESSION_ID}/reports/marathon-research.md",
+      "mimeType": "text/markdown",
+      "description": "2025年深圳马拉松运动会研究报告"
+    }
+  ]
+}
+EOF
+```
+
+**关键点**：
+- `${CLAUDE_SESSION_ID}` 是 Claude Code 的内置变量，会在 skill 加载时自动替换，无需代码处理
+- `artifact.json` 的路径必须是 `tasks/${CLAUDE_SESSION_ID}/artifact.json`
+- 每次创建新文件后，立即更新 `artifact.json`
+
+### Agent 端（Python 脚本 - 作为 Tool 执行时）
+
+如果 Agent 通过执行 Python 脚本来创建 artifact，可以从环境变量获取 session ID：
+
+> **注意**：当 Claude Code 执行 Tool（如 Bash、Python 脚本）时，会自动将 `CLAUDE_SESSION_ID` 设置为环境变量。
 
 ```python
-# 1. 创建 artifact 文件
-with open("tasks/{session_id}/reports/report.md", "w") as f:
+import os
+import json
+
+# 从环境变量获取会话 ID（Claude Code 执行 Tool 时会自动设置）
+session_id = os.environ.get("CLAUDE_SESSION_ID", "default")
+
+# 创建 artifact 文件
+os.makedirs(f"tasks/{session_id}/reports", exist_ok=True)
+with open(f"tasks/{session_id}/reports/report.md", "w") as f:
     f.write("# Research Report\n\n...")
 
-# 2. 创建 manifest 文件
+# 创建 manifest 文件
 manifest = {
     "artifacts": [
         {
             "id": "report",
-            "path": "tasks/{session_id}/reports/report.md",
+            "path": f"tasks/{session_id}/reports/report.md",
             "mimeType": "text/markdown",
             "description": "Main research report"
         }
     ]
 }
 
-with open("tasks/{session_id}/artifact.json", "w") as f:
+with open(f"tasks/{session_id}/artifact.json", "w") as f:
     json.dump(manifest, f, indent=2)
 ```
 
@@ -489,11 +688,39 @@ return (
 
 ## 最佳实践
 
-1. **Manifest 更新**：只在 artifact 文件变化时更新 manifest
-2. **文件路径**：使用相对路径或一致的绝对路径格式
-3. **MIME 类型**：正确设置 mimeType，便于前端渲染
-4. **ID 唯一性**：确保 artifact id 唯一，避免前端去重问题
-5. **错误处理**：在 processor 中处理文件读取错误，避免影响主流程
+### Agent 端
+
+1. **使用 Artifact Skill**：
+   - 在 template 中添加 `artifact` skill（参考 `templates/researcher/.claude/skills/artifact/SKILL.md`）
+   - 只需将 skill 文件放在 `.claude/skills/` 目录下，遵循 Claude 的 skill 规范即可
+   - `${CLAUDE_SESSION_ID}` 会在 skill 加载时被 Claude Code 自动替换，无需任何代码处理
+
+2. **Session ID 使用**：
+   - `${CLAUDE_SESSION_ID}` 是 Claude Code 的内置变量，在 skill 文件中直接使用即可
+   - **只有 `artifact.json` 路径必须是 `tasks/${CLAUDE_SESSION_ID}/artifact.json`**
+   - Artifact 文件本身可以放在任何位置，只要在 `artifact.json` 中正确引用路径即可
+
+3. **Manifest 更新**：
+   - 每次创建新的 artifact 文件后，立即更新 `artifact.json`
+   - 只在 artifact 文件变化时更新 manifest，避免不必要的文件 I/O
+
+4. **文件路径**：
+   - 使用相对路径（相对于工作目录）或一致的绝对路径格式
+   - Artifact 文件路径不需要包含 `${CLAUDE_SESSION_ID}`，可以放在任何位置
+   - 推荐将 artifact 文件放在 `tasks/${CLAUDE_SESSION_ID}/` 目录下以便管理
+
+5. **MIME 类型**：
+   - 正确设置 mimeType，便于前端渲染
+   - 常用类型：`text/markdown`, `application/json`, `text/plain`, `text/html`
+
+6. **ID 唯一性**：
+   - 确保 artifact id 唯一，避免前端去重问题
+   - 推荐使用有意义的 ID，如 `marathon-research-report` 而不是 `report-1`
+
+### 后端端
+
+1. **错误处理**：在 processor 中处理文件读取错误，避免影响主流程
+2. **性能优化**：使用缓存和队列机制，避免重复读取和并发问题
 
 ## 未来扩展
 

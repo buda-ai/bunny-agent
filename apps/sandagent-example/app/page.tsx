@@ -297,7 +297,7 @@ export default function Home() {
                 />
               ))
             )}
-            {isLoading && messages[messages.length - 1]?.role === "user" && (
+            {isLoading && (
               <Message from="assistant">
                 <MessageContent>
                   <Loader size={20} />
@@ -467,7 +467,6 @@ function CompactArtifactItem({
   artifact: ArtifactData;
   onSelect?: (artifact: ArtifactData) => void;
 }) {
-  const [isExpanded, setIsExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
   const fileName = artifact.artifactId.split("/").pop() || artifact.artifactId;
   const isMarkdown = artifact.mimeType.includes("markdown");
@@ -493,7 +492,6 @@ function CompactArtifactItem({
   };
 
   const handleClick = () => {
-    setIsExpanded(!isExpanded);
     if (onSelect) {
       onSelect(artifact);
     }
@@ -507,73 +505,49 @@ function CompactArtifactItem({
   };
 
   return (
-    <div className="flex flex-col gap-1 max-w-2xl">
-      <div
-        className="group flex items-center justify-between p-2 rounded-lg border border-border bg-background/50 hover:bg-accent/50 transition-colors cursor-pointer"
-        onClick={handleClick}
-        onKeyDown={handleKeyDown}
-        role="button"
-        tabIndex={0}
-      >
-        <div className="flex items-center gap-2 min-w-0">
-          <div className="flex size-7 items-center justify-center rounded bg-blue-500/10 shrink-0">
-            <FileCode className="size-3.5 text-blue-500" />
-          </div>
-          <div className="flex flex-col min-w-0">
-            <span className="text-xs font-medium text-foreground truncate">
-              {fileName}
-            </span>
-            <span className="text-[10px] text-muted-foreground truncate">
-              {artifact.mimeType}
-            </span>
-          </div>
+    <div
+      className="group flex items-center justify-between p-2 rounded-lg border border-border bg-background/50 hover:bg-accent/50 transition-colors cursor-pointer max-w-2xl"
+      onClick={handleClick}
+      onKeyDown={handleKeyDown}
+      role="button"
+      tabIndex={0}
+    >
+      <div className="flex items-center gap-2 min-w-0">
+        <div className="flex size-7 items-center justify-center rounded bg-blue-500/10 shrink-0">
+          <FileCode className="size-3.5 text-blue-500" />
         </div>
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          <button
-            onClick={handleCopy}
-            className="p-1 rounded hover:bg-muted transition-colors"
-            title="复制"
-          >
-            {copied ? (
-              <CheckCircle className="size-3 text-green-600" />
-            ) : (
-              <Copy className="size-3 text-muted-foreground" />
-            )}
-          </button>
-          <button
-            onClick={handleDownload}
-            className="p-1 rounded hover:bg-muted transition-colors"
-            title="下载"
-          >
-            <Download className="size-3 text-muted-foreground" />
-          </button>
-          <div className="p-1">
-            <ChevronRight
-              className={`size-3 text-muted-foreground transition-transform ${isExpanded ? "rotate-90" : ""}`}
-            />
-          </div>
+        <div className="flex flex-col min-w-0">
+          <span className="text-xs font-medium text-foreground truncate">
+            {fileName}
+          </span>
+          <span className="text-[10px] text-muted-foreground truncate">
+            {artifact.mimeType}
+          </span>
         </div>
       </div>
-
-      {isExpanded && (
-        <div className="border border-border rounded-lg bg-muted/30 overflow-hidden">
-          <div className="p-3 max-h-[300px] overflow-auto scrollable-content">
-            {isMarkdown ? (
-              <div className="prose prose-sm dark:prose-invert max-w-none">
-                <pre className="whitespace-pre-wrap font-sans text-xs m-0">
-                  {artifact.content}
-                </pre>
-              </div>
-            ) : (
-              <div className="bg-[#0d0d0d] rounded p-2">
-                <pre className="text-[#e6e6e6] font-mono text-[10px] whitespace-pre m-0 block">
-                  {artifact.content}
-                </pre>
-              </div>
-            )}
-          </div>
+      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button
+          onClick={handleCopy}
+          className="p-1 rounded hover:bg-muted transition-colors"
+          title="复制"
+        >
+          {copied ? (
+            <CheckCircle className="size-3 text-green-600" />
+          ) : (
+            <Copy className="size-3 text-muted-foreground" />
+          )}
+        </button>
+        <button
+          onClick={handleDownload}
+          className="p-1 rounded hover:bg-muted transition-colors"
+          title="下载"
+        >
+          <Download className="size-3 text-muted-foreground" />
+        </button>
+        <div className="p-1">
+          <ChevronRight className="size-3 text-muted-foreground" />
         </div>
-      )}
+      </div>
     </div>
   );
 }
