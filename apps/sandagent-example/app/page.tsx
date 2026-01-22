@@ -276,7 +276,7 @@ export default function Home() {
         </div>
       </header>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden relative border-b border-border">
         {/* Chat area */}
         <Conversation className="flex-1">
           <ConversationContent>
@@ -326,20 +326,24 @@ export default function Home() {
         {extractedArtifacts.length > 0 && (
           <div className="w-[400px] border-l border-border flex flex-col bg-muted/30">
             {/* Artifact tabs */}
-            <div className="flex items-center gap-1 p-2 border-b border-border overflow-x-auto">
-              {extractedArtifacts.map((artifact) => (
-                <button
-                  key={artifact.artifactId}
-                  onClick={() => setSelectedArtifact(artifact)}
-                  className={`px-3 py-1.5 text-sm rounded-md whitespace-nowrap transition-colors ${
-                    selectedArtifact?.artifactId === artifact.artifactId
-                      ? "bg-primary text-primary-foreground"
-                      : "hover:bg-muted text-muted-foreground"
-                  }`}
-                >
-                  {artifact.artifactId.split("/").pop()}
-                </button>
-              ))}
+            <div className="flex items-center gap-1 p-2 border-b border-border overflow-x-auto bg-background/50">
+              {extractedArtifacts.map((artifact) => {
+                const fileName =
+                  artifact.artifactId.split("/").pop() || artifact.artifactId;
+                return (
+                  <button
+                    key={artifact.artifactId}
+                    onClick={() => setSelectedArtifact(artifact)}
+                    className={`px-3 py-1.5 text-sm rounded-md whitespace-nowrap transition-colors ${
+                      selectedArtifact?.artifactId === artifact.artifactId
+                        ? "bg-primary text-primary-foreground"
+                        : "hover:bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    {fileName}
+                  </button>
+                );
+              })}
             </div>
             {/* Selected artifact content */}
             {selectedArtifact && (
@@ -351,22 +355,25 @@ export default function Home() {
         )}
       </div>
 
-      <div className="border-t border-border p-4">
-        <PromptInput onSubmit={handleSubmit} className="mx-auto max-w-3xl">
-          <PromptInputTextarea placeholder="Ask the agent to do something..." />
-          <PromptInputFooter>
-            <PromptInputTools />
-            <PromptInputSubmit
-              status={status}
-              onClick={(e) => {
-                if (status === "streaming") {
-                  e.preventDefault();
-                  stop();
-                }
-              }}
-            />
-          </PromptInputFooter>
-        </PromptInput>
+      <div>
+        {/* Input area */}
+        <div className="p-4">
+          <PromptInput onSubmit={handleSubmit} className="mx-auto max-w-3xl">
+            <PromptInputTextarea placeholder="Ask the agent to do something..." />
+            <PromptInputFooter>
+              <PromptInputTools />
+              <PromptInputSubmit
+                status={status}
+                onClick={(e) => {
+                  if (status === "streaming") {
+                    e.preventDefault();
+                    stop();
+                  }
+                }}
+              />
+            </PromptInputFooter>
+          </PromptInput>
+        </div>
       </div>
     </main>
   );
@@ -429,11 +436,131 @@ function ChatMessage({
             }
             return null;
           })}
-          {/* Render artifacts with tabs if multiple, or single artifact view */}
-          {artifacts.length > 0 && <ArtifactsTabsView artifacts={artifacts} />}
+          {/* Compact Artifacts List in Chat Bubble */}
+          {artifacts.length > 0 && (
+            <div className="mt-3 flex flex-col gap-2">
+              {artifacts.map((artifact) => (
+                <CompactArtifactItem
+                  key={artifact.artifactId}
+                  artifact={artifact}
+                />
+              ))}
+            </div>
+          )}
         </MessageContent>
       </div>
     </Message>
+  );
+}
+
+/**
+ * CompactArtifactItem - A small and beautiful artifact list item for chat bubbles
+ */
+function CompactArtifactItem({
+  artifact,
+  onSelect,
+}: {
+  artifact: ArtifactData;
+  onSelect?: (artifact: ArtifactData) => void;
+}) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const fileName = artifact.artifactId.split("/").pop() || artifact.artifactId;
+  const isMarkdown = artifact.mimeType.includes("markdown");
+
+  const handleCopy = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    await navigator.clipboard.writeText(artifact.content);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleDownload = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const blob = new Blob([artifact.content], { type: artifact.mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${fileName}.${isMarkdown ? "md" : "txt"}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleClick = () => {
+    setIsExpanded(!isExpanded);
+    if (onSelect) {
+      onSelect(artifact);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-1 max-w-2xl">
+      <div
+        className="group flex items-center justify-between p-2 rounded-lg border border-border bg-background/50 hover:bg-accent/50 transition-colors cursor-pointer"
+        onClick={handleClick}
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="flex size-7 items-center justify-center rounded bg-blue-500/10 shrink-0">
+            <FileCode className="size-3.5 text-blue-500" />
+          </div>
+          <div className="flex flex-col min-w-0">
+            <span className="text-xs font-medium text-foreground truncate">
+              {fileName}
+            </span>
+            <span className="text-[10px] text-muted-foreground truncate">
+              {artifact.mimeType}
+            </span>
+          </div>
+        </div>
+        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button
+            onClick={handleCopy}
+            className="p-1 rounded hover:bg-muted transition-colors"
+            title="复制"
+          >
+            {copied ? (
+              <CheckCircle className="size-3 text-green-600" />
+            ) : (
+              <Copy className="size-3 text-muted-foreground" />
+            )}
+          </button>
+          <button
+            onClick={handleDownload}
+            className="p-1 rounded hover:bg-muted transition-colors"
+            title="下载"
+          >
+            <Download className="size-3 text-muted-foreground" />
+          </button>
+          <div className="p-1">
+            <ChevronRight
+              className={`size-3 text-muted-foreground transition-transform ${isExpanded ? "rotate-90" : ""}`}
+            />
+          </div>
+        </div>
+      </div>
+
+      {isExpanded && (
+        <div className="border border-border rounded-lg bg-muted/30 overflow-hidden">
+          <div className="p-3 max-h-[300px] overflow-auto scrollable-content">
+            {isMarkdown ? (
+              <div className="prose prose-sm dark:prose-invert max-w-none">
+                <pre className="whitespace-pre-wrap font-sans text-xs m-0">
+                  {artifact.content}
+                </pre>
+              </div>
+            ) : (
+              <div className="bg-[#0d0d0d] rounded p-2">
+                <pre className="text-[#e6e6e6] font-mono text-[10px] whitespace-pre m-0 block">
+                  {artifact.content}
+                </pre>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -698,224 +825,8 @@ const WriteToolCard = memo(
 );
 
 /**
- * ArtifactsTabsView - Display multiple artifacts with tabs
+ * ArtifactPanel - Full artifact content in right panel
  */
-function ArtifactsTabsView({ artifacts }: { artifacts: ArtifactData[] }) {
-  const [internalSelectedId, setInternalSelectedId] = useState<string | null>(
-    null,
-  );
-  const [expandedArtifactIds, setExpandedArtifactIds] = useState<Set<string>>(
-    new Set(),
-  );
-
-  // Derive the effectively selected ID
-  const selectedArtifactId = useMemo(() => {
-    if (artifacts.length === 0) return null;
-    if (
-      internalSelectedId &&
-      artifacts.some((a) => a.artifactId === internalSelectedId)
-    ) {
-      return internalSelectedId;
-    }
-    return artifacts[0].artifactId;
-  }, [artifacts, internalSelectedId]);
-
-  const toggleExpand = (artifactId: string) => {
-    setExpandedArtifactIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(artifactId)) {
-        next.delete(artifactId);
-      } else {
-        next.add(artifactId);
-      }
-      return next;
-    });
-  };
-
-  // If only one artifact, show it directly without tabs
-  if (artifacts.length === 1) {
-    const artifact = artifacts[0];
-    const isExpanded = expandedArtifactIds.has(artifact.artifactId);
-    return (
-      <div className="mt-4 rounded-lg border border-border bg-muted/50 overflow-hidden">
-        <ArtifactItem
-          artifact={artifact}
-          isExpanded={isExpanded}
-          onToggleExpand={() => toggleExpand(artifact.artifactId)}
-        />
-      </div>
-    );
-  }
-
-  // Multiple artifacts: show tabs
-  return (
-    <div className="mt-4 rounded-lg border border-border bg-muted/50 overflow-hidden">
-      {/* Tabs */}
-      <div className="flex items-center gap-1 p-2 border-b border-border overflow-x-auto bg-background/50">
-        {artifacts.map((artifact) => {
-          const fileName =
-            artifact.artifactId.split("/").pop() || artifact.artifactId;
-          const isSelected = selectedArtifactId === artifact.artifactId;
-          return (
-            <button
-              key={artifact.artifactId}
-              onClick={() => setInternalSelectedId(artifact.artifactId)}
-              className={`px-3 py-1.5 text-sm rounded-md whitespace-nowrap transition-colors ${
-                isSelected
-                  ? "bg-primary text-primary-foreground"
-                  : "hover:bg-muted text-muted-foreground"
-              }`}
-            >
-              {fileName}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Selected artifact content */}
-      {selectedArtifactId && (
-        <div>
-          {artifacts
-            .filter((a) => a.artifactId === selectedArtifactId)
-            .map((artifact) => {
-              const isExpanded = expandedArtifactIds.has(artifact.artifactId);
-              return (
-                <ArtifactItem
-                  key={artifact.artifactId}
-                  artifact={artifact}
-                  isExpanded={isExpanded}
-                  onToggleExpand={() => toggleExpand(artifact.artifactId)}
-                />
-              );
-            })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/**
- * ArtifactItem - Individual artifact item with expandable content
- */
-function ArtifactItem({
-  artifact,
-  isExpanded,
-  onToggleExpand,
-}: {
-  artifact: ArtifactData;
-  isExpanded: boolean;
-  onToggleExpand: () => void;
-}) {
-  const [copied, setCopied] = useState(false);
-  const fileName = artifact.artifactId.split("/").pop() || artifact.artifactId;
-  const isMarkdown = artifact.mimeType.includes("markdown");
-
-  const handleCopy = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    await navigator.clipboard.writeText(artifact.content);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const handleDownload = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    const blob = new Blob([artifact.content], { type: artifact.mimeType });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${fileName}.${isMarkdown ? "md" : "txt"}`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-
-  return (
-    <div>
-      {/* Header */}
-      <div
-        className="flex items-center justify-between p-3 hover:bg-muted/80 transition-colors cursor-pointer"
-        onClick={onToggleExpand}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            onToggleExpand();
-          }
-        }}
-        role="button"
-        tabIndex={0}
-      >
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="flex size-8 items-center justify-center rounded-md bg-blue-500/10 shrink-0">
-            <FileCode className="size-4 text-blue-500" />
-          </div>
-          <div className="text-left min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="font-medium text-foreground text-sm truncate">
-                {fileName}
-              </span>
-            </div>
-            <div className="text-xs text-muted-foreground font-mono truncate">
-              {artifact.artifactId}
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            onClick={handleCopy}
-            className="p-1.5 rounded-md hover:bg-muted transition-colors"
-            title="复制内容"
-          >
-            {copied ? (
-              <CheckCircle className="size-4 text-green-600" />
-            ) : (
-              <Copy className="size-4 text-muted-foreground" />
-            )}
-          </button>
-          <button
-            onClick={handleDownload}
-            className="p-1.5 rounded-md hover:bg-muted transition-colors"
-            title="下载文件"
-          >
-            <Download className="size-4 text-muted-foreground" />
-          </button>
-          <ChevronRight
-            className={`size-4 text-muted-foreground transition-transform ${
-              isExpanded ? "rotate-90" : ""
-            }`}
-          />
-        </div>
-      </div>
-
-      {/* Expandable Content */}
-      {isExpanded && (
-        <div className="border-t border-border">
-          <div className="p-4">
-            {isMarkdown ? (
-              <div
-                className="rounded-md border border-border bg-background p-4 prose prose-sm dark:prose-invert max-w-none scrollable-content overflow-y-auto"
-                style={{ maxHeight: "400px" }}
-              >
-                <pre className="whitespace-pre-wrap font-sans text-sm m-0">
-                  {artifact.content}
-                </pre>
-              </div>
-            ) : (
-              <div
-                className="rounded-md border border-border bg-[#0d0d0d] scrollable-content overflow-auto"
-                style={{ height: "400px", minHeight: "200px" }}
-              >
-                <pre className="p-3 text-xs text-[#e6e6e6] font-mono whitespace-pre m-0 block">
-                  {artifact.content}
-                </pre>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
 
 /**
  * ArtifactBadge - Simple badge shown in message for artifact (legacy, kept for reference)

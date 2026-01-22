@@ -1,483 +1,566 @@
-# Artifact 功能设计文档
+# Artifact 功能完整文档
 
 ## 概述
 
-Artifact 功能允许用户通过 **Artifact Processor** 来处理和获取 Agent 运行过程中产生的数据。Processor 会接收到 AI SDK 的 stream parts，可以基于这些 parts 来提取、处理和返回 artifact 数据。
+Artifact 功能允许 Agent 在运行过程中生成文件（如研究报告、数据分析结果等），并通过流式传输实时显示在前端。系统会自动检测 artifact 文件的变化，并将内容发送到前端进行展示。
 
-## 核心概念
+## 架构设计
 
-### Artifact Processor
+### 核心组件
 
-`ArtifactProcessor` 是一个简单的接口，只需要实现一个 `onChange` 方法：
+1. **TaskDrivenArtifactProcessor** - 后端处理器，负责读取和发送 artifact 数据
+2. **StreamWriter** - 流式写入器，将 artifact 数据写入 AI SDK 的 UI stream
+3. **前端组件** - 接收并展示 `data-artifact` 类型的消息
+
+### 工作流程
+
+```
+Agent 执行 Write Tool
+    ↓
+写入 artifact.json (manifest 文件)
+    ↓
+TaskDrivenArtifactProcessor 检测到 Write tool 结果
+    ↓
+读取 artifact.json 获取文件列表
+    ↓
+读取每个 artifact 文件内容
+    ↓
+通过 StreamWriter 发送 data-artifact 到前端
+    ↓
+前端接收并展示 artifact 内容
+```
+
+## 后端实现
+
+### TaskDrivenArtifactProcessor
+
+`TaskDrivenArtifactProcessor` 是一个事件驱动的处理器，实现了 `ArtifactProcessor` 接口：
 
 ```typescript
-import type { LanguageModelV3StreamPart } from "@ai-sdk/provider";
-
 export interface ArtifactProcessor {
-  /**
-   * 当收到 stream part 时触发
-   * @param part - AI SDK 的 stream part（text-delta, tool-result, finish 等）
-   * @returns 如果返回 ArtifactResult，则会发送 data-artifact part
-   */
   onChange(
     part: LanguageModelV3StreamPart,
-  ): Promise<ArtifactResult | undefined>;
-}
-
-export interface ArtifactResult {
-  artifactId: string;
-  content: string;
-  mimeType?: string;
+    sessionId: string,
+  ): Promise<void>;
 }
 ```
 
-### 工作原理
+#### 核心特性
 
-1. **Stream Processing**: 当 SandAgent 解析 SSE 数据时，会将每个事件转换为 `LanguageModelV3StreamPart`
-2. **Processor Invocation**: 解析完成后，会遍历所有注册的 `artifactProcessors`，对每个 part 调用 `onChange(part)`
-3. **Result Handling**: 如果 processor 返回 `ArtifactResult`，会自动生成 `data-artifact` part 并发送到前端
+1. **智能触发**：只在 `Write` tool 写入 `artifact.json` 时读取 manifest
+2. **队列机制**：使用 Promise 链确保处理顺序，避免并发问题
+3. **内容缓存**：缓存已发送的 artifact 内容，避免重复传输
+4. **Manifest 缓存**：只在 manifest 内容变化时才重新解析
 
-## 使用示例
-
-### 基础示例：Task-Driven Artifact Processor
-
-这是一个实际使用的例子，从 `tasks/{sessionId}/artifact.json` 读取 artifact 文件：
+#### 实现细节
 
 ```typescript
-import { createSandAgent } from "@sandagent/ai-provider";
-import { E2BSandbox } from "@sandagent/sandbox-e2b";
-import type { LanguageModelV3StreamPart, ArtifactProcessor, ArtifactResult } from "@sandagent/ai-provider";
-import type { SandboxAdapter } from "@sandagent/core";
-
-interface ArtifactManifest {
-  artifacts: Array<{
-    id?: string;
-    path: string;
-    mimeType?: string;
-    description?: string;
-  }>;
-}
-
-class TaskDrivenArtifactProcessor implements ArtifactProcessor {
-  private sessionId: string;
-  private sandbox: SandboxAdapter;
-  private workdir: string;
+export class TaskDrivenArtifactProcessor implements ArtifactProcessor {
   private artifactManifest: ArtifactManifest | null = null;
+  private sentArtifacts = new Map<string, string>();
+  private processingQueue: Promise<void> = Promise.resolve();
 
-  constructor(options: { 
-    sessionId: string; 
-    sandbox: SandboxAdapter;
-    workdir?: string;
-  }) {
-    this.sessionId = options.sessionId;
-    this.sandbox = options.sandbox;
-    this.workdir = options.workdir || "/workspace";
-  }
-
-  async onChange(part: LanguageModelV3StreamPart): Promise<ArtifactResult | undefined> {
-    console.log("[ArtifactProcessor] onChange:", part.type);
-
-    // 重新加载 manifest（因为可能有新的 artifact）
-    this.artifactManifest = null;
-    const manifest = await this.loadManifest();
-    
-    if (!manifest.artifacts?.length) {
-      return;
+  onChange(part: LanguageModelV3StreamPart, sessionId: string): Promise<void> {
+    // 1. 检测 Write tool 写入 artifact.json
+    if (
+      part.type === "tool-result" &&
+      part.toolName === "Write" &&
+      part.result?.filePath === `${workdir}/tasks/${sessionId}/artifact.json`
+    ) {
+      // 读取 manifest
+      await this.loadManifest(sessionId);
     }
 
-    const handle = await this.sandbox.attach();
-    const taskDir = `${this.workdir}/tasks/${this.sessionId}`;
+    // 2. 在 tool-input-delta 时处理 artifacts
+    if (part.type === "tool-input-delta") {
+      this.processingQueue = this.processingQueue
+        .then(() => this.processArtifacts())
+        .catch((e) => console.error("Queue error:", e));
+    }
+  }
 
-    // 读取并返回主要 artifact 文件
-    for (const artifact of manifest.artifacts) {
-      try {
-        // 路径相对于 tasks/{sessionId}/ 目录
-        const filePath = artifact.path.startsWith("/")
-          ? artifact.path
-          : `${taskDir}/${artifact.path}`;
-        const content = await handle.readFile(filePath);
-
-        // 优先返回 .md 文件
-        if (artifact.path.endsWith(".md")) {
-          return {
-            artifactId: artifact.id || artifact.path,
-            content,
-            mimeType: artifact.mimeType || "text/markdown",
-          };
-        }
-      } catch (e) {
-        console.log(`[ArtifactProcessor] Failed to read ${artifact.path}:`, e);
+  private async processArtifacts(): Promise<void> {
+    // 读取所有 artifact 文件并发送
+    for (const artifact of this.artifactManifest.artifacts) {
+      const content = await handle.readFile(artifact.path);
+      
+      // 去重：只发送内容变化了的 artifact
+      if (this.sentArtifacts.get(artifactId) !== content) {
+        this.writer.write({
+          type: "data-artifact",
+          id: artifactId,
+          data: { artifactId, content, mimeType },
+        });
+        this.sentArtifacts.set(artifactId, content);
       }
     }
-
-    // 如果没有 md 文件，返回第一个
-    const firstArtifact = manifest.artifacts[0];
-    try {
-      const filePath = firstArtifact.path.startsWith("/")
-        ? firstArtifact.path
-        : `${taskDir}/${firstArtifact.path}`;
-      const content = await handle.readFile(filePath);
-      return {
-        artifactId: firstArtifact.id || firstArtifact.path,
-        content,
-        mimeType: firstArtifact.mimeType || this.getMimeType(firstArtifact.path),
-      };
-    } catch (e) {
-      console.log(`[ArtifactProcessor] Failed to read ${firstArtifact.path}:`, e);
-    }
-  }
-
-  private async loadManifest(): Promise<ArtifactManifest> {
-    if (this.artifactManifest) {
-      return this.artifactManifest;
-    }
-
-    try {
-      const manifestPath = `${this.workdir}/tasks/${this.sessionId}/artifact.json`;
-      const handle = await this.sandbox.attach();
-      const content = await handle.readFile(manifestPath);
-      this.artifactManifest = JSON.parse(content) as ArtifactManifest;
-      return this.artifactManifest;
-    } catch (e) {
-      console.log(
-        `[ArtifactProcessor] No manifest found at tasks/${this.sessionId}/artifact.json`
-      );
-      return { artifacts: [] };
-    }
-  }
-
-  private getMimeType(path: string): string {
-    const ext = path.split(".").pop()?.toLowerCase();
-    const mimeTypes: Record<string, string> = {
-      md: "text/markdown",
-      json: "application/json",
-      txt: "text/plain",
-      html: "text/html",
-      csv: "text/csv",
-      pdf: "application/pdf",
-    };
-    return mimeTypes[ext || ""] || "application/octet-stream";
   }
 }
-
-// 使用
-const sandbox = new E2BSandbox({ apiKey: process.env.E2B_API_KEY! });
-
-const artifactProcessor = new TaskDrivenArtifactProcessor({
-  sessionId: "session-123",
-  sandbox,
-  workdir: "/workspace",
-});
-
-const sandagent = createSandAgent({
-  sandbox,
-  artifactProcessors: [artifactProcessor],
-});
-
-// 使用 AI SDK
-import { streamText } from "ai";
-
-const result = streamText({
-  model: sandagent("sonnet"),
-  prompt: "Generate a report",
-});
 ```
 
-### 文件结构
+#### 性能优化
 
-`TaskDrivenArtifactProcessor` 期望的文件结构：
+1. **Manifest 缓存**：使用 `JSON.stringify` 比较，只在内容变化时更新
+2. **内容去重**：使用 `Map` 缓存已发送内容，避免重复传输
+3. **队列机制**：Promise 链确保顺序执行，避免并发文件 I/O
+4. **智能触发**：只在必要时读取 manifest（Write tool 写入时）
 
+### 在 API Route 中使用
+
+```typescript
+// apps/sandagent-example/app/api/ai/route.ts
+import { TaskDrivenArtifactProcessor } from "@/lib/artifact-processor";
+
+export async function POST(request: Request) {
+  const { sessionId, ... } = await request.json();
+  
+  const stream = createUIMessageStream({
+    execute: async ({ writer }) => {
+      // 创建 artifact processor
+      const artifactProcessor = new TaskDrivenArtifactProcessor({
+        sandbox,
+        workdir: sandbox.getWorkdir?.() || "/sandagent",
+        writer, // StreamWriter 用于写入 data-artifact
+      });
+
+      // 创建 SandAgent provider
+      const sandagent = createSandAgent({
+        sandbox,
+        artifactProcessors: [artifactProcessor],
+      });
+
+      const result = streamText({
+        model: sandagent(model),
+        messages,
+      });
+
+      // 合并流
+      writer.merge(result.toUIMessageStream());
+      await result.response;
+    },
+  });
+
+  return createUIMessageStreamResponse({ stream });
+}
 ```
-/workspace/
-  tasks/
-    {sessionId}/
-      artifact.json          # 清单文件
-      report.md               # artifact 文件
-      data.json               # artifact 文件
-      summary.md              # artifact 文件
-```
 
-`artifact.json` 格式：
+## 文件结构
+
+### Manifest 文件格式
+
+Agent 需要在 `tasks/{sessionId}/artifact.json` 创建 manifest 文件：
 
 ```json
 {
   "artifacts": [
     {
-      "id": "report",
-      "path": "report.md",
+      "id": "marathon-research-report",
+      "path": "tasks/{sessionId}/reports/shenzhen-marathon-2025.md",
       "mimeType": "text/markdown",
-      "description": "Main research report"
+      "description": "2025年深圳马拉松运动会研究报告"
     },
     {
-      "id": "data",
-      "path": "data.json",
-      "mimeType": "application/json",
-      "description": "Research data"
+      "id": "source-notes",
+      "path": "tasks/{sessionId}/notes/sources.md",
+      "mimeType": "text/markdown",
+      "description": "研究资料来源和引用记录"
+    },
+    {
+      "id": "task-summary",
+      "path": "tasks/{sessionId}/summary.md",
+      "mimeType": "text/markdown",
+      "description": "任务总结和关键发现"
     }
   ]
 }
 ```
 
-### 示例：基于 Tool Result 的 Processor
+### 目录结构
 
-```typescript
-class ToolResultProcessor implements ArtifactProcessor {
-  async onChange(part: LanguageModelV3StreamPart): Promise<ArtifactResult | undefined> {
-    // 只处理 tool-result
-    if (part.type !== "tool-result") {
-      return;
-    }
-
-    // 检查是否是特定的 tool
-    if (part.toolName === "web_search") {
-      const searchResults = part.result as { results: Array<{ title: string; url: string }> };
-      
-      // 提取并格式化结果
-      const content = searchResults.results
-        .map(r => `- [${r.title}](${r.url})`)
-        .join("\n");
-
-      return {
-        artifactId: `search-${part.toolCallId}`,
-        content,
-        mimeType: "text/markdown",
-      };
-    }
-  }
-}
+```
+/workspace (或 /sandagent)
+  tasks/
+    {sessionId}/
+      artifact.json          # Manifest 文件（必需）
+      reports/
+        report.md            # Artifact 文件
+      notes/
+        sources.md           # Artifact 文件
+      summary.md             # Artifact 文件
 ```
 
-### 示例：基于 Text Delta 的 Processor
+### Manifest 字段说明
+
+- `id` (可选): Artifact 的唯一标识符，用于前端去重
+- `path` (必需): 文件路径，可以是绝对路径或相对于工作目录的路径
+- `mimeType` (可选): MIME 类型，用于前端渲染（如 `text/markdown`, `application/json`）
+- `description` (可选): 描述信息
+
+## 前端实现
+
+### 接收 data-artifact
+
+前端通过 AI SDK 的 `useChat` hook 接收消息，`data-artifact` 类型的 part 会自动包含在 `message.parts` 中：
 
 ```typescript
-class TextCollectorProcessor implements ArtifactProcessor {
-  private textBuffer: Map<string, string> = new Map();
+import { useChat } from "@ai-sdk/react";
 
-  async onChange(part: LanguageModelV3StreamPart): Promise<ArtifactResult | undefined> {
-    // 收集 text-delta
-    if (part.type === "text-delta") {
-      const existing = this.textBuffer.get(part.id) || "";
-      this.textBuffer.set(part.id, existing + part.delta);
-      return; // 不立即返回，继续收集
-    }
+const { messages } = useChat({
+  transport: new DefaultChatTransport({
+    api: "/api/ai",
+  }),
+});
 
-    // 当 text-end 时返回完整内容
-    if (part.type === "text-end") {
-      const content = this.textBuffer.get(part.id) || "";
-      this.textBuffer.delete(part.id);
-      
-      return {
-        artifactId: `text-${part.id}`,
-        content,
-        mimeType: "text/plain",
-      };
-    }
-  }
-}
+// messages 中的每个 message 包含 parts 数组
+// parts 中可能包含 type === "data-artifact" 的 part
 ```
 
-## Stream Part 类型
+### 提取 Artifacts
 
-Processor 会接收到所有类型的 `LanguageModelV3StreamPart`：
-
-- `text-start` - 文本开始
-- `text-delta` - 文本增量
-- `text-end` - 文本结束
-- `tool-call` - 工具调用
-- `tool-result` - 工具结果
-- `finish` - 完成
-- `error` - 错误
-- `response-metadata` - 响应元数据
-
-Processor 可以根据需要选择处理哪些类型的 parts。`TaskDrivenArtifactProcessor` 会处理所有 parts，每次都会检查 `tasks/{sessionId}/artifact.json` 是否存在并读取最新的 artifact 文件。
-
-## 实现细节
-
-### 在 SandAgentLanguageModel 中的处理
+使用 `useMemo` 从 messages 中提取所有 artifacts，并稳定引用避免无限循环：
 
 ```typescript
-private async parseSSEData(
-  data: string,
-): Promise<LanguageModelV3StreamPart[]> {
-  const parts: LanguageModelV3StreamPart[] = [];
-  const parsed = JSON.parse(data) as Record<string, unknown>;
-
-  // 解析各种事件类型为 stream parts
-  switch (parsed.type) {
-    case "text-delta":
-      parts.push({ type: "text-delta", id: parsed.id, delta: parsed.delta });
-      break;
-    case "tool-result":
-      parts.push({ type: "tool-result", toolCallId: parsed.toolCallId, ... });
-      break;
-    // ... 其他类型
-  }
-
-  // 调用所有 artifact processors
-  if (this.options.artifactProcessors?.length) {
-    for (const processor of this.options.artifactProcessors) {
-      for (const part of parts) {
-        const artifactResult = await processor.onChange(part);
-        if (artifactResult) {
-          // 添加 data-artifact part 到 stream
-          parts.push({
-            type: "data-artifact",
-            data: {
-              artifactId: artifactResult.artifactId,
-              content: artifactResult.content,
-              mimeType: artifactResult.mimeType ?? "text/plain",
-            },
-          } as unknown as LanguageModelV3StreamPart);
+const prevArtifactsRef = useRef<ArtifactData[]>([]);
+const extractedArtifacts = useMemo(() => {
+  const results: ArtifactData[] = [];
+  for (const message of messages) {
+    for (const part of message.parts) {
+      if (part.type === "data-artifact") {
+        const data = part.data as ArtifactData;
+        // 去重：同一个 artifactId 只保留一个
+        if (!results.some((a) => a.artifactId === data.artifactId)) {
+          results.push(data);
         }
       }
     }
   }
 
-  return parts;
-}
-```
-
-### 配置方式
-
-```typescript
-const sandagent = createSandAgent({
-  sandbox: new E2BSandbox({ apiKey: "..." }),
-  artifactProcessors: [
-    new TaskDrivenArtifactProcessor({ 
-      sessionId: "session-123",
-      sandbox,
-      workdir: "/workspace",
-    }),
-    new ToolResultProcessor(),
-    // ... 可以注册多个 processors
-  ],
-});
-```
-
-## 最佳实践
-
-1. **选择性处理**: 在 `onChange` 中检查 part 类型，只处理相关的 parts（可选）
-2. **异步操作**: Processor 可以执行异步操作（如读取文件、调用 API）
-3. **错误处理**: 在 processor 内部处理错误，避免影响主流程
-4. **状态管理**: 如果需要跨 part 收集数据，可以在 processor 内部维护状态
-5. **Manifest 缓存**: `TaskDrivenArtifactProcessor` 会在每次 `onChange` 时重新加载 manifest，确保获取最新的 artifact 文件
-
-## 前端显示 Artifact Data
-
-当 processor 返回 `ArtifactResult` 时，会自动生成 `data-artifact` part 并发送到前端。
-
-### 在前端接收和显示
-
-```typescript
-// 在 message.parts 中检查 data-artifact part
-{message.parts.map((part, i) => {
-  if (part.type === "data-artifact") {
-    const data = part.data as {
-      artifactId: string;
-      content: string;
-      mimeType: string;
-    };
-    return (
-      <ArtifactView
-        key={i}
-        artifactId={data.artifactId}
-        content={data.content}
-        mimeType={data.mimeType}
-      />
-    );
+  // 稳定引用：如果内容相同，返回之前的引用
+  const prev = prevArtifactsRef.current;
+  if (
+    prev.length === results.length &&
+    prev.every((prevArt, idx) => {
+      const currArt = results[idx];
+      return (
+        prevArt.artifactId === currArt.artifactId &&
+        prevArt.content === currArt.content &&
+        prevArt.mimeType === currArt.mimeType
+      );
+    })
+  ) {
+    return prev; // 返回旧引用，避免触发 useEffect
   }
-  // ... 其他 part 类型
-})}
+
+  prevArtifactsRef.current = results;
+  return results;
+}, [messages]);
 ```
 
-### ArtifactView 组件示例
+### 显示 Artifacts
+
+#### 单个 Artifact
+
+如果只有一个 artifact，直接显示：
 
 ```typescript
-function ArtifactView({
-  artifactId,
-  content,
-  mimeType,
-}: {
-  artifactId: string;
-  content: string;
-  mimeType: string;
-}) {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [copied, setCopied] = useState(false);
+{artifacts.length === 1 && (
+  <ArtifactItem
+    artifact={artifacts[0]}
+    isExpanded={isExpanded}
+    onToggleExpand={() => toggleExpand(artifacts[0].artifactId)}
+  />
+)}
+```
 
-  const handleCopy = async () => {
-    await navigator.clipboard.writeText(content);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
+#### 多个 Artifacts（Tab 视图）
 
-  const handleDownload = () => {
-    const blob = new Blob([content], { type: mimeType });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${artifactId}.${mimeType.includes("markdown") ? "md" : "txt"}`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
+如果有多个 artifacts，使用 Tab 切换：
 
-  const isMarkdown = mimeType.includes("markdown");
-  const previewLength = 500;
-  const needsTruncation = content.length > previewLength;
+```typescript
+function ArtifactsTabsView({ artifacts }: { artifacts: ArtifactData[] }) {
+  const [selectedArtifactId, setSelectedArtifactId] = useState<string | null>(null);
+  const [expandedArtifactIds, setExpandedArtifactIds] = useState<Set<string>>(new Set());
 
   return (
-    <div className="artifact-container">
-      <div className="artifact-header">
-        <div>
-          <span>{artifactId}</span>
-          <span>({mimeType})</span>
-        </div>
-        <div>
-          <button onClick={handleCopy}>
-            {copied ? "Copied!" : "Copy"}
+    <div>
+      {/* Tabs */}
+      <div className="flex gap-1 border-b">
+        {artifacts.map((artifact) => (
+          <button
+            key={artifact.artifactId}
+            onClick={() => setSelectedArtifactId(artifact.artifactId)}
+            className={selectedArtifactId === artifact.artifactId ? "active" : ""}
+          >
+            {artifact.artifactId.split("/").pop()}
           </button>
-          <button onClick={handleDownload}>Download</button>
-          {needsTruncation && (
-            <button onClick={() => setIsExpanded(!isExpanded)}>
-              {isExpanded ? "Show Less" : "Show More"}
-            </button>
-          )}
-        </div>
+        ))}
       </div>
-      <div className="artifact-content">
-        {isMarkdown ? (
-          <MarkdownRenderer content={content} />
-        ) : (
-          <pre>{isExpanded || !needsTruncation ? content : `${content.slice(0, previewLength)}...`}</pre>
-        )}
-      </div>
+
+      {/* Selected artifact content */}
+      {selectedArtifactId && (
+        <ArtifactItem
+          artifact={artifacts.find(a => a.artifactId === selectedArtifactId)!}
+          isExpanded={expandedArtifactIds.has(selectedArtifactId)}
+          onToggleExpand={() => toggleExpand(selectedArtifactId)}
+        />
+      )}
     </div>
   );
 }
 ```
 
-### 功能特性
+### ArtifactItem 组件
 
-- **自动显示**: 当 processor 返回结果时，自动在消息流中显示
-- **内容预览**: 支持 Markdown 渲染和代码高亮
-- **下载/复制**: 提供下载和复制功能
-- **类型识别**: 根据 mimeType 自动选择合适的显示方式
-- **长内容处理**: 支持展开/收起长内容
+`ArtifactItem` 组件负责显示单个 artifact 的内容：
 
-## TaskDrivenArtifactProcessor 工作流程
+```typescript
+function ArtifactItem({
+  artifact,
+  isExpanded,
+  onToggleExpand,
+}: {
+  artifact: ArtifactData;
+  isExpanded: boolean;
+  onToggleExpand: () => void;
+}) {
+  const isMarkdown = artifact.mimeType.includes("markdown");
 
-1. **初始化**: 传入 `sessionId`、`sandbox` 和 `workdir`
-2. **onChange 触发**: 当收到任何 stream part 时触发
-3. **检查 Manifest**: 检查 `tasks/{sessionId}/artifact.json` 是否存在
-4. **读取文件**: 如果存在，读取 artifact 文件列表
-5. **读取内容**: 从 `tasks/{sessionId}/` 目录读取 artifact 文件内容
-6. **返回结果**: 优先返回 `.md` 文件，否则返回第一个文件
+  return (
+    <div>
+      {/* Header with expand/collapse */}
+      <div onClick={onToggleExpand}>
+        <FileCode />
+        <span>{artifact.artifactId.split("/").pop()}</span>
+        <ChevronRight className={isExpanded ? "rotate-90" : ""} />
+      </div>
+
+      {/* Expandable content */}
+      {isExpanded && (
+        <div>
+          {isMarkdown ? (
+            <div className="prose">
+              <pre>{artifact.content}</pre>
+            </div>
+          ) : (
+            <div className="bg-[#0d0d0d] overflow-auto" style={{ height: "400px" }}>
+              <pre className="text-[#e6e6e6] font-mono text-xs">
+                {artifact.content}
+              </pre>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+### 在 ChatMessage 中使用
+
+在 `ChatMessage` 组件中，收集所有 `data-artifact` parts 并传递给 `ArtifactsTabsView`：
+
+```typescript
+function ChatMessage({ message }: { message: UIMessage }) {
+  // 收集 artifacts
+  const artifacts: ArtifactData[] = [];
+  const otherParts = [];
+
+  message.parts.forEach((part) => {
+    if (part.type === "data-artifact") {
+      artifacts.push(part.data as ArtifactData);
+    } else {
+      otherParts.push(part);
+    }
+  });
+
+  return (
+    <Message>
+      {/* 显示其他 parts（文本、工具等） */}
+      {otherParts.map((part, i) => (
+        <div key={i}>
+          {part.type === "text" && <MessageResponse>{part.text}</MessageResponse>}
+          {part.type === "dynamic-tool" && <DynamicToolUI part={part} />}
+        </div>
+      ))}
+
+      {/* 显示 artifacts */}
+      {artifacts.length > 0 && <ArtifactsTabsView artifacts={artifacts} />}
+    </Message>
+  );
+}
+```
+
+## 性能优化
+
+### 后端优化
+
+1. **Manifest 缓存**：只在内容变化时重新解析
+2. **内容去重**：使用 `Map` 缓存已发送内容
+3. **队列机制**：Promise 链确保顺序执行
+4. **智能触发**：只在 Write tool 写入 artifact.json 时读取
+
+### 前端优化
+
+1. **引用稳定**：使用 `useMemo` 和 `useRef` 稳定 `extractedArtifacts` 引用
+2. **深度比较**：比较内容而非引用，避免不必要的更新
+3. **组件记忆化**：使用 `React.memo` 包装 `WriteToolCard` 等组件
+4. **按需渲染**：使用展开/收起控制内容显示
+
+## 使用示例
+
+### Agent 端（Python/Shell）
+
+Agent 需要创建 manifest 文件和 artifact 文件：
+
+```python
+# 1. 创建 artifact 文件
+with open("tasks/{session_id}/reports/report.md", "w") as f:
+    f.write("# Research Report\n\n...")
+
+# 2. 创建 manifest 文件
+manifest = {
+    "artifacts": [
+        {
+            "id": "report",
+            "path": "tasks/{session_id}/reports/report.md",
+            "mimeType": "text/markdown",
+            "description": "Main research report"
+        }
+    ]
+}
+
+with open("tasks/{session_id}/artifact.json", "w") as f:
+    json.dump(manifest, f, indent=2)
+```
+
+### 前端端（React）
+
+前端会自动接收并显示 artifacts：
+
+```typescript
+// 无需额外配置，useChat 会自动处理 data-artifact parts
+const { messages } = useChat({
+  transport: new DefaultChatTransport({
+    api: "/api/ai",
+  }),
+});
+
+// 在组件中提取并显示
+const artifacts = useMemo(() => {
+  const results = [];
+  for (const message of messages) {
+    for (const part of message.parts) {
+      if (part.type === "data-artifact") {
+        results.push(part.data);
+      }
+    }
+  }
+  return results;
+}, [messages]);
+
+return (
+  <div>
+    {artifacts.map(artifact => (
+      <ArtifactView key={artifact.artifactId} artifact={artifact} />
+    ))}
+  </div>
+);
+```
+
+## 故障排查
+
+### 问题：Artifact 没有显示
+
+1. **检查 manifest 文件**：确认 `tasks/{sessionId}/artifact.json` 存在且格式正确
+2. **检查文件路径**：确认 artifact 文件路径正确且文件存在
+3. **检查 Write tool**：确认 Write tool 成功写入 artifact.json
+4. **检查控制台**：查看后端日志，确认 processor 是否被触发
+
+### 问题：无限循环（Maximum update depth exceeded）
+
+1. **检查引用稳定性**：确保 `extractedArtifacts` 使用 `useMemo` 和深度比较
+2. **检查 useEffect 依赖**：确保依赖项稳定，避免循环更新
+3. **使用 React.memo**：包装可能频繁更新的组件
+
+### 问题：Artifact 内容重复发送
+
+1. **检查去重逻辑**：确认 `sentArtifacts` Map 正常工作
+2. **检查内容比较**：确认内容比较逻辑正确
+
+## 最佳实践
+
+1. **Manifest 更新**：只在 artifact 文件变化时更新 manifest
+2. **文件路径**：使用相对路径或一致的绝对路径格式
+3. **MIME 类型**：正确设置 mimeType，便于前端渲染
+4. **ID 唯一性**：确保 artifact id 唯一，避免前端去重问题
+5. **错误处理**：在 processor 中处理文件读取错误，避免影响主流程
 
 ## 未来扩展
 
-- **批量处理**: 支持批量处理多个 parts
-- **生命周期钩子**: 添加 `onStart`、`onFinish` 等生命周期方法
-- **实时更新**: 支持流式更新 artifact 内容（打字机效果）
-- **文件监听**: 支持文件系统监听，自动检测 artifact 文件变化
+- [ ] 支持流式更新 artifact 内容（打字机效果）
+- [ ] 支持文件系统监听，自动检测 artifact 文件变化
+- [ ] 支持批量处理多个 parts
+- [ ] 添加生命周期钩子（onStart、onFinish）
+- [ ] 支持 artifact 版本管理
+
+## 相关文档
+
+- [架构设计文档](../docs/ARCHITECTURE_REFACTORING.md) - 了解 SandAgent 整体架构
+- [API 参考](../spec/API_REFERENCE.md) - API 接口文档
+- [快速开始](../spec/QUICK_START.md) - 快速上手指南
+- [Write Tool UI](../docs/WRITE_TOOL_UI.md) - Write Tool 前端 UI 实现
+
+## 代码位置
+
+- **后端 Processor**: `apps/sandagent-example/lib/artifact-processor.ts`
+- **前端组件**: `apps/sandagent-example/app/page.tsx` (ArtifactsTabsView, ArtifactItem)
+- **API Route**: `apps/sandagent-example/app/api/ai/route.ts`
+- **类型定义**: `packages/ai-provider/src/types.ts`
+
+## 技术细节
+
+### StreamWriter 接口
+
+`StreamWriter` 是 AI SDK 提供的接口，用于写入自定义的 stream parts：
+
+```typescript
+interface StreamWriter {
+  write(part: UIMessageChunk): void;
+  merge(stream: ReadableStream<UIMessageChunk>): void;
+}
+```
+
+### data-artifact Part 结构
+
+```typescript
+{
+  type: "data-artifact",
+  id: string,  // 唯一标识符
+  data: {
+    artifactId: string,
+    content: string,
+    mimeType: string,
+  }
+}
+```
+
+### ArtifactData 类型
+
+```typescript
+interface ArtifactData {
+  artifactId: string;
+  content: string;
+  mimeType: string;
+}
+```
+
+## 总结
+
+Artifact 功能提供了一个完整的机制，让 Agent 可以生成文件并通过流式传输实时显示在前端。核心设计包括：
+
+1. **事件驱动**：基于 stream parts 触发处理
+2. **性能优化**：缓存、去重、队列机制
+3. **前端集成**：无缝集成到 AI SDK 的消息流中
+4. **易于使用**：Agent 只需创建 manifest 文件即可
+
+通过这个功能，用户可以实时查看 Agent 生成的研究报告、数据分析结果等文件，大大提升了交互体验。
