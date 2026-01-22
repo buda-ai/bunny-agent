@@ -24,7 +24,6 @@ describe("manager-cli Integration Tests", () => {
       });
 
       const agent = new SandAgent({
-        sandboxId: "test-session-1",
         sandbox,
         runner: {
           kind: "claude-agent-sdk",

@@ -67,9 +67,7 @@ describe("ai-provider Integration Tests", () => {
         verbose: false,
       });
 
-      const model = sandagent("sonnet", {
-        sandboxId: "test-session-stream",
-      });
+      const model = sandagent("sonnet");
 
       expect(model).toBeDefined();
 
@@ -121,7 +119,6 @@ describe("ai-provider Integration Tests", () => {
       });
 
       const model = sandagent("sonnet", {
-        sandboxId: "custom-session",
         template: "coder",
         maxTurns: 10,
       });
@@ -148,9 +145,7 @@ describe("ai-provider with AI SDK streamText (requires API key)", () => {
         verbose: false,
       });
 
-      const model = sandagent("sonnet", {
-        sandboxId: `test-${Date.now()}`,
-      });
+      const model = sandagent("sonnet");
 
       const result = await streamText({
         model,
