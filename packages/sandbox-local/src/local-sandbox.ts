@@ -103,6 +103,13 @@ class LocalSandboxHandle implements SandboxHandle {
     this.env = env;
   }
 
+  /**
+   * Get the working directory for this sandbox handle
+   */
+  getWorkdir(): string {
+    return this.workDir;
+  }
+
   async *exec(
     command: string[],
     opts: ExecOptions = {},

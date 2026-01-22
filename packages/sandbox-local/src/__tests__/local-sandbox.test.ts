@@ -226,7 +226,7 @@ describe("LocalSandbox", () => {
 
   describe("SandboxHandle.upload", () => {
     it("should upload a single file", async () => {
-      const sandbox = new LocalSandbox({ baseDir: tempDir });
+      const sandbox = new LocalSandbox({ baseDir: tempDir, isolate: false });
       const handle = await sandbox.attach();
 
       await handle.upload(
@@ -235,7 +235,7 @@ describe("LocalSandbox", () => {
       );
 
       // Verify the file was created
-      const filePath = path.join(tempDir, "upload-test-1", "test.txt");
+      const filePath = path.join(tempDir, "test.txt");
       const content = await fs.readFile(filePath, "utf-8");
       expect(content).toBe("Hello, World!");
 
@@ -243,7 +243,7 @@ describe("LocalSandbox", () => {
     });
 
     it("should upload multiple files", async () => {
-      const sandbox = new LocalSandbox({ baseDir: tempDir });
+      const sandbox = new LocalSandbox({ baseDir: tempDir, isolate: false });
       const handle = await sandbox.attach();
 
       await handle.upload(
@@ -256,7 +256,7 @@ describe("LocalSandbox", () => {
       );
 
       // Verify all files were created
-      const uploadsDir = path.join(tempDir, "upload-test-2", "uploads");
+      const uploadsDir = path.join(tempDir, "uploads");
       const files = await fs.readdir(uploadsDir);
       expect(files).toContain("file1.txt");
       expect(files).toContain("file2.txt");
@@ -266,7 +266,7 @@ describe("LocalSandbox", () => {
     });
 
     it("should upload binary content", async () => {
-      const sandbox = new LocalSandbox({ baseDir: tempDir });
+      const sandbox = new LocalSandbox({ baseDir: tempDir, isolate: false });
       const handle = await sandbox.attach();
 
       const binaryData = new Uint8Array([0x48, 0x65, 0x6c, 0x6c, 0x6f]); // "Hello"
@@ -274,7 +274,7 @@ describe("LocalSandbox", () => {
       await handle.upload([{ path: "binary.dat", content: binaryData }], ".");
 
       // Verify the binary file
-      const filePath = path.join(tempDir, "upload-test-3", "binary.dat");
+      const filePath = path.join(tempDir, "binary.dat");
       const content = await fs.readFile(filePath);
       expect(content).toEqual(Buffer.from(binaryData));
 
@@ -282,7 +282,7 @@ describe("LocalSandbox", () => {
     });
 
     it("should create nested directories", async () => {
-      const sandbox = new LocalSandbox({ baseDir: tempDir });
+      const sandbox = new LocalSandbox({ baseDir: tempDir, isolate: false });
       const handle = await sandbox.attach();
 
       await handle.upload(
@@ -291,11 +291,7 @@ describe("LocalSandbox", () => {
       );
 
       // Verify nested file
-      const filePath = path.join(
-        tempDir,
-        "upload-test-4",
-        "deep/nested/dir/file.txt",
-      );
+      const filePath = path.join(tempDir, "deep/nested/dir/file.txt");
       const content = await fs.readFile(filePath, "utf-8");
       expect(content).toBe("Nested content");
 
@@ -303,7 +299,7 @@ describe("LocalSandbox", () => {
     });
 
     it("should upload to custom target directory", async () => {
-      const sandbox = new LocalSandbox({ baseDir: tempDir });
+      const sandbox = new LocalSandbox({ baseDir: tempDir, isolate: false });
       const handle = await sandbox.attach();
 
       await handle.upload(
@@ -312,11 +308,7 @@ describe("LocalSandbox", () => {
       );
 
       // Verify file in custom location
-      const filePath = path.join(
-        tempDir,
-        "upload-test-5",
-        "custom/target/file.txt",
-      );
+      const filePath = path.join(tempDir, "custom/target/file.txt");
       const content = await fs.readFile(filePath, "utf-8");
       expect(content).toBe("Custom target");
 
@@ -333,16 +325,19 @@ describe("LocalSandbox", () => {
     });
 
     it("should not delete the working directory by default", async () => {
-      const sandbox = new LocalSandbox({ baseDir: tempDir });
+      const sandbox = new LocalSandbox({ baseDir: tempDir, isolate: false });
       const handle = await sandbox.attach();
 
       await handle.upload([{ path: "file.txt", content: "Test" }], ".");
       await handle.destroy();
 
       // Directory should still exist
-      const workDir = path.join(tempDir, "destroy-test-2");
-      const stat = await fs.stat(workDir);
+      const stat = await fs.stat(tempDir);
       expect(stat.isDirectory()).toBe(true);
+      // File should still exist
+      const filePath = path.join(tempDir, "file.txt");
+      const fileStat = await fs.stat(filePath);
+      expect(fileStat.isFile()).toBe(true);
     });
   });
 
