@@ -30,3 +30,27 @@
   animation: bounce-attention 0.6s ease-in-out, border-pulse 2s ease-in-out infinite;
   border-color: hsl(var(--primary)) !important;
 }
+
+/* Ensure scrollbars are visible */
+.scrollable-content {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--muted-foreground)) hsl(var(--muted));
+}
+
+.scrollable-content::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.scrollable-content::-webkit-scrollbar-track {
+  background: hsl(var(--muted));
+}
+
+.scrollable-content::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--muted-foreground));
+  border-radius: 4px;
+}
+
+.scrollable-content::-webkit-scrollbar-thumb:hover {
+  background-color: hsl(var(--foreground) / 0.5);
+}

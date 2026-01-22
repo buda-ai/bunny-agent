@@ -122,6 +122,9 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
 
   private readonly options: SandAgentProviderSettings & { runner: RunnerSpec };
   private readonly logger: Logger;
+  private sessionId: string | undefined;
+
+  private toolNameMap: Map<string, string> = new Map();
 
   constructor(modelOptions: SandAgentLanguageModelOptions) {
     this.modelId = resolveModelId(modelOptions.id);
@@ -323,6 +326,23 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
                     const parts = self.parseSSEData(data);
                     for (const part of parts) {
                       controller.enqueue(part);
+
+                      // Process artifact processors asynchronously
+                      if (
+                        self.options.artifactProcessors?.length &&
+                        self.sessionId
+                      ) {
+                        for (const processor of self.options
+                          .artifactProcessors) {
+                          processor
+                            .onChange(part, self.sessionId)
+                            .catch((e) => {
+                              self.logger.error(
+                                `[sandagent] Artifact processor error: ${e}`,
+                              );
+                            });
+                        }
+                      }
                     }
                   } catch (e) {
                     self.logger.error(
@@ -394,8 +414,6 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
     const parts: LanguageModelV3StreamPart[] = [];
     const parsed = JSON.parse(data) as Record<string, unknown>;
 
-    console.log("parsed", JSON.stringify(parsed, null, 2));
-
     switch (parsed.type) {
       case "start": {
         // Session started
@@ -405,12 +423,26 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
       case "message-metadata": {
         // Emit response metadata
         const metadata = parsed.messageMetadata as Record<string, unknown>;
-        parts.push({
-          type: "response-metadata",
-          id: generateId(),
-          modelId: (metadata?.model as string) ?? this.modelId,
-          timestamp: new Date(),
-        });
+        // Extract and store sessionId (taskId)
+        if (metadata?.sessionId && typeof metadata.sessionId === "string") {
+          this.sessionId = metadata.sessionId;
+          this.logger.debug(
+            `[sandagent] Session ID extracted: ${this.sessionId}`,
+          );
+        }
+        // parts.push({
+        //   type: "raw",
+        //   rawValue: {
+        //     type: "message-metadata",
+        //     data: metadata,
+        //   },
+        // });
+        // parts.push({
+        //   type: "response-metadata",
+        //   id: generateId(),
+        //   modelId: (metadata?.model as string) ?? this.modelId,
+        //   timestamp: new Date(),
+        // });
         break;
       }
 
@@ -462,7 +494,7 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
         const toolCallId = parsed.toolCallId as string;
         const toolName = parsed.toolName as string;
         const input = parsed.input as Record<string, unknown>;
-
+        this.toolNameMap.set(toolCallId, toolName);
         parts.push({
           type: "tool-call",
           toolCallId,
@@ -475,10 +507,11 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
       }
 
       case "tool-output-available": {
+        const toolName = this.toolNameMap.get(parsed.toolCallId as string);
         parts.push({
           type: "tool-result",
           toolCallId: parsed.toolCallId as string,
-          toolName: parsed.toolName as string,
+          toolName: toolName ?? "",
           result: parsed.output as NonNullable<JSONValue>,
           isError: parsed.isError as boolean,
           dynamic: parsed.dynamic as boolean,

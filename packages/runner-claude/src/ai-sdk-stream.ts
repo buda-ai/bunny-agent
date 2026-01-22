@@ -10,6 +10,8 @@
  */
 
 import { privateDecrypt } from "crypto";
+import { writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import type {
   SDKAssistantMessage,
   SDKMessage,
@@ -213,35 +215,45 @@ export function convertUsageToAISDK(usage: ClaudeCodeUsage): AISDKUsage {
 }
 
 /**
+ * Finish reason type
+ *
+ * Can be one of the following:
+- `stop`: model generated stop sequence
+- `length`: model generated maximum number of tokens
+- `content-filter`: content filter violation stopped the model
+- `tool-calls`: model triggered tool calls
+- `error`: model stopped because of an error
+- `other`: model stopped for other reasons
+*/
+type FinishReason =
+  | "stop"
+  | "length"
+  | "content-filter"
+  | "tool-calls"
+  | "error"
+  | "other";
+
+/**
  * Maps Claude Agent SDK result subtypes to AI SDK finish reasons
  */
 export function mapFinishReason(
   subtype?: string,
   isError?: boolean,
-): {
-  unified:
-    | "stop"
-    | "length"
-    | "content-filter"
-    | "tool-calls"
-    | "error"
-    | "other";
-  raw: string | undefined;
-} {
-  if (isError) return { unified: "error", raw: subtype ?? "error" };
+): FinishReason {
+  if (isError) return "error";
 
   switch (subtype) {
     case "success":
-      return { unified: "stop", raw: subtype };
+      return "stop";
     case "error_max_turns":
-      return { unified: "length", raw: subtype };
+      return "length";
     case "error_during_execution":
     case "error_max_structured_output_retries":
-      return { unified: "error", raw: subtype };
+      return "error";
     case undefined:
-      return { unified: "stop", raw: undefined };
+      return "stop";
     default:
-      return { unified: "other", raw: subtype };
+      return "other";
   }
 }
 
@@ -413,7 +425,6 @@ export class AISDKStreamConverter {
     // Collect messages for debugging
     const debugMessages: unknown[] = [];
     const debugFile = `ai-sdk-stream-debug-${Date.now()}.json`;
-    let finishEmitted = false;
 
     try {
       for await (const message of messageIterator) {
@@ -433,6 +444,16 @@ export class AISDKStreamConverter {
           if (event.type === "message_start" && !this.hasEmittedStart) {
             this.hasEmittedStart = true;
             yield this.emit({ type: "start", messageId: event.message.id });
+            yield this.emit({
+              type: "message-metadata",
+              messageMetadata: {
+                tools: this.systemMessage?.tools,
+                model: this.systemMessage?.model,
+                sessionId: this.systemMessage?.session_id,
+                agents: this.systemMessage?.agents,
+                skills: this.systemMessage?.skills,
+              },
+            });
           }
           yield* this.emitTextBlockEvent(event);
           yield* this.emitToolCall(streamEvent);
@@ -517,24 +538,19 @@ export class AISDKStreamConverter {
         if (message.type === "result") {
           const resultMsg = message as SDKResultMessage;
           console.error(
-            `[AISDKStream] Processing result message, usage:`,
-            JSON.stringify(resultMsg.usage, null, 2),
+            `[AISDKStream] Processing result message:`,
+            JSON.stringify(resultMsg, null, 2),
           );
-          finishEmitted = true;
-          const finishEvent = {
+          yield this.emit({
             type: "finish",
             finishReason: mapFinishReason(
               resultMsg.subtype,
               resultMsg.is_error,
             ),
-            usage: convertUsageToAISDK(resultMsg.usage),
-          };
-          console.error(
-            `[AISDKStream] Emitting finish event:`,
-            JSON.stringify(finishEvent, null, 2),
-          );
-          yield this.emit(finishEvent);
-          console.error(`[AISDKStream] Finish event emitted`);
+            messageMetadata: {
+              usage: convertUsageToAISDK(resultMsg.usage ?? {}),
+            },
+          });
         }
 
         // // Process result message
@@ -616,6 +632,25 @@ export class AISDKStreamConverter {
       //   });
       // }
     } finally {
+      // Write debug messages to file
+      if (debugMessages.length > 0) {
+        try {
+          const debugPath = join(process.cwd(), debugFile);
+          await writeFile(
+            debugPath,
+            JSON.stringify(debugMessages, null, 2),
+            "utf-8",
+          );
+          console.error(
+            `[AISDKStream] Debug messages written to: ${debugPath}`,
+          );
+        } catch (writeError) {
+          console.error(
+            `[AISDKStream] Failed to write debug file:`,
+            writeError,
+          );
+        }
+      }
       options?.onCleanup?.();
       yield `data: [DONE]\n\n`;
     }

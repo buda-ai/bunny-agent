@@ -75,6 +75,10 @@ export type {
   SandAgentProviderSettings,
   SandAgentModelId,
   Logger,
+  // Artifact processor types
+  ArtifactProcessor,
+  ArtifactResult,
+  StreamWriter,
 } from "./types.js";
 
 /**
@@ -92,3 +96,9 @@ export type {
   TranscriptEntry,
   Message,
 } from "@sandagent/manager";
+
+/**
+ * Re-exports from @ai-sdk/provider for convenience.
+ * These allow users to access AI SDK types without additional imports.
+ */
+export type { LanguageModelV3StreamPart } from "@ai-sdk/provider";

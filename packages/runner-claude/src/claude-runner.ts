@@ -230,7 +230,11 @@ export function createClaudeRunner(options: ClaudeRunnerOptions): ClaudeRunner {
             "2. Install the SDK: npm install @anthropic-ai/claude-agent-sdk",
         );
 
-        yield* runMockAgent(options, userInput);
+        yield* runMockAgent(
+          options,
+          userInput,
+          options.abortController?.signal,
+        );
         return;
       }
 
@@ -246,7 +250,11 @@ export function createClaudeRunner(options: ClaudeRunnerOptions): ClaudeRunner {
           "[SandAgent] Warning: @anthropic-ai/claude-agent-sdk not installed. Using mock response.\n" +
             "Install the SDK: npm install @anthropic-ai/claude-agent-sdk",
         );
-        yield* runMockAgent(options, userInput);
+        yield* runMockAgent(
+          options,
+          userInput,
+          options.abortController?.signal,
+        );
       }
     },
   };

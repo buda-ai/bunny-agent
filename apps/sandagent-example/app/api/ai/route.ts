@@ -1,10 +1,14 @@
 import path from "node:path";
-import { createSandAgent } from "@sandagent/ai-provider";
-import { SandAgent } from "@sandagent/manager";
+import { TaskDrivenArtifactProcessor } from "@/lib/artifact-processor";
+import {
+  type SandAgentProviderSettings,
+  createSandAgent,
+} from "@sandagent/ai-provider";
 import { DaytonaSandbox } from "@sandagent/sandbox-daytona";
 import { E2BSandbox } from "@sandagent/sandbox-e2b";
 import { SandockSandbox } from "@sandagent/sandbox-sandock";
 import {
+  type ModelMessage,
   type UIMessage,
   type UIMessageChunk,
   createUIMessageStream,
@@ -240,48 +244,39 @@ export async function POST(request: Request) {
     ? "claude-sonnet-4-20250514" // Standard Anthropic model ID
     : "us.anthropic.claude-sonnet-4-20250514-v1:0"; // AWS Bedrock model ID
 
-  // Create the provider with a sandbox adapter
-  // env, template, and workdir are now configured in sandbox
-  const sandagent = createSandAgent({
-    sandbox,
-    cwd: "/sandagent",
-    verbose: true,
+  // Streaming - use createUIMessageStream to handle artifact data
+  const stream = createUIMessageStream({
+    execute: async ({ writer }) => {
+      // Create artifact processor
+      const artifactProcessor = new TaskDrivenArtifactProcessor({
+        sandbox,
+        workdir: sandbox.getWorkdir?.() || "/sandagent",
+        writer,
+      });
+
+      // Create the provider with sandbox, artifact processor, and writer
+      const sandagentOptions: SandAgentProviderSettings = {
+        sandbox,
+        cwd: "/sandagent",
+        verbose: true,
+        sandboxId: sandboxName,
+        artifactProcessors: [artifactProcessor],
+      };
+      const sandagent = createSandAgent(sandagentOptions);
+
+      const result = streamText({
+        model: sandagent(model),
+        messages: normalizedMessages,
+        abortSignal: signal,
+      });
+
+      // Merge the AI text stream and wait for completion
+      writer.merge(result.toUIMessageStream({ sendSources: true }));
+      await result.response;
+
+      console.log("[Stream] Finished");
+    },
   });
-  // Streaming works too
-  const result = streamText({
-    model: sandagent(model),
-    messages: normalizedMessages,
-    abortSignal: signal,
-  });
-  return result.toUIMessageStreamResponse();
 
-  // const agent = new SandAgent({
-  //   sandbox,
-  //   runner: {
-  //     kind: "claude-agent-sdk",
-  //     model,
-  //     approvalDir: "/sandagent/approvals",
-  //   },
-  //   // Pass environment variables to the sandbox
-  //   // Prioritize ANTHROPIC_API_KEY over AWS_BEARER_TOKEN_BEDROCK
-  //   env: env,
-  // });
-
-  // const sseStream = await agent.stream({
-  //   messages: normalizedMessages,
-  //   workspace: { path: sandbox.getWorkdir() }, // Use the same workdir where templates are uploaded
-  //   resume,
-  //   signal: abortController.signal, // Use our own signal for graceful shutdown
-  // });
-
-  // // DEBUG: Return raw SSE stream to see debug comments in Response tab
-  // // When debugging is done, uncomment the UIMessageStreamResponse version below
-  // return new Response(sseStream, {
-  //   headers: {
-  //     "Content-Type": "text/event-stream",
-  //     "Cache-Control": "no-cache",
-  //     Connection: "keep-alive",
-  //     "X-Accel-Buffering": "no",
-  //   },
-  // });
+  return createUIMessageStreamResponse({ stream });
 }

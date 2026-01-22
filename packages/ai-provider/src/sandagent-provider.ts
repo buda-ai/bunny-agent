@@ -190,6 +190,11 @@ export function createSandAgent(
         ...defaultOptions.env,
         ...options.env,
       },
+      // Merge artifact processors
+      artifactProcessors: [
+        ...(defaultOptions.artifactProcessors ?? []),
+        ...(options.artifactProcessors ?? []),
+      ],
     } as SandAgentProviderSettings & { runner: RunnerSpec };
 
     logger.debug(

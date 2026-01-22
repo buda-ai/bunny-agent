@@ -1,4 +1,38 @@
-import type { SandAgentOptions, SandboxAdapter } from "@sandagent/manager";
+import type { LanguageModelV3StreamPart } from "@ai-sdk/provider";
+import type { SandAgentOptions } from "@sandagent/manager";
+
+/**
+ * Artifact Processor 返回结果
+ */
+export interface ArtifactResult {
+  artifactId: string;
+  content: string;
+  mimeType?: string;
+}
+
+/**
+ * Stream writer interface for writing data parts
+ */
+export interface StreamWriter {
+  write(chunk: {
+    type: string;
+    id?: string;
+    data?: unknown;
+    transient?: boolean;
+  }): void;
+}
+
+/**
+ * Artifact Processor 接口
+ */
+export interface ArtifactProcessor {
+  /**
+   * 当收到 stream part 时触发
+   * @param event - Stream part 事件
+   * @param sessionId - 当前会话 ID（taskId）
+   */
+  onChange(event: LanguageModelV3StreamPart, sessionId: string): Promise<void>;
+}
 
 /**
  * Logger interface for custom logging.
@@ -86,6 +120,12 @@ export interface SandAgentProviderSettings
    * @default console
    */
   logger?: Logger | false;
+
+  /**
+   * Artifact processors for handling artifact events.
+   * Processors receive onChange events with sessionId and writer.
+   */
+  artifactProcessors?: ArtifactProcessor[];
 }
 
 /**
