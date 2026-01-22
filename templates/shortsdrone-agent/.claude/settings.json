@@ -1,0 +1,26 @@
+{
+  "max_tokens": 8096,
+  "temperature": 0.5,
+  "timeout_ms": 900000,
+  "max_turns": 100,
+  "streaming": true,
+  "permissions": {
+    "allow": [
+      "Skill",
+      "Write(output/*)",
+      "Write(temp/*)",
+      "Edit(output/*)",
+      "Read(*)",
+      "Bash(mkdir:*)",
+      "Bash(cat:*)",
+      "Bash(ls:*)",
+      "Bash(yt-dlp:*)",
+      "Bash(ffmpeg:*)",
+      "Bash(ffprobe:*)",
+      "Bash(rm:temp/*)",
+      "Bash(mv:*)",
+      "Bash(cp:*)"
+    ],
+    "ask": ["AskUserQuestion"]
+  }
+}

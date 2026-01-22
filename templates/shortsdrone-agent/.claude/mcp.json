@@ -1,0 +1,5 @@
+{
+  "$schema": "https://modelcontextprotocol.io/schemas/mcp.json",
+  "description": "MCP configuration for YouTube to Shorts Agent",
+  "servers": {}
+}
