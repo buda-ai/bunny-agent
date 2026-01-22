@@ -293,6 +293,7 @@ export default function Home() {
                   message={message}
                   sessionId={sessionId}
                   config={{ ...clientConfig, template: selectedTemplate }}
+                  onSelectArtifact={setSelectedArtifact}
                 />
               ))
             )}
@@ -383,10 +384,12 @@ function ChatMessage({
   message,
   sessionId,
   config,
+  onSelectArtifact,
 }: {
   message: UIMessage;
   sessionId: string;
   config: Record<string, string>;
+  onSelectArtifact?: (artifact: ArtifactData) => void;
 }) {
   const isUser = message.role === "user";
 
@@ -443,6 +446,7 @@ function ChatMessage({
                 <CompactArtifactItem
                   key={artifact.artifactId}
                   artifact={artifact}
+                  onSelect={onSelectArtifact}
                 />
               ))}
             </div>
@@ -829,27 +833,6 @@ const WriteToolCard = memo(
  */
 
 /**
- * ArtifactBadge - Simple badge shown in message for artifact (legacy, kept for reference)
- */
-function ArtifactBadge({
-  artifactId,
-  mimeType,
-}: {
-  artifactId: string;
-  content: string;
-  mimeType: string;
-}) {
-  return (
-    <div className="inline-flex items-center gap-2 px-3 py-1.5 mt-2 rounded-md border border-border bg-muted/50 text-sm">
-      <FileCode className="size-4 text-muted-foreground" />
-      <span className="font-medium">{artifactId.split("/").pop()}</span>
-      <span className="text-xs text-muted-foreground">({mimeType})</span>
-      <ChevronRight className="size-4 text-muted-foreground" />
-    </div>
-  );
-}
-
-/**
  * ArtifactPanel - Full artifact content in right panel
  */
 function ArtifactPanel({ artifact }: { artifact: ArtifactData }) {
@@ -915,101 +898,6 @@ function ArtifactPanel({ artifact }: { artifact: ArtifactData }) {
         ) : (
           <pre className="whitespace-pre-wrap font-mono text-sm">
             {artifact.content}
-          </pre>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/**
- * ArtifactView - Display artifact content (legacy, kept for reference)
- */
-function ArtifactView({
-  artifactId,
-  content,
-  mimeType,
-}: {
-  artifactId: string;
-  content: string;
-  mimeType: string;
-}) {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = async () => {
-    await navigator.clipboard.writeText(content);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const handleDownload = () => {
-    const blob = new Blob([content], { type: mimeType });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${artifactId}.${mimeType.includes("markdown") ? "md" : "txt"}`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-
-  const isMarkdown = mimeType.includes("markdown");
-  const previewLength = 500;
-  const needsTruncation = content.length > previewLength;
-
-  return (
-    <div className="mt-4 border border-border rounded-lg overflow-hidden bg-muted/50">
-      <div className="flex items-center justify-between p-3 border-b border-border bg-muted/30">
-        <div className="flex items-center gap-2">
-          <FileCode className="size-4 text-muted-foreground" />
-          <span className="text-sm font-medium">{artifactId}</span>
-          <span className="text-xs text-muted-foreground">({mimeType})</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleCopy}
-            className="p-1.5 hover:bg-muted rounded transition-colors"
-            title="Copy"
-          >
-            {copied ? (
-              <CheckCircle className="size-4 text-green-600" />
-            ) : (
-              <Copy className="size-4 text-muted-foreground" />
-            )}
-          </button>
-          <button
-            onClick={handleDownload}
-            className="p-1.5 hover:bg-muted rounded transition-colors"
-            title="Download"
-          >
-            <Download className="size-4 text-muted-foreground" />
-          </button>
-          {needsTruncation && (
-            <button
-              onClick={() => setIsExpanded(!isExpanded)}
-              className="text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded hover:bg-muted transition-colors"
-            >
-              {isExpanded ? "Show Less" : "Show More"}
-            </button>
-          )}
-        </div>
-      </div>
-      <div className="p-4">
-        {isMarkdown ? (
-          <div className="prose prose-sm dark:prose-invert max-w-none">
-            <pre className="whitespace-pre-wrap font-sans text-sm">
-              {isExpanded || !needsTruncation
-                ? content
-                : `${content.slice(0, previewLength)}...`}
-            </pre>
-          </div>
-        ) : (
-          <pre className="whitespace-pre-wrap font-mono text-sm overflow-x-auto">
-            {isExpanded || !needsTruncation
-              ? content
-              : `${content.slice(0, previewLength)}...`}
           </pre>
         )}
       </div>
