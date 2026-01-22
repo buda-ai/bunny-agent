@@ -52,15 +52,17 @@ export class LocalSandbox implements SandboxAdapter {
     return this.currentHandle;
   }
 
-  async attach(id?: string): Promise<SandboxHandle> {
+  async attach(): Promise<SandboxHandle> {
     // Return existing handle if already attached
     if (this.currentHandle) {
       return this.currentHandle;
     }
 
     // Determine the working directory for this sandbox
-    const workDir =
-      this.isolate && id ? path.join(this.baseDir, id) : this.baseDir;
+    // If isolation is enabled, use a unique subdirectory
+    const workDir = this.isolate
+      ? path.join(this.baseDir, `sandbox-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`)
+      : this.baseDir;
 
     // Create the directory if it doesn't exist
     await fs.mkdir(workDir, { recursive: true });

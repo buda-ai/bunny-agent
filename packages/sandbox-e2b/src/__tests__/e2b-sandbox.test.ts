@@ -58,7 +58,7 @@ describe("E2BSandbox", () => {
       const sandbox = new E2BSandbox();
 
       // Should throw an error about missing API key
-      await expect(sandbox.attach("test-no-key")).rejects.toThrow(
+      await expect(sandbox.attach()).rejects.toThrow(
         /E2B API key not found/,
       );
 
@@ -76,7 +76,7 @@ describe("E2BSandbox", () => {
 
       // Should throw an error (SDK not found or auth error)
       try {
-        await sandbox.attach("test-integration");
+        await sandbox.attach();
         // If we get here, the SDK is installed - that's also valid
         console.log(
           "[Test Info] E2B SDK is installed. Integration tests would run with valid API key.",

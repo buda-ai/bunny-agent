@@ -1,5 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { noDeprecation } from "node:process";
 import type {
   ExecOptions,
   SandboxAdapter,
@@ -225,9 +226,10 @@ export class SandockSandbox implements SandboxAdapter {
 
   /**
    * Attach to or create a sandbox
-   * @param id - Unique identifier for this sandbox instance (used for caching and logging)
    */
-  async attach(id: string): Promise<SandboxHandle> {
+  async attach(): Promise<SandboxHandle> {
+    // Generate a unique id for this sandbox instance (used for caching and logging)
+    const id = `sandock-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
     console.log(`[Sandock] Attaching sandbox with id: ${id}`);
 
     // Check if we already have a cached instance for this id

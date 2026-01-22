@@ -109,7 +109,6 @@ export async function runCommand(args: string[]): Promise<void> {
 
   // Create and run the agent
   const agent = new SandAgent({
-    sandboxId: `cli-${Date.now()}`,
     sandbox: sandboxAdapter,
     runner: {
       kind: "claude-agent-sdk",

@@ -142,7 +142,7 @@ export class DaytonaSandbox implements SandboxAdapter {
     return this.currentHandle;
   }
 
-  async attach(id?: string): Promise<SandboxHandle> {
+  async attach(): Promise<SandboxHandle> {
     if (!this.apiKey) {
       throw new Error(
         "Daytona API key not found. Please set DAYTONA_API_KEY environment variable or pass apiKey option.",
@@ -159,8 +159,8 @@ export class DaytonaSandbox implements SandboxAdapter {
       apiUrl: this.apiUrl,
     });
 
-    // Use the provided id parameter, fallback to this.name
-    const sandboxName = id || this.name;
+    // Use this.name if provided
+    const sandboxName = this.name;
     console.log(`[Daytona] Attaching sandbox with name: ${sandboxName}`);
 
     // Get or create volume if volumeName is provided

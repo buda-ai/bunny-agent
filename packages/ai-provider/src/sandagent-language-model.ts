@@ -12,7 +12,6 @@ import type {
   SharedV3ProviderMetadata,
   SharedV3Warning,
 } from "@ai-sdk/provider";
-import { generateId } from "@ai-sdk/provider-utils";
 import { type Message, type RunnerSpec, SandAgent } from "@sandagent/manager";
 import type {
   Logger,
@@ -259,7 +258,6 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
     // Create SandAgent - runner is auto-created in createModel with kind and model
     // The runner in options is guaranteed to have kind and model set by createModel
     const agent = new SandAgent({
-      sandboxId: `ai-sdk-${Date.now()}`,
       sandbox: this.options.sandbox,
       runner: this.options.runner,
       env: { ...sandboxEnv, ...this.options.env },

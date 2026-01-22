@@ -108,7 +108,7 @@ describe("SandockSandbox", () => {
 
     it("should return a handle with required methods", async () => {
       const sandbox = new SandockSandbox();
-      const handle = await sandbox.attach("test-1");
+      const handle = await sandbox.attach();
 
       expect(typeof handle.exec).toBe("function");
       expect(typeof handle.upload).toBe("function");
@@ -117,7 +117,7 @@ describe("SandockSandbox", () => {
 
     it("should create and start sandbox via API", async () => {
       const sandbox = new SandockSandbox();
-      const handle = await sandbox.attach("test-2");
+      const handle = await sandbox.attach();
       expect(handle).toBeDefined();
     });
   });
@@ -125,7 +125,7 @@ describe("SandockSandbox", () => {
   describe("SandboxHandle", () => {
     it("should execute commands and return output", async () => {
       const sandbox = new SandockSandbox();
-      const handle = await sandbox.attach("test-3");
+      const handle = await sandbox.attach();
 
       const chunks: Uint8Array[] = [];
       for await (const chunk of handle.exec(["echo", "hello"])) {
@@ -139,7 +139,7 @@ describe("SandockSandbox", () => {
 
     it("should upload files via API", async () => {
       const sandbox = new SandockSandbox();
-      const handle = await sandbox.attach("test-4");
+      const handle = await sandbox.attach();
 
       await handle.upload(
         [{ path: "test.txt", content: "Hello, World!" }],
@@ -150,7 +150,7 @@ describe("SandockSandbox", () => {
 
     it("should destroy sandbox via API", async () => {
       const sandbox = new SandockSandbox();
-      const handle = await sandbox.attach("test-5");
+      const handle = await sandbox.attach();
 
       await handle.destroy();
       // No error means success
