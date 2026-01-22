@@ -1,0 +1,5 @@
+{
+  "$schema": "https://modelcontextprotocol.io/schemas/mcp.json",
+  "description": "Web Game Expert template MCP configuration",
+  "servers": {}
+}
