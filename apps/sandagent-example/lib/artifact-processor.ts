@@ -117,7 +117,7 @@ export class TaskDrivenArtifactProcessor implements ArtifactProcessor {
       }
     }
 
-    if (part.type !== "tool-input-delta") {
+    if (part.type !== "tool-result") {
       return Promise.resolve();
     }
 

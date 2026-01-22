@@ -588,6 +588,7 @@ class E2BHandle implements SandboxHandle {
   async readFile(filePath: string): Promise<string> {
     const exists = await this.instance.files.exists(filePath);
     if (!exists) {
+      console.error(`[E2B] File not found: ${filePath}`);
       return "";
     }
     // E2B files.read() defaults to text format and returns Promise<string>
