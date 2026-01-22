@@ -61,7 +61,10 @@ export class LocalSandbox implements SandboxAdapter {
     // Determine the working directory for this sandbox
     // If isolation is enabled, use a unique subdirectory
     const workDir = this.isolate
-      ? path.join(this.baseDir, `sandbox-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`)
+      ? path.join(
+          this.baseDir,
+          `sandbox-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+        )
       : this.baseDir;
 
     // Create the directory if it doesn't exist

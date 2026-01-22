@@ -58,9 +58,7 @@ describe("E2BSandbox", () => {
       const sandbox = new E2BSandbox();
 
       // Should throw an error about missing API key
-      await expect(sandbox.attach()).rejects.toThrow(
-        /E2B API key not found/,
-      );
+      await expect(sandbox.attach()).rejects.toThrow(/E2B API key not found/);
 
       console.log(
         "[Test Info] E2B_API_KEY not set - this test verifies proper error handling.\n" +
