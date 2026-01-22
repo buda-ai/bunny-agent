@@ -499,11 +499,21 @@ function CompactArtifactItem({
     }
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      handleClick();
+    }
+  };
+
   return (
     <div className="flex flex-col gap-1 max-w-2xl">
       <div
         className="group flex items-center justify-between p-2 rounded-lg border border-border bg-background/50 hover:bg-accent/50 transition-colors cursor-pointer"
         onClick={handleClick}
+        onKeyDown={handleKeyDown}
+        role="button"
+        tabIndex={0}
       >
         <div className="flex items-center gap-2 min-w-0">
           <div className="flex size-7 items-center justify-center rounded bg-blue-500/10 shrink-0">
