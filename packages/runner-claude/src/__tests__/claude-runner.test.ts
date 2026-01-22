@@ -216,13 +216,13 @@ describe("AbortSignal Support", () => {
   it("should handle pre-aborted signal", async () => {
     delete process.env.ANTHROPIC_API_KEY;
 
-    const runner = createClaudeRunner({
-      model: "claude-sonnet-4-20250514",
-    });
-
     const controller = new AbortController();
     controller.abort(); // Abort before calling run
-    const signal = controller.signal;
+
+    const runner = createClaudeRunner({
+      model: "claude-sonnet-4-20250514",
+      abortController: controller,
+    });
 
     const chunks: string[] = [];
     for await (const chunk of runner.run("Test with pre-aborted signal")) {
