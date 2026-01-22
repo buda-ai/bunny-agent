@@ -231,7 +231,7 @@ export async function POST(request: Request) {
       apiKey: E2B_API_KEY,
       runnerBundlePath: RUNNER_BUNDLE_PATH,
       templatesPath: path.join(TEMPLATES_PATH, template),
-      // name: sandboxName,
+      name: sandboxName,
       // Sandbox-level config
       env,
       agentTemplate: template,
@@ -260,6 +260,7 @@ export async function POST(request: Request) {
         cwd: "/sandagent",
         verbose: true,
         artifactProcessors: [artifactProcessor],
+        resume,
       };
       const sandagent = createSandAgent(sandagentOptions);
 
@@ -268,7 +269,7 @@ export async function POST(request: Request) {
         messages: normalizedMessages,
         abortSignal: signal,
         onChunk(chunk) {
-          console.log("[Stream] Chunk:", chunk);
+          // console.log("[Stream] Chunk:", chunk);
         },
       });
 
@@ -277,8 +278,9 @@ export async function POST(request: Request) {
         result.toUIMessageStream({
           sendSources: true,
           messageMetadata({ part }) {
-            if (part.type === "start") {
-              return { sessionId };
+            if (part.type === "text-start") {
+              console.log("[Stream] Provider metadata:", part.providerMetadata);
+              return part.providerMetadata?.["claude-code"];
             }
           },
         }),

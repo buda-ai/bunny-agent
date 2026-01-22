@@ -427,14 +427,12 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
           this.logger.debug(
             `[sandagent] Session ID extracted: ${this.sessionId}`,
           );
+          parts.push({
+            type: "raw",
+            rawValue: this.sessionId,
+          });
         }
-        // parts.push({
-        //   type: "raw",
-        //   rawValue: {
-        //     type: "message-metadata",
-        //     data: metadata,
-        //   },
-        // });
+
         // parts.push({
         //   type: "response-metadata",
         //   id: generateId(),
@@ -448,6 +446,11 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
         parts.push({
           type: "text-start",
           id: parsed.id as string,
+          providerMetadata: {
+            "claude-code": {
+              sessionId: this.sessionId,
+            },
+          },
         });
         break;
       }
