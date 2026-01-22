@@ -78,6 +78,7 @@ export type {
   // Artifact processor types
   ArtifactProcessor,
   ArtifactResult,
+  StreamWriter,
 } from "./types.js";
 
 /**

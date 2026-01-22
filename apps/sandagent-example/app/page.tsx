@@ -42,17 +42,27 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { AskUserQuestionUI } from "./claude-tools/AskUserQuestionUI";
 import { STORAGE_KEY } from "./settings/page";
 
 const REQUIRED_KEYS = ["E2B_API_KEY"];
+
+// Artifact data type
+interface ArtifactData {
+  artifactId: string;
+  content: string;
+  mimeType: string;
+}
 
 export default function Home() {
   const [sessionId] = useState(() => `session-${Date.now()}`);
   const [configReady, setConfigReady] = useState<boolean | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState("default");
   const [clientConfig, setClientConfig] = useState<Record<string, string>>({});
+  const [selectedArtifact, setSelectedArtifact] = useState<ArtifactData | null>(
+    null,
+  );
 
   // Check configuration status from localStorage on mount and when config changes
   useEffect(() => {
@@ -128,6 +138,75 @@ export default function Home() {
   useEffect(() => {
     messagesRef.current = messages;
   }, [messages]);
+
+  // Extract artifacts from messages using useMemo to avoid unnecessary state updates
+  // Use a ref to cache previous result and only update if content actually changed
+  const prevArtifactsRef = useRef<ArtifactData[]>([]);
+  const extractedArtifacts = useMemo(() => {
+    const results: ArtifactData[] = [];
+    for (const message of messages) {
+      for (const part of message.parts) {
+        if (part.type === "data-artifact") {
+          const data = part.data as ArtifactData;
+          if (!results.some((a) => a.artifactId === data.artifactId)) {
+            results.push(data);
+          }
+        }
+      }
+    }
+
+    // Compare with previous result - if content is identical, return previous reference
+    const prev = prevArtifactsRef.current;
+    if (
+      prev.length === results.length &&
+      prev.every((prevArt, idx) => {
+        const currArt = results[idx];
+        return (
+          prevArt.artifactId === currArt.artifactId &&
+          prevArt.content === currArt.content &&
+          prevArt.mimeType === currArt.mimeType
+        );
+      })
+    ) {
+      return prev;
+    }
+
+    prevArtifactsRef.current = results;
+    return results;
+  }, [messages]);
+
+  // Sync selectedArtifact when artifacts change, but only if needed
+  useEffect(() => {
+    if (extractedArtifacts.length > 0) {
+      setSelectedArtifact((prev) => {
+        if (!prev) return extractedArtifacts[0];
+
+        // Find the matching artifact in the new list
+        const currentMatch = extractedArtifacts.find(
+          (a) => a.artifactId === prev.artifactId,
+        );
+
+        if (!currentMatch) {
+          // If previous selection is gone, select first one
+          return extractedArtifacts[0];
+        }
+
+        // IMPORTANT: If content is identical, keep the PREVIOUS reference
+        // to avoid triggering dependent effects/re-renders
+        if (
+          currentMatch.content === prev.content &&
+          currentMatch.mimeType === prev.mimeType
+        ) {
+          return prev;
+        }
+
+        return currentMatch;
+      });
+    } else {
+      setSelectedArtifact((prev) => (prev === null ? prev : null));
+    }
+  }, [extractedArtifacts]);
+
   const isLoading = status === "streaming" || status === "submitted";
   const hasError = status === "error" && error;
 
@@ -197,49 +276,80 @@ export default function Home() {
         </div>
       </header>
 
-      <Conversation className="flex-1">
-        <ConversationContent>
-          {messages.length === 0 ? (
-            <ConversationEmptyState
-              title="Welcome to SandAgent"
-              description="Ask the agent to help you with coding tasks"
-              icon={<BotIcon className="size-8" />}
-            />
-          ) : (
-            messages.map((message: UIMessage) => (
-              <ChatMessage
-                key={message.id}
-                message={message}
-                sessionId={sessionId}
-                config={{ ...clientConfig, template: selectedTemplate }}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Chat area */}
+        <Conversation className="flex-1">
+          <ConversationContent>
+            {messages.length === 0 ? (
+              <ConversationEmptyState
+                title="Welcome to SandAgent"
+                description="Ask the agent to help you with coding tasks"
+                icon={<BotIcon className="size-8" />}
               />
-            ))
-          )}
-          {isLoading && messages[messages.length - 1]?.role === "user" && (
-            <Message from="assistant">
-              <MessageContent>
-                <Loader size={20} />
-              </MessageContent>
-            </Message>
-          )}
-          {hasError && (
-            <Message from="assistant">
-              <div className="flex items-start gap-3">
-                <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-destructive/10">
-                  <AlertCircleIcon className="size-4 text-destructive" />
-                </div>
+            ) : (
+              messages.map((message: UIMessage) => (
+                <ChatMessage
+                  key={message.id}
+                  message={message}
+                  sessionId={sessionId}
+                  config={{ ...clientConfig, template: selectedTemplate }}
+                />
+              ))
+            )}
+            {isLoading && messages[messages.length - 1]?.role === "user" && (
+              <Message from="assistant">
                 <MessageContent>
-                  <div className="text-destructive">
-                    <p className="font-medium">Error</p>
-                    <p className="text-sm opacity-80">{error.message}</p>
-                  </div>
+                  <Loader size={20} />
                 </MessageContent>
+              </Message>
+            )}
+            {hasError && (
+              <Message from="assistant">
+                <div className="flex items-start gap-3">
+                  <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-destructive/10">
+                    <AlertCircleIcon className="size-4 text-destructive" />
+                  </div>
+                  <MessageContent>
+                    <div className="text-destructive">
+                      <p className="font-medium">Error</p>
+                      <p className="text-sm opacity-80">{error.message}</p>
+                    </div>
+                  </MessageContent>
+                </div>
+              </Message>
+            )}
+          </ConversationContent>
+          <ConversationScrollButton />
+        </Conversation>
+
+        {/* Artifact panel - right side */}
+        {extractedArtifacts.length > 0 && (
+          <div className="w-[400px] border-l border-border flex flex-col bg-muted/30">
+            {/* Artifact tabs */}
+            <div className="flex items-center gap-1 p-2 border-b border-border overflow-x-auto">
+              {extractedArtifacts.map((artifact) => (
+                <button
+                  key={artifact.artifactId}
+                  onClick={() => setSelectedArtifact(artifact)}
+                  className={`px-3 py-1.5 text-sm rounded-md whitespace-nowrap transition-colors ${
+                    selectedArtifact?.artifactId === artifact.artifactId
+                      ? "bg-primary text-primary-foreground"
+                      : "hover:bg-muted text-muted-foreground"
+                  }`}
+                >
+                  {artifact.artifactId.split("/").pop()}
+                </button>
+              ))}
+            </div>
+            {/* Selected artifact content */}
+            {selectedArtifact && (
+              <div className="flex-1 overflow-auto">
+                <ArtifactPanel artifact={selectedArtifact} />
               </div>
-            </Message>
-          )}
-        </ConversationContent>
-        <ConversationScrollButton />
-      </Conversation>
+            )}
+          </div>
+        )}
+      </div>
 
       <div className="border-t border-border p-4">
         <PromptInput onSubmit={handleSubmit} className="mx-auto max-w-3xl">
@@ -273,6 +383,20 @@ function ChatMessage({
 }) {
   const isUser = message.role === "user";
 
+  // Collect all artifacts from message parts
+  const artifacts: ArtifactData[] = [];
+  const otherParts: Array<{ part: UIMessage["parts"][number]; index: number }> =
+    [];
+
+  message.parts.forEach((part, i) => {
+    if (part.type === "data-artifact") {
+      const data = part.data as ArtifactData;
+      artifacts.push(data);
+    } else {
+      otherParts.push({ part, index: i });
+    }
+  });
+
   return (
     <Message from={message.role}>
       <div className="flex items-start gap-3">
@@ -288,37 +412,25 @@ function ChatMessage({
           )}
         </div>
         <MessageContent>
-          {message.parts.map((part, i) => {
+          {/* Render non-artifact parts */}
+          {otherParts.map(({ part, index }) => {
             if (part.type === "text") {
-              return <MessageResponse key={i}>{part.text}</MessageResponse>;
+              return <MessageResponse key={index}>{part.text}</MessageResponse>;
             }
             if (part.type === "dynamic-tool") {
               return (
                 <DynamicToolUI
-                  key={i}
+                  key={index}
                   part={part}
                   sessionId={sessionId}
                   config={config}
                 />
               );
             }
-            if (part.type === "data-artifact") {
-              const data = part.data as {
-                artifactId: string;
-                content: string;
-                mimeType: string;
-              };
-              return (
-                <ArtifactView
-                  key={i}
-                  artifactId={data.artifactId}
-                  content={data.content}
-                  mimeType={data.mimeType}
-                />
-              );
-            }
             return null;
           })}
+          {/* Render artifacts with tabs if multiple, or single artifact view */}
+          {artifacts.length > 0 && <ArtifactsTabsView artifacts={artifacts} />}
         </MessageContent>
       </div>
     </Message>
@@ -413,150 +525,139 @@ function DynamicToolUI({
 }
 
 // Write tool card with expandable markdown preview
-function WriteToolCard({
-  filePath,
-  content,
-  state,
-  output,
-  errorText,
-}: {
-  filePath: string;
-  content: string;
-  state: string;
-  output?: string | Record<string, unknown>;
-  errorText?: string;
-}) {
-  const [isOpen, setIsOpen] = useState(false);
-  const isMarkdown = filePath?.endsWith(".md");
-  const fileName = filePath?.split("/").pop() || filePath;
+const WriteToolCard = memo(
+  function WriteToolCard({
+    filePath,
+    content,
+    state,
+    output,
+    errorText,
+  }: {
+    filePath: string;
+    content: string;
+    state: string;
+    output?: string | Record<string, unknown>;
+    errorText?: string;
+  }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const isMarkdown = filePath?.endsWith(".md");
+    const fileName = filePath?.split("/").pop() || filePath;
 
-  const handleDownload = () => {
-    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
+    const handleDownload = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    };
 
-  const handleCopy = async () => {
-    await navigator.clipboard.writeText(content);
-  };
+    const handleCopy = async (e: React.MouseEvent) => {
+      e.stopPropagation();
+      await navigator.clipboard.writeText(content);
+    };
 
-  return (
-    <div className="my-2 rounded-lg border border-border bg-muted/50 overflow-hidden">
-      {/* Header - always visible */}
-      <div
-        className="flex items-center justify-between p-3 hover:bg-muted/80 transition-colors cursor-pointer"
-        onClick={() => setIsOpen(true)}
-        onKeyDown={(e) => e.key === "Enter" && setIsOpen(true)}
-        role="button"
-        tabIndex={0}
-      >
-        <div className="flex items-center gap-3">
-          <div className="flex size-8 items-center justify-center rounded-md bg-blue-500/10">
-            <FileText className="size-4 text-blue-500" />
-          </div>
-          <div className="text-left">
-            <div className="flex items-center gap-2">
-              <span className="font-medium text-foreground text-sm">
-                写入文件
-              </span>
-              <span
-                className={`text-xs ${
-                  state === "output-error"
-                    ? "text-destructive"
-                    : state === "output-available"
-                      ? "text-green-500"
-                      : "text-muted-foreground"
-                }`}
-              >
-                {state === "input-streaming" && "输入中..."}
-                {state === "input-available" && "准备执行..."}
-                {state === "output-available" && "✓ 完成"}
-                {state === "output-error" && "✗ 错误"}
-              </span>
+    return (
+      <div className="my-2 rounded-lg border border-border bg-muted/50 overflow-hidden">
+        {/* Header - always visible */}
+        <div
+          className="flex items-center justify-between p-3 hover:bg-muted/80 transition-colors cursor-pointer"
+          onClick={() => setIsOpen(!isOpen)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setIsOpen(!isOpen);
+            }
+          }}
+          role="button"
+          tabIndex={0}
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex size-8 items-center justify-center rounded-md bg-blue-500/10">
+              <FileText className="size-4 text-blue-500" />
             </div>
-            <div className="text-xs text-muted-foreground font-mono">
-              {filePath}
+            <div className="text-left">
+              <div className="flex items-center gap-2">
+                <span className="font-medium text-foreground text-sm">
+                  写入文件
+                </span>
+                <span
+                  className={`text-xs ${
+                    state === "output-error"
+                      ? "text-destructive"
+                      : state === "output-available"
+                        ? "text-green-500"
+                        : "text-muted-foreground"
+                  }`}
+                >
+                  {state === "input-streaming" && "输入中..."}
+                  {state === "input-available" && "准备执行..."}
+                  {state === "output-available" && "✓ 完成"}
+                  {state === "output-error" && "✗ 错误"}
+                </span>
+              </div>
+              <div className="text-xs text-muted-foreground font-mono">
+                {filePath}
+              </div>
             </div>
           </div>
-        </div>
-        <ChevronRight className="size-4 text-muted-foreground" />
-      </div>
-
-      {/* Side Panel Overlay */}
-      {isOpen && (
-        <>
-          {/* Backdrop */}
-          <div
-            className="fixed inset-0 bg-black/50 z-40"
-            onClick={() => setIsOpen(false)}
-            onKeyDown={(e) => e.key === "Escape" && setIsOpen(false)}
-            role="button"
-            tabIndex={-1}
-            aria-label="Close panel"
+          <ChevronRight
+            className={`size-4 text-muted-foreground transition-transform ${
+              isOpen ? "rotate-90" : ""
+            }`}
           />
-          {/* Side Panel */}
-          <div className="fixed top-0 right-0 h-full w-[600px] max-w-[90vw] bg-background border-l border-border shadow-xl z-50 flex flex-col animate-in slide-in-from-right duration-200">
-            {/* Panel Header */}
-            <div className="flex items-center justify-between p-4 border-b border-border shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="flex size-8 items-center justify-center rounded-md bg-blue-500/10">
-                  <FileText className="size-4 text-blue-500" />
-                </div>
-                <div>
-                  <div className="font-medium text-foreground text-sm">
-                    {fileName}
-                  </div>
-                  <div className="text-xs text-muted-foreground font-mono">
-                    {filePath}
-                  </div>
-                </div>
+        </div>
+
+        {/* Expandable Content */}
+        {isOpen && (
+          <div className="border-t border-border">
+            {/* Content Header with Actions */}
+            <div className="flex items-center justify-between p-3 bg-muted/30 border-b border-border">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  {isMarkdown ? "Markdown 预览" : "文件内容"}
+                </span>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleDownload}
-                  className="p-2 rounded-md hover:bg-muted transition-colors"
+                  className="p-1.5 rounded-md hover:bg-muted transition-colors"
                   title="下载文件"
                 >
                   <Download className="size-4 text-muted-foreground" />
                 </button>
                 <button
                   onClick={handleCopy}
-                  className="p-2 rounded-md hover:bg-muted transition-colors"
+                  className="p-1.5 rounded-md hover:bg-muted transition-colors"
                   title="复制内容"
                 >
                   <Copy className="size-4 text-muted-foreground" />
                 </button>
-                <button
-                  onClick={() => setIsOpen(false)}
-                  className="p-2 rounded-md hover:bg-muted transition-colors"
-                  title="收起"
-                >
-                  <X className="size-4 text-muted-foreground" />
-                </button>
               </div>
             </div>
 
-            {/* Panel Content */}
-            <div className="flex-1 overflow-auto p-4">
-              <div className="mb-2">
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                  {isMarkdown ? "Markdown 预览" : "文件内容"}
-                </span>
-              </div>
+            {/* Content */}
+            <div className="p-4">
               {isMarkdown ? (
-                <div className="rounded-md border border-border bg-background p-4 prose prose-sm dark:prose-invert max-w-none">
+                <div
+                  className="rounded-md border border-border bg-background p-4 prose prose-sm dark:prose-invert max-w-none scrollable-content overflow-y-auto"
+                  style={{ maxHeight: "400px" }}
+                >
                   <MessageResponse>{content}</MessageResponse>
                 </div>
               ) : (
-                <pre className="rounded-md border border-border bg-background p-3 overflow-auto text-xs text-foreground font-mono">
-                  {content}
-                </pre>
+                <div
+                  className="rounded-md border border-border bg-[#0d0d0d] scrollable-content overflow-auto"
+                  style={{ height: "400px", minHeight: "200px" }}
+                >
+                  <pre className="p-3 text-xs text-[#e6e6e6] font-mono whitespace-pre m-0 block">
+                    {content}
+                  </pre>
+                </div>
               )}
 
               {/* Error display */}
@@ -580,14 +681,338 @@ function WriteToolCard({
               )}
             </div>
           </div>
-        </>
+        )}
+      </div>
+    );
+  },
+  (prevProps, nextProps) => {
+    // Return true if props are equal (skip re-render), false if different (re-render)
+    return (
+      prevProps.filePath === nextProps.filePath &&
+      prevProps.content === nextProps.content &&
+      prevProps.state === nextProps.state &&
+      prevProps.output === nextProps.output &&
+      prevProps.errorText === nextProps.errorText
+    );
+  },
+);
+
+/**
+ * ArtifactsTabsView - Display multiple artifacts with tabs
+ */
+function ArtifactsTabsView({ artifacts }: { artifacts: ArtifactData[] }) {
+  const [internalSelectedId, setInternalSelectedId] = useState<string | null>(
+    null,
+  );
+  const [expandedArtifactIds, setExpandedArtifactIds] = useState<Set<string>>(
+    new Set(),
+  );
+
+  // Derive the effectively selected ID
+  const selectedArtifactId = useMemo(() => {
+    if (artifacts.length === 0) return null;
+    if (
+      internalSelectedId &&
+      artifacts.some((a) => a.artifactId === internalSelectedId)
+    ) {
+      return internalSelectedId;
+    }
+    return artifacts[0].artifactId;
+  }, [artifacts, internalSelectedId]);
+
+  const toggleExpand = (artifactId: string) => {
+    setExpandedArtifactIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(artifactId)) {
+        next.delete(artifactId);
+      } else {
+        next.add(artifactId);
+      }
+      return next;
+    });
+  };
+
+  // If only one artifact, show it directly without tabs
+  if (artifacts.length === 1) {
+    const artifact = artifacts[0];
+    const isExpanded = expandedArtifactIds.has(artifact.artifactId);
+    return (
+      <div className="mt-4 rounded-lg border border-border bg-muted/50 overflow-hidden">
+        <ArtifactItem
+          artifact={artifact}
+          isExpanded={isExpanded}
+          onToggleExpand={() => toggleExpand(artifact.artifactId)}
+        />
+      </div>
+    );
+  }
+
+  // Multiple artifacts: show tabs
+  return (
+    <div className="mt-4 rounded-lg border border-border bg-muted/50 overflow-hidden">
+      {/* Tabs */}
+      <div className="flex items-center gap-1 p-2 border-b border-border overflow-x-auto bg-background/50">
+        {artifacts.map((artifact) => {
+          const fileName =
+            artifact.artifactId.split("/").pop() || artifact.artifactId;
+          const isSelected = selectedArtifactId === artifact.artifactId;
+          return (
+            <button
+              key={artifact.artifactId}
+              onClick={() => setInternalSelectedId(artifact.artifactId)}
+              className={`px-3 py-1.5 text-sm rounded-md whitespace-nowrap transition-colors ${
+                isSelected
+                  ? "bg-primary text-primary-foreground"
+                  : "hover:bg-muted text-muted-foreground"
+              }`}
+            >
+              {fileName}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Selected artifact content */}
+      {selectedArtifactId && (
+        <div>
+          {artifacts
+            .filter((a) => a.artifactId === selectedArtifactId)
+            .map((artifact) => {
+              const isExpanded = expandedArtifactIds.has(artifact.artifactId);
+              return (
+                <ArtifactItem
+                  key={artifact.artifactId}
+                  artifact={artifact}
+                  isExpanded={isExpanded}
+                  onToggleExpand={() => toggleExpand(artifact.artifactId)}
+                />
+              );
+            })}
+        </div>
       )}
     </div>
   );
 }
 
 /**
- * ArtifactView - Display artifact content
+ * ArtifactItem - Individual artifact item with expandable content
+ */
+function ArtifactItem({
+  artifact,
+  isExpanded,
+  onToggleExpand,
+}: {
+  artifact: ArtifactData;
+  isExpanded: boolean;
+  onToggleExpand: () => void;
+}) {
+  const [copied, setCopied] = useState(false);
+  const fileName = artifact.artifactId.split("/").pop() || artifact.artifactId;
+  const isMarkdown = artifact.mimeType.includes("markdown");
+
+  const handleCopy = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    await navigator.clipboard.writeText(artifact.content);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleDownload = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const blob = new Blob([artifact.content], { type: artifact.mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${fileName}.${isMarkdown ? "md" : "txt"}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div>
+      {/* Header */}
+      <div
+        className="flex items-center justify-between p-3 hover:bg-muted/80 transition-colors cursor-pointer"
+        onClick={onToggleExpand}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onToggleExpand();
+          }
+        }}
+        role="button"
+        tabIndex={0}
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="flex size-8 items-center justify-center rounded-md bg-blue-500/10 shrink-0">
+            <FileCode className="size-4 text-blue-500" />
+          </div>
+          <div className="text-left min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="font-medium text-foreground text-sm truncate">
+                {fileName}
+              </span>
+            </div>
+            <div className="text-xs text-muted-foreground font-mono truncate">
+              {artifact.artifactId}
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={handleCopy}
+            className="p-1.5 rounded-md hover:bg-muted transition-colors"
+            title="复制内容"
+          >
+            {copied ? (
+              <CheckCircle className="size-4 text-green-600" />
+            ) : (
+              <Copy className="size-4 text-muted-foreground" />
+            )}
+          </button>
+          <button
+            onClick={handleDownload}
+            className="p-1.5 rounded-md hover:bg-muted transition-colors"
+            title="下载文件"
+          >
+            <Download className="size-4 text-muted-foreground" />
+          </button>
+          <ChevronRight
+            className={`size-4 text-muted-foreground transition-transform ${
+              isExpanded ? "rotate-90" : ""
+            }`}
+          />
+        </div>
+      </div>
+
+      {/* Expandable Content */}
+      {isExpanded && (
+        <div className="border-t border-border">
+          <div className="p-4">
+            {isMarkdown ? (
+              <div
+                className="rounded-md border border-border bg-background p-4 prose prose-sm dark:prose-invert max-w-none scrollable-content overflow-y-auto"
+                style={{ maxHeight: "400px" }}
+              >
+                <pre className="whitespace-pre-wrap font-sans text-sm m-0">
+                  {artifact.content}
+                </pre>
+              </div>
+            ) : (
+              <div
+                className="rounded-md border border-border bg-[#0d0d0d] scrollable-content overflow-auto"
+                style={{ height: "400px", minHeight: "200px" }}
+              >
+                <pre className="p-3 text-xs text-[#e6e6e6] font-mono whitespace-pre m-0 block">
+                  {artifact.content}
+                </pre>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * ArtifactBadge - Simple badge shown in message for artifact (legacy, kept for reference)
+ */
+function ArtifactBadge({
+  artifactId,
+  mimeType,
+}: {
+  artifactId: string;
+  content: string;
+  mimeType: string;
+}) {
+  return (
+    <div className="inline-flex items-center gap-2 px-3 py-1.5 mt-2 rounded-md border border-border bg-muted/50 text-sm">
+      <FileCode className="size-4 text-muted-foreground" />
+      <span className="font-medium">{artifactId.split("/").pop()}</span>
+      <span className="text-xs text-muted-foreground">({mimeType})</span>
+      <ChevronRight className="size-4 text-muted-foreground" />
+    </div>
+  );
+}
+
+/**
+ * ArtifactPanel - Full artifact content in right panel
+ */
+function ArtifactPanel({ artifact }: { artifact: ArtifactData }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(artifact.content);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleDownload = () => {
+    const blob = new Blob([artifact.content], { type: artifact.mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${artifact.artifactId}.${artifact.mimeType.includes("markdown") ? "md" : "txt"}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const isMarkdown = artifact.mimeType.includes("markdown");
+
+  return (
+    <div className="h-full flex flex-col">
+      <div className="flex items-center justify-between p-3 border-b border-border bg-muted/30">
+        <div className="flex items-center gap-2 min-w-0">
+          <FileCode className="size-4 text-muted-foreground shrink-0" />
+          <span className="text-sm font-medium truncate">
+            {artifact.artifactId}
+          </span>
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          <button
+            onClick={handleCopy}
+            className="p-1.5 hover:bg-muted rounded transition-colors"
+            title="Copy"
+          >
+            {copied ? (
+              <CheckCircle className="size-4 text-green-600" />
+            ) : (
+              <Copy className="size-4 text-muted-foreground" />
+            )}
+          </button>
+          <button
+            onClick={handleDownload}
+            className="p-1.5 hover:bg-muted rounded transition-colors"
+            title="Download"
+          >
+            <Download className="size-4 text-muted-foreground" />
+          </button>
+        </div>
+      </div>
+      <div className="flex-1 overflow-auto p-4">
+        {isMarkdown ? (
+          <div className="prose prose-sm dark:prose-invert max-w-none">
+            <pre className="whitespace-pre-wrap font-sans text-sm">
+              {artifact.content}
+            </pre>
+          </div>
+        ) : (
+          <pre className="whitespace-pre-wrap font-mono text-sm">
+            {artifact.content}
+          </pre>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * ArtifactView - Display artifact content (legacy, kept for reference)
  */
 function ArtifactView({
   artifactId,

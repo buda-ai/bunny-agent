@@ -244,36 +244,39 @@ export async function POST(request: Request) {
     ? "claude-sonnet-4-20250514" // Standard Anthropic model ID
     : "us.anthropic.claude-sonnet-4-20250514-v1:0"; // AWS Bedrock model ID
 
-  // Create artifact processor with sandbox and sessionId
-  const artifactProcessor = new TaskDrivenArtifactProcessor({
-    sandbox,
-    workdir: sandbox.getWorkdir?.() || "/sandagent",
-  });
+  // Streaming - use createUIMessageStream to handle artifact data
+  const stream = createUIMessageStream({
+    execute: async ({ writer }) => {
+      // Create artifact processor
+      const artifactProcessor = new TaskDrivenArtifactProcessor({
+        sandbox,
+        workdir: sandbox.getWorkdir?.() || "/sandagent",
+        writer,
+      });
 
-  // Create the provider with sandbox and artifact processor
-  const sandagentOptions: SandAgentProviderSettings = {
-    sandbox,
-    cwd: "/sandagent",
-    verbose: true,
-    sandboxId: sandboxName,
-    artifactProcessors: [artifactProcessor],
-  };
-  const sandagent = createSandAgent(sandagentOptions);
+      // Create the provider with sandbox, artifact processor, and writer
+      const sandagentOptions: SandAgentProviderSettings = {
+        sandbox,
+        cwd: "/sandagent",
+        verbose: true,
+        sandboxId: sandboxName,
+        artifactProcessors: [artifactProcessor],
+      };
+      const sandagent = createSandAgent(sandagentOptions);
 
-  // Streaming - artifact processing happens inside the provider
-  const result = streamText({
-    model: sandagent(model),
-    messages: normalizedMessages,
-    abortSignal: signal,
-    onChunk: ({ chunk }) => {
-      // console.log("[Stream] Chunk:", chunk.type);
+      const result = streamText({
+        model: sandagent(model),
+        messages: normalizedMessages,
+        abortSignal: signal,
+      });
+
+      // Merge the AI text stream and wait for completion
+      writer.merge(result.toUIMessageStream({ sendSources: true }));
+      await result.response;
+
+      console.log("[Stream] Finished");
     },
   });
 
-  return result.toUIMessageStreamResponse({
-    sendSources: true,
-    onFinish: async ({ responseMessage }) => {
-      console.log("[Stream] Finished:", responseMessage.id);
-    },
-  });
+  return createUIMessageStreamResponse({ stream });
 }

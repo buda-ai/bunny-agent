@@ -11,20 +11,27 @@ export interface ArtifactResult {
 }
 
 /**
- * Artifact Processor 接口（简化版）
- * 只需要一个 onChange 回调
+ * Stream writer interface for writing data parts
+ */
+export interface StreamWriter {
+  write(chunk: {
+    type: string;
+    id?: string;
+    data?: unknown;
+    transient?: boolean;
+  }): void;
+}
+
+/**
+ * Artifact Processor 接口
  */
 export interface ArtifactProcessor {
   /**
    * 当收到 stream part 时触发
-   * @param sessionId - 当前会话 ID（taskId），从 message-metadata 中提取
    * @param event - Stream part 事件
-   * @returns ArtifactResult 或 ArtifactResult[] 则会发送 data-artifact part(s)
+   * @param sessionId - 当前会话 ID（taskId）
    */
-  onChange(
-    sessionId: string,
-    event: LanguageModelV3StreamPart,
-  ): Promise<ArtifactResult | ArtifactResult[] | undefined>;
+  onChange(event: LanguageModelV3StreamPart, sessionId: string): Promise<void>;
 }
 
 /**
@@ -116,7 +123,7 @@ export interface SandAgentProviderSettings
 
   /**
    * Artifact processors for handling artifact events.
-   * Processors receive onChange/onFinish events and can transform artifacts.
+   * Processors receive onChange events with sessionId and writer.
    */
   artifactProcessors?: ArtifactProcessor[];
 }

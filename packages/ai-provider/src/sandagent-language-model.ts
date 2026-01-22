@@ -124,6 +124,8 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
   private readonly logger: Logger;
   private sessionId: string | undefined;
 
+  private toolNameMap: Map<string, string> = new Map();
+
   constructor(modelOptions: SandAgentLanguageModelOptions) {
     this.modelId = resolveModelId(modelOptions.id);
     this.options = modelOptions.options;
@@ -333,30 +335,7 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
                         for (const processor of self.options
                           .artifactProcessors) {
                           processor
-                            .onChange(self.sessionId, part)
-                            .then((artifactResult) => {
-                              if (artifactResult) {
-                                // Handle both single result and array of results
-                                const results = Array.isArray(artifactResult)
-                                  ? artifactResult
-                                  : [artifactResult];
-                                for (const result of results) {
-                                  // Add data-artifact part to the stream
-                                  controller.enqueue({
-                                    type: "raw",
-                                    rawValue: {
-                                      type: "artifact",
-                                      data: {
-                                        artifactId: result.artifactId,
-                                        content: result.content,
-                                        mimeType:
-                                          result.mimeType ?? "text/plain",
-                                      },
-                                    },
-                                  });
-                                }
-                              }
-                            })
+                            .onChange(part, self.sessionId)
                             .catch((e) => {
                               self.logger.error(
                                 `[sandagent] Artifact processor error: ${e}`,
@@ -515,7 +494,7 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
         const toolCallId = parsed.toolCallId as string;
         const toolName = parsed.toolName as string;
         const input = parsed.input as Record<string, unknown>;
-
+        this.toolNameMap.set(toolCallId, toolName);
         parts.push({
           type: "tool-call",
           toolCallId,
@@ -528,10 +507,11 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
       }
 
       case "tool-output-available": {
+        const toolName = this.toolNameMap.get(parsed.toolCallId as string);
         parts.push({
           type: "tool-result",
           toolCallId: parsed.toolCallId as string,
-          toolName: parsed.toolName as string,
+          toolName: toolName ?? "",
           result: parsed.output as NonNullable<JSONValue>,
           isError: parsed.isError as boolean,
           dynamic: parsed.dynamic as boolean,

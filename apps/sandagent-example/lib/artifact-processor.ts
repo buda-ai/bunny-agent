@@ -1,7 +1,7 @@
 import type {
   ArtifactProcessor,
-  ArtifactResult,
   LanguageModelV3StreamPart,
+  StreamWriter,
 } from "@sandagent/ai-provider";
 import type { SandboxAdapter } from "@sandagent/manager";
 
@@ -10,7 +10,7 @@ import type { SandboxAdapter } from "@sandagent/manager";
  *
  * 事件驱动的 Artifact 处理器
  * 1. 从 tasks/{sessionId}/artifact.json 读取 artifact 文件列表
- * 2. onChange 时读取文件内容并返回
+ * 2. onChange 时读取文件内容并通过 writer 发送
  */
 
 export interface ArtifactManifest {
@@ -32,101 +32,156 @@ export interface TaskDrivenArtifactProcessorOptions {
    * 工作目录，默认为 /workspace
    */
   workdir?: string;
+
+  /**
+   * Stream writer for writing artifact data directly
+   */
+  writer: StreamWriter;
 }
 
 export class TaskDrivenArtifactProcessor implements ArtifactProcessor {
   private sandbox: SandboxAdapter;
   private workdir: string;
   private artifactManifest: ArtifactManifest | null = null;
+  private writer: StreamWriter;
+  private sentArtifacts = new Map<string, string>();
+  // 队列机制：确保 onChange 顺序执行
+  private processingQueue: Promise<void> = Promise.resolve();
 
   constructor(options: TaskDrivenArtifactProcessorOptions) {
     this.sandbox = options.sandbox;
     this.workdir = options.workdir || "/workspace";
+    this.writer = options.writer;
   }
 
   /**
    * 加载 tasks/{sessionId}/artifact.json 清单文件
+   * 只有当文件内容变化时才更新缓存并打印日志
    */
-  private async loadManifest(sessionId: string): Promise<ArtifactManifest> {
-    if (this.artifactManifest) {
-      return this.artifactManifest;
-    }
-
+  private async loadManifest(sessionId: string): Promise<void> {
     try {
       const manifestPath = `${this.workdir}/tasks/${sessionId}/artifact.json`;
-      // Try to get existing handle first, fallback to attach if not available
       const handle = this.sandbox.getHandle?.();
       if (!handle) {
-        return { artifacts: [] };
+        return;
       }
+
       const content = await handle.readFile(manifestPath);
-      this.artifactManifest = JSON.parse(content) as ArtifactManifest;
-      return this.artifactManifest;
-    } catch (e) {
+      const newManifest = JSON.parse(content) as ArtifactManifest;
+
+      // 比较新旧 manifest，内容相同则直接返回缓存
+      if (
+        this.artifactManifest &&
+        JSON.stringify(newManifest) === JSON.stringify(this.artifactManifest)
+      ) {
+        return;
+      }
+
+      // 内容变化了，更新缓存
+      this.artifactManifest = newManifest;
       console.log(
-        `[ArtifactProcessor] No manifest found at tasks/${sessionId}/artifact.json`,
+        "[ArtifactProcessor] Manifest loaded:",
+        JSON.stringify(this.artifactManifest),
       );
-      return { artifacts: [] };
+    } catch (e) {
+      console.error("[ArtifactProcessor] Failed to load manifest:", e);
     }
   }
 
   /**
    * 当收到 stream part 时触发
-   * 读取 artifact.json 中列出的所有文件，返回主要文件内容
+   * 使用队列机制确保顺序执行，避免并发问题
    */
-  async onChange(
-    sessionId: string,
-    part: LanguageModelV3StreamPart,
-  ): Promise<ArtifactResult | ArtifactResult[] | undefined> {
-    console.log(
-      "[ArtifactProcessor] onChange:",
-      part.type,
-      "sessionId:",
-      sessionId,
-    );
+  onChange(part: LanguageModelV3StreamPart, sessionId: string): Promise<void> {
+    if (
+      part.type === "tool-result" &&
+      (part as { toolName?: string }).toolName === "Write"
+    ) {
+      const manifestPath = `${this.workdir}/tasks/${sessionId}/artifact.json`;
+      try {
+        if (
+          part.result &&
+          typeof part.result === "object" &&
+          "filePath" in part.result
+        ) {
+          if (part.result.filePath === manifestPath) {
+            this.processingQueue = this.processingQueue
+              .then(() => this.loadManifest(sessionId))
+              .catch((e) => {
+                console.error("[ArtifactProcessor] Queue error:", e);
+              });
+          }
+        }
+      } catch (e) {
+        return Promise.resolve();
+      }
+    }
 
-    // 重新加载 manifest（因为可能有新的 artifact）
-    this.artifactManifest = null;
-    const manifest = await this.loadManifest(sessionId);
+    if (part.type !== "tool-input-delta") {
+      return Promise.resolve();
+    }
 
-    if (!manifest.artifacts?.length) {
+    // 将处理任务追加到队列，确保顺序执行
+    // 使用 .then().catch() 确保即使出错也不会断掉队列
+    this.processingQueue = this.processingQueue
+      .then(() => this.processArtifacts())
+      .catch((e) => {
+        console.error("[ArtifactProcessor] Queue error:", e);
+      });
+
+    return this.processingQueue;
+  }
+
+  /**
+   * 实际处理 artifact 的逻辑
+   */
+  private async processArtifacts(): Promise<void> {
+    if (!this.artifactManifest?.artifacts?.length) {
       return;
     }
 
     // Try to get existing handle first, fallback to attach if not available
-    const handle = this.sandbox.getHandle?.();
+    const handle = this.sandbox.getHandle();
     if (!handle) {
       return;
     }
 
-    // 读取所有 artifact 文件内容
-    // artifact.path 是相对于工作目录的路径
-    const results: ArtifactResult[] = [];
-
-    for (const artifact of manifest.artifacts) {
+    // 读取所有 artifact 文件内容并发送
+    for (const artifact of this.artifactManifest.artifacts) {
       try {
         // 如果路径是绝对路径，直接使用；否则相对于工作目录
         const filePath = artifact.path.startsWith("/")
           ? artifact.path
           : `${this.workdir}/${artifact.path}`;
         const content = await handle.readFile(filePath);
+        if (!content) {
+          continue;
+        }
 
-        results.push({
-          artifactId: artifact.id || artifact.path,
-          content,
-          mimeType:
-            artifact.mimeType ||
-            (artifact.path.endsWith(".md")
-              ? "text/markdown"
-              : this.getMimeType(artifact.path)),
+        const artifactId = artifact.id || artifact.path;
+        const mimeType =
+          artifact.mimeType ||
+          (artifact.path.endsWith(".md")
+            ? "text/markdown"
+            : this.getMimeType(artifact.path));
+
+        // Only send if content has changed
+        if (this.sentArtifacts.get(artifactId) === content) {
+          continue;
+        }
+
+        // 使用 writer 直接写入
+        this.writer.write({
+          type: "data-artifact",
+          id: artifactId,
+          data: { artifactId, content, mimeType },
         });
+        this.sentArtifacts.set(artifactId, content);
+        console.log("[ArtifactProcessor] Artifact written:", artifactId);
       } catch (e) {
         console.log(`[ArtifactProcessor] Failed to read ${artifact.path}:`, e);
       }
     }
-
-    // 返回所有成功读取的 artifacts
-    return results.length > 0 ? results : undefined;
   }
 
   private getMimeType(path: string): string {
