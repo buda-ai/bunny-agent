@@ -32,7 +32,6 @@ describe("SandAgent + LocalSandbox Integration", () => {
 
       const sandbox = new LocalSandbox();
       const agent = new SandAgent({
-        sandboxId: "test-echo",
         sandbox,
         runner: {
           kind: "claude-agent-sdk",

@@ -213,7 +213,7 @@ export async function POST(request: Request) {
       // Sandbox-level config
       env,
       agentTemplate: template,
-      workdir: "/workspace",
+      workdir: "/sandagent",
     });
     console.log(`[API] Daytona sandbox configured with name: ${sandboxName}`);
   } else if (SANDBOX_PROVIDER === "sandock") {
@@ -231,7 +231,7 @@ export async function POST(request: Request) {
       apiKey: E2B_API_KEY,
       runnerBundlePath: RUNNER_BUNDLE_PATH,
       templatesPath: path.join(TEMPLATES_PATH, template),
-      // name: sandboxName,
+      name: sandboxName,
       // Sandbox-level config
       env,
       agentTemplate: template,
@@ -259,8 +259,8 @@ export async function POST(request: Request) {
         sandbox,
         cwd: "/sandagent",
         verbose: true,
-        sandboxId: sandboxName,
         artifactProcessors: [artifactProcessor],
+        resume,
       };
       const sandagent = createSandAgent(sandagentOptions);
 
@@ -268,10 +268,23 @@ export async function POST(request: Request) {
         model: sandagent(model),
         messages: normalizedMessages,
         abortSignal: signal,
+        onChunk(chunk) {
+          // console.log("[Stream] Chunk:", chunk);
+        },
       });
 
       // Merge the AI text stream and wait for completion
-      writer.merge(result.toUIMessageStream({ sendSources: true }));
+      writer.merge(
+        result.toUIMessageStream({
+          sendSources: true,
+          messageMetadata({ part }) {
+            if (part.type === "text-start") {
+              console.log("[Stream] Provider metadata:", part.providerMetadata);
+              return part.providerMetadata?.["claude-code"];
+            }
+          },
+        }),
+      );
       await result.response;
 
       console.log("[Stream] Finished");

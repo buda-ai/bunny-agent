@@ -344,7 +344,7 @@ describe("AI Provider Real Integration Tests", () => {
       expect(model.modelId).toContain("claude");
 
       // Verify sandbox can attach
-      const handle = await sandbox.attach("test-id");
+      const handle = await sandbox.attach();
       expect(handle).toBeDefined();
       expect(typeof handle.exec).toBe("function");
       expect(typeof handle.runCommand).toBe("function");
@@ -387,7 +387,7 @@ describe("AI Provider Real Integration Tests", () => {
       expect(model).toBeDefined();
 
       // Verify workspace configuration
-      const handle = await sandbox.attach("test-custom");
+      const handle = await sandbox.attach();
       const result = await handle.runCommand("pwd");
       expect(result.stdout).toContain(customWorkspace);
     });

@@ -191,7 +191,7 @@ export class E2BSandbox implements SandboxAdapter {
     return this.currentHandle;
   }
 
-  async attach(id?: string): Promise<SandboxHandle> {
+  async attach(): Promise<SandboxHandle> {
     if (!this.apiKey) {
       throw new Error(
         "E2B API key not found. Please set E2B_API_KEY environment variable or pass apiKey option.",
@@ -206,8 +206,8 @@ export class E2BSandbox implements SandboxAdapter {
     let instance: Sandbox;
     let needsInit = false;
 
-    // Use the provided id parameter, fallback to this.name
-    const sandboxName = id || this.name;
+    // Use this.name if provided
+    const sandboxName = this.name;
 
     // If name is provided, try to find and connect to existing sandbox
     if (sandboxName) {
