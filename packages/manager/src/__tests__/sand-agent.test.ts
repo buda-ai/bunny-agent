@@ -32,11 +32,13 @@ function createMockSandbox(): SandboxAdapter & { handle: SandboxHandle } {
         createAsyncIterable([new TextEncoder().encode("test output")]),
       ),
     upload: vi.fn().mockResolvedValue(undefined),
+    readFile: vi.fn().mockResolvedValue(""),
     destroy: vi.fn().mockResolvedValue(undefined),
   };
 
   const adapter: SandboxAdapter & { handle: SandboxHandle } = {
     attach: vi.fn().mockResolvedValue(handle),
+    getHandle: vi.fn().mockReturnValue(handle),
     handle,
   };
 

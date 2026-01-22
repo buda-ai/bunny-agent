@@ -96,6 +96,9 @@ export class DaytonaSandbox implements SandboxAdapter {
   private readonly agentTemplate: string;
   private readonly workdir: string;
 
+  /** Current handle for the sandbox instance */
+  private currentHandle: SandboxHandle | null = null;
+
   constructor(options: DaytonaSandboxOptions = {}) {
     this.apiKey = options.apiKey ?? process.env.DAYTONA_API_KEY;
     this.apiUrl = options.apiUrl ?? process.env.DAYTONA_API_URL;
@@ -135,11 +138,20 @@ export class DaytonaSandbox implements SandboxAdapter {
     return this.workdir;
   }
 
-  async attach(id: string): Promise<SandboxHandle> {
+  getHandle(): SandboxHandle | null {
+    return this.currentHandle;
+  }
+
+  async attach(id?: string): Promise<SandboxHandle> {
     if (!this.apiKey) {
       throw new Error(
         "Daytona API key not found. Please set DAYTONA_API_KEY environment variable or pass apiKey option.",
       );
+    }
+
+    // Return existing handle if already attached
+    if (this.currentHandle) {
+      return this.currentHandle;
     }
 
     const daytona = new Daytona({
@@ -282,6 +294,9 @@ export class DaytonaSandbox implements SandboxAdapter {
     if (needsInit) {
       await this.initializeSandbox(handle);
     }
+
+    // Store the handle
+    this.currentHandle = handle;
 
     return handle;
   }
@@ -627,6 +642,17 @@ class DaytonaHandle implements SandboxHandle {
 
     // Use longer timeout (300s) for large file uploads
     await this.sandbox.fs.uploadFiles(filesToUpload, 300);
+  }
+
+  async readFile(filePath: string): Promise<string> {
+    // Use runCommand helper which returns { stdout, stderr, exitCode }
+    const result = await this.runCommand(`cat ${filePath}`);
+    if (result.exitCode !== 0) {
+      throw new Error(
+        `Failed to read file ${filePath}: ${result.stderr || result.stdout}`,
+      );
+    }
+    return result.stdout;
   }
 
   async destroy(): Promise<void> {

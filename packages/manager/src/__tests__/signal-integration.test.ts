@@ -37,11 +37,13 @@ describe("Signal Integration Tests", () => {
         };
       }),
       upload: vi.fn(),
+      readFile: vi.fn(),
       destroy: vi.fn(),
     };
 
     mockSandbox = {
       attach: vi.fn(async () => mockHandle),
+      getHandle: vi.fn(() => mockHandle),
     };
   });
 
