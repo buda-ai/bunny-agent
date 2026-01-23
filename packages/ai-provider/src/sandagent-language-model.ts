@@ -312,12 +312,16 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
               const lines = buffer.split("\n");
               buffer = lines.pop() ?? ""; // Keep incomplete line
 
+              let foundDone = false;
               for (const line of lines) {
                 if (line.startsWith("data: ")) {
                   const data = line.slice(6);
 
                   if (data === "[DONE]") {
-                    continue; // Skip DONE marker
+                    // Mark that we found [DONE], but continue processing remaining lines
+                    // to ensure all messages before [DONE] are processed
+                    foundDone = true;
+                    continue; // Skip [DONE] marker but continue processing other lines
                   }
                   try {
                     // Convert: parse and transform to LanguageModelV3StreamPart
@@ -325,15 +329,21 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
                     for (const part of parts) {
                       controller.enqueue(part);
 
-                      // Process artifact processors asynchronously
+                      // Process artifact processors asynchronously (fire and forget)
+                      // Don't await to avoid blocking stream transmission
                       if (
                         self.options.artifactProcessors?.length &&
                         self.sessionId
                       ) {
+                        // Use setImmediate or setTimeout(0) to ensure this doesn't block
+                        // the current event loop iteration
+                        // Type guard: self.sessionId is string here due to the if condition
+                        const sessionId: string = self.sessionId;
                         for (const processor of self.options
                           .artifactProcessors) {
-                          processor
-                            .onChange(part, self.sessionId)
+                          // Fire and forget - don't block on artifact processing
+                          Promise.resolve()
+                            .then(() => processor.onChange(part, sessionId))
                             .catch((e) => {
                               self.logger.error(
                                 `[sandagent] Artifact processor error: ${e}`,
@@ -348,6 +358,14 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
                     );
                   }
                 }
+              }
+
+              // After processing all messages in this batch, close stream if [DONE] was found
+              if (foundDone) {
+                // Close the stream after all messages in this batch are processed
+                // This ensures finish events and other messages are fully enqueued
+                controller.close();
+                return; // Exit the loop
               }
             }
           } catch (error) {
