@@ -140,6 +140,19 @@ export class E2BSandbox implements SandboxAdapter {
   }
 
   /**
+   * Get the runner command to execute in the sandbox.
+   * Returns different commands based on whether a local bundle or npm package is used.
+   */
+  getRunnerCommand(): string[] {
+    if (this.runnerBundlePath && fs.existsSync(this.runnerBundlePath)) {
+      // Local bundle is uploaded to ${workdir}/runner/bundle.mjs
+      return ["node", `${this.workdir}/runner/bundle.mjs`, "run"];
+    }
+    // npm installed runner-cli has bin symlink at ${workdir}/node_modules/.bin/sandagent
+    return ["sandagent", "run"];
+  }
+
+  /**
    * Find an existing sandbox by name and connect to it.
    * Sandbox.connect() will automatically resume if paused.
    * See: https://e2b.dev/docs/sandbox/persistence
@@ -273,8 +286,34 @@ export class E2BSandbox implements SandboxAdapter {
   }
 
   private async initializeSandbox(handle: E2BHandle): Promise<void> {
-    // Upload runner bundle to /sandagent (fixed location for node to find it)
+    // Step 0: Create workspace directory using E2B file API
+    console.log(`[E2B] Creating workspace directory: ${this.workdir}`);
+    try {
+      await handle.getInstance().files.makeDir(this.workdir);
+    } catch (err) {
+      // Directory might already exist, ignore
+      console.log(`[E2B] mkdir warning (may already exist): ${err}`);
+    }
+
+    // Step 1: Install claude-agent-sdk to workspace
+    console.log(
+      `[E2B] Installing @anthropic-ai/claude-agent-sdk to ${this.workdir}`,
+    );
+    const sdkInstallResult = await handle.runCommand(
+      `cd ${this.workdir} && npm install @anthropic-ai/claude-agent-sdk`,
+    );
+    if (sdkInstallResult.exitCode !== 0) {
+      console.error(
+        `[E2B] Failed to install claude-agent-sdk: ${sdkInstallResult.stderr}`,
+      );
+      throw new Error(
+        `Failed to install @anthropic-ai/claude-agent-sdk: ${sdkInstallResult.stderr}`,
+      );
+    }
+
+    // Step 2: Setup runner - either upload local bundle or install from npm
     if (this.runnerBundlePath && fs.existsSync(this.runnerBundlePath)) {
+      // Option A: Upload local runner bundle to /sandagent
       const bundleContent = fs.readFileSync(this.runnerBundlePath);
       const bundleFileName = path.basename(this.runnerBundlePath);
       const runnerFiles = [
@@ -284,20 +323,30 @@ export class E2BSandbox implements SandboxAdapter {
         },
       ];
       console.log(
-        `[E2B] Uploading runner bundle (${bundleFileName}) to /sandagent`,
+        `[E2B] Uploading runner bundle (${bundleFileName}) to ${this.workdir}`,
       );
-      await handle.upload(runnerFiles, "/sandagent");
+      await handle.upload(runnerFiles, this.workdir);
+      console.log(`[E2B] Runner bundle uploaded`);
+    } else {
+      // Option B: Install runner-cli to workspace from npm
+      console.log(
+        `[E2B] No runnerBundlePath provided, installing @sandagent/runner-cli to ${this.workdir}`,
+      );
 
-      // Install claude-agent-sdk in sandbox
-      console.log(`[E2B] Installing @anthropic-ai/claude-agent-sdk`);
       const installResult = await handle.runCommand(
-        "npm install --prefix /sandagent @anthropic-ai/claude-agent-sdk",
+        `cd ${this.workdir} && npm install @sandagent/runner-cli@beta`,
       );
       if (installResult.exitCode !== 0) {
         console.error(
-          `[E2B] Failed to install claude-agent-sdk: ${installResult.stderr}`,
+          `[E2B] Failed to install runner-cli: ${installResult.stderr}`,
+        );
+        throw new Error(
+          `Failed to install @sandagent/runner-cli: ${installResult.stderr}`,
         );
       }
+      console.log(
+        `[E2B] Successfully installed @sandagent/runner-cli to ${this.workdir}`,
+      );
     }
 
     // Upload template to workdir (where runner will execute)
@@ -349,10 +398,16 @@ export class E2BSandbox implements SandboxAdapter {
 class E2BHandle implements SandboxHandle {
   private readonly instance: Sandbox;
   private readonly sandboxEnv: Record<string, string>;
+  private readonly workdir: string;
 
-  constructor(instance: Sandbox, sandboxEnv: Record<string, string> = {}) {
+  constructor(
+    instance: Sandbox,
+    sandboxEnv: Record<string, string> = {},
+    workdir = "/workspace",
+  ) {
     this.instance = instance;
     this.sandboxEnv = sandboxEnv;
+    this.workdir = workdir;
   }
 
   /**
@@ -360,6 +415,13 @@ class E2BHandle implements SandboxHandle {
    */
   getSandboxId(): string {
     return this.instance.sandboxId;
+  }
+
+  /**
+   * Get the underlying E2B sandbox instance
+   */
+  getInstance(): Sandbox {
+    return this.instance;
   }
 
   /**
@@ -397,19 +459,26 @@ class E2BHandle implements SandboxHandle {
     const signal = opts?.signal;
 
     // Merge sandbox-level env with call-level env (call-level takes precedence)
-    // Add NODE_PATH so Node can find packages installed in /sandagent
+    // Add NODE_PATH so Node can find packages, and PATH to find bin commands
     const envWithNodePath: Record<string, string> = {
       ...this.sandboxEnv,
       ...opts?.env,
-      NODE_PATH: "/sandagent/node_modules",
+      NODE_PATH: `${this.workdir}/node_modules`,
+      PATH: `${this.workdir}/node_modules/.bin:/usr/local/bin:/usr/bin:/bin`,
     };
 
     // Build shell-safe command string with proper escaping
     const baseCommand = this.buildShellCommand(command);
 
+    // Build export statements for all env vars
+    const envExports = Object.entries(envWithNodePath)
+      .filter(([key]) => key === "NODE_PATH" || key === "PATH")
+      .map(([key, value]) => `export ${key}="${value.replace(/"/g, '\\"')}"`)
+      .join(" && ");
+
     // Wrap command to capture PID for potential termination
     const pidFile = `/tmp/sandagent-${Date.now()}-${Math.random().toString(36).substring(7)}.pid`;
-    const shellCommand = `(${baseCommand}) & echo $! > ${pidFile}; wait $!; EXIT_CODE=$?; rm -f ${pidFile}; exit $EXIT_CODE`;
+    const shellCommand = `(${envExports} && ${baseCommand}) & echo $! > ${pidFile}; wait $!; EXIT_CODE=$?; rm -f ${pidFile}; exit $EXIT_CODE`;
 
     // Debug: log environment variables being passed to sandbox
     console.log("[E2B] Executing command:", baseCommand);

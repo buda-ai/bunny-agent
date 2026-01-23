@@ -138,6 +138,19 @@ export class DaytonaSandbox implements SandboxAdapter {
     return this.workdir;
   }
 
+  /**
+   * Get the runner command to execute in the sandbox.
+   * Returns different commands based on whether a local bundle or npm package is used.
+   */
+  getRunnerCommand(): string[] {
+    if (this.runnerBundlePath && fs.existsSync(this.runnerBundlePath)) {
+      // Local bundle is uploaded to ${workdir}/runner/bundle.mjs
+      return ["node", `${this.workdir}/runner/bundle.mjs`, "run"];
+    }
+    // npm installed runner-cli has bin symlink
+    return ["sandagent", "run"];
+  }
+
   getHandle(): SandboxHandle | null {
     return this.currentHandle;
   }
@@ -287,7 +300,7 @@ export class DaytonaSandbox implements SandboxAdapter {
 
     console.log(`[Daytona] Sandbox ${sandbox.id} ready`);
 
-    const handle = new DaytonaHandle(sandbox, this.env);
+    const handle = new DaytonaHandle(sandbox, this.env, this.workdir);
 
     // Initialize sandbox if needed (upload files, install dependencies)
     // Files are stored in volume, so existing sandboxes don't need re-initialization
@@ -320,6 +333,7 @@ export class DaytonaSandbox implements SandboxAdapter {
         name: sandboxName,
         language: "typescript",
         volumes,
+        envVars: this.env,
         autoStopInterval: this.autoStopInterval,
         autoDeleteInterval: this.autoDeleteInterval,
       },
@@ -332,8 +346,32 @@ export class DaytonaSandbox implements SandboxAdapter {
   }
 
   private async initializeSandbox(handle: DaytonaHandle): Promise<void> {
-    // Upload runner bundle to /sandagent (fixed location for node to find it)
+    // Step 0: Create workspace directory
+    console.log(`[Daytona] Creating workspace directory: ${this.workdir}`);
+    const mkdirResult = await handle.runCommand(`mkdir -p ${this.workdir}`);
+    if (mkdirResult.exitCode !== 0) {
+      console.log(`[Daytona] mkdir warning: ${mkdirResult.stderr}`);
+    }
+
+    // Step 1: Install claude-agent-sdk to workspace
+    console.log(
+      `[Daytona] Installing @anthropic-ai/claude-agent-sdk to ${this.workdir}`,
+    );
+    const sdkInstallResult = await handle.runCommand(
+      `cd ${this.workdir} && npm install @anthropic-ai/claude-agent-sdk`,
+    );
+    if (sdkInstallResult.exitCode !== 0) {
+      console.error(
+        `[Daytona] Failed to install claude-agent-sdk: ${sdkInstallResult.stderr}`,
+      );
+      throw new Error(
+        `Failed to install @anthropic-ai/claude-agent-sdk: ${sdkInstallResult.stderr}`,
+      );
+    }
+
+    // Step 2: Setup runner - either upload local bundle or install from npm
     if (this.runnerBundlePath && fs.existsSync(this.runnerBundlePath)) {
+      // Option A: Upload local runner bundle to workspace
       const bundleContent = fs.readFileSync(this.runnerBundlePath);
       const bundleFileName = path.basename(this.runnerBundlePath);
       const runnerFiles = [
@@ -343,19 +381,30 @@ export class DaytonaSandbox implements SandboxAdapter {
         },
       ];
       console.log(
-        `[Daytona] Uploading runner bundle (${bundleFileName}) to /sandagent`,
+        `[Daytona] Uploading runner bundle (${bundleFileName}) to ${this.workdir}`,
       );
-      await handle.upload(runnerFiles, "/sandagent");
+      await handle.upload(runnerFiles, this.workdir);
+      console.log(`[Daytona] Runner bundle uploaded`);
+    } else {
+      // Option B: Install runner-cli to workspace from npm
+      console.log(
+        `[Daytona] No runnerBundlePath provided, installing @sandagent/runner-cli to ${this.workdir}`,
+      );
 
-      console.log(`[Daytona] Installing @anthropic-ai/claude-agent-sdk`);
       const installResult = await handle.runCommand(
-        "npm install --prefix /sandagent @anthropic-ai/claude-agent-sdk",
+        `cd ${this.workdir} && npm install @sandagent/runner-cli@beta`,
       );
       if (installResult.exitCode !== 0) {
         console.error(
-          `[Daytona] Failed to install claude-agent-sdk: ${installResult.stderr}`,
+          `[Daytona] Failed to install runner-cli: ${installResult.stderr}`,
+        );
+        throw new Error(
+          `Failed to install @sandagent/runner-cli: ${installResult.stderr}`,
         );
       }
+      console.log(
+        `[Daytona] Successfully installed @sandagent/runner-cli to ${this.workdir}`,
+      );
     }
 
     // Upload template to workdir (where runner will execute)
@@ -365,6 +414,10 @@ export class DaytonaSandbox implements SandboxAdapter {
         `[Daytona] Uploading ${templateFiles.length} template files to ${this.workdir}`,
       );
       await handle.upload(templateFiles, this.workdir);
+    } else if (this.templatesPath) {
+      console.warn(
+        `[Daytona] Template path specified but not found: ${this.templatesPath}`,
+      );
     }
   }
 
@@ -402,10 +455,16 @@ export class DaytonaSandbox implements SandboxAdapter {
 class DaytonaHandle implements SandboxHandle {
   private readonly sandbox: Sandbox;
   private readonly sandboxEnv: Record<string, string>;
+  private readonly workdir: string;
 
-  constructor(sandbox: Sandbox, sandboxEnv: Record<string, string> = {}) {
+  constructor(
+    sandbox: Sandbox,
+    sandboxEnv: Record<string, string> = {},
+    workdir = "/workspace",
+  ) {
     this.sandbox = sandbox;
     this.sandboxEnv = sandboxEnv;
+    this.workdir = workdir;
   }
 
   /**
@@ -455,15 +514,18 @@ class DaytonaHandle implements SandboxHandle {
     const signal = opts?.signal;
 
     // Merge sandbox-level env with call-level env (call-level takes precedence)
-    // Add NODE_PATH so Node can find packages installed in /sandagent
+    // Add NODE_PATH so Node can find packages installed in workspace
+    // Add PATH so shell can find sandagent command
     const envWithNodePath: Record<string, string> = {
       ...this.sandboxEnv,
       ...opts?.env,
-      NODE_PATH: "/sandagent/node_modules",
+      NODE_PATH: `${this.workdir}/node_modules`,
+      PATH: `${this.workdir}/node_modules/.bin:/usr/local/bin:/usr/bin:/bin`,
     };
 
     // Build environment exports for shell
     const envExports = Object.entries(envWithNodePath)
+      .filter(([key]) => key === "NODE_PATH" || key === "PATH")
       .map(([k, v]) => `export ${k}='${v.replace(/'/g, "'\\''")}'`)
       .join("; ");
 
