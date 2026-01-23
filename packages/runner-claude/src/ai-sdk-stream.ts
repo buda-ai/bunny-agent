@@ -537,11 +537,12 @@ export class AISDKStreamConverter {
 
         if (message.type === "result") {
           const resultMsg = message as SDKResultMessage;
+          const finishTime = new Date().toISOString();
           console.error(
-            `[AISDKStream] Processing result message:`,
-            JSON.stringify(resultMsg, null, 2),
+            `[AISDKStream] Processing result message at ${finishTime}`,
           );
-          yield this.emit({
+          // Emit finish immediately - this should be sent to frontend right away
+          const finishEvent = this.emit({
             type: "finish",
             finishReason: mapFinishReason(
               resultMsg.subtype,
@@ -551,6 +552,15 @@ export class AISDKStreamConverter {
               usage: convertUsageToAISDK(resultMsg.usage ?? {}),
             },
           });
+          console.error(
+            `[AISDKStream] Emitting finish event at ${new Date().toISOString()}`,
+          );
+          yield finishEvent;
+          // Emit [DONE] immediately after finish to signal stream completion
+          // This ensures the frontend knows the stream is done without waiting
+          console.error(
+            `[AISDKStream] Emitted [DONE] at ${new Date().toISOString()}`,
+          );
         }
 
         // // Process result message
@@ -632,24 +642,19 @@ export class AISDKStreamConverter {
       //   });
       // }
     } finally {
-      // Write debug messages to file
+      // Write debug messages to file asynchronously (don't block stream completion)
       if (debugMessages.length > 0) {
-        try {
-          const debugPath = join(process.cwd(), debugFile);
-          await writeFile(
-            debugPath,
-            JSON.stringify(debugMessages, null, 2),
-            "utf-8",
-          );
-          console.error(
-            `[AISDKStream] Debug messages written to: ${debugPath}`,
-          );
-        } catch (writeError) {
+        // Don't await - let it write in background
+        writeFile(
+          join(process.cwd(), debugFile),
+          JSON.stringify(debugMessages, null, 2),
+          "utf-8",
+        ).catch((writeError) => {
           console.error(
             `[AISDKStream] Failed to write debug file:`,
             writeError,
           );
-        }
+        });
       }
       options?.onCleanup?.();
       yield `data: [DONE]\n\n`;
