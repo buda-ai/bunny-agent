@@ -117,4 +117,39 @@ Next steps:
 - **Video unavailable**: Check if video is private or region-locked
 - **Age-restricted**: May require authentication
 - **Live stream**: Wait until stream ends or use different approach
-- **yt-dlp not found**: Request sandbox to install yt-dlp
+- **yt-dlp not found**: Install with `brew install yt-dlp` (macOS) or `pip install yt-dlp`
+
+### Bot Detection / 403 Errors
+
+If you encounter "Sign in to confirm you're not a bot" or HTTP 403 errors, YouTube's anti-bot protection is blocking the download. Try these solutions in order:
+
+**Solution 1: Use PO Token (Recommended)**
+```bash
+# Follow guide: https://github.com/yt-dlp/yt-dlp/wiki/PO-Token-Guide
+yt-dlp --extractor-args "youtube:po_token=web+XXX" "[URL]"
+```
+
+**Solution 2: Browser Cookies**
+```bash
+# Export cookies from a logged-in browser session
+yt-dlp --cookies-from-browser firefox "[URL]"
+# Or use exported cookies file
+yt-dlp --cookies ./cookies.txt "[URL]"
+```
+
+**Solution 3: Offer Alternatives to User**
+If automated download fails after multiple attempts, provide the user with options:
+
+```markdown
+## ⚠️ YouTube Access Restricted
+
+The video cannot be downloaded automatically due to YouTube's bot protection.
+
+**Your options**:
+1. **Manual download**: Download the video from a browser and place it in `./output/downloads/`
+2. **Different video**: Try a different YouTube URL
+3. **Local file**: Provide a video file you already have
+4. **Wait and retry**: YouTube's restrictions are sometimes temporary
+
+Once you have the video file, I can proceed with transcription and short video creation.
+```
