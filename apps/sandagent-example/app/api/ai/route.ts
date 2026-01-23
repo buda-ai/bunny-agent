@@ -4,7 +4,7 @@ import {
   type SandAgentProviderSettings,
   createSandAgent,
 } from "@sandagent/ai-provider";
-import { DaytonaSandbox } from "@sandagent/sandbox-daytona";
+// DaytonaSandbox is dynamically imported to avoid build-time dependency issues
 import { E2BSandbox } from "@sandagent/sandbox-e2b";
 import { SandockSandbox } from "@sandagent/sandbox-sandock";
 import {
@@ -188,7 +188,9 @@ export async function POST(request: Request) {
   const normalizedMessages = [normalizedMessage];
 
   // Build env object, filtering out undefined values
-  const env: Record<string, string> = { DEBUG_STREAM: "true" };
+  const env: Record<string, string> = {
+    DEBUG_STREAM: "true",
+  };
   if (ANTHROPIC_API_KEY) env.ANTHROPIC_API_KEY = ANTHROPIC_API_KEY;
   if (ANTHROPIC_BASE_URL) env.ANTHROPIC_BASE_URL = ANTHROPIC_BASE_URL;
   if (AWS_BEARER_TOKEN_BEDROCK) {
@@ -202,24 +204,27 @@ export async function POST(request: Request) {
   const sandboxName = `sandagent-${template}`;
 
   if (SANDBOX_PROVIDER === "daytona") {
+    // Dynamic import to avoid build-time dependency issues with @daytonaio/sdk
+    const { DaytonaSandbox } = await import("@sandagent/sandbox-daytona");
     sandbox = new DaytonaSandbox({
       apiKey: DAYTONA_API_KEY,
       runnerBundlePath: RUNNER_BUNDLE_PATH,
       templatesPath: path.join(TEMPLATES_PATH, template),
       volumeName: sandboxName,
+      volumeMountPath: "/workspace",
       name: sandboxName,
       autoStopInterval: 15,
       autoDeleteInterval: -1,
       // Sandbox-level config
       env,
       agentTemplate: template,
-      workdir: "/sandagent",
+      workdir: "/workspace",
     });
     console.log(`[API] Daytona sandbox configured with name: ${sandboxName}`);
   } else if (SANDBOX_PROVIDER === "sandock") {
     sandbox = new SandockSandbox({
       apiKey: SANDOCK_API_KEY,
-      runnerBundlePath: RUNNER_BUNDLE_PATH,
+      // runnerBundlePath: RUNNER_BUNDLE_PATH,
       templatesPath: path.join(TEMPLATES_PATH, template),
       // Sandbox-level config
       env,
@@ -235,7 +240,7 @@ export async function POST(request: Request) {
       // Sandbox-level config
       env,
       agentTemplate: template,
-      workdir: "/sandagent",
+      workdir: "/workspace",
     });
   }
 

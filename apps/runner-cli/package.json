@@ -1,6 +1,6 @@
 {
   "name": "@sandagent/runner-cli",
-  "version": "0.1.1",
+  "version": "0.1.2-beta.2",
   "description": "SandAgent Runner CLI - Like gemini-cli or claude-code, runs in your local terminal with AI SDK UI streaming",
   "type": "module",
   "bin": {
@@ -34,6 +34,21 @@
     "directory": "apps/runner-cli"
   },
   "license": "Apache-2.0",
+  "publishConfig": {
+    "access": "public",
+    "tag": "beta"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "keywords": [
+    "cli",
+    "agent",
+    "sandagent",
+    "runner",
+    "claude",
+    "anthropic"
+  ],
   "dependencies": {},
   "devDependencies": {
     "@sandagent/runner-claude": "workspace:*",
