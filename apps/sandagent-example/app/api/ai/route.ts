@@ -272,8 +272,7 @@ export async function POST(request: Request) {
           // console.log("[Stream] Chunk:", chunk);
         },
       });
-
-      // Merge the AI text stream and wait for completion
+      // Merge the AI text stream - this starts consuming immediately
       writer.merge(
         result.toUIMessageStream({
           sendSources: true,
@@ -285,9 +284,8 @@ export async function POST(request: Request) {
           },
         }),
       );
-      await result.response;
 
-      console.log("[Stream] Finished");
+      // await result.response;
     },
   });
 
