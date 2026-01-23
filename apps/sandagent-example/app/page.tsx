@@ -48,7 +48,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, memo, useEffect, useMemo, useRef, useState } from "react";
 import { AskUserQuestionUI } from "./claude-tools/AskUserQuestionUI";
 import { STORAGE_KEY } from "./settings/page";
 
@@ -61,7 +61,7 @@ interface ArtifactData {
   mimeType: string;
 }
 
-export default function Home() {
+function HomeContent() {
   const [sessionId] = useState(() => `session-${Date.now()}`);
   const [configReady, setConfigReady] = useState<boolean | null>(null);
   const searchParams = useSearchParams();
@@ -355,7 +355,7 @@ export default function Home() {
 
         {/* Artifact panel - right side */}
         {extractedArtifacts.length > 0 && (
-          <div className="w-100 border-l border-border flex flex-col bg-muted/30">
+          <div className="w-[400px] border-l border-border flex flex-col bg-muted/30">
             {/* Artifact tabs */}
             <div className="flex items-center gap-1 p-2 border-b border-border overflow-x-auto bg-background/50">
               {extractedArtifacts.map((artifact) => {
@@ -1127,5 +1127,19 @@ function ArtifactPanel({ artifact }: { artifact: ArtifactData }) {
         </div>
       )}
     </>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense
+      fallback={
+        <div className="h-screen w-screen flex items-center justify-center bg-background">
+          <Loader className="size-8" />
+        </div>
+      }
+    >
+      <HomeContent />
+    </Suspense>
   );
 }
