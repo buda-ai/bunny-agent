@@ -1,4 +1,4 @@
-# Daytona Snapshot 设计文档
+# Daytona Snapshot 设计
 
 ## 概述
 

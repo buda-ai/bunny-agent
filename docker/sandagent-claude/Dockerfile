@@ -20,7 +20,8 @@ RUN for i in 1 2 3; do \
     && break || sleep 5; \
     done
 
-# Create directories
+# Create directories with proper permissions
+RUN mkdir -p /workspace && chmod 777 /workspace
 WORKDIR /workspace
 
 # Pre-install dependencies to /opt/sandagent (won't be overwritten by volume mount)

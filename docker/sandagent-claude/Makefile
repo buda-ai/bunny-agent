@@ -166,17 +166,34 @@ e2b:
 	@echo "Deploying to E2B..."
 	@echo "  Template: $(E2B_ALIAS)"
 	@echo "  Resources: $(CPU) CPU, $(MEMORY)GB RAM"
+	@echo "  Force: $(FORCE)"
 	@echo ""
 	@if [ -z "$$E2B_API_KEY" ]; then \
 		echo "❌ E2B_API_KEY not set"; \
 		echo "   Set in .env file or: export E2B_API_KEY=e2b_***"; \
 		exit 1; \
 	fi; \
+	FORCE_FLAG=""; \
+	if [ "$(FORCE)" = "true" ]; then \
+		FORCE_FLAG="--force"; \
+	fi; \
 	cd "$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))" && \
-	npx tsx build-e2b-template.ts \
-		--alias "$(E2B_ALIAS)" \
-		--cpu $(CPU) \
-		--memory $$(( $(MEMORY) * 1024 ))
+	if [ -n "$(TEMPLATE)" ]; then \
+		echo "  Including template: $(TEMPLATE)"; \
+		./generate-dockerfile.sh $(TEMPLATE) ../../templates true; \
+		npx tsx build-e2b-template.ts \
+			--alias "$(E2B_ALIAS)" \
+			--cpu $(CPU) \
+			--memory $$(( $(MEMORY) * 1024 )) \
+			--context .build-context \
+			$$FORCE_FLAG; \
+	else \
+		npx tsx build-e2b-template.ts \
+			--alias "$(E2B_ALIAS)" \
+			--cpu $(CPU) \
+			--memory $$(( $(MEMORY) * 1024 )) \
+			$$FORCE_FLAG; \
+	fi
 
 # List Daytona snapshots
 list:

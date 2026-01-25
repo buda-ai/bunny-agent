@@ -63,15 +63,6 @@ export interface E2BSandboxOptions {
   agentTemplate?: string;
 
   /**
-   * If true, skip installing claude-agent-sdk and runner-cli.
-   * Use this when using a custom E2B template with pre-installed dependencies.
-   * Create custom template: https://e2b.dev/docs/sandbox-template
-   *
-   * @default false
-   */
-  skipDependencyInstall?: boolean;
-
-  /**
    * Working directory for the agent inside the sandbox.
    * Will be created if it doesn't exist.
    *
@@ -107,13 +98,15 @@ export class E2BSandbox implements SandboxAdapter {
   private readonly env: Record<string, string>;
   private readonly agentTemplate: string;
   private readonly workdir: string;
-  private readonly skipDependencyInstall: boolean;
 
   /** Current handle for the sandbox instance */
   private currentHandle: SandboxHandle | null = null;
 
   /** Default timeout in seconds (1 hour for hobby tier) */
   private static readonly DEFAULT_TIMEOUT_SEC = 3600;
+
+  /** Custom template prefix - templates starting with this have pre-installed dependencies */
+  private static readonly CUSTOM_TEMPLATE_PREFIX = "sandagent";
 
   constructor(options: E2BSandboxOptions = {}) {
     this.apiKey = options.apiKey ?? process.env.E2B_API_KEY;
@@ -126,7 +119,24 @@ export class E2BSandbox implements SandboxAdapter {
     this.env = options.env ?? {};
     this.agentTemplate = options.agentTemplate ?? "default";
     this.workdir = options.workdir ?? "/workspace";
-    this.skipDependencyInstall = options.skipDependencyInstall ?? false;
+  }
+
+  /** Default E2B templates that don't have pre-installed dependencies */
+  private static readonly DEFAULT_TEMPLATES = ["base", "code-interpreter-v1"];
+
+  /**
+   * Check if using a custom sandagent template with pre-installed dependencies.
+   * Custom templates either:
+   * - Start with "sandagent" prefix (alias)
+   * - Are not in the default templates list (template ID)
+   */
+  private isCustomTemplate(): boolean {
+    // If starts with sandagent prefix, it's definitely custom
+    if (this.template.startsWith(E2BSandbox.CUSTOM_TEMPLATE_PREFIX)) {
+      return true;
+    }
+    // If not a known default template, assume it's a custom template ID
+    return !E2BSandbox.DEFAULT_TEMPLATES.includes(this.template);
   }
 
   /**
@@ -159,8 +169,12 @@ export class E2BSandbox implements SandboxAdapter {
       // Local bundle is uploaded to ${workdir}/runner/bundle.mjs
       return ["node", `${this.workdir}/runner/bundle.mjs`, "run"];
     }
-    // npm installed runner-cli has bin symlink at ${workdir}/node_modules/.bin/sandagent
-    return ["sandagent", "run"];
+    if (this.isCustomTemplate()) {
+      // Custom template has sandagent as system command in /usr/local/bin
+      return ["sandagent", "run"];
+    }
+    // npm installed runner-cli in workspace
+    return [`${this.workdir}/node_modules/.bin/sandagent`, "run"];
   }
 
   /**
@@ -307,10 +321,36 @@ export class E2BSandbox implements SandboxAdapter {
     }
 
     // If using custom template with pre-installed dependencies, skip npm installs
-    if (this.skipDependencyInstall) {
+    if (this.isCustomTemplate()) {
       console.log(
         `[E2B] Using custom template "${this.template}", skipping dependency installs`,
       );
+      // Ensure workspace has correct permissions
+      try {
+        await handle.runCommand(
+          `chmod 777 ${this.workdir} 2>/dev/null || true`,
+        );
+      } catch {
+        // Ignore permission errors
+      }
+      // Copy template files from /opt/sandagent/templates if exists (similar to Daytona)
+      try {
+        const copyTemplateResult = await handle.runCommand(
+          `if [ -d "/opt/sandagent/templates" ]; then ` +
+            `cp -r /opt/sandagent/templates/. ${this.workdir}/ 2>&1 && ` +
+            `echo "Template files copied"; ` +
+            `else echo "No templates in image"; fi`,
+        );
+        if (copyTemplateResult.stdout) {
+          console.log(`[E2B] ${copyTemplateResult.stdout.trim()}`);
+        }
+      } catch (err: unknown) {
+        const error = err as { result?: { stdout?: string; stderr?: string } };
+        console.log(
+          `[E2B] Template copy warning: ${error.result?.stderr || error.result?.stdout || "unknown error"}`,
+        );
+        // Not fatal - templates might be uploaded via templatesPath instead
+      }
     } else {
       // Step 1: Install claude-agent-sdk to workspace
       console.log(
@@ -345,7 +385,7 @@ export class E2BSandbox implements SandboxAdapter {
       );
       await handle.upload(runnerFiles, this.workdir);
       console.log(`[E2B] Runner bundle uploaded`);
-    } else if (this.skipDependencyInstall) {
+    } else if (this.isCustomTemplate()) {
       // Option B: Using custom template - runner-cli is pre-installed
       console.log(`[E2B] Using pre-installed runner-cli from template`);
     } else {

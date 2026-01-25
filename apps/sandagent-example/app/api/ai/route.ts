@@ -235,8 +235,11 @@ export async function POST(request: Request) {
   } else {
     sandbox = new E2BSandbox({
       apiKey: E2B_API_KEY,
-      runnerBundlePath: RUNNER_BUNDLE_PATH,
-      templatesPath: path.join(TEMPLATES_PATH, template),
+      // TODO: E2B alias cache issue - use template ID directly for now
+      // template: `sandagent-claude-${template}`,
+      template: "0ztjw3uqpwmhryuwo8vh", // sandagent-claude-researcher
+      // runnerBundlePath: RUNNER_BUNDLE_PATH,
+      // // templatesPath: path.join(TEMPLATES_PATH, template),
       name: sandboxName,
       // Sandbox-level config
       env,
