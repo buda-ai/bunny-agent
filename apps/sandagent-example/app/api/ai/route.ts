@@ -209,7 +209,7 @@ export async function POST(request: Request) {
     sandbox = new DaytonaSandbox({
       apiKey: DAYTONA_API_KEY,
       // runnerBundlePath: RUNNER_BUNDLE_PATH,
-      // templatesPath: path.join(TEMPLATES_PATH, template),
+      templatesPath: path.join(TEMPLATES_PATH, template),
       volumeName: sandboxName,
       volumeMountPath: "/workspace",
       name: sandboxName,
@@ -225,7 +225,7 @@ export async function POST(request: Request) {
   } else if (SANDBOX_PROVIDER === "sandock") {
     sandbox = new SandockSandbox({
       apiKey: SANDOCK_API_KEY,
-      // runnerBundlePath: RUNNER_BUNDLE_PATH,
+      runnerBundlePath: RUNNER_BUNDLE_PATH,
       templatesPath: path.join(TEMPLATES_PATH, template),
       // Sandbox-level config
       env,
@@ -237,9 +237,9 @@ export async function POST(request: Request) {
       apiKey: E2B_API_KEY,
       // TODO: E2B alias cache issue - use template ID directly for now
       // template: `sandagent-claude-${template}`,
-      template: "0ztjw3uqpwmhryuwo8vh", // sandagent-claude-researcher
-      // runnerBundlePath: RUNNER_BUNDLE_PATH,
-      // // templatesPath: path.join(TEMPLATES_PATH, template),
+      // template: "0ztjw3uqpwmhryuwo8vh", // sandagent-claude-researcher
+      runnerBundlePath: RUNNER_BUNDLE_PATH,
+      templatesPath: path.join(TEMPLATES_PATH, template),
       name: sandboxName,
       // Sandbox-level config
       env,
