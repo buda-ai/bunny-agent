@@ -105,6 +105,9 @@ export class E2BSandbox implements SandboxAdapter {
   /** Default timeout in seconds (1 hour for hobby tier) */
   private static readonly DEFAULT_TIMEOUT_SEC = 3600;
 
+  /** Custom template prefix - templates starting with this have pre-installed dependencies */
+  private static readonly CUSTOM_TEMPLATE_PREFIX = "sandagent";
+
   constructor(options: E2BSandboxOptions = {}) {
     this.apiKey = options.apiKey ?? process.env.E2B_API_KEY;
     this.template = options.template ?? "base";
@@ -116,6 +119,24 @@ export class E2BSandbox implements SandboxAdapter {
     this.env = options.env ?? {};
     this.agentTemplate = options.agentTemplate ?? "default";
     this.workdir = options.workdir ?? "/workspace";
+  }
+
+  /** Default E2B templates that don't have pre-installed dependencies */
+  private static readonly DEFAULT_TEMPLATES = ["base", "code-interpreter-v1"];
+
+  /**
+   * Check if using a custom sandagent template with pre-installed dependencies.
+   * Custom templates either:
+   * - Start with "sandagent" prefix (alias)
+   * - Are not in the default templates list (template ID)
+   */
+  private isCustomTemplate(): boolean {
+    // If starts with sandagent prefix, it's definitely custom
+    if (this.template.startsWith(E2BSandbox.CUSTOM_TEMPLATE_PREFIX)) {
+      return true;
+    }
+    // If not a known default template, assume it's a custom template ID
+    return !E2BSandbox.DEFAULT_TEMPLATES.includes(this.template);
   }
 
   /**
@@ -137,6 +158,23 @@ export class E2BSandbox implements SandboxAdapter {
    */
   getWorkdir(): string {
     return this.workdir;
+  }
+
+  /**
+   * Get the runner command to execute in the sandbox.
+   * Returns different commands based on whether a local bundle or npm package is used.
+   */
+  getRunnerCommand(): string[] {
+    if (this.runnerBundlePath && fs.existsSync(this.runnerBundlePath)) {
+      // Local bundle is uploaded to ${workdir}/runner/bundle.mjs
+      return ["node", `${this.workdir}/runner/bundle.mjs`, "run"];
+    }
+    if (this.isCustomTemplate()) {
+      // Custom template has sandagent as system command in /usr/local/bin
+      return ["sandagent", "run"];
+    }
+    // npm installed runner-cli in workspace
+    return [`${this.workdir}/node_modules/.bin/sandagent`, "run"];
   }
 
   /**
@@ -273,8 +311,67 @@ export class E2BSandbox implements SandboxAdapter {
   }
 
   private async initializeSandbox(handle: E2BHandle): Promise<void> {
-    // Upload runner bundle to /sandagent (fixed location for node to find it)
+    // Step 0: Create workspace directory using E2B file API
+    console.log(`[E2B] Creating workspace directory: ${this.workdir}`);
+    try {
+      await handle.getInstance().files.makeDir(this.workdir);
+    } catch (err) {
+      // Directory might already exist, ignore
+      console.log(`[E2B] mkdir warning (may already exist): ${err}`);
+    }
+
+    // If using custom template with pre-installed dependencies, skip npm installs
+    if (this.isCustomTemplate()) {
+      console.log(
+        `[E2B] Using custom template "${this.template}", skipping dependency installs`,
+      );
+      // Ensure workspace has correct permissions
+      try {
+        await handle.runCommand(
+          `chmod 777 ${this.workdir} 2>/dev/null || true`,
+        );
+      } catch {
+        // Ignore permission errors
+      }
+      // Copy template files from /opt/sandagent/templates if exists (similar to Daytona)
+      try {
+        const copyTemplateResult = await handle.runCommand(
+          `if [ -d "/opt/sandagent/templates" ]; then ` +
+            `cp -r /opt/sandagent/templates/. ${this.workdir}/ 2>&1 && ` +
+            `echo "Template files copied"; ` +
+            `else echo "No templates in image"; fi`,
+        );
+        if (copyTemplateResult.stdout) {
+          console.log(`[E2B] ${copyTemplateResult.stdout.trim()}`);
+        }
+      } catch (err: unknown) {
+        const error = err as { result?: { stdout?: string; stderr?: string } };
+        console.log(
+          `[E2B] Template copy warning: ${error.result?.stderr || error.result?.stdout || "unknown error"}`,
+        );
+        // Not fatal - templates might be uploaded via templatesPath instead
+      }
+    } else {
+      // Step 1: Install claude-agent-sdk to workspace
+      console.log(
+        `[E2B] Installing @anthropic-ai/claude-agent-sdk to ${this.workdir}`,
+      );
+      const sdkInstallResult = await handle.runCommand(
+        `cd ${this.workdir} && npm install @anthropic-ai/claude-agent-sdk`,
+      );
+      if (sdkInstallResult.exitCode !== 0) {
+        console.error(
+          `[E2B] Failed to install claude-agent-sdk: ${sdkInstallResult.stderr}`,
+        );
+        throw new Error(
+          `Failed to install @anthropic-ai/claude-agent-sdk: ${sdkInstallResult.stderr}`,
+        );
+      }
+    }
+
+    // Step 2: Setup runner - either upload local bundle, use pre-installed, or install from npm
     if (this.runnerBundlePath && fs.existsSync(this.runnerBundlePath)) {
+      // Option A: Upload local runner bundle to workspace
       const bundleContent = fs.readFileSync(this.runnerBundlePath);
       const bundleFileName = path.basename(this.runnerBundlePath);
       const runnerFiles = [
@@ -284,20 +381,33 @@ export class E2BSandbox implements SandboxAdapter {
         },
       ];
       console.log(
-        `[E2B] Uploading runner bundle (${bundleFileName}) to /sandagent`,
+        `[E2B] Uploading runner bundle (${bundleFileName}) to ${this.workdir}`,
       );
-      await handle.upload(runnerFiles, "/sandagent");
+      await handle.upload(runnerFiles, this.workdir);
+      console.log(`[E2B] Runner bundle uploaded`);
+    } else if (this.isCustomTemplate()) {
+      // Option B: Using custom template - runner-cli is pre-installed
+      console.log(`[E2B] Using pre-installed runner-cli from template`);
+    } else {
+      // Option C: Install runner-cli to workspace from npm
+      console.log(
+        `[E2B] No runnerBundlePath provided, installing @sandagent/runner-cli to ${this.workdir}`,
+      );
 
-      // Install claude-agent-sdk in sandbox
-      console.log(`[E2B] Installing @anthropic-ai/claude-agent-sdk`);
       const installResult = await handle.runCommand(
-        "npm install --prefix /sandagent @anthropic-ai/claude-agent-sdk",
+        `cd ${this.workdir} && npm install @sandagent/runner-cli@beta`,
       );
       if (installResult.exitCode !== 0) {
         console.error(
-          `[E2B] Failed to install claude-agent-sdk: ${installResult.stderr}`,
+          `[E2B] Failed to install runner-cli: ${installResult.stderr}`,
+        );
+        throw new Error(
+          `Failed to install @sandagent/runner-cli: ${installResult.stderr}`,
         );
       }
+      console.log(
+        `[E2B] Successfully installed @sandagent/runner-cli to ${this.workdir}`,
+      );
     }
 
     // Upload template to workdir (where runner will execute)
@@ -349,10 +459,16 @@ export class E2BSandbox implements SandboxAdapter {
 class E2BHandle implements SandboxHandle {
   private readonly instance: Sandbox;
   private readonly sandboxEnv: Record<string, string>;
+  private readonly workdir: string;
 
-  constructor(instance: Sandbox, sandboxEnv: Record<string, string> = {}) {
+  constructor(
+    instance: Sandbox,
+    sandboxEnv: Record<string, string> = {},
+    workdir = "/workspace",
+  ) {
     this.instance = instance;
     this.sandboxEnv = sandboxEnv;
+    this.workdir = workdir;
   }
 
   /**
@@ -360,6 +476,13 @@ class E2BHandle implements SandboxHandle {
    */
   getSandboxId(): string {
     return this.instance.sandboxId;
+  }
+
+  /**
+   * Get the underlying E2B sandbox instance
+   */
+  getInstance(): Sandbox {
+    return this.instance;
   }
 
   /**
@@ -397,19 +520,26 @@ class E2BHandle implements SandboxHandle {
     const signal = opts?.signal;
 
     // Merge sandbox-level env with call-level env (call-level takes precedence)
-    // Add NODE_PATH so Node can find packages installed in /sandagent
+    // Add NODE_PATH so Node can find packages, and PATH to find bin commands
     const envWithNodePath: Record<string, string> = {
       ...this.sandboxEnv,
       ...opts?.env,
-      NODE_PATH: "/sandagent/node_modules",
+      NODE_PATH: `${this.workdir}/node_modules`,
+      PATH: `${this.workdir}/node_modules/.bin:/usr/local/bin:/usr/bin:/bin`,
     };
 
     // Build shell-safe command string with proper escaping
     const baseCommand = this.buildShellCommand(command);
 
+    // Build export statements for all env vars
+    const envExports = Object.entries(envWithNodePath)
+      .filter(([key]) => key === "NODE_PATH" || key === "PATH")
+      .map(([key, value]) => `export ${key}="${value.replace(/"/g, '\\"')}"`)
+      .join(" && ");
+
     // Wrap command to capture PID for potential termination
     const pidFile = `/tmp/sandagent-${Date.now()}-${Math.random().toString(36).substring(7)}.pid`;
-    const shellCommand = `(${baseCommand}) & echo $! > ${pidFile}; wait $!; EXIT_CODE=$?; rm -f ${pidFile}; exit $EXIT_CODE`;
+    const shellCommand = `(${envExports} && ${baseCommand}) & echo $! > ${pidFile}; wait $!; EXIT_CODE=$?; rm -f ${pidFile}; exit $EXIT_CODE`;
 
     // Debug: log environment variables being passed to sandbox
     console.log("[E2B] Executing command:", baseCommand);
