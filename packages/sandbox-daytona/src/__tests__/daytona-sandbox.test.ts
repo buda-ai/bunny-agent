@@ -20,13 +20,13 @@ vi.mock("@daytonaio/sdk", () => {
         output: "",
       }),
       deleteSession: vi.fn().mockResolvedValue(undefined),
-      getSessionCommandLogs: vi.fn().mockImplementation(
-        (sessionId, cmdId, callback) => {
+      getSessionCommandLogs: vi
+        .fn()
+        .mockImplementation((sessionId, cmdId, callback) => {
           // Mock streaming logs
           callback("test output\n");
           return Promise.resolve();
-        },
-      ),
+        }),
     },
   };
 
