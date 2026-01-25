@@ -63,6 +63,15 @@ export interface E2BSandboxOptions {
   agentTemplate?: string;
 
   /**
+   * If true, skip installing claude-agent-sdk and runner-cli.
+   * Use this when using a custom E2B template with pre-installed dependencies.
+   * Create custom template: https://e2b.dev/docs/sandbox-template
+   *
+   * @default false
+   */
+  skipDependencyInstall?: boolean;
+
+  /**
    * Working directory for the agent inside the sandbox.
    * Will be created if it doesn't exist.
    *
@@ -98,6 +107,7 @@ export class E2BSandbox implements SandboxAdapter {
   private readonly env: Record<string, string>;
   private readonly agentTemplate: string;
   private readonly workdir: string;
+  private readonly skipDependencyInstall: boolean;
 
   /** Current handle for the sandbox instance */
   private currentHandle: SandboxHandle | null = null;
@@ -116,6 +126,7 @@ export class E2BSandbox implements SandboxAdapter {
     this.env = options.env ?? {};
     this.agentTemplate = options.agentTemplate ?? "default";
     this.workdir = options.workdir ?? "/workspace";
+    this.skipDependencyInstall = options.skipDependencyInstall ?? false;
   }
 
   /**
@@ -295,25 +306,32 @@ export class E2BSandbox implements SandboxAdapter {
       console.log(`[E2B] mkdir warning (may already exist): ${err}`);
     }
 
-    // Step 1: Install claude-agent-sdk to workspace
-    console.log(
-      `[E2B] Installing @anthropic-ai/claude-agent-sdk to ${this.workdir}`,
-    );
-    const sdkInstallResult = await handle.runCommand(
-      `cd ${this.workdir} && npm install @anthropic-ai/claude-agent-sdk`,
-    );
-    if (sdkInstallResult.exitCode !== 0) {
-      console.error(
-        `[E2B] Failed to install claude-agent-sdk: ${sdkInstallResult.stderr}`,
+    // If using custom template with pre-installed dependencies, skip npm installs
+    if (this.skipDependencyInstall) {
+      console.log(
+        `[E2B] Using custom template "${this.template}", skipping dependency installs`,
       );
-      throw new Error(
-        `Failed to install @anthropic-ai/claude-agent-sdk: ${sdkInstallResult.stderr}`,
+    } else {
+      // Step 1: Install claude-agent-sdk to workspace
+      console.log(
+        `[E2B] Installing @anthropic-ai/claude-agent-sdk to ${this.workdir}`,
       );
+      const sdkInstallResult = await handle.runCommand(
+        `cd ${this.workdir} && npm install @anthropic-ai/claude-agent-sdk`,
+      );
+      if (sdkInstallResult.exitCode !== 0) {
+        console.error(
+          `[E2B] Failed to install claude-agent-sdk: ${sdkInstallResult.stderr}`,
+        );
+        throw new Error(
+          `Failed to install @anthropic-ai/claude-agent-sdk: ${sdkInstallResult.stderr}`,
+        );
+      }
     }
 
-    // Step 2: Setup runner - either upload local bundle or install from npm
+    // Step 2: Setup runner - either upload local bundle, use pre-installed, or install from npm
     if (this.runnerBundlePath && fs.existsSync(this.runnerBundlePath)) {
-      // Option A: Upload local runner bundle to /sandagent
+      // Option A: Upload local runner bundle to workspace
       const bundleContent = fs.readFileSync(this.runnerBundlePath);
       const bundleFileName = path.basename(this.runnerBundlePath);
       const runnerFiles = [
@@ -327,8 +345,11 @@ export class E2BSandbox implements SandboxAdapter {
       );
       await handle.upload(runnerFiles, this.workdir);
       console.log(`[E2B] Runner bundle uploaded`);
+    } else if (this.skipDependencyInstall) {
+      // Option B: Using custom template - runner-cli is pre-installed
+      console.log(`[E2B] Using pre-installed runner-cli from template`);
     } else {
-      // Option B: Install runner-cli to workspace from npm
+      // Option C: Install runner-cli to workspace from npm
       console.log(
         `[E2B] No runnerBundlePath provided, installing @sandagent/runner-cli to ${this.workdir}`,
       );

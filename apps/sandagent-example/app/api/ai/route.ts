@@ -208,8 +208,8 @@ export async function POST(request: Request) {
     const { DaytonaSandbox } = await import("@sandagent/sandbox-daytona");
     sandbox = new DaytonaSandbox({
       apiKey: DAYTONA_API_KEY,
-      runnerBundlePath: RUNNER_BUNDLE_PATH,
-      templatesPath: path.join(TEMPLATES_PATH, template),
+      // runnerBundlePath: RUNNER_BUNDLE_PATH,
+      // templatesPath: path.join(TEMPLATES_PATH, template),
       volumeName: sandboxName,
       volumeMountPath: "/workspace",
       name: sandboxName,
@@ -218,6 +218,7 @@ export async function POST(request: Request) {
       // Sandbox-level config
       env,
       agentTemplate: template,
+      snapshot: "sandagent-claude-researcher:0.1.2",
       workdir: "/workspace",
     });
     console.log(`[API] Daytona sandbox configured with name: ${sandboxName}`);
