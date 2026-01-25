@@ -8,8 +8,9 @@
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
   "ignore": [
-    "@sandagent/sandagent-example",
+    "@sandagent/example",
     "@sandagent/manager-cli",
-    "@sandagent/runner-cli"
+    "@sandagent/benchmark",
+    "kui"
   ]
 }

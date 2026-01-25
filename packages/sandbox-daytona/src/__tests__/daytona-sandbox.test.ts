@@ -11,6 +11,23 @@ vi.mock("@daytonaio/sdk", () => {
     waitUntilStarted: vi.fn().mockResolvedValue(undefined),
     recover: vi.fn().mockResolvedValue(undefined),
     delete: vi.fn().mockResolvedValue(undefined),
+    process: {
+      createSession: vi.fn().mockResolvedValue(undefined),
+      executeSessionCommand: vi.fn().mockResolvedValue({
+        exitCode: 0,
+        stdout: "",
+        stderr: "",
+        output: "",
+      }),
+      deleteSession: vi.fn().mockResolvedValue(undefined),
+      getSessionCommandLogs: vi
+        .fn()
+        .mockImplementation((sessionId, cmdId, callback) => {
+          // Mock streaming logs
+          callback("test output\n");
+          return Promise.resolve();
+        }),
+    },
   };
 
   const mockVolume = {
@@ -22,6 +39,9 @@ vi.mock("@daytonaio/sdk", () => {
     Daytona: vi.fn().mockImplementation(() => ({
       get: vi.fn().mockResolvedValue(mockSandbox),
       create: vi.fn().mockResolvedValue(mockSandbox),
+      sandboxes: {
+        get: vi.fn().mockResolvedValue(mockSandbox),
+      },
       volume: {
         get: vi.fn().mockResolvedValue(mockVolume),
       },

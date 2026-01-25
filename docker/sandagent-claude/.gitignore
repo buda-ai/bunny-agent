@@ -1,0 +1,8 @@
+# Build context (temporary files for Docker build)
+.build-context/
+
+# Generated Dockerfile (optional, can be regenerated)
+# Dockerfile
+
+# Environment variables
+.env

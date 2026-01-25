@@ -1,0 +1,22 @@
+{
+  "name": "@sandagent/docker-sandagent-claude",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build-daytona": "tsx build-daytona-snapshot.ts",
+    "build-e2b": "tsx build-e2b-template.ts",
+    "daytona": "tsx build-daytona-snapshot.ts",
+    "e2b": "tsx build-e2b-template.ts"
+  },
+  "dependencies": {
+    "@daytonaio/sdk": "^0.134.0",
+    "@e2b/code-interpreter": "^1.0.0",
+    "dotenv": "^16.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.3.0"
+  }
+}
