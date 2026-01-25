@@ -20,9 +20,9 @@
  */
 
 import "dotenv/config";
-import { readFileSync, existsSync } from "fs";
-import { join } from "path";
 import { execSync } from "child_process";
+import { existsSync, readFileSync } from "fs";
+import { join } from "path";
 
 // Parse command line arguments
 function parseArgs() {

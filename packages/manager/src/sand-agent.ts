@@ -42,7 +42,10 @@ export class SandAgent {
    */
   private buildCommand(input: StreamInput): string[] {
     // Get runner command from sandbox, or use default "sandagent run"
-    const cmd: string[] = this.sandbox.getRunnerCommand?.() ?? ["sandagent", "run"];
+    const cmd: string[] = this.sandbox.getRunnerCommand?.() ?? [
+      "sandagent",
+      "run",
+    ];
 
     // Add model
     cmd.push("--model", this.runner.model);

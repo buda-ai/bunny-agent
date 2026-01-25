@@ -7,9 +7,9 @@
  */
 
 import "dotenv/config";
+import { sandagent } from "@sandagent/ai-provider";
 import { SandAgent } from "@sandagent/manager";
 import { DaytonaSandbox } from "@sandagent/sandbox-daytona";
-import { sandagent } from "@sandagent/ai-provider";
 import { streamText } from "ai";
 
 async function main() {
@@ -26,7 +26,9 @@ async function main() {
   }
 
   // Create Daytona sandbox with custom snapshot
-  console.log("Creating Daytona sandbox with snapshot: sandagent-claude-researcher:0.1.2...");
+  console.log(
+    "Creating Daytona sandbox with snapshot: sandagent-claude-researcher:0.1.2...",
+  );
   const sandbox = new DaytonaSandbox({
     snapshot: "sandagent-claude-researcher:0.1.2",
     volumeName: "test-volume",

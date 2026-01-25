@@ -322,7 +322,9 @@ export class DaytonaSandbox implements SandboxAdapter {
       await this.initializeSandbox(handle);
     } else if (this.snapshot) {
       // For existing sandbox with snapshot, copy template files from /opt/sandagent/templates
-      console.log(`[Daytona] Copying template files from snapshot for existing sandbox`);
+      console.log(
+        `[Daytona] Copying template files from snapshot for existing sandbox`,
+      );
       await handle.runCommand(
         `if [ -d "/opt/sandagent/templates" ]; then ` +
           `cp -r /opt/sandagent/templates/. ${this.workdir}/ 2>/dev/null && ` +
