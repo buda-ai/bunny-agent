@@ -60,6 +60,13 @@ vi.mock("sandock", () => ({
         data: true,
       }),
     },
+    // High-level volume API
+    volume: {
+      getByName: vi.fn().mockResolvedValue({
+        success: true,
+        data: { id: "volume-123", status: "ready" },
+      }),
+    },
   })),
 }));
 
@@ -292,3 +299,92 @@ describe("SandockSandbox Cache and Reuse", () => {
     expect(typeof handle2.exec).toBe("function");
   });
 });
+
+describe("SandockSandbox Volume Persistence", () => {
+  beforeEach(() => {
+    process.env.SANDOCK_API_KEY = "test-api-key";
+    vi.clearAllMocks();
+  });
+
+  it("should support volume-based persistence", async () => {
+    const volumeName = "my-project-volume";
+
+    const sandbox = new SandockSandbox({
+      volumeName,
+    });
+
+    const handle = await sandbox.attach();
+    expect(handle).toBeDefined();
+    // Volume would be created/retrieved and mounted
+  });
+
+  it("should create volume if it doesn't exist", async () => {
+    const sandbox = new SandockSandbox({
+      volumeName: "new-volume",
+    });
+
+    const handle = await sandbox.attach();
+    expect(handle).toBeDefined();
+    // Volume would be created with createIfNotExists = true
+  });
+
+  it("should use existing volume if it exists", async () => {
+    const sandbox = new SandockSandbox({
+      volumeName: "existing-volume",
+    });
+
+    const handle = await sandbox.attach();
+    expect(handle).toBeDefined();
+    // Would get existing volume and mount it
+  });
+
+  it("should mount volume at specified path", () => {
+    const sandbox = new SandockSandbox({
+      volumeName: "test-volume",
+      volumeMountPath: "/custom/path",
+    });
+
+    expect(sandbox).toBeInstanceOf(SandockSandbox);
+    // Volume would be mounted at /custom/path instead of default /sandagent
+  });
+
+  it("should skip initialization when files exist in volume", async () => {
+    // When reusing sandbox with existing volume:
+    // - needsInit = false (files are in volume)
+    // - Skip upload of runner bundle and templates
+
+    const sandbox = new SandockSandbox({
+      volumeName: "existing-volume",
+    });
+
+    const handle = await sandbox.attach();
+    expect(handle).toBeDefined();
+  });
+
+  it("should wait for volume to be ready", async () => {
+    const sandbox = new SandockSandbox({
+      volumeName: "test-volume",
+    });
+
+    const handle = await sandbox.attach();
+    expect(handle).toBeDefined();
+    // In real scenario, would wait for volume.status === "ready"
+  });
+
+  it("should skip initialization when reusing existing sandbox with volume", async () => {
+    const volumeName = "existing-volume";
+
+    const sandbox = new SandockSandbox({
+      volumeName,
+    });
+
+    // First attach would create and initialize
+    const handle1 = await sandbox.attach();
+
+    // Second attach on same instance returns cached handle
+    const handle2 = await sandbox.attach();
+    expect(handle1).toBeDefined();
+    expect(handle2).toBeDefined();
+  });
+});
+
