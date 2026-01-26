@@ -2,7 +2,17 @@
   "$schema": "https://unpkg.com/@changesets/config@3.0.0/schema.json",
   "changelog": "@changesets/cli/changelog",
   "commit": false,
-  "fixed": [],
+  "fixed": [
+    [
+      "@sandagent/manager",
+      "@sandagent/ai-provider",
+      "@sandagent/runner-cli",
+      "@sandagent/sandbox-e2b",
+      "@sandagent/sandbox-sandock",
+      "@sandagent/sandbox-daytona",
+      "@sandagent/ui"
+    ]
+  ],
   "linked": [],
   "access": "public",
   "baseBranch": "main",
@@ -10,7 +20,6 @@
   "ignore": [
     "@sandagent/example",
     "@sandagent/manager-cli",
-    "@sandagent/benchmark",
-    "kui"
+    "@sandagent/benchmark"
   ]
 }
