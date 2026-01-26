@@ -1,4 +1,4 @@
-import type { UIMessage, DynamicToolUIPart } from "ai";
+import type { DynamicToolUIPart, UIMessage } from "ai";
 
 // Re-export ai types
 export type { UIMessage, DynamicToolUIPart };
@@ -122,11 +122,19 @@ export interface UseAskUserQuestionReturn {
   /** Whether waiting for user input (shows animation) */
   isWaitingForInput: boolean;
   /** Select an answer for a question */
-  selectAnswer: (question: string, value: string, multiSelect?: boolean) => void;
+  selectAnswer: (
+    question: string,
+    value: string,
+    multiSelect?: boolean,
+  ) => void;
   /** Get formatted answers map (for submission) */
   getAnswersMap: () => Record<string, string>;
   /** Check if an option is selected */
-  isSelected: (question: string, optionLabel: string, multiSelect?: boolean) => boolean;
+  isSelected: (
+    question: string,
+    optionLabel: string,
+    multiSelect?: boolean,
+  ) => boolean;
 }
 
 // ============================================================================

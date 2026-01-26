@@ -210,7 +210,8 @@ export function useArtifacts({
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    const fileName = artifact.artifactId.split("/").pop() || artifact.artifactId;
+    const fileName =
+      artifact.artifactId.split("/").pop() || artifact.artifactId;
     const extension = getFileExtensionFromMimeType(artifact.mimeType);
     a.download = fileName.includes(".") ? fileName : `${fileName}.${extension}`;
     document.body.appendChild(a);

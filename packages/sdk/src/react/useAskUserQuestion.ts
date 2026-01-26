@@ -76,12 +76,15 @@ export function useAskUserQuestion({
   }, [part.input]);
 
   // Parse answers from part.output (for restored sessions)
-  const outputAnswers = useMemo((): Record<string, string | string[]> | null => {
+  const outputAnswers = useMemo((): Record<
+    string,
+    string | string[]
+  > | null => {
     if (part.output && typeof part.output === "object") {
       const output = part.output as AskUserQuestionOutput;
       if (output.answers) {
         const hasRealAnswers = Object.values(output.answers).some(
-          (v) => v && v.trim() !== ""
+          (v) => v && v.trim() !== "",
         );
         if (hasRealAnswers) {
           const parsed: Record<string, string | string[]> = {};
@@ -151,7 +154,9 @@ export function useAskUserQuestion({
       for (const q of questions) {
         const answer = newAnswers[q.question];
         if (q.multiSelect) {
-          answersMap[q.question] = Array.isArray(answer) ? answer.join(", ") : "";
+          answersMap[q.question] = Array.isArray(answer)
+            ? answer.join(", ")
+            : "";
         } else {
           answersMap[q.question] = (answer as string) || "";
         }
@@ -164,7 +169,7 @@ export function useAskUserQuestion({
         answers: answersMap,
       });
     },
-    [answers, questions, part.toolCallId, onAnswer]
+    [answers, questions, part.toolCallId, onAnswer],
   );
 
   // Check if option is selected
@@ -172,11 +177,14 @@ export function useAskUserQuestion({
     (question: string, optionLabel: string, multiSelect = false): boolean => {
       const selectedValue = displayAnswers[question];
       if (multiSelect) {
-        return (selectedValue as string[] | undefined)?.includes(optionLabel) ?? false;
+        return (
+          (selectedValue as string[] | undefined)?.includes(optionLabel) ??
+          false
+        );
       }
       return selectedValue === optionLabel;
     },
-    [displayAnswers]
+    [displayAnswers],
   );
 
   return {

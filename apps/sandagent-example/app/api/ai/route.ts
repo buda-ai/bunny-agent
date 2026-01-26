@@ -1,13 +1,13 @@
 import path from "node:path";
 import { TaskDrivenArtifactProcessor } from "@/lib/artifact-processor";
-import {
-  type SandAgentProviderSettings,
-  createSandAgent,
-  LocalSandbox,
-} from "@sandagent/sdk";
 // DaytonaSandbox is dynamically imported to avoid build-time dependency issues
 import { E2BSandbox } from "@sandagent/sandbox-e2b";
 import { SandockSandbox } from "@sandagent/sandbox-sandock";
+import {
+  LocalSandbox,
+  type SandAgentProviderSettings,
+  createSandAgent,
+} from "@sandagent/sdk";
 import {
   type ModelMessage,
   type UIMessage,

@@ -11,7 +11,12 @@ export default defineConfig([
     splitting: true,
     sourcemap: true,
     clean: true,
-    external: ["@sandagent/manager", "@ai-sdk/provider", "@ai-sdk/provider-utils", "ai"],
+    external: [
+      "@sandagent/manager",
+      "@ai-sdk/provider",
+      "@ai-sdk/provider-utils",
+      "ai",
+    ],
   },
   // React hooks (frontend) - with "use client" banner
   {

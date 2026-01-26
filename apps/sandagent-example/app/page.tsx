@@ -1,7 +1,7 @@
 "use client";
 
 import { useSandAgentChat } from "@sandagent/sdk/react";
-import type { UIMessage, DynamicToolUIPart } from "ai";
+import type { DynamicToolUIPart, UIMessage } from "ai";
 import {
   Conversation,
   ConversationContent,
@@ -17,7 +17,13 @@ import {
   PromptInputTextarea,
   PromptInputTools,
 } from "kui/ai-elements";
-import { AlertCircle, BotIcon, CheckCircle, Settings, UserIcon } from "lucide-react";
+import {
+  AlertCircle,
+  BotIcon,
+  CheckCircle,
+  Settings,
+  UserIcon,
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
@@ -54,7 +60,11 @@ function ChatMessage({ message }: { message: UIMessage }) {
             isUser ? "bg-primary text-primary-foreground" : "bg-muted"
           }`}
         >
-          {isUser ? <UserIcon className="size-4" /> : <BotIcon className="size-4" />}
+          {isUser ? (
+            <UserIcon className="size-4" />
+          ) : (
+            <BotIcon className="size-4" />
+          )}
         </div>
         <MessageContent>
           {message.parts.map((part, index) => {
@@ -64,9 +74,14 @@ function ChatMessage({ message }: { message: UIMessage }) {
             if (part.type === "dynamic-tool") {
               const toolPart = part as DynamicToolUIPart;
               return (
-                <div key={index} className="my-2 p-3 rounded-lg border border-border bg-muted/50">
+                <div
+                  key={index}
+                  className="my-2 p-3 rounded-lg border border-border bg-muted/50"
+                >
                   <div className="text-sm font-medium">{toolPart.toolName}</div>
-                  <div className="text-xs text-muted-foreground">{toolPart.state}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {toolPart.state}
+                  </div>
                 </div>
               );
             }
@@ -103,18 +118,11 @@ function HomeContent() {
     }
   }, []);
 
-  const {
-    messages,
-    status,
-    error,
-    isLoading,
-    hasError,
-    handleSubmit,
-    stop,
-  } = useSandAgentChat({
-    apiEndpoint: "/api/ai",
-    body: { template: selectedTemplate, ...clientConfig },
-  });
+  const { messages, status, error, isLoading, hasError, handleSubmit, stop } =
+    useSandAgentChat({
+      apiEndpoint: "/api/ai",
+      body: { template: selectedTemplate, ...clientConfig },
+    });
 
   // Handle template change and update URL
   const handleTemplateChange = (newTemplate: string) => {
@@ -134,7 +142,9 @@ function HomeContent() {
       {/* Header */}
       <header className="flex items-center justify-between px-6 py-4 border-b border-border">
         <div className="flex items-center gap-4">
-          <h1 className="text-lg font-semibold text-foreground">SandAgent Chat</h1>
+          <h1 className="text-lg font-semibold text-foreground">
+            SandAgent Chat
+          </h1>
           <select
             value={selectedTemplate}
             onChange={(e) => handleTemplateChange(e.target.value)}
