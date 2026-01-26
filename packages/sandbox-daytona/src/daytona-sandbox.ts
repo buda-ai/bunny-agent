@@ -52,6 +52,14 @@ export interface DaytonaSandboxOptions {
   name?: string;
 
   /**
+   * Daytona snapshot name to use.
+   * If provided, uses a custom snapshot with pre-installed dependencies.
+   * This skips npm install for claude-agent-sdk and runner-cli.
+   * Create snapshot: daytona snapshot push sandagent-base:0.1.0 --name sandagent-base
+   */
+  snapshot?: string;
+
+  /**
    * Environment variables to set in the sandbox.
    * These will be available to all commands executed in the sandbox.
    */
@@ -92,6 +100,7 @@ export class DaytonaSandbox implements SandboxAdapter {
   private readonly autoStopInterval: number;
   private readonly autoDeleteInterval: number;
   private readonly name?: string;
+  private readonly snapshot?: string;
   private readonly env: Record<string, string>;
   private readonly agentTemplate: string;
   private readonly workdir: string;
@@ -112,6 +121,7 @@ export class DaytonaSandbox implements SandboxAdapter {
     // Default auto-delete to disabled (-1),
     this.autoDeleteInterval = options.autoDeleteInterval ?? 0;
     this.name = options.name;
+    this.snapshot = options.snapshot;
     this.env = options.env ?? {};
     this.agentTemplate = options.agentTemplate ?? "default";
     this.workdir = options.workdir ?? "/workspace";
@@ -136,6 +146,23 @@ export class DaytonaSandbox implements SandboxAdapter {
    */
   getWorkdir(): string {
     return this.workdir;
+  }
+
+  /**
+   * Get the runner command to execute in the sandbox.
+   * Returns different commands based on whether a local bundle or npm package is used.
+   */
+  getRunnerCommand(): string[] {
+    if (this.runnerBundlePath && fs.existsSync(this.runnerBundlePath)) {
+      // Local bundle is uploaded to ${workdir}/runner/bundle.mjs
+      return ["node", `${this.workdir}/runner/bundle.mjs`, "run"];
+    }
+    if (this.snapshot) {
+      // Snapshot has sandagent as system command in /usr/local/bin
+      return ["sandagent", "run"];
+    }
+    // npm installed runner-cli in workspace
+    return [`${this.workdir}/node_modules/.bin/sandagent`, "run"];
   }
 
   getHandle(): SandboxHandle | null {
@@ -287,12 +314,32 @@ export class DaytonaSandbox implements SandboxAdapter {
 
     console.log(`[Daytona] Sandbox ${sandbox.id} ready`);
 
-    const handle = new DaytonaHandle(sandbox, this.env);
+    const handle = new DaytonaHandle(sandbox, this.env, this.workdir);
 
     // Initialize sandbox if needed (upload files, install dependencies)
     // Files are stored in volume, so existing sandboxes don't need re-initialization
     if (needsInit) {
       await this.initializeSandbox(handle);
+    } else if (this.snapshot) {
+      // For existing sandbox with snapshot, copy template files from /opt/sandagent/templates
+      console.log(
+        `[Daytona] Copying template files from snapshot for existing sandbox`,
+      );
+      await handle.runCommand(
+        `if [ -d "/opt/sandagent/templates" ]; then ` +
+          `cp -r /opt/sandagent/templates/. ${this.workdir}/ 2>/dev/null && ` +
+          `echo "Template files copied"; ` +
+          `fi`,
+      );
+    }
+
+    // Upload template files if templatesPath is provided (overrides snapshot templates)
+    if (this.templatesPath && fs.existsSync(this.templatesPath)) {
+      const templateFiles = this.collectFiles(this.templatesPath, "");
+      console.log(
+        `[Daytona] Uploading ${templateFiles.length} template files to ${this.workdir}`,
+      );
+      await handle.upload(templateFiles, this.workdir);
     }
 
     // Store the handle
@@ -312,19 +359,34 @@ export class DaytonaSandbox implements SandboxAdapter {
     // Use provided name parameter, fallback to this.name
     const sandboxName = name || this.name;
     console.log(
-      `[Daytona] Creating new sandbox${sandboxName ? ` with name "${sandboxName}"` : ""}, autoStopInterval=${this.autoStopInterval}min, autoDeleteInterval=${this.autoDeleteInterval}min`,
+      `[Daytona] Creating new sandbox${sandboxName ? ` with name "${sandboxName}"` : ""}${this.snapshot ? `, snapshot="${this.snapshot}"` : ""}, autoStopInterval=${this.autoStopInterval}min, autoDeleteInterval=${this.autoDeleteInterval}min`,
     );
 
-    const sandbox = await daytona.create(
-      {
-        name: sandboxName,
-        language: "typescript",
-        volumes,
-        autoStopInterval: this.autoStopInterval,
-        autoDeleteInterval: this.autoDeleteInterval,
-      },
-      { timeout: this.timeout },
-    );
+    const createParams: {
+      name?: string;
+      language: string;
+      volumes?: typeof volumes;
+      envVars?: Record<string, string>;
+      autoStopInterval: number;
+      autoDeleteInterval: number;
+      snapshot?: string;
+    } = {
+      name: sandboxName,
+      language: "typescript",
+      volumes,
+      envVars: this.env,
+      autoStopInterval: this.autoStopInterval,
+      autoDeleteInterval: this.autoDeleteInterval,
+    };
+
+    // Use custom snapshot if provided (pre-installed dependencies)
+    if (this.snapshot) {
+      createParams.snapshot = this.snapshot;
+    }
+
+    const sandbox = await daytona.create(createParams, {
+      timeout: this.timeout,
+    });
     await sandbox.start();
 
     console.log(`[Daytona] Sandbox ${sandbox.id} created and started`);
@@ -332,8 +394,51 @@ export class DaytonaSandbox implements SandboxAdapter {
   }
 
   private async initializeSandbox(handle: DaytonaHandle): Promise<void> {
-    // Upload runner bundle to /sandagent (fixed location for node to find it)
+    // Step 0: Create workspace directory
+    console.log(`[Daytona] Creating workspace directory: ${this.workdir}`);
+    const mkdirResult = await handle.runCommand(`mkdir -p ${this.workdir}`);
+    if (mkdirResult.exitCode !== 0) {
+      console.log(`[Daytona] mkdir warning: ${mkdirResult.stderr}`);
+    }
+
+    // If using custom snapshot with pre-installed dependencies - no npm install needed
+    if (this.snapshot) {
+      console.log(
+        `[Daytona] Using custom snapshot "${this.snapshot}", dependencies are in /opt/sandagent`,
+      );
+      // Copy template files from /opt/sandagent/templates to workspace (if exists in snapshot)
+      // Use "." to include hidden files like .claude
+      const copyTemplateResult = await handle.runCommand(
+        `if [ -d "/opt/sandagent/templates" ]; then ` +
+          `cp -r /opt/sandagent/templates/. ${this.workdir}/ 2>/dev/null && ` +
+          `echo "Template files copied from snapshot"; ` +
+          `fi`,
+      );
+      if (copyTemplateResult.stdout) {
+        console.log(`[Daytona] ${copyTemplateResult.stdout.trim()}`);
+      }
+    } else {
+      // Step 1: Install claude-agent-sdk to workspace
+      console.log(
+        `[Daytona] Installing @anthropic-ai/claude-agent-sdk to ${this.workdir}`,
+      );
+      const sdkInstallResult = await handle.runCommand(
+        `cd ${this.workdir} && npm install --no-audit --no-fund --prefer-offline @anthropic-ai/claude-agent-sdk 2>&1`,
+        10 * 60,
+      );
+      if (sdkInstallResult.exitCode !== 0) {
+        console.error(
+          `[Daytona] Failed to install claude-agent-sdk (exit ${sdkInstallResult.exitCode}): ${sdkInstallResult.stdout}`,
+        );
+        throw new Error(
+          `Failed to install @anthropic-ai/claude-agent-sdk: ${sdkInstallResult.stdout}`,
+        );
+      }
+    }
+
+    // Step 2: Setup runner - either upload local bundle, use snapshot, or install from npm
     if (this.runnerBundlePath && fs.existsSync(this.runnerBundlePath)) {
+      // Option A: Upload local runner bundle to workspace
       const bundleContent = fs.readFileSync(this.runnerBundlePath);
       const bundleFileName = path.basename(this.runnerBundlePath);
       const runnerFiles = [
@@ -343,19 +448,34 @@ export class DaytonaSandbox implements SandboxAdapter {
         },
       ];
       console.log(
-        `[Daytona] Uploading runner bundle (${bundleFileName}) to /sandagent`,
+        `[Daytona] Uploading runner bundle (${bundleFileName}) to ${this.workdir}`,
       );
-      await handle.upload(runnerFiles, "/sandagent");
+      await handle.upload(runnerFiles, this.workdir);
+      console.log(`[Daytona] Runner bundle uploaded`);
+    } else if (this.snapshot) {
+      // Option B: Using custom snapshot - runner-cli is pre-installed
+      console.log(`[Daytona] Using pre-installed runner-cli from snapshot`);
+    } else {
+      // Option C: Install runner-cli to workspace from npm
+      console.log(
+        `[Daytona] No runnerBundlePath provided, installing @sandagent/runner-cli to ${this.workdir}`,
+      );
 
-      console.log(`[Daytona] Installing @anthropic-ai/claude-agent-sdk`);
       const installResult = await handle.runCommand(
-        "npm install --prefix /sandagent @anthropic-ai/claude-agent-sdk",
+        `cd ${this.workdir} && npm install --no-audit --no-fund --prefer-offline @sandagent/runner-cli@beta 2>&1`,
+        10 * 60,
       );
       if (installResult.exitCode !== 0) {
         console.error(
-          `[Daytona] Failed to install claude-agent-sdk: ${installResult.stderr}`,
+          `[Daytona] Failed to install runner-cli (exit ${installResult.exitCode}): ${installResult.stdout}`,
+        );
+        throw new Error(
+          `Failed to install @sandagent/runner-cli: ${installResult.stdout}`,
         );
       }
+      console.log(
+        `[Daytona] Successfully installed @sandagent/runner-cli to ${this.workdir}`,
+      );
     }
 
     // Upload template to workdir (where runner will execute)
@@ -365,6 +485,10 @@ export class DaytonaSandbox implements SandboxAdapter {
         `[Daytona] Uploading ${templateFiles.length} template files to ${this.workdir}`,
       );
       await handle.upload(templateFiles, this.workdir);
+    } else if (this.templatesPath) {
+      console.warn(
+        `[Daytona] Template path specified but not found: ${this.templatesPath}`,
+      );
     }
   }
 
@@ -402,10 +526,16 @@ export class DaytonaSandbox implements SandboxAdapter {
 class DaytonaHandle implements SandboxHandle {
   private readonly sandbox: Sandbox;
   private readonly sandboxEnv: Record<string, string>;
+  private readonly workdir: string;
 
-  constructor(sandbox: Sandbox, sandboxEnv: Record<string, string> = {}) {
+  constructor(
+    sandbox: Sandbox,
+    sandboxEnv: Record<string, string> = {},
+    workdir = "/workspace",
+  ) {
     this.sandbox = sandbox;
     this.sandboxEnv = sandboxEnv;
+    this.workdir = workdir;
   }
 
   /**
@@ -438,16 +568,43 @@ class DaytonaHandle implements SandboxHandle {
 
   /**
    * Run a command and wait for completion (used internally)
+   * Uses session-based execution to avoid executeCommand hanging issues
+   * @param cmd - Command to execute
+   * @param timeoutSec - Timeout in seconds (default: 300 = 5 minutes for npm installs)
    */
   async runCommand(
     cmd: string,
+    timeoutSec = 300,
   ): Promise<{ exitCode: number; stdout: string; stderr: string }> {
-    const result = await this.sandbox.process.executeCommand(cmd);
-    return {
-      exitCode: result.exitCode,
-      stdout: result.result || "",
-      stderr: "",
-    };
+    console.log(`[Daytona] runCommand: ${cmd}`);
+
+    const sessionId = `init-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+
+    try {
+      // Create a session for this command
+      await this.sandbox.process.createSession(sessionId);
+
+      // Execute command in session
+      const response = await this.sandbox.process.executeSessionCommand(
+        sessionId,
+        { command: cmd },
+        timeoutSec,
+      );
+
+      console.log(`[Daytona] runCommand completed: exit=${response.exitCode}`);
+      return {
+        exitCode: response.exitCode ?? 0,
+        stdout: response.stdout || response.output || "",
+        stderr: response.stderr || "",
+      };
+    } finally {
+      // Clean up session
+      try {
+        await this.sandbox.process.deleteSession(sessionId);
+      } catch {
+        // Ignore cleanup errors
+      }
+    }
   }
 
   exec(command: string[], opts?: ExecOptions): AsyncIterable<Uint8Array> {
@@ -455,15 +612,18 @@ class DaytonaHandle implements SandboxHandle {
     const signal = opts?.signal;
 
     // Merge sandbox-level env with call-level env (call-level takes precedence)
-    // Add NODE_PATH so Node can find packages installed in /sandagent
+    // Add NODE_PATH so Node can find packages installed in workspace
+    // Add PATH so shell can find sandagent command
     const envWithNodePath: Record<string, string> = {
       ...this.sandboxEnv,
       ...opts?.env,
-      NODE_PATH: "/sandagent/node_modules",
+      NODE_PATH: `${this.workdir}/node_modules`,
+      PATH: `${this.workdir}/node_modules/.bin:/usr/local/bin:/usr/bin:/bin`,
     };
 
     // Build environment exports for shell
     const envExports = Object.entries(envWithNodePath)
+      .filter(([key]) => key === "NODE_PATH" || key === "PATH")
       .map(([k, v]) => `export ${k}='${v.replace(/'/g, "'\\''")}'`)
       .join("; ");
 

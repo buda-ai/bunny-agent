@@ -4,7 +4,7 @@ import {
   type SandAgentProviderSettings,
   createSandAgent,
 } from "@sandagent/ai-provider";
-import { DaytonaSandbox } from "@sandagent/sandbox-daytona";
+// DaytonaSandbox is dynamically imported to avoid build-time dependency issues
 import { E2BSandbox } from "@sandagent/sandbox-e2b";
 import { SandockSandbox } from "@sandagent/sandbox-sandock";
 import {
@@ -188,7 +188,9 @@ export async function POST(request: Request) {
   const normalizedMessages = [normalizedMessage];
 
   // Build env object, filtering out undefined values
-  const env: Record<string, string> = { DEBUG_STREAM: "true" };
+  const env: Record<string, string> = {
+    DEBUG_STREAM: "true",
+  };
   if (ANTHROPIC_API_KEY) env.ANTHROPIC_API_KEY = ANTHROPIC_API_KEY;
   if (ANTHROPIC_BASE_URL) env.ANTHROPIC_BASE_URL = ANTHROPIC_BASE_URL;
   if (AWS_BEARER_TOKEN_BEDROCK) {
@@ -202,18 +204,22 @@ export async function POST(request: Request) {
   const sandboxName = `sandagent-${template}`;
 
   if (SANDBOX_PROVIDER === "daytona") {
+    // Dynamic import to avoid build-time dependency issues with @daytonaio/sdk
+    const { DaytonaSandbox } = await import("@sandagent/sandbox-daytona");
     sandbox = new DaytonaSandbox({
       apiKey: DAYTONA_API_KEY,
-      runnerBundlePath: RUNNER_BUNDLE_PATH,
+      // runnerBundlePath: RUNNER_BUNDLE_PATH,
       templatesPath: path.join(TEMPLATES_PATH, template),
       volumeName: sandboxName,
+      volumeMountPath: "/workspace",
       name: sandboxName,
       autoStopInterval: 15,
       autoDeleteInterval: -1,
       // Sandbox-level config
       env,
       agentTemplate: template,
-      workdir: "/sandagent",
+      snapshot: "sandagent-claude-researcher:0.1.2",
+      workdir: "/workspace",
     });
     console.log(`[API] Daytona sandbox configured with name: ${sandboxName}`);
   } else if (SANDBOX_PROVIDER === "sandock") {
@@ -230,13 +236,16 @@ export async function POST(request: Request) {
   } else {
     sandbox = new E2BSandbox({
       apiKey: E2B_API_KEY,
+      // TODO: E2B alias cache issue - use template ID directly for now
+      // template: `sandagent-claude-${template}`,
+      // template: "0ztjw3uqpwmhryuwo8vh", // sandagent-claude-researcher
       runnerBundlePath: RUNNER_BUNDLE_PATH,
       templatesPath: path.join(TEMPLATES_PATH, template),
       name: sandboxName,
       // Sandbox-level config
       env,
       agentTemplate: template,
-      workdir: "/sandagent",
+      workdir: "/workspace",
     });
   }
 
@@ -273,8 +282,7 @@ export async function POST(request: Request) {
           // console.log("[Stream] Chunk:", chunk);
         },
       });
-
-      // Merge the AI text stream and wait for completion
+      // Merge the AI text stream - this starts consuming immediately
       writer.merge(
         result.toUIMessageStream({
           sendSources: true,
@@ -286,9 +294,8 @@ export async function POST(request: Request) {
           },
         }),
       );
-      await result.response;
 
-      console.log("[Stream] Finished");
+      // await result.response;
     },
   });
 

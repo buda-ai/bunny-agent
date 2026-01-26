@@ -79,6 +79,12 @@ export interface SandboxAdapter {
    * Get the working directory configured for this sandbox.
    */
   getWorkdir?(): string;
+
+  /**
+   * Get the runner command to execute in the sandbox.
+   * Returns the command array (e.g., ["sandagent", "run"] or ["node", "/path/to/bundle.mjs", "run"])
+   */
+  getRunnerCommand?(): string[];
 }
 
 /**

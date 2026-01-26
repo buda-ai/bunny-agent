@@ -1,0 +1,5 @@
+{
+  "$schema": "https://modelcontextprotocol.io/schemas/mcp.json",
+  "description": "ShortsDrone - 多平台短视频生成 Agent",
+  "servers": {}
+}

@@ -143,6 +143,19 @@ export class SandockSandbox implements SandboxAdapter {
   }
 
   /**
+   * Get the runner command to execute in the sandbox.
+   * Returns different commands based on whether a local bundle or npm package is used.
+   */
+  getRunnerCommand(): string[] {
+    if (this.runnerBundlePath && fs.existsSync(this.runnerBundlePath)) {
+      // Local bundle is uploaded to ${workdir}/runner/bundle.mjs
+      return ["node", `${this.workdir}/runner/bundle.mjs`, "run"];
+    }
+    // npm installed runner-cli has bin symlink
+    return ["sandagent", "run"];
+  }
+
+  /**
    * Ensure cleanup timer is running (lazy initialization)
    */
   private static ensureCleanupTimer(client: SandockClient): void {
