@@ -72,12 +72,6 @@ importers:
       '@ai-sdk/react':
         specifier: ^3.0.3
         version: 3.0.51(react@19.2.3)(zod@4.3.6)
-      '@sandagent/ai-provider':
-        specifier: workspace:*
-        version: link:../../packages/ai-provider
-      '@sandagent/manager':
-        specifier: workspace:*
-        version: link:../../packages/manager
       '@sandagent/sandbox-daytona':
         specifier: workspace:*
         version: link:../../packages/sandbox-daytona
@@ -87,9 +81,9 @@ importers:
       '@sandagent/sandbox-sandock':
         specifier: workspace:*
         version: link:../../packages/sandbox-sandock
-      '@sandagent/ui':
+      '@sandagent/sdk':
         specifier: workspace:*
-        version: link:../../packages/sandagent-ui
+        version: link:../../packages/sdk
       ai:
         specifier: ^6.0.19
         version: 6.0.49(zod@4.3.6)
@@ -134,32 +128,50 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
 
-  apps/sandagent-provider-example:
+  apps/sandagent-quickstart:
     dependencies:
-      '@sandagent/ai-provider':
-        specifier: ^0.1.2-beta.3
-        version: 0.1.2-beta.3(ai@6.0.49(zod@4.3.6))(zod@4.3.6)
-      '@sandagent/sandbox-daytona':
-        specifier: ^0.1.2-beta.3
-        version: 0.1.2-beta.3(ws@8.19.0)
-      '@sandagent/sandbox-e2b':
-        specifier: ^0.1.2-beta.3
-        version: 0.1.2-beta.3
+      '@sandagent/manager':
+        specifier: workspace:*
+        version: link:../../packages/manager
+      '@sandagent/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
       ai:
         specifier: ^6.0.19
         version: 6.0.49(zod@4.3.6)
-      dotenv:
-        specifier: ^16.0.0
-        version: 16.6.1
+      kui:
+        specifier: workspace:*
+        version: link:../../packages/kui
+      lucide-react:
+        specifier: ^0.556.0
+        version: 0.556.0(react@19.2.3)
+      next:
+        specifier: 16.0.10
+        version: 16.0.10(@opentelemetry/api@1.9.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      react:
+        specifier: ^19.2.0
+        version: 19.2.3
+      react-dom:
+        specifier: ^19.2.0
+        version: 19.2.3(react@19.2.3)
     devDependencies:
+      '@tailwindcss/postcss':
+        specifier: ^4.1.17
+        version: 4.1.18
       '@types/node':
-        specifier: ^20.0.0
+        specifier: ^20.10.0
         version: 20.19.30
-      tsx:
-        specifier: ^4.0.0
-        version: 4.21.0
+      '@types/react':
+        specifier: ^19.2.0
+        version: 19.2.9
+      '@types/react-dom':
+        specifier: ^19.2.0
+        version: 19.2.3(@types/react@19.2.9)
+      tailwindcss:
+        specifier: ^4.1.17
+        version: 4.1.18
       typescript:
-        specifier: ^5.0.0
+        specifier: ^5.9.3
         version: 5.9.3
 
   docker/sandagent-claude:
@@ -183,31 +195,6 @@ importers:
       typescript:
         specifier: ^5.3.0
         version: 5.9.3
-
-  packages/ai-provider:
-    dependencies:
-      '@ai-sdk/provider':
-        specifier: ^3.0.0
-        version: 3.0.5
-      '@ai-sdk/provider-utils':
-        specifier: ^2.2.8
-        version: 2.2.8(zod@4.3.6)
-      '@sandagent/manager':
-        specifier: workspace:*
-        version: link:../manager
-      ai:
-        specifier: '>=4.0.0'
-        version: 6.0.49(zod@4.3.6)
-    devDependencies:
-      '@types/node':
-        specifier: ^20.10.0
-        version: 20.19.30
-      typescript:
-        specifier: ^5.3.0
-        version: 5.9.3
-      vitest:
-        specifier: ^1.6.1
-        version: 1.6.1(@types/node@20.19.30)(lightningcss@1.30.2)
 
   packages/benchmark:
     dependencies:
@@ -458,46 +445,6 @@ importers:
         specifier: ^1.6.1
         version: 1.6.1(@types/node@20.19.30)(lightningcss@1.30.2)
 
-  packages/sandagent-ui:
-    dependencies:
-      '@ai-sdk/react':
-        specifier: ^3.0.3
-        version: 3.0.51(react@19.2.3)(zod@4.3.6)
-      ai:
-        specifier: ^6.0.19
-        version: 6.0.49(zod@4.3.6)
-      clsx:
-        specifier: ^2.1.1
-        version: 2.1.1
-      kui:
-        specifier: workspace:*
-        version: link:../kui
-      lucide-react:
-        specifier: ^0.556.0
-        version: 0.556.0(react@19.2.3)
-      react:
-        specifier: ^19.2.0
-        version: 19.2.3
-      react-dom:
-        specifier: ^19.2.0
-        version: 19.2.3(react@19.2.3)
-      tailwind-merge:
-        specifier: 3.4.0
-        version: 3.4.0
-    devDependencies:
-      '@types/react':
-        specifier: ^19.2.0
-        version: 19.2.9
-      '@types/react-dom':
-        specifier: ^19.2.0
-        version: 19.2.3(@types/react@19.2.9)
-      tsup:
-        specifier: ^8.5.0
-        version: 8.5.1(jiti@2.6.1)(postcss@8.5.6)(tsx@4.21.0)(typescript@5.9.3)
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-
   packages/sandbox-daytona:
     dependencies:
       '@daytonaio/sdk':
@@ -554,6 +501,46 @@ importers:
       vitest:
         specifier: ^1.6.1
         version: 1.6.1(@types/node@20.19.30)(lightningcss@1.30.2)
+
+  packages/sdk:
+    dependencies:
+      '@ai-sdk/provider':
+        specifier: ^3.0.0
+        version: 3.0.5
+      '@ai-sdk/provider-utils':
+        specifier: ^2.2.8
+        version: 2.2.8(zod@4.3.6)
+      '@ai-sdk/react':
+        specifier: ^3.0.3
+        version: 3.0.51(react@19.2.3)(zod@4.3.6)
+      '@sandagent/manager':
+        specifier: workspace:*
+        version: link:../manager
+      ai:
+        specifier: '>=4.0.0'
+        version: 6.0.49(zod@4.3.6)
+      react:
+        specifier: ^18.0.0 || ^19.0.0
+        version: 19.2.3
+      react-dom:
+        specifier: ^18.0.0 || ^19.0.0
+        version: 19.2.3(react@19.2.3)
+    devDependencies:
+      '@types/node':
+        specifier: ^20.10.0
+        version: 20.19.30
+      '@types/react':
+        specifier: ^19.2.0
+        version: 19.2.9
+      '@types/react-dom':
+        specifier: ^19.2.0
+        version: 19.2.3(@types/react@19.2.9)
+      tsup:
+        specifier: ^8.5.0
+        version: 8.5.1(jiti@2.6.1)(postcss@8.5.6)(tsx@4.21.0)(typescript@5.9.3)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
 
 packages:
 
@@ -2431,25 +2418,6 @@ packages:
     resolution: {integrity: sha512-H8AE9Ur/t0+1VXujj90w0HrSOuv0Nq9r1vSZF2t5km20NTfosQsGGUXDaKdQZzwuLts7IyL1fYT4hM95TI9c4g==}
     cpu: [x64]
     os: [win32]
-
-  '@sandagent/ai-provider@0.1.2-beta.3':
-    resolution: {integrity: sha512-wED4k90Y9AKYdlYGp+APAQx87JAwGQPPopkOz6twbCx/2oG7pnJxhz0CQrt+THz6polxUIZhQBTBukX+d5I6tA==}
-    peerDependencies:
-      ai: '>=4.0.0'
-    peerDependenciesMeta:
-      ai:
-        optional: true
-
-  '@sandagent/manager@0.1.2-beta.3':
-    resolution: {integrity: sha512-xC724x0/mn/gbdjg0tgAOs8BKx2QYlb7TNtK/UHqLtibQSF/P39Z+Rv54shRYp+vTRg9bwyT5YrqeqXWTM6y5w==}
-    engines: {node: '>=20.0.0'}
-
-  '@sandagent/sandbox-daytona@0.1.2-beta.3':
-    resolution: {integrity: sha512-vwV8CzDRolJBWScvcuU3debm616Ci4YgZX7U0OXylk61sr5DTPvu44l/eLxZxCmMbBntEbxz7VXVcuxo2EPyvg==}
-
-  '@sandagent/sandbox-e2b@0.1.2-beta.3':
-    resolution: {integrity: sha512-By0d924Fvy7QPh33qndZn6apXSAveuSfu2emtMQVf/fUbFe4dIyjXkAEFRI/E3ojFMfCfuQDM5hENd+eL/ItMQ==}
-    engines: {node: '>=20.0.0'}
 
   '@shikijs/core@3.21.0':
     resolution: {integrity: sha512-AXSQu/2n1UIQekY8euBJlvFYZIw0PHY63jUzGbrOma4wPxzznJXTXkri+QcHeBNaFxiiOljKxxJkVSoB3PjbyA==}
@@ -7506,32 +7474,6 @@ snapshots:
 
   '@rollup/rollup-win32-x64-msvc@4.56.0':
     optional: true
-
-  '@sandagent/ai-provider@0.1.2-beta.3(ai@6.0.49(zod@4.3.6))(zod@4.3.6)':
-    dependencies:
-      '@ai-sdk/provider': 3.0.5
-      '@ai-sdk/provider-utils': 2.2.8(zod@4.3.6)
-      '@sandagent/manager': 0.1.2-beta.3
-    optionalDependencies:
-      ai: 6.0.49(zod@4.3.6)
-    transitivePeerDependencies:
-      - zod
-
-  '@sandagent/manager@0.1.2-beta.3': {}
-
-  '@sandagent/sandbox-daytona@0.1.2-beta.3(ws@8.19.0)':
-    dependencies:
-      '@daytonaio/sdk': 0.130.0(ws@8.19.0)
-      '@sandagent/manager': 0.1.2-beta.3
-    transitivePeerDependencies:
-      - aws-crt
-      - debug
-      - ws
-
-  '@sandagent/sandbox-e2b@0.1.2-beta.3':
-    dependencies:
-      '@sandagent/manager': 0.1.2-beta.3
-      e2b: 2.10.4
 
   '@shikijs/core@3.21.0':
     dependencies:

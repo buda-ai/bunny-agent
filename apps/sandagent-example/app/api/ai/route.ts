@@ -3,9 +3,9 @@ import { TaskDrivenArtifactProcessor } from "@/lib/artifact-processor";
 import {
   type SandAgentProviderSettings,
   createSandAgent,
-} from "@sandagent/ai-provider";
+  LocalSandbox,
+} from "@sandagent/sdk";
 // DaytonaSandbox is dynamically imported to avoid build-time dependency issues
-import { LocalSandbox } from "@sandagent/manager";
 import { E2BSandbox } from "@sandagent/sandbox-e2b";
 import { SandockSandbox } from "@sandagent/sandbox-sandock";
 import {

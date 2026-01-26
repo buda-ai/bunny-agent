@@ -7,17 +7,17 @@
     "@sandagent/example": "0.1.0",
     "@sandagent/provider-example": "0.1.0",
     "@sandagent/docker-sandagent-claude": "0.1.0",
-    "@sandagent/ai-provider": "0.1.0-beta.1",
     "@sandagent/benchmark": "0.1.0",
     "kui": "0.5.0",
     "@sandagent/manager": "0.1.0-beta.0",
     "@sandagent/runner-claude": "0.1.0",
-    "@sandagent/ui": "0.1.0",
+    "@sandagent/sdk": "0.1.0",
     "@sandagent/sandbox-daytona": "0.1.0-beta.0",
     "@sandagent/sandbox-e2b": "0.1.0-beta.0",
-    "@sandagent/sandbox-sandock": "0.1.0"
+    "@sandagent/sandbox-sandock": "0.1.0",
+    "@sandagent/quickstart": "0.1.0"
   },
   "changesets": [
-    "witty-pears-shave"
+    "merge-ai-provider-to-sdk"
   ]
 }

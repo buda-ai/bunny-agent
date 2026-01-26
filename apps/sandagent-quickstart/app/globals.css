@@ -1,0 +1,41 @@
+@import "tailwindcss";
+@source "../../../../packages/kui/src/**/*.{ts,tsx}";
+@import "kui/styles.css";
+
+/* Full height layout */
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+#__next {
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Ensure scrollbars are visible */
+.scrollable-content {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--muted-foreground)) hsl(var(--muted));
+}
+
+.scrollable-content::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.scrollable-content::-webkit-scrollbar-track {
+  background: hsl(var(--muted));
+}
+
+.scrollable-content::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--muted-foreground));
+  border-radius: 4px;
+}
+
+.scrollable-content::-webkit-scrollbar-thumb:hover {
+  background-color: hsl(var(--foreground) / 0.5);
+}

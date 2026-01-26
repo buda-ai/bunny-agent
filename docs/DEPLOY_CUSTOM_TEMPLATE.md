@@ -33,11 +33,11 @@ SandAgent 支持两种使用方式：
 #### 安装依赖
 
 ```bash
-# 核心包 + AI Provider
-npm install @sandagent/ai-provider ai
+# SDK（包含 AI Provider 和 LocalSandbox）
+npm install @sandagent/sdk ai
 
-# 选择 Sandbox 平台（二选一）
-npm install @sandagent/sandbox-e2b      # E2B（推荐）
+# 选择 Sandbox 平台（二选一，可选）
+npm install @sandagent/sandbox-e2b      # E2B（推荐，云端沙箱）
 npm install @sandagent/sandbox-daytona  # Daytona（支持持久化）
 ```
 
@@ -65,7 +65,7 @@ ANTHROPIC_API_KEY=sk-ant-xxx
 
 ```typescript
 import "dotenv/config";
-import { createSandAgent } from "@sandagent/ai-provider";
+import { createSandAgent } from "@sandagent/sdk";
 import { E2BSandbox } from "@sandagent/sandbox-e2b";
 import { streamText } from "ai";
 import path from "path";
@@ -107,7 +107,7 @@ main().catch(console.error);
 
 ```typescript
 import "dotenv/config";
-import { createSandAgent } from "@sandagent/ai-provider";
+import { createSandAgent } from "@sandagent/sdk";
 import { DaytonaSandbox } from "@sandagent/sandbox-daytona";
 import { streamText } from "ai";
 import path from "path";
@@ -369,7 +369,7 @@ make daytona TEMPLATE=researcher
 
 ```typescript
 // app/api/ai/route.ts
-import { createSandAgent } from "@sandagent/ai-provider";
+import { createSandAgent } from "@sandagent/sdk";
 import { E2BSandbox } from "@sandagent/sandbox-e2b";
 import { streamText } from "ai";
 

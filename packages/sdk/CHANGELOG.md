@@ -1,8 +1,8 @@
-# @sandagent/runner-cli
+# @sandagent/sdk
 
 ## 0.2.0-beta.5
 
-### Patch Changes
+### Minor Changes
 
 - Merge @sandagent/ai-provider into @sandagent/sdk
 
@@ -11,12 +11,7 @@
   - SDK re-exports `LocalSandbox` for convenience
   - Updated all documentation to use `@sandagent/sdk`
 
-## 0.1.2-beta.4
-
-## 0.1.2-beta.3
-
 ### Patch Changes
 
-- 56ff91a: - Merge sandbox-local package into @sandagent/manager as built-in LocalSandbox
-  - Remove unused agentTemplate option from all sandbox adapters (E2B, Sandock, Daytona)
-  - Fix kui component exports
+- Updated dependencies
+  - @sandagent/manager@0.2.0-beta.5

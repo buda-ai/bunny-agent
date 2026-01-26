@@ -5,12 +5,11 @@
   "fixed": [
     [
       "@sandagent/manager",
-      "@sandagent/ai-provider",
       "@sandagent/runner-cli",
       "@sandagent/sandbox-e2b",
       "@sandagent/sandbox-sandock",
       "@sandagent/sandbox-daytona",
-      "@sandagent/ui"
+      "@sandagent/sdk"
     ]
   ],
   "linked": [],
@@ -19,6 +18,7 @@
   "updateInternalDependencies": "patch",
   "ignore": [
     "@sandagent/example",
+    "@sandagent/quickstart",
     "@sandagent/manager-cli",
     "@sandagent/benchmark"
   ]
