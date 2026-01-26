@@ -221,10 +221,11 @@ export async function POST(request: Request) {
       apiKey: SANDOCK_API_KEY,
       runnerBundlePath: RUNNER_BUNDLE_PATH,
       templatesPath: path.join(TEMPLATES_PATH, template),
+      volumeName: sandboxName,
       // Sandbox-level config
       env,
       agentTemplate: template,
-      workdir: "/workspace",
+      workdir: "/sandagent",
     });
   } else {
     sandbox = new E2BSandbox({
