@@ -117,6 +117,8 @@ export interface AISDKUsage {
 export interface StreamToAISDKUIOptions {
   signal?: AbortSignal;
   onCleanup?: () => void;
+  /** Working directory for debug files (default: process.cwd()) */
+  cwd?: string;
 }
 
 // ============================================================================
@@ -424,6 +426,7 @@ export class AISDKStreamConverter {
   ): AsyncGenerator<string> {
     // Collect messages for debugging
     const debugMessages: unknown[] = [];
+    const debugDir = options?.cwd ?? process.cwd();
     const debugFile = `ai-sdk-stream-debug-${Date.now()}.json`;
 
     try {
@@ -646,7 +649,7 @@ export class AISDKStreamConverter {
       if (debugMessages.length > 0) {
         // Don't await - let it write in background
         writeFile(
-          join(process.cwd(), debugFile),
+          join(debugDir, debugFile),
           JSON.stringify(debugMessages, null, 2),
           "utf-8",
         ).catch((writeError) => {

@@ -1,6 +1,7 @@
 {
   "name": "kui",
   "version": "0.5.0",
+  "private": true,
   "description": "Custom design system based on shadcn/ui with tree-shaking support",
   "type": "module",
   "sideEffects": ["**/*.css"],
@@ -8,6 +9,7 @@
     "./styles.css": "./src/styles.css",
     "./utils": "./src/lib/utils.ts",
     "./hooks/*": "./src/hooks/*.ts",
+    "./ai-elements": "./src/components/ai-elements/index.ts",
     "./ai-elements/*": "./src/components/ai-elements/*.tsx",
     "./accordion": "./src/components/ui/accordion.tsx",
     "./alert": "./src/components/ui/alert.tsx",

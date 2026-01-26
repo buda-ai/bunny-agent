@@ -1,5 +1,5 @@
-import { SandAgent } from "@sandagent/manager";
-import { beforeAll, describe, expect, it } from "vitest";
+import { LocalSandbox, SandAgent } from "@sandagent/manager";
+import { describe, expect, it } from "vitest";
 
 /**
  * Integration tests for SandAgent with LocalSandbox
@@ -8,30 +8,10 @@ import { beforeAll, describe, expect, it } from "vitest";
  * ensuring that commands execute correctly in the local environment.
  */
 describe("SandAgent + LocalSandbox Integration", () => {
-  let LocalSandbox:
-    | typeof import("@sandagent/sandbox-local").LocalSandbox
-    | undefined;
-
-  beforeAll(async () => {
-    try {
-      // Import sandbox-local package at runtime (optional dependency)
-      const module = await import("@sandagent/sandbox-local");
-      LocalSandbox = module.LocalSandbox;
-      console.log("Successfully loaded @sandagent/sandbox-local");
-    } catch (error) {
-      console.warn("@sandagent/sandbox-local not available:", error);
-    }
-  });
-
   describe("Real Command Execution Tests", () => {
     it("should execute echo command and return output", async () => {
-      if (!LocalSandbox) {
-        console.log("Skipping: @sandagent/sandbox-local not available");
-        return;
-      }
-
       const sandbox = new LocalSandbox();
-      const agent = new SandAgent({
+      const _agent = new SandAgent({
         sandbox,
         runner: {
           kind: "claude-agent-sdk",
@@ -39,7 +19,7 @@ describe("SandAgent + LocalSandbox Integration", () => {
         },
       });
 
-      const handle = await sandbox.attach("test-echo");
+      const handle = await sandbox.attach();
       const result = await handle.runCommand("echo 'Hello from LocalSandbox'");
 
       expect(result.exitCode).toBe(0);
@@ -47,13 +27,8 @@ describe("SandAgent + LocalSandbox Integration", () => {
     });
 
     it("should execute ls command in workspace", async () => {
-      if (!LocalSandbox) {
-        console.log("Skipping: @sandagent/sandbox-local not available");
-        return;
-      }
-
       const sandbox = new LocalSandbox();
-      const handle = await sandbox.attach("test-ls");
+      const handle = await sandbox.attach();
 
       // Create a test file
       await handle.upload(
@@ -69,13 +44,8 @@ describe("SandAgent + LocalSandbox Integration", () => {
     });
 
     it("should handle process execution with node", async () => {
-      if (!LocalSandbox) {
-        console.log("Skipping: @sandagent/sandbox-local not available");
-        return;
-      }
-
       const sandbox = new LocalSandbox();
-      const handle = await sandbox.attach("test-node");
+      const handle = await sandbox.attach();
 
       // Create a simple Node.js script
       await handle.upload(
@@ -100,13 +70,8 @@ describe("SandAgent + LocalSandbox Integration", () => {
     });
 
     it("should handle command with error exit code", async () => {
-      if (!LocalSandbox) {
-        console.log("Skipping: @sandagent/sandbox-local not available");
-        return;
-      }
-
       const sandbox = new LocalSandbox();
-      const handle = await sandbox.attach("test-error");
+      const handle = await sandbox.attach();
 
       const result = await handle.runCommand("exit 42");
 
@@ -114,13 +79,8 @@ describe("SandAgent + LocalSandbox Integration", () => {
     });
 
     it("should handle multi-line commands", async () => {
-      if (!LocalSandbox) {
-        console.log("Skipping: @sandagent/sandbox-local not available");
-        return;
-      }
-
       const sandbox = new LocalSandbox();
-      const handle = await sandbox.attach("test-multiline");
+      const handle = await sandbox.attach();
 
       const result = await handle.runCommand(
         "echo 'Line 1' && echo 'Line 2' && echo 'Line 3'",
@@ -133,13 +93,8 @@ describe("SandAgent + LocalSandbox Integration", () => {
     });
 
     it("should handle file operations", async () => {
-      if (!LocalSandbox) {
-        console.log("Skipping: @sandagent/sandbox-local not available");
-        return;
-      }
-
       const sandbox = new LocalSandbox();
-      const handle = await sandbox.attach("test-fileops");
+      const handle = await sandbox.attach();
 
       // Create directory and files
       await handle.runCommand(
@@ -157,13 +112,8 @@ describe("SandAgent + LocalSandbox Integration", () => {
     });
 
     it("should execute Python script", async () => {
-      if (!LocalSandbox) {
-        console.log("Skipping: @sandagent/sandbox-local not available");
-        return;
-      }
-
       const sandbox = new LocalSandbox();
-      const handle = await sandbox.attach("test-python");
+      const handle = await sandbox.attach();
 
       // Create Python script
       await handle.upload(
@@ -190,18 +140,13 @@ describe("SandAgent + LocalSandbox Integration", () => {
     });
 
     it("should handle environment variables", async () => {
-      if (!LocalSandbox) {
-        console.log("Skipping: @sandagent/sandbox-local not available");
-        return;
-      }
-
       const sandbox = new LocalSandbox({
         env: {
           TEST_VAR: "test_value",
           CUSTOM_VAR: "custom_value",
         },
       });
-      const handle = await sandbox.attach("test-env");
+      const handle = await sandbox.attach();
 
       const result = await handle.runCommand(
         "echo $TEST_VAR && echo $CUSTOM_VAR",

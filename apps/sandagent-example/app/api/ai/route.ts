@@ -1,12 +1,13 @@
 import path from "node:path";
 import { TaskDrivenArtifactProcessor } from "@/lib/artifact-processor";
-import {
-  type SandAgentProviderSettings,
-  createSandAgent,
-} from "@sandagent/ai-provider";
 // DaytonaSandbox is dynamically imported to avoid build-time dependency issues
 import { E2BSandbox } from "@sandagent/sandbox-e2b";
 import { SandockSandbox } from "@sandagent/sandbox-sandock";
+import {
+  LocalSandbox,
+  type SandAgentProviderSettings,
+  createSandAgent,
+} from "@sandagent/sdk";
 import {
   type ModelMessage,
   type UIMessage,
@@ -199,7 +200,7 @@ export async function POST(request: Request) {
   }
 
   // Create sandbox based on provider
-  // env, agentTemplate, and workdir are now part of sandbox config
+  // env and workdir are now part of sandbox config
   let sandbox;
   const sandboxName = `sandagent-${template}`;
 
@@ -217,7 +218,6 @@ export async function POST(request: Request) {
       autoDeleteInterval: -1,
       // Sandbox-level config
       env,
-      agentTemplate: template,
       snapshot: "sandagent-claude-researcher:0.1.2",
       workdir: "/workspace",
     });
@@ -229,10 +229,9 @@ export async function POST(request: Request) {
       templatesPath: path.join(TEMPLATES_PATH, template),
       // Sandbox-level config
       env,
-      agentTemplate: template,
       workdir: "/workspace",
     });
-  } else {
+  } else if (SANDBOX_PROVIDER === "e2b") {
     sandbox = new E2BSandbox({
       apiKey: E2B_API_KEY,
       // TODO: E2B alias cache issue - use template ID directly for now
@@ -243,8 +242,13 @@ export async function POST(request: Request) {
       name: sandboxName,
       // Sandbox-level config
       env,
-      agentTemplate: template,
       workdir: "/workspace",
+    });
+  } else {
+    sandbox = new LocalSandbox({
+      baseDir: process.cwd(),
+      isolate: false,
+      env,
     });
   }
 
@@ -266,7 +270,7 @@ export async function POST(request: Request) {
       // Create the provider with sandbox, artifact processor, and writer
       const sandagentOptions: SandAgentProviderSettings = {
         sandbox,
-        cwd: "/sandagent",
+        cwd: sandbox.getWorkdir?.() || "/sandagent",
         verbose: true,
         artifactProcessors: [artifactProcessor],
         resume,

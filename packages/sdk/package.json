@@ -1,0 +1,83 @@
+{
+  "name": "@sandagent/sdk",
+  "version": "0.2.1",
+  "description": "SandAgent SDK - AI Provider and React hooks for building AI agents",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./src/index.ts",
+  "module": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
+    },
+    "./react": {
+      "types": "./src/react/index.ts",
+      "import": "./src/react/index.ts"
+    }
+  },
+  "publishConfig": {
+    "main": "./dist/index.js",
+    "module": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      },
+      "./react": {
+        "types": "./dist/react/index.d.ts",
+        "import": "./dist/react/index.js"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome format . --write && biome check . --write",
+    "prepublishOnly": "pnpm run build"
+  },
+  "keywords": [
+    "sandagent",
+    "sdk",
+    "ai-provider",
+    "react",
+    "ai",
+    "chat",
+    "hooks",
+    "claude",
+    "anthropic"
+  ],
+  "license": "Apache-2.0",
+  "peerDependencies": {
+    "ai": ">=4.0.0",
+    "react": "^18.0.0 || ^19.0.0",
+    "react-dom": "^18.0.0 || ^19.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    }
+  },
+  "dependencies": {
+    "@sandagent/manager": "workspace:*",
+    "@ai-sdk/provider": "^3.0.0",
+    "@ai-sdk/provider-utils": "^2.2.8",
+    "@ai-sdk/react": "^3.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.3"
+  }
+}

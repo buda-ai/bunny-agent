@@ -1,6 +1,6 @@
 {
   "name": "@sandagent/sandbox-daytona",
-  "version": "0.1.0-beta.0",
+  "version": "0.2.1",
   "description": "Daytona sandbox adapter for SandAgent",
   "type": "module",
   "main": "./dist/index.js",
@@ -12,7 +12,9 @@
       "types": "./dist/index.d.ts"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",

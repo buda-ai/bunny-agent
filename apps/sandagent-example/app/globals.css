@@ -2,6 +2,11 @@
 @import "kui/styles.css";
 @source "../../../packages/kui";
 
+/* Full height layout */
+html, body {
+  height: 100%;
+}
+
 /* Bounce animation for tool approval UI */
 @keyframes bounce-attention {
   0%, 100% { 

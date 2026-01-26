@@ -66,13 +66,6 @@ export interface DaytonaSandboxOptions {
   env?: Record<string, string>;
 
   /**
-   * Agent template to use (e.g., "default", "coder", "analyst", "researcher").
-   *
-   * @default 'default'
-   */
-  agentTemplate?: string;
-
-  /**
    * Working directory for the agent inside the sandbox.
    * Will be created if it doesn't exist.
    *
@@ -102,7 +95,6 @@ export class DaytonaSandbox implements SandboxAdapter {
   private readonly name?: string;
   private readonly snapshot?: string;
   private readonly env: Record<string, string>;
-  private readonly agentTemplate: string;
   private readonly workdir: string;
 
   /** Current handle for the sandbox instance */
@@ -123,7 +115,6 @@ export class DaytonaSandbox implements SandboxAdapter {
     this.name = options.name;
     this.snapshot = options.snapshot;
     this.env = options.env ?? {};
-    this.agentTemplate = options.agentTemplate ?? "default";
     this.workdir = options.workdir ?? "/workspace";
   }
 
@@ -132,13 +123,6 @@ export class DaytonaSandbox implements SandboxAdapter {
    */
   getEnv(): Record<string, string> {
     return this.env;
-  }
-
-  /**
-   * Get the agent template configured for this sandbox.
-   */
-  getAgentTemplate(): string {
-    return this.agentTemplate;
   }
 
   /**
@@ -543,6 +527,13 @@ class DaytonaHandle implements SandboxHandle {
    */
   getSandboxId(): string {
     return this.sandbox.id;
+  }
+
+  /**
+   * Get the working directory for this sandbox handle
+   */
+  getWorkdir(): string {
+    return this.workdir;
   }
 
   /**

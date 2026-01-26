@@ -26,6 +26,7 @@ function createAsyncIterable<T>(data: T[]): AsyncIterable<T> {
  */
 function createMockSandbox(): SandboxAdapter & { handle: SandboxHandle } {
   const handle: SandboxHandle = {
+    getWorkdir: vi.fn().mockReturnValue("/workspace"),
     exec: vi
       .fn()
       .mockReturnValue(
@@ -85,7 +86,7 @@ describe("SandAgent", () => {
       );
     });
 
-    it("should use custom workspace path", async () => {
+    it("should use workspace path from sandbox handle", async () => {
       const sandbox = createMockSandbox();
       const agent = new SandAgent({
         sandbox,
@@ -97,12 +98,12 @@ describe("SandAgent", () => {
 
       await agent.stream({
         messages: [{ role: "user", content: "Hello" }],
-        workspace: { path: "/custom/path" },
       });
 
+      // Should use the workdir from handle.getWorkdir() (which returns "/workspace")
       expect(sandbox.handle.exec).toHaveBeenCalledWith(
-        expect.arrayContaining(["--cwd", "/custom/path"]),
-        expect.objectContaining({ cwd: "/custom/path" }),
+        expect.arrayContaining(["--cwd", "/workspace"]),
+        expect.objectContaining({ cwd: "/workspace" }),
       );
     });
 
