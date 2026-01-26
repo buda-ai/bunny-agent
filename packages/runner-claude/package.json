@@ -1,6 +1,7 @@
 {
   "name": "@sandagent/runner-claude",
   "version": "0.1.0",
+  "private": true,
   "description": "Claude Agent SDK runtime for SandAgent",
   "type": "module",
   "main": "./dist/index.js",

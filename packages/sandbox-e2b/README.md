@@ -14,7 +14,7 @@ E2B sandbox adapter for SandAgent - run agents in secure cloud sandboxes.
 ## Installation
 
 ```bash
-npm install @sandagent/sandbox-e2b @sandagent/manager
+npm install @sandagent/sandbox-e2b @sandagent/sdk
 ```
 
 You'll also need an E2B API key. Sign up at [e2b.dev](https://e2b.dev) to get one.
@@ -57,7 +57,7 @@ const stream = await agent.stream({
 ## Usage with AI Provider
 
 ```typescript
-import { createSandAgent } from '@sandagent/ai-provider';
+import { createSandAgent } from '@sandagent/sdk';
 import { E2BSandbox } from '@sandagent/sandbox-e2b';
 import { generateText } from 'ai';
 

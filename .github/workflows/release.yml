@@ -38,14 +38,30 @@ jobs:
       - name: Build Packages
         run: pnpm build
 
+      # Enter beta prerelease mode for develop branch
+      - name: Enter Beta Prerelease Mode
+        if: github.ref == 'refs/heads/develop'
+        run: |
+          if [ ! -f .changeset/pre.json ]; then
+            pnpm changeset pre enter beta
+          fi
+
+      # Exit prerelease mode for main branch (if in prerelease)
+      - name: Exit Prerelease Mode
+        if: github.ref == 'refs/heads/main'
+        run: |
+          if [ -f .changeset/pre.json ]; then
+            pnpm changeset pre exit
+          fi
+
       - name: Create Release Pull Request or Publish to npm
         id: changesets
         uses: changesets/action@v1
         with:
           publish: pnpm changeset publish
           version: pnpm changeset version
-          title: 'chore: Version Packages'
-          commit: 'chore: Version Packages'
+          title: ${{ github.ref == 'refs/heads/develop' && 'chore: Version Packages (Beta)' || 'chore: Version Packages' }}
+          commit: ${{ github.ref == 'refs/heads/develop' && 'chore: Version Packages (Beta)' || 'chore: Version Packages' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

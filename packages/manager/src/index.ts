@@ -16,3 +16,7 @@ export type {
   TranscriptWriter,
   TranscriptEntry,
 } from "./types.js";
+
+// Default sandbox adapter (built-in)
+export { LocalSandbox } from "./local-sandbox.js";
+export type { LocalSandboxOptions } from "./local-sandbox.js";

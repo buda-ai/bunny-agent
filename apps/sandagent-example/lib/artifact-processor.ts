@@ -1,9 +1,9 @@
 import type {
   ArtifactProcessor,
   LanguageModelV3StreamPart,
+  SandboxAdapter,
   StreamWriter,
-} from "@sandagent/ai-provider";
-import type { SandboxAdapter } from "@sandagent/manager";
+} from "@sandagent/sdk";
 
 /**
  * TaskDrivenArtifactProcessor
