@@ -1,6 +1,6 @@
 {
   "name": "@sandagent/provider-example",
-  "version": "0.1.0",
+  "version": "0.1.1-beta.0",
   "private": true,
   "description": "Example using @sandagent packages",
   "type": "module",
@@ -9,9 +9,9 @@
     "test:daytona": "tsx test-daytona.ts"
   },
   "dependencies": {
-    "@sandagent/sandbox-e2b": "^0.1.0-beta.0",
-    "@sandagent/sandbox-daytona": "^0.1.0-beta.0",
-    "@sandagent/ai-provider": "^0.1.0-beta.1",
+    "@sandagent/sandbox-e2b": "^0.1.2-beta.3",
+    "@sandagent/sandbox-daytona": "^0.1.2-beta.3",
+    "@sandagent/ai-provider": "^0.1.2-beta.3",
     "ai": "^6.0.19",
     "dotenv": "^16.0.0"
   },

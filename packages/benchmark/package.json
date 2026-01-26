@@ -1,6 +1,7 @@
 {
   "name": "@sandagent/benchmark",
   "version": "0.1.0",
+  "private": true,
   "description": "GAIA benchmark runner for comparing agent CLIs (gemini-cli, claudecode, codex-cli, sandagent)",
   "type": "module",
   "main": "./dist/index.js",
