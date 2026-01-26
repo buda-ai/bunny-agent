@@ -137,14 +137,14 @@ importers:
   apps/sandagent-provider-example:
     dependencies:
       '@sandagent/ai-provider':
-        specifier: ^0.1.0-beta.1
-        version: 0.1.0-beta.1(ai@6.0.49(zod@4.3.6))(zod@4.3.6)
+        specifier: ^0.1.2-beta.3
+        version: 0.1.2-beta.3(ai@6.0.49(zod@4.3.6))(zod@4.3.6)
       '@sandagent/sandbox-daytona':
-        specifier: ^0.1.0-beta.0
-        version: 0.1.0-beta.0
+        specifier: ^0.1.2-beta.3
+        version: 0.1.2-beta.3(ws@8.19.0)
       '@sandagent/sandbox-e2b':
-        specifier: ^0.1.0-beta.0
-        version: 0.1.0-beta.0
+        specifier: ^0.1.2-beta.3
+        version: 0.1.2-beta.3
       ai:
         specifier: ^6.0.19
         version: 6.0.49(zod@4.3.6)
@@ -2432,23 +2432,23 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@sandagent/ai-provider@0.1.0-beta.1':
-    resolution: {integrity: sha512-SyQv4S2MZNOuzBAauHoHzbLFj8XKE3ywLDQGKFI/cs+1Ctgfa6jyJ7z1K+kur5uKS7G6CY0SBxHOfC96hqURMg==}
+  '@sandagent/ai-provider@0.1.2-beta.3':
+    resolution: {integrity: sha512-wED4k90Y9AKYdlYGp+APAQx87JAwGQPPopkOz6twbCx/2oG7pnJxhz0CQrt+THz6polxUIZhQBTBukX+d5I6tA==}
     peerDependencies:
       ai: '>=4.0.0'
     peerDependenciesMeta:
       ai:
         optional: true
 
-  '@sandagent/manager@0.1.0-beta.0':
-    resolution: {integrity: sha512-j5EV649uf9WNXQanqAT42WbJAlVXA1siVfdBPcl/HB7JoQEa0kYAHt0bVL4oZsvZaUcFUhpe15UPUUvhq7vRsg==}
+  '@sandagent/manager@0.1.2-beta.3':
+    resolution: {integrity: sha512-xC724x0/mn/gbdjg0tgAOs8BKx2QYlb7TNtK/UHqLtibQSF/P39Z+Rv54shRYp+vTRg9bwyT5YrqeqXWTM6y5w==}
     engines: {node: '>=20.0.0'}
 
-  '@sandagent/sandbox-daytona@0.1.0-beta.0':
-    resolution: {integrity: sha512-wTCKm8ZZyL1GNygQgGFIRZX0Jp08bLAPGLlGasGay7P1dmhQjwkjsy6fqH29pj2KJfMhWnP3qjBwjcXEf0GWXw==}
+  '@sandagent/sandbox-daytona@0.1.2-beta.3':
+    resolution: {integrity: sha512-vwV8CzDRolJBWScvcuU3debm616Ci4YgZX7U0OXylk61sr5DTPvu44l/eLxZxCmMbBntEbxz7VXVcuxo2EPyvg==}
 
-  '@sandagent/sandbox-e2b@0.1.0-beta.0':
-    resolution: {integrity: sha512-CmlCpTK4GZBXvq/jeOnjDiR+UeoaUHKIYeMufMLvwvzkjuxWbwKYGh8TgHCwQln9bDwEGPoofpx0PriU/HgrQw==}
+  '@sandagent/sandbox-e2b@0.1.2-beta.3':
+    resolution: {integrity: sha512-By0d924Fvy7QPh33qndZn6apXSAveuSfu2emtMQVf/fUbFe4dIyjXkAEFRI/E3ojFMfCfuQDM5hENd+eL/ItMQ==}
     engines: {node: '>=20.0.0'}
 
   '@shikijs/core@3.21.0':
@@ -7507,30 +7507,30 @@ snapshots:
   '@rollup/rollup-win32-x64-msvc@4.56.0':
     optional: true
 
-  '@sandagent/ai-provider@0.1.0-beta.1(ai@6.0.49(zod@4.3.6))(zod@4.3.6)':
+  '@sandagent/ai-provider@0.1.2-beta.3(ai@6.0.49(zod@4.3.6))(zod@4.3.6)':
     dependencies:
       '@ai-sdk/provider': 3.0.5
       '@ai-sdk/provider-utils': 2.2.8(zod@4.3.6)
-      '@sandagent/manager': 0.1.0-beta.0
+      '@sandagent/manager': 0.1.2-beta.3
     optionalDependencies:
       ai: 6.0.49(zod@4.3.6)
     transitivePeerDependencies:
       - zod
 
-  '@sandagent/manager@0.1.0-beta.0': {}
+  '@sandagent/manager@0.1.2-beta.3': {}
 
-  '@sandagent/sandbox-daytona@0.1.0-beta.0':
+  '@sandagent/sandbox-daytona@0.1.2-beta.3(ws@8.19.0)':
     dependencies:
       '@daytonaio/sdk': 0.130.0(ws@8.19.0)
-      '@sandagent/manager': link:packages/manager
+      '@sandagent/manager': 0.1.2-beta.3
     transitivePeerDependencies:
       - aws-crt
       - debug
       - ws
 
-  '@sandagent/sandbox-e2b@0.1.0-beta.0':
+  '@sandagent/sandbox-e2b@0.1.2-beta.3':
     dependencies:
-      '@sandagent/manager': link:packages/manager
+      '@sandagent/manager': 0.1.2-beta.3
       e2b: 2.10.4
 
   '@shikijs/core@3.21.0':
