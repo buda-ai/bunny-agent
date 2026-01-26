@@ -1,0 +1,45 @@
+/* SandAgent UI Styles */
+/* Import kui styles as base */
+@import "kui/styles.css";
+
+/* SandAgent specific animations */
+@keyframes bounce-border {
+  0%,
+  100% {
+    border-color: hsl(var(--primary));
+    box-shadow: 0 0 0 0 hsl(var(--primary) / 0.4);
+  }
+  50% {
+    border-color: hsl(var(--primary) / 0.6);
+    box-shadow: 0 0 8px 2px hsl(var(--primary) / 0.2);
+  }
+}
+
+.bounce-animation {
+  animation: bounce-border 1.5s ease-in-out infinite;
+  border-color: hsl(var(--primary));
+}
+
+/* Scrollable content with hidden scrollbar */
+.scrollable-content {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--muted-foreground) / 0.3) transparent;
+}
+
+.scrollable-content::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.scrollable-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollable-content::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 3px;
+}
+
+.scrollable-content::-webkit-scrollbar-thumb:hover {
+  background-color: hsl(var(--muted-foreground) / 0.5);
+}

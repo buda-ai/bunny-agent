@@ -55,14 +55,6 @@ export interface E2BSandboxOptions {
   env?: Record<string, string>;
 
   /**
-   * Agent template to use (e.g., "default", "coder", "analyst", "researcher").
-   * This is different from the E2B sandbox template.
-   *
-   * @default 'default'
-   */
-  agentTemplate?: string;
-
-  /**
    * Working directory for the agent inside the sandbox.
    * Will be created if it doesn't exist.
    *
@@ -96,7 +88,6 @@ export class E2BSandbox implements SandboxAdapter {
   private readonly templatesPath?: string;
   private readonly name?: string;
   private readonly env: Record<string, string>;
-  private readonly agentTemplate: string;
   private readonly workdir: string;
 
   /** Current handle for the sandbox instance */
@@ -117,7 +108,6 @@ export class E2BSandbox implements SandboxAdapter {
     this.templatesPath = options.templatesPath;
     this.name = options.name;
     this.env = options.env ?? {};
-    this.agentTemplate = options.agentTemplate ?? "default";
     this.workdir = options.workdir ?? "/workspace";
   }
 
@@ -144,13 +134,6 @@ export class E2BSandbox implements SandboxAdapter {
    */
   getEnv(): Record<string, string> {
     return this.env;
-  }
-
-  /**
-   * Get the agent template configured for this sandbox.
-   */
-  getAgentTemplate(): string {
-    return this.agentTemplate;
   }
 
   /**

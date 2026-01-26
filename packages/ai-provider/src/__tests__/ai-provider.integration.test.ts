@@ -7,7 +7,7 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createSandAgent } from "@sandagent/ai-provider";
-import { LocalSandbox } from "@sandagent/sandbox-local";
+import { LocalSandbox } from "@sandagent/manager";
 import { streamText } from "ai";
 import { describe, expect, it } from "vitest";
 

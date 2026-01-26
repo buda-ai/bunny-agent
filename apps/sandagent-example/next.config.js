@@ -6,6 +6,7 @@ const nextConfig = {
     "@sandagent/sandbox-e2b",
     "@sandagent/sandbox-sandock",
     "@sandagent/sandbox-daytona",
+    "@sandagent/ui",
     "kui",
   ],
 };

@@ -18,6 +18,7 @@
     "@sandagent/sandbox-daytona": "workspace:*",
     "@sandagent/sandbox-e2b": "workspace:*",
     "@sandagent/sandbox-sandock": "workspace:*",
+    "@sandagent/ui": "workspace:*",
     "ai": "^6.0.19",
     "kui": "workspace:*",
     "lucide-react": "^0.556.0",

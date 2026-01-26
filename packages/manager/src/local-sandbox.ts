@@ -1,11 +1,7 @@
 import { spawn } from "node:child_process";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import type {
-  ExecOptions,
-  SandboxAdapter,
-  SandboxHandle,
-} from "@sandagent/manager";
+import type { ExecOptions, SandboxAdapter, SandboxHandle } from "./types.js";
 
 /**
  * Options for creating a LocalSandbox instance
@@ -19,6 +15,8 @@ export interface LocalSandboxOptions {
   defaultTimeout?: number;
   /** Environment variables to pass to all commands */
   env?: Record<string, string>;
+  /** Runner command to execute in the sandbox (default: ["sandagent", "run"]) */
+  runnerCommand?: string[];
 }
 
 /**
@@ -31,25 +29,74 @@ export interface LocalSandboxOptions {
  *
  * Warning: This runs commands directly on your local machine with your user's
  * permissions. Use with caution and only with trusted code.
+ *
+ * @example
+ * ```typescript
+ * import { LocalSandbox, SandAgent } from "@sandagent/manager";
+ *
+ * // Use current directory as workspace (no isolation)
+ * const sandbox = new LocalSandbox({
+ *   baseDir: process.cwd(),
+ *   isolate: false,
+ * });
+ *
+ * const agent = new SandAgent({
+ *   sandbox,
+ *   runner: {
+ *     kind: "claude-agent-sdk",
+ *     model: "claude-sonnet-4-20250514",
+ *   },
+ * });
+ *
+ * // Attach and run commands
+ * const handle = await sandbox.attach();
+ * const result = await handle.runCommand("ls -la");
+ * console.log(result.stdout);
+ * ```
  */
 export class LocalSandbox implements SandboxAdapter {
   private readonly baseDir: string;
   private readonly isolate: boolean;
   private readonly defaultTimeout: number;
   private readonly env: Record<string, string>;
+  private readonly runnerCommand: string[];
 
   /** Current handle for the sandbox instance */
-  private currentHandle: SandboxHandle | null = null;
+  private currentHandle: LocalSandboxHandle | null = null;
 
   constructor(options: LocalSandboxOptions = {}) {
     this.baseDir = options.baseDir ?? process.cwd();
     this.isolate = options.isolate ?? true;
     this.defaultTimeout = options.defaultTimeout ?? 60000;
     this.env = options.env ?? {};
+    this.runnerCommand = options.runnerCommand ?? ["sandagent", "run"];
   }
 
   getHandle(): SandboxHandle | null {
     return this.currentHandle;
+  }
+
+  /**
+   * Get the environment variables configured for this sandbox.
+   */
+  getEnv(): Record<string, string> {
+    return { ...this.env };
+  }
+
+  /**
+   * Get the working directory configured for this sandbox.
+   * Returns the current workDir if attached, otherwise the baseDir.
+   * Note: When isolate=true, the actual workDir will be baseDir/sandbox-xxx after attach().
+   */
+  getWorkdir(): string {
+    return this.currentHandle?.getWorkdir() ?? this.baseDir;
+  }
+
+  /**
+   * Get the runner command to execute in the sandbox.
+   */
+  getRunnerCommand(): string[] {
+    return [...this.runnerCommand];
   }
 
   async attach(): Promise<SandboxHandle> {
@@ -69,19 +116,22 @@ export class LocalSandbox implements SandboxAdapter {
 
     // Create the directory if it doesn't exist
     await fs.mkdir(workDir, { recursive: true });
-
     console.log(`[LocalSandbox] Created/using directory: ${workDir}`);
 
-    const handle = new LocalSandboxHandle(
-      workDir,
-      this.defaultTimeout,
-      this.env,
-    );
+    const handle = new LocalSandboxHandle(workDir, this.defaultTimeout, this.env);
 
     // Store the handle
     this.currentHandle = handle;
 
     return handle;
+  }
+
+  /**
+   * Reset the sandbox, clearing the current handle.
+   * Next call to attach() will create a new working directory (if isolate is true).
+   */
+  reset(): void {
+    this.currentHandle = null;
   }
 }
 
@@ -129,7 +179,6 @@ class LocalSandboxHandle implements SandboxHandle {
     await fs.mkdir(cwd, { recursive: true });
 
     const [cmd, ...args] = command;
-
     const child = spawn(cmd, args, {
       cwd,
       env,
@@ -223,11 +272,10 @@ class LocalSandboxHandle implements SandboxHandle {
   }
 
   async upload(
-    files: Array<{ path: string; content: Uint8Array | string }>,
+    files: Array<{ path: string; content: string | Uint8Array }>,
     targetDir: string,
   ): Promise<void> {
     const resolvedTargetDir = path.resolve(this.workDir, targetDir);
-
     console.log(
       `[LocalSandbox] Uploading ${files.length} file(s) to ${resolvedTargetDir}`,
     );
@@ -263,11 +311,9 @@ class LocalSandboxHandle implements SandboxHandle {
   /**
    * Execute a command and wait for completion, returning stdout, stderr, and exit code
    */
-  async runCommand(command: string): Promise<{
-    stdout: string;
-    stderr: string;
-    exitCode: number;
-  }> {
+  async runCommand(
+    command: string,
+  ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
     console.log(`[LocalSandbox] Running command: ${command}`);
 
     return new Promise((resolve, reject) => {

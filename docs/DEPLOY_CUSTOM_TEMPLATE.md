@@ -2,7 +2,6 @@
 
 ## 概述
 
-本文档面向已经完成 Agent 模板开发的开发者，指导如何将自定义模板部署到生产环境，并在自己的项目中通过 AI Provider 使用。
 SandAgent 支持两种使用方式：
 
 1. **基础模式**：只需 runner + Claude Agent SDK，无需模板

@@ -315,21 +315,7 @@ describe("AI Provider Real Integration Tests", () => {
 
   describe("Integration with LocalSandbox", () => {
     it("should work with LocalSandbox implementation", async () => {
-      let LocalSandbox:
-        | typeof import("@sandagent/sandbox-local").LocalSandbox
-        | undefined;
-      try {
-        const module = await import("@sandagent/sandbox-local");
-        LocalSandbox = module.LocalSandbox;
-      } catch {
-        console.log("Skipping: @sandagent/sandbox-local not available");
-        return;
-      }
-
-      if (!LocalSandbox) {
-        console.log("LocalSandbox not available");
-        return;
-      }
+      const { LocalSandbox } = await import("@sandagent/manager");
 
       const sandbox = new LocalSandbox();
       const provider = createSandAgent({
@@ -351,21 +337,7 @@ describe("AI Provider Real Integration Tests", () => {
     });
 
     it("should configure custom workspace with LocalSandbox", async () => {
-      let LocalSandbox:
-        | typeof import("@sandagent/sandbox-local").LocalSandbox
-        | undefined;
-      try {
-        const module = await import("@sandagent/sandbox-local");
-        LocalSandbox = module.LocalSandbox;
-      } catch {
-        console.log("Skipping: @sandagent/sandbox-local not available");
-        return;
-      }
-
-      if (!LocalSandbox) {
-        console.log("LocalSandbox not available");
-        return;
-      }
+      const { LocalSandbox } = await import("@sandagent/manager");
 
       const customWorkspace = "/tmp/sandagent-custom-workspace";
       const sandbox = new LocalSandbox({
