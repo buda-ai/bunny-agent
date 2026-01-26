@@ -11,7 +11,7 @@ Core manager package for SandAgent - manages sandbox and runner lifecycle, defin
 - **Transcript Writers**: Tools for logging agent execution (JSONL, Memory, Console, Multi)
 - **Type Definitions**: Shared types for messages, streams, and sandbox operations
 
-This package is typically used as a dependency by higher-level packages like `@sandagent/ai-provider` and sandbox adapters.
+This package is typically used as a dependency by higher-level packages like `@sandagent/sdk` and sandbox adapters.
 
 ## Installation
 

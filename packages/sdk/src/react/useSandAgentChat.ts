@@ -1,0 +1,199 @@
+"use client";
+
+import { useChat } from "@ai-sdk/react";
+import { DefaultChatTransport, type UIMessage } from "ai";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type {
+  ArtifactData,
+  UseSandAgentChatOptions,
+  UseSandAgentChatReturn,
+} from "./types";
+
+/**
+ * useSandAgentChat - Core hook for SandAgent chat functionality
+ *
+ * Provides all the logic needed for a chat interface:
+ * - Message management
+ * - Artifact extraction
+ * - Session management
+ *
+ * @example
+ * ```tsx
+ * import { useSandAgentChat } from "@sandagent/sdk/react";
+ *
+ * const {
+ *   messages,
+ *   sendMessage,
+ *   status,
+ *   artifacts,
+ *   selectedArtifact,
+ *   setSelectedArtifact,
+ * } = useSandAgentChat({
+ *   apiEndpoint: "/api/ai",
+ *   body: { template: "default" },
+ * });
+ * ```
+ */
+export function useSandAgentChat({
+  apiEndpoint = "/api/ai",
+  body = {},
+  sessionId: providedSessionId,
+}: UseSandAgentChatOptions = {}): UseSandAgentChatReturn {
+  // Session ID management
+  const [sessionId] = useState(
+    () => providedSessionId || `session-${Date.now()}`,
+  );
+
+  // Artifact selection state
+  const [selectedArtifact, setSelectedArtifact] = useState<ArtifactData | null>(
+    null,
+  );
+
+  // Refs for accessing latest values in callbacks
+  const bodyRef = useRef(body);
+  const messagesRef = useRef<UIMessage[]>([]);
+
+  useEffect(() => {
+    bodyRef.current = body;
+  }, [body]);
+
+  // Core chat hook
+  const {
+    messages,
+    sendMessage: sendMessageInternal,
+    status,
+    error,
+    stop,
+  } = useChat({
+    transport: new DefaultChatTransport({
+      api: apiEndpoint,
+      body: () => {
+        const lastMessage = messagesRef.current[messagesRef.current.length - 1];
+        const metadata = lastMessage?.metadata as
+          | { sessionId?: string }
+          | undefined;
+        return {
+          sessionId,
+          resume: metadata?.sessionId,
+          ...bodyRef.current,
+        };
+      },
+    }),
+  });
+
+  // Keep messagesRef in sync
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+
+  // Extract artifacts from messages
+  const prevArtifactsRef = useRef<ArtifactData[]>([]);
+  const artifacts = useMemo(() => {
+    const results: ArtifactData[] = [];
+    for (const message of messages) {
+      for (const part of message.parts) {
+        if (part.type === "data-artifact") {
+          const data = part.data as ArtifactData;
+          if (!results.some((a) => a.artifactId === data.artifactId)) {
+            results.push(data);
+          }
+        }
+      }
+    }
+
+    // Memoization optimization
+    const prev = prevArtifactsRef.current;
+    if (
+      prev.length === results.length &&
+      prev.every((prevArt, idx) => {
+        const currArt = results[idx];
+        return (
+          prevArt.artifactId === currArt.artifactId &&
+          prevArt.content === currArt.content &&
+          prevArt.mimeType === currArt.mimeType
+        );
+      })
+    ) {
+      return prev;
+    }
+
+    prevArtifactsRef.current = results;
+    return results;
+  }, [messages]);
+
+  // Sync selectedArtifact when artifacts change
+  useEffect(() => {
+    if (artifacts.length > 0) {
+      setSelectedArtifact((prev) => {
+        if (!prev) return artifacts[0];
+
+        const currentMatch = artifacts.find(
+          (a) => a.artifactId === prev.artifactId,
+        );
+
+        if (!currentMatch) {
+          return artifacts[0];
+        }
+
+        if (
+          currentMatch.content === prev.content &&
+          currentMatch.mimeType === prev.mimeType
+        ) {
+          return prev;
+        }
+
+        return currentMatch;
+      });
+    } else {
+      setSelectedArtifact((prev) => (prev === null ? prev : null));
+    }
+  }, [artifacts]);
+
+  const isLoading = status === "streaming" || status === "submitted";
+  const hasError = status === "error" && !!error;
+
+  // Send message helper
+  const sendMessage = useCallback(
+    (text: string) => {
+      if (!isLoading && text.trim()) {
+        sendMessageInternal({
+          role: "user",
+          parts: [{ type: "text", text: text.trim() }],
+        });
+      }
+    },
+    [isLoading, sendMessageInternal],
+  );
+
+  // Handle submit for PromptInput compatibility
+  const handleSubmit = useCallback(
+    (message: { text: string }) => {
+      if (!isLoading) {
+        if (message.text) {
+          sendMessageInternal({
+            role: "user",
+            parts: [{ type: "text", text: message.text.trim() }],
+          });
+        } else {
+          sendMessageInternal();
+        }
+      }
+    },
+    [isLoading, sendMessageInternal],
+  );
+
+  return {
+    sessionId,
+    messages,
+    status,
+    error,
+    isLoading,
+    hasError,
+    artifacts,
+    selectedArtifact,
+    setSelectedArtifact,
+    sendMessage,
+    stop,
+    handleSubmit,
+  };
+}

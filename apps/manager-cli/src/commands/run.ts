@@ -92,8 +92,8 @@ export async function runCommand(args: string[]): Promise<void> {
       console.error("Set it with:");
       console.error("  export E2B_API_KEY=your_e2b_api_key");
       console.error("");
-      console.error("Or use Sandock (Docker) sandbox instead:");
-      console.error("  sandagent run --sandbox sandock ...");
+      console.error("Or use local sandbox instead:");
+      console.error("  sandagent run --sandbox local ...");
       process.exit(1);
     }
     const { E2BSandbox } = await import("@sandagent/sandbox-e2b");
@@ -101,9 +101,20 @@ export async function runCommand(args: string[]): Promise<void> {
   } else if (values.sandbox === "sandock") {
     const { SandockSandbox } = await import("@sandagent/sandbox-sandock");
     sandboxAdapter = new SandockSandbox();
+  } else if (values.sandbox === "local") {
+    const { LocalSandbox } = await import("@sandagent/manager");
+    sandboxAdapter = new LocalSandbox({
+      baseDir: values.workspace,
+      isolate: false, // Use workspace directly without creating subdirectory
+    });
+    console.log(
+      "⚠️  Warning: Local sandbox runs commands directly on your machine.",
+    );
+    console.log("   Use with caution and only with trusted code.");
+    console.log("");
   } else {
     console.error(`❌ Error: Unknown sandbox: ${values.sandbox}`);
-    console.error("Available sandboxes: e2b, sandock");
+    console.error("Available sandboxes: e2b, sandock, local");
     process.exit(1);
   }
 
@@ -146,7 +157,7 @@ Usage:
 Options:
   -t, --template <name>    Template to use (default: default)
                            Available: default, coder, analyst, researcher
-  -s, --sandbox <type>     Sandbox to use: e2b (default), sandock
+  -s, --sandbox <type>     Sandbox to use: e2b (default), sandock, local
   -m, --model <model>      Model to use (default: claude-sonnet-4-20250514)
   -w, --workspace <path>   Working directory (default: current directory)
   --id <id>                Session ID (default: auto-generated)
@@ -156,7 +167,13 @@ Examples:
   sandagent run "Create a hello world script"
   sandagent run --template coder "Build a REST API"
   sandagent run --sandbox sandock "Run unit tests"
+  sandagent run --sandbox local "Run locally without cloud"
   sandagent run --workspace ./my-project "Fix the bug"
+
+Sandbox types:
+  e2b         Cloud sandbox using E2B (requires E2B_API_KEY)
+  sandock     Docker-based local sandbox
+  local       Direct local execution (no isolation, use with caution)
 
 Templates:
   default     General-purpose assistant

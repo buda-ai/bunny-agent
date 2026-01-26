@@ -115,9 +115,19 @@ export class SandAgent {
   async stream(input: StreamInput): Promise<ReadableStream<Uint8Array>> {
     const handle = await this.ensureAttached();
 
-    const command = this.buildCommand(input);
+    // Use sandbox's actual workdir after attach (for isolated sandboxes)
+    const actualWorkdir = handle.getWorkdir();
+    const inputWithWorkdir: StreamInput = {
+      ...input,
+      workspace: {
+        ...input.workspace,
+        path: actualWorkdir,
+      },
+    };
 
-    const workspacePath = input.workspace?.path ?? "/workspace";
+    const command = this.buildCommand(inputWithWorkdir);
+
+    const workspacePath = actualWorkdir;
     const transcriptWriter = input.transcriptWriter;
     const signal = input.signal;
 

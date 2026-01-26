@@ -330,6 +330,7 @@ function createSDKOptions(options: ClaudeRunnerOptions): Options {
 
 /**
  * Setup abort handler for query iterator
+ * Returns a cleanup function to remove the event listener
  */
 function setupAbortHandler(
   queryIterator: Query,
@@ -354,7 +355,13 @@ function setupAbortHandler(
     console.error("[ClaudeRunner] No signal provided");
   }
 
-  return abortHandler;
+  // Return cleanup function to remove the listener
+  return () => {
+    if (signal) {
+      signal.removeEventListener("abort", abortHandler);
+      console.error("[ClaudeRunner] Abort listener removed");
+    }
+  };
 }
 
 /**
@@ -369,7 +376,7 @@ async function* runWithTextOutput(
 ): AsyncIterable<string> {
   const sdkOptions = createSDKOptions(options);
   const queryIterator = sdk.query({ prompt: userInput, options: sdkOptions });
-  const abortHandler = setupAbortHandler(
+  const cleanup = setupAbortHandler(
     queryIterator,
     options.abortController?.signal,
   );
@@ -389,9 +396,7 @@ async function* runWithTextOutput(
     // Output plain text result
     yield resultText;
   } finally {
-    if (signal) {
-      signal.removeEventListener("abort", abortHandler);
-    }
+    cleanup();
   }
 }
 
@@ -407,7 +412,7 @@ async function* runWithJSONOutput(
 ): AsyncIterable<string> {
   const sdkOptions = createSDKOptions(options);
   const queryIterator = sdk.query({ prompt: userInput, options: sdkOptions });
-  const abortHandler = setupAbortHandler(queryIterator, signal);
+  const cleanup = setupAbortHandler(queryIterator, signal);
 
   try {
     let resultMessage: SDKMessage | null = null;
@@ -422,9 +427,7 @@ async function* runWithJSONOutput(
       yield JSON.stringify(resultMessage) + "\n";
     }
   } finally {
-    if (signal) {
-      signal.removeEventListener("abort", abortHandler);
-    }
+    cleanup();
   }
 }
 
@@ -440,7 +443,7 @@ async function* runWithStreamJSONOutput(
 ): AsyncIterable<string> {
   const sdkOptions = createSDKOptions(options);
   const queryIterator = sdk.query({ prompt: userInput, options: sdkOptions });
-  const abortHandler = setupAbortHandler(queryIterator, signal);
+  const cleanup = setupAbortHandler(queryIterator, signal);
 
   try {
     for await (const message of queryIterator) {
@@ -448,9 +451,7 @@ async function* runWithStreamJSONOutput(
       yield JSON.stringify(message) + "\n";
     }
   } finally {
-    if (signal) {
-      signal.removeEventListener("abort", abortHandler);
-    }
+    cleanup();
   }
 }
 
@@ -468,10 +469,17 @@ async function* runWithAISDKUIOutput(
     includePartialMessages: true,
   });
   const queryIterator = sdk.query({ prompt: userInput, options: sdkOptions });
-  setupAbortHandler(queryIterator, options.abortController?.signal);
+  const cleanup = setupAbortHandler(
+    queryIterator,
+    options.abortController?.signal,
+  );
 
-  // Use ai-sdk-stream to handle the conversion
-  yield* streamSDKMessagesToAISDKUI(queryIterator);
+  try {
+    // Use ai-sdk-stream to handle the conversion
+    yield* streamSDKMessagesToAISDKUI(queryIterator, { cwd: options.cwd });
+  } finally {
+    cleanup();
+  }
 }
 
 /**

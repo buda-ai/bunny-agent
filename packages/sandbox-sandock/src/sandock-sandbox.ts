@@ -38,13 +38,6 @@ export interface SandockSandboxOptions {
    * These will be available to all commands executed in the sandbox.
    */
   env?: Record<string, string>;
-
-  /**
-   * Agent template to use (e.g., "default", "coder", "analyst", "researcher").
-   *
-   * @default 'default'
-   */
-  agentTemplate?: string;
 }
 
 /**
@@ -73,7 +66,6 @@ export class SandockSandbox implements SandboxAdapter {
   private readonly runnerBundlePath?: string;
   private readonly templatesPath?: string;
   private readonly env: Record<string, string>;
-  private readonly agentTemplate: string;
 
   /** Global cache for sandbox instances (shared across all SandockSandbox instances) */
   private static readonly instances: Map<string, CachedInstance> = new Map();
@@ -110,7 +102,6 @@ export class SandockSandbox implements SandboxAdapter {
     this.runnerBundlePath = options.runnerBundlePath;
     this.templatesPath = options.templatesPath;
     this.env = options.env ?? {};
-    this.agentTemplate = options.agentTemplate ?? "default";
   }
 
   /**
@@ -118,13 +109,6 @@ export class SandockSandbox implements SandboxAdapter {
    */
   getEnv(): Record<string, string> {
     return this.env;
-  }
-
-  /**
-   * Get the agent template configured for this sandbox.
-   */
-  getAgentTemplate(): string {
-    return this.agentTemplate;
   }
 
   /**
@@ -430,6 +414,13 @@ class SandockHandle implements SandboxHandle {
     this.timeout = timeout;
     this.onDestroy = onDestroy;
     this.sandboxEnv = sandboxEnv;
+  }
+
+  /**
+   * Get the working directory for this sandbox handle
+   */
+  getWorkdir(): string {
+    return this.defaultWorkdir;
   }
 
   /**

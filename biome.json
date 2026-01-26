@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.3.10/schema.json",
   "organizeImports": {
     "enabled": true
   },
@@ -41,24 +41,18 @@
   "files": {
     "include": ["**/*.ts", "**/*.tsx"],
     "ignore": [
-      "node_modules",
-      "**/node_modules",
-      "dist",
-      "**/dist",
-      ".next",
-      "**/.next",
-      ".turbo",
-      "**/.turbo",
-      ".vercel",
-      "**/.vercel",
-      "coverage",
-      "**/coverage",
-      "*.d.ts",
-      "*.js",
-      "*.jsx",
-      "*.mjs",
-      "*.cjs",
-      "pnpm-lock.yaml"
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/.next/**",
+      "**/.turbo/**",
+      "**/.vercel/**",
+      "**/coverage/**",
+      "**/*.d.ts",
+      "**/*.js",
+      "**/*.jsx",
+      "**/*.mjs",
+      "**/*.cjs",
+      "**/pnpm-lock.yaml"
     ]
   }
 }

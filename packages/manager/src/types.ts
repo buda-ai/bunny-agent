@@ -17,6 +17,12 @@ export interface ExecOptions {
  */
 export interface SandboxHandle {
   /**
+   * Get the working directory for this sandbox handle
+   * @returns The working directory path
+   */
+  getWorkdir(): string;
+
+  /**
    * Execute a command in the sandbox and stream the output
    * @param command - The command and arguments to execute
    * @param opts - Execution options
@@ -68,12 +74,6 @@ export interface SandboxAdapter {
    * These will be passed to all commands executed in the sandbox.
    */
   getEnv?(): Record<string, string>;
-
-  /**
-   * Get the agent template configured for this sandbox.
-   * (e.g., "default", "coder", "analyst", "researcher")
-   */
-  getAgentTemplate?(): string;
 
   /**
    * Get the working directory configured for this sandbox.
