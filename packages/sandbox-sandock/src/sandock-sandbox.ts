@@ -333,9 +333,7 @@ export class SandockSandbox implements SandboxAdapter {
     };
 
     if (volumeId) {
-      createOptions.volumes = [
-        { volumeId, mountPath: this.volumeMountPath },
-      ];
+      createOptions.volumes = [{ volumeId, mountPath: this.volumeMountPath }];
     }
 
     const createResult = await this.client.sandbox.create(createOptions);
@@ -656,33 +654,46 @@ class SandockHandle implements SandboxHandle {
 
         // Handle completion
         shellPromise
-          .then((result: any) => {
-            // Check for errors in the result
-            console.log(
-              "[Sandock] Command completed with exit code:",
-              result.data.exitCode,
-            );
-            console.log(
-              "[Sandock] Command stdout:",
-              result.data.stdout?.substring(0, 500) || "(empty)",
-            );
-            console.log(
-              "[Sandock] Command stderr:",
-              result.data.stderr?.substring(0, 500) || "(empty)",
-            );
-            if (result.data.timedOut) {
-              error = new Error(
-                `Command timed out after ${result.data.durationMs}ms`,
+          .then(
+            (result: {
+              success: boolean;
+              data: {
+                exitCode: number | null;
+                stdout: string;
+                stderr: string;
+                timedOut: boolean;
+                durationMs: number;
+              };
+            }) => {
+              // Check for errors in the result
+              console.log(
+                "[Sandock] Command completed with exit code:",
+                result.data.exitCode,
               );
-            } else if (
-              result.data.exitCode !== 0 &&
-              result.data.exitCode !== null
-            ) {
-              console.warn(`Command exited with code ${result.data.exitCode}`);
-            }
-            done = true;
-            resolveWait?.();
-          })
+              console.log(
+                "[Sandock] Command stdout:",
+                result.data.stdout?.substring(0, 500) || "(empty)",
+              );
+              console.log(
+                "[Sandock] Command stderr:",
+                result.data.stderr?.substring(0, 500) || "(empty)",
+              );
+              if (result.data.timedOut) {
+                error = new Error(
+                  `Command timed out after ${result.data.durationMs}ms`,
+                );
+              } else if (
+                result.data.exitCode !== 0 &&
+                result.data.exitCode !== null
+              ) {
+                console.warn(
+                  `Command exited with code ${result.data.exitCode}`,
+                );
+              }
+              done = true;
+              resolveWait?.();
+            },
+          )
           .catch((err: unknown) => {
             error = err instanceof Error ? err : new Error(String(err));
             // Log AbortError appropriately
