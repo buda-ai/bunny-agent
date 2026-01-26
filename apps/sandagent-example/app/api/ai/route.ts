@@ -230,8 +230,7 @@ export async function POST(request: Request) {
       volumeName: sandboxName,
       // Sandbox-level config
       env,
-      agentTemplate: template,
-      workdir: "/sandagent",
+      workdir: "/workspace",
     });
   } else if (SANDBOX_PROVIDER === "e2b") {
     sandbox = new E2BSandbox({
