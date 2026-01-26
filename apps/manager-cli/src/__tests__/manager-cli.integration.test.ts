@@ -6,7 +6,7 @@
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { SandAgent, LocalSandbox } from "@sandagent/manager";
+import { LocalSandbox, SandAgent } from "@sandagent/manager";
 import { describe, expect, it } from "vitest";
 
 describe("manager-cli Integration Tests", () => {

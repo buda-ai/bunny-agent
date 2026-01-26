@@ -1,7 +1,7 @@
 "use client";
 
 import type { DynamicToolUIPart } from "ai";
-import { isTodoWriteInput, TodoView } from "kui/ai-elements/todo";
+import { TodoView, isTodoWriteInput } from "kui/ai-elements/todo";
 import { cn } from "../../lib/utils";
 import { AskUserQuestion } from "./AskUserQuestion";
 import { WriteToolCard } from "./WriteToolCard";

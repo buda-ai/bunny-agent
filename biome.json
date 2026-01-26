@@ -1,6 +1,8 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.3.10/schema.json",
-  "assist": { "actions": { "source": { "organizeImports": "on" } } },
+  "organizeImports": {
+    "enabled": true
+  },
   "linter": {
     "enabled": true,
     "rules": {
@@ -37,27 +39,20 @@
     "indentWidth": 2
   },
   "files": {
-    "includes": [
-      "**/*.ts",
-      "**/*.tsx",
-      "!**/node_modules",
-      "!**/node_modules",
-      "!**/dist",
-      "!**/dist",
-      "!**/.next",
-      "!**/.next",
-      "!**/.turbo",
-      "!**/.turbo",
-      "!**/.vercel",
-      "!**/.vercel",
-      "!**/coverage",
-      "!**/coverage",
-      "!**/*.d.ts",
-      "!**/*.js",
-      "!**/*.jsx",
-      "!**/*.mjs",
-      "!**/*.cjs",
-      "!**/pnpm-lock.yaml"
+    "include": ["**/*.ts", "**/*.tsx"],
+    "ignore": [
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/.next/**",
+      "**/.turbo/**",
+      "**/.vercel/**",
+      "**/coverage/**",
+      "**/*.d.ts",
+      "**/*.js",
+      "**/*.jsx",
+      "**/*.mjs",
+      "**/*.cjs",
+      "**/pnpm-lock.yaml"
     ]
   }
 }

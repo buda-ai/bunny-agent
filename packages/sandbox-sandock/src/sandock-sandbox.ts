@@ -38,7 +38,6 @@ export interface SandockSandboxOptions {
    * These will be available to all commands executed in the sandbox.
    */
   env?: Record<string, string>;
-
 }
 
 /**

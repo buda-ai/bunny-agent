@@ -28,7 +28,10 @@ export default defineConfig({
       resolve(__dirname, "../kui/src/styles.css"),
       "utf-8",
     );
-    const uiStyles = readFileSync(resolve(__dirname, "src/styles.css"), "utf-8");
+    const uiStyles = readFileSync(
+      resolve(__dirname, "src/styles.css"),
+      "utf-8",
+    );
 
     mkdirSync(resolve(__dirname, "dist"), { recursive: true });
     writeFileSync(

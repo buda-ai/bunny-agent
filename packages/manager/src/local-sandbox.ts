@@ -118,7 +118,11 @@ export class LocalSandbox implements SandboxAdapter {
     await fs.mkdir(workDir, { recursive: true });
     console.log(`[LocalSandbox] Created/using directory: ${workDir}`);
 
-    const handle = new LocalSandboxHandle(workDir, this.defaultTimeout, this.env);
+    const handle = new LocalSandboxHandle(
+      workDir,
+      this.defaultTimeout,
+      this.env,
+    );
 
     // Store the handle
     this.currentHandle = handle;
