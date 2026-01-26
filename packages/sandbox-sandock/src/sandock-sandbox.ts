@@ -32,6 +32,10 @@ export interface SandockSandboxOptions {
   runnerBundlePath?: string;
   /** Path to template directory to upload */
   templatesPath?: string;
+  /** Volume name for persistence (will be created if not exists) */
+  volumeName?: string;
+  /** Mount path for the volume (default: /sandagent) */
+  volumeMountPath?: string;
 
   /**
    * Environment variables to set in the sandbox.
@@ -65,6 +69,8 @@ export class SandockSandbox implements SandboxAdapter {
   private readonly timeout: number;
   private readonly runnerBundlePath?: string;
   private readonly templatesPath?: string;
+  private readonly volumeName?: string;
+  private readonly volumeMountPath: string;
   private readonly env: Record<string, string>;
 
   /** Global cache for sandbox instances (shared across all SandockSandbox instances) */
@@ -101,6 +107,8 @@ export class SandockSandbox implements SandboxAdapter {
     this.timeout = options.timeout ?? 300000;
     this.runnerBundlePath = options.runnerBundlePath;
     this.templatesPath = options.templatesPath;
+    this.volumeName = options.volumeName;
+    this.volumeMountPath = options.volumeMountPath ?? "/sandagent";
     this.env = options.env ?? {};
   }
 
@@ -271,12 +279,61 @@ export class SandockSandbox implements SandboxAdapter {
     // Evict oldest instance if cache is full
     this.evictOldestIfNeeded();
 
-    // Create sandbox using high-level API
-    const createResult = await this.client.sandbox.create({
+    // Get or create volume if volumeName is provided
+    let volumeId: string | undefined;
+    if (this.volumeName) {
+      console.log(`[Sandock] Getting/creating volume: ${this.volumeName}`);
+      const volume = await this.client.volume.getByName(this.volumeName, true);
+
+      // Wait for volume to be ready if needed
+      if (volume.data.status && volume.data.status !== "ready") {
+        console.log(
+          `[Sandock] Volume status: ${volume.data.status}, waiting...`,
+        );
+        const maxWaitMs = 30000;
+        const startTime = Date.now();
+        while (
+          volume.data.status !== "ready" &&
+          Date.now() - startTime < maxWaitMs
+        ) {
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          const updatedVolume = await this.client.volume.getByName(
+            this.volumeName,
+            false,
+          );
+          volume.data = updatedVolume.data;
+        }
+
+        if (volume.data.status !== "ready") {
+          throw new Error(
+            `Volume '${this.volumeName}' failed to become ready. Status: ${volume.data.status}`,
+          );
+        }
+      }
+
+      volumeId = volume.data.id;
+      console.log(
+        `[Sandock] Using volume ${volumeId} at ${this.volumeMountPath}`,
+      );
+    }
+
+    // Create sandbox using high-level API with optional volume mount
+    const createOptions: {
+      image: string;
+      memory?: number;
+      cpu?: number;
+      volumes?: Array<{ volumeId: string; mountPath: string }>;
+    } = {
       image: this.image,
       memory: this.memoryLimitMb,
       cpu: this.cpuShares,
-    });
+    };
+
+    if (volumeId) {
+      createOptions.volumes = [{ volumeId, mountPath: this.volumeMountPath }];
+    }
+
+    const createResult = await this.client.sandbox.create(createOptions);
 
     console.log(
       `[Sandock] Sandbox creation result: ${JSON.stringify(createResult)}`,
@@ -601,34 +658,47 @@ class SandockHandle implements SandboxHandle {
 
         // Handle completion
         shellPromise
-          .then((result) => {
-            // Check for errors in the result
-            console.log(
-              "[Sandock] Command completed with exit code:",
-              result.data.exitCode,
-            );
-            console.log(
-              "[Sandock] Command stdout:",
-              result.data.stdout?.substring(0, 500) || "(empty)",
-            );
-            console.log(
-              "[Sandock] Command stderr:",
-              result.data.stderr?.substring(0, 500) || "(empty)",
-            );
-            if (result.data.timedOut) {
-              error = new Error(
-                `Command timed out after ${result.data.durationMs}ms`,
+          .then(
+            (result: {
+              success: boolean;
+              data: {
+                exitCode: number | null;
+                stdout: string;
+                stderr: string;
+                timedOut: boolean;
+                durationMs: number;
+              };
+            }) => {
+              // Check for errors in the result
+              console.log(
+                "[Sandock] Command completed with exit code:",
+                result.data.exitCode,
               );
-            } else if (
-              result.data.exitCode !== 0 &&
-              result.data.exitCode !== null
-            ) {
-              console.warn(`Command exited with code ${result.data.exitCode}`);
-            }
-            done = true;
-            resolveWait?.();
-          })
-          .catch((err) => {
+              console.log(
+                "[Sandock] Command stdout:",
+                result.data.stdout?.substring(0, 500) || "(empty)",
+              );
+              console.log(
+                "[Sandock] Command stderr:",
+                result.data.stderr?.substring(0, 500) || "(empty)",
+              );
+              if (result.data.timedOut) {
+                error = new Error(
+                  `Command timed out after ${result.data.durationMs}ms`,
+                );
+              } else if (
+                result.data.exitCode !== 0 &&
+                result.data.exitCode !== null
+              ) {
+                console.warn(
+                  `Command exited with code ${result.data.exitCode}`,
+                );
+              }
+              done = true;
+              resolveWait?.();
+            },
+          )
+          .catch((err: unknown) => {
             error = err instanceof Error ? err : new Error(String(err));
             // Log AbortError appropriately
             if (error.name === "AbortError") {
