@@ -417,6 +417,13 @@ class SandockHandle implements SandboxHandle {
   }
 
   /**
+   * Get the working directory for this sandbox handle
+   */
+  getWorkdir(): string {
+    return this.defaultWorkdir;
+  }
+
+  /**
    * Run a command and wait for completion (used internally)
    */
   async runCommand(

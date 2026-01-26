@@ -1,6 +1,6 @@
 {
   "name": "@sandagent/runner-cli",
-  "version": "0.2.0-beta.5",
+  "version": "0.2.1",
   "description": "SandAgent Runner CLI - Like gemini-cli or claude-code, runs in your local terminal with AI SDK UI streaming",
   "type": "module",
   "bin": {
@@ -49,7 +49,9 @@
     "claude",
     "anthropic"
   ],
-  "dependencies": {},
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": ">=0.1.70"
+  },
   "devDependencies": {
     "@sandagent/runner-claude": "workspace:*",
     "@types/node": "^20.10.0",

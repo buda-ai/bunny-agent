@@ -1,5 +1,26 @@
 # @sandagent/sandbox-e2b
 
+## 0.2.1
+
+### Patch Changes
+
+- Fix sandbox isolation and workdir handling
+- Updated dependencies
+  - @sandagent/manager@0.2.1
+
+## 0.2.1-beta.0
+
+### Patch Changes
+
+- Updated dependencies
+  - @sandagent/manager@0.2.1-beta.0
+
+## 0.2.0
+
+### Patch Changes
+
+- @sandagent/manager@0.2.0
+
 ## 0.2.0-beta.5
 
 ### Patch Changes

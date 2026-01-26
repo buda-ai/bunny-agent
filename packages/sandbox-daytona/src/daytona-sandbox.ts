@@ -530,6 +530,13 @@ class DaytonaHandle implements SandboxHandle {
   }
 
   /**
+   * Get the working directory for this sandbox handle
+   */
+  getWorkdir(): string {
+    return this.workdir;
+  }
+
+  /**
    * Escape a string for safe use in shell commands
    * Uses single quotes and escapes any single quotes within the string
    */

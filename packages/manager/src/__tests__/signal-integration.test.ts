@@ -11,6 +11,7 @@ describe("Signal Integration Tests", () => {
     execSignalReceived = undefined;
 
     mockHandle = {
+      getWorkdir: vi.fn().mockReturnValue("/workspace"),
       exec: vi.fn((command: string[], opts) => {
         // Capture the signal that was passed
         execSignalReceived = opts?.signal;

@@ -1,5 +1,33 @@
 # @sandagent/sdk
 
+## 0.2.1
+
+### Patch Changes
+
+- Fix sandbox isolation and workdir handling
+- Updated dependencies
+  - @sandagent/manager@0.2.1
+
+## 0.2.1-beta.0
+
+### Patch Changes
+
+- Unified release with fixes
+
+  - LocalSandbox: Auto-copy .claude and CLAUDE.md to isolated directory
+  - runner-claude: Fix abort handler cleanup to prevent memory leaks
+  - runner-claude: Write debug files to cwd instead of process.cwd()
+  - runner-cli: Add @anthropic-ai/claude-agent-sdk as dependency for npx usage
+
+- Updated dependencies
+  - @sandagent/manager@0.2.1-beta.0
+
+## 0.2.0
+
+### Patch Changes
+
+- @sandagent/manager@0.2.0
+
 ## 0.2.0-beta.5
 
 ### Minor Changes

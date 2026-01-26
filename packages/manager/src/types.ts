@@ -17,6 +17,12 @@ export interface ExecOptions {
  */
 export interface SandboxHandle {
   /**
+   * Get the working directory for this sandbox handle
+   * @returns The working directory path
+   */
+  getWorkdir(): string;
+
+  /**
    * Execute a command in the sandbox and stream the output
    * @param command - The command and arguments to execute
    * @param opts - Execution options

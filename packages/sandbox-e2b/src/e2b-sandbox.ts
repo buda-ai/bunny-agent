@@ -252,7 +252,7 @@ export class E2BSandbox implements SandboxAdapter {
       needsInit = true;
     }
 
-    const handle = new E2BHandle(instance, this.env);
+    const handle = new E2BHandle(instance, this.env, this.workdir);
 
     // Initialize sandbox if it's new (upload files, install dependencies)
     if (needsInit) {
@@ -459,6 +459,13 @@ class E2BHandle implements SandboxHandle {
    */
   getSandboxId(): string {
     return this.instance.sandboxId;
+  }
+
+  /**
+   * Get the working directory for this sandbox handle
+   */
+  getWorkdir(): string {
+    return this.workdir;
   }
 
   /**

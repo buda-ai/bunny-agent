@@ -118,6 +118,27 @@ export class LocalSandbox implements SandboxAdapter {
     await fs.mkdir(workDir, { recursive: true });
     console.log(`[LocalSandbox] Created/using directory: ${workDir}`);
 
+    // If isolated, copy .claude and CLAUDE.md from baseDir if they exist
+    if (this.isolate) {
+      const filesToCopy = [".claude", "CLAUDE.md"];
+      for (const file of filesToCopy) {
+        const src = path.join(this.baseDir, file);
+        const dest = path.join(workDir, file);
+        try {
+          const stat = await fs.stat(src);
+          if (stat.isDirectory()) {
+            await this.copyDir(src, dest);
+            console.log(`[LocalSandbox] Copied directory: ${file}`);
+          } else {
+            await fs.copyFile(src, dest);
+            console.log(`[LocalSandbox] Copied file: ${file}`);
+          }
+        } catch {
+          // File doesn't exist, skip
+        }
+      }
+    }
+
     const handle = new LocalSandboxHandle(
       workDir,
       this.defaultTimeout,
@@ -128,6 +149,23 @@ export class LocalSandbox implements SandboxAdapter {
     this.currentHandle = handle;
 
     return handle;
+  }
+
+  /**
+   * Recursively copy a directory
+   */
+  private async copyDir(src: string, dest: string): Promise<void> {
+    await fs.mkdir(dest, { recursive: true });
+    const entries = await fs.readdir(src, { withFileTypes: true });
+    for (const entry of entries) {
+      const srcPath = path.join(src, entry.name);
+      const destPath = path.join(dest, entry.name);
+      if (entry.isDirectory()) {
+        await this.copyDir(srcPath, destPath);
+      } else {
+        await fs.copyFile(srcPath, destPath);
+      }
+    }
   }
 
   /**
@@ -178,6 +216,12 @@ class LocalSandboxHandle implements SandboxHandle {
 
     console.log(`[LocalSandbox] Executing command: ${command.join(" ")}`);
     console.log(`[LocalSandbox] Working directory: ${cwd}`);
+    console.log(
+      `[LocalSandbox] ENV AWS_BEARER_TOKEN_BEDROCK: ${env.AWS_BEARER_TOKEN_BEDROCK ? "SET" : "NOT SET"}`,
+    );
+    console.log(
+      `[LocalSandbox] ENV ANTHROPIC_API_KEY: ${env.ANTHROPIC_API_KEY ? "SET" : "NOT SET"}`,
+    );
 
     // Ensure the working directory exists
     await fs.mkdir(cwd, { recursive: true });
