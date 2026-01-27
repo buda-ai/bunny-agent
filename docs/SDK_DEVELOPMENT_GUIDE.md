@@ -120,11 +120,17 @@ npm install @sandagent/sdk ai
 Creates an AI SDK-compatible provider that wraps your sandbox and runner.
 
 ```typescript
-import { createSandAgent } from "@sandagent/sdk";
+import { createSandAgent, LocalSandbox } from "@sandagent/sdk";
+import path from "path";
+
+const sandbox = new LocalSandbox({
+  workdir: path.join(process.cwd(), "workspace"),
+  templatesPath: process.cwd(),
+});
 
 const sandagent = createSandAgent({
-  sandbox: new LocalSandbox(),
-  cwd: process.cwd(),
+  sandbox,
+  cwd: sandbox.getWorkdir(),
 });
 ```
 
@@ -157,6 +163,7 @@ Create a basic AI chat endpoint in Next.js:
 
 ```typescript
 // app/api/ai/route.ts
+import path from "path";
 import { createSandAgent, LocalSandbox } from "@sandagent/sdk";
 import {
   convertToModelMessages,
@@ -176,9 +183,10 @@ export async function POST(request: Request) {
 
   // Create sandbox
   const sandbox = new LocalSandbox({
-    baseDir: process.cwd(),
-    isolate: true,
+    workdir: path.join(process.cwd(), "workspace"),
+    templatesPath: process.cwd(), // Copies .claude and CLAUDE.md from current directory
     runnerCommand: ["npx", "-y", "@sandagent/runner-cli@latest", "run"],
+    defaultTimeout: 300000, // 5 minutes
     env,
   });
 
@@ -275,11 +283,13 @@ Perfect for local development and testing:
 
 ```typescript
 import { LocalSandbox } from "@sandagent/sdk";
+import path from "path";
 
 const sandbox = new LocalSandbox({
-  baseDir: process.cwd(),
-  isolate: true, // Creates isolated copy of workspace
+  workdir: path.join(process.cwd(), "workspace"),
+  templatesPath: process.cwd(), // Copies template files (.claude, CLAUDE.md) to workdir
   runnerCommand: ["npx", "-y", "@sandagent/runner-cli@latest", "run"],
+  defaultTimeout: 300000, // 5 minutes (default: 60000)
   env: {
     ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
   },
@@ -288,10 +298,103 @@ const sandbox = new LocalSandbox({
 
 **Options:**
 
-- `baseDir`: Base directory for the sandbox
-- `isolate`: If true, creates isolated copy with `.claude` and `CLAUDE.md`
-- `runnerCommand`: Command to execute the runner
-- `env`: Environment variables to pass to the runner
+- **`workdir`** (optional, default: `process.cwd()`)
+  - Working directory for all sandbox operations
+  - All commands executed in the sandbox will run relative to this directory
+  - The directory will be created automatically if it doesn't exist
+  - Example: `workdir: path.join(process.cwd(), "workspace")`
+
+- **`templatesPath`** (optional)
+  - Path to the agent template directory to copy into the sandbox workdir
+  - If specified, all files from this directory (including `.claude/` and `CLAUDE.md`) will be recursively copied to `workdir` when `attach()` is called
+  - Useful for providing agent configuration, skills, and MCP server settings
+  - If omitted, no files are copied (useful for reusing existing workspaces)
+  - Example: `templatesPath: process.cwd()` (copies current directory)
+  - Example: `templatesPath: path.join(process.cwd(), "templates", "researcher")` (copies specific template)
+
+- **`runnerCommand`** (optional, default: `["sandagent", "run"]`)
+  - Command array to execute the AI agent runner
+  - First element is the command, subsequent elements are arguments
+  - Common options:
+    - `["npx", "-y", "@sandagent/runner-cli@latest", "run"]` - Use latest runner from npm
+    - `["sandagent", "run"]` - Use globally installed runner
+    - `["claude"]` - Use Claude Code CLI directly
+
+- **`defaultTimeout`** (optional, default: `60000` = 60 seconds)
+  - Default timeout for commands in milliseconds
+  - If a command runs longer than this, it will be terminated
+  - Set to `0` to disable timeout (not recommended)
+  - Example: `defaultTimeout: 300000` (5 minutes for long-running tasks)
+
+- **`env`** (optional, default: `{}`)
+  - Environment variables to pass to all commands executed in the sandbox
+  - Merged with `process.env`, with sandbox `env` taking precedence
+  - Required for API keys and other sensitive configuration
+  - Example:
+    ```typescript
+    env: {
+      ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+      GITHUB_TOKEN: process.env.GITHUB_TOKEN,
+      NODE_ENV: "development",
+    }
+    ```
+
+**Methods:**
+
+- **`getWorkdir()`: string**
+  - Returns the working directory path for this sandbox
+  - If sandbox is attached, returns the actual workdir from the handle
+  - Otherwise, returns the configured `workdir` option
+  - Use this when creating the SandAgent provider: `cwd: sandbox.getWorkdir()`
+
+- **`getEnv()`: Record<string, string>**
+  - Returns a copy of the environment variables configured for this sandbox
+  - Useful for debugging or logging what environment variables are set
+  - Returns a new object, so modifications won't affect the sandbox
+
+- **`getRunnerCommand()`: string[]**
+  - Returns a copy of the runner command array
+  - Useful for debugging or logging what command will be executed
+  - Returns a new array, so modifications won't affect the sandbox
+
+- **`attach()`: Promise<SandboxHandle>**
+  - Attaches to the sandbox, creating the workdir and copying templates if needed
+  - If already attached, returns the existing handle (idempotent)
+  - This method is called automatically by the SDK when needed
+  - Returns a `SandboxHandle` that provides methods like `exec()`, `runCommand()`, `upload()`, etc.
+  - The handle's `getWorkdir()` method returns the actual working directory path
+
+**Common Use Cases:**
+
+1. **Development with Template Copying:**
+   ```typescript
+   const sandbox = new LocalSandbox({
+     workdir: path.join(process.cwd(), "workspace"),
+     templatesPath: process.cwd(), // Copy .claude and CLAUDE.md
+     env: { ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY },
+   });
+   ```
+
+2. **Session Persistence (Reuse Existing Workspace):**
+   ```typescript
+   const sessionId = "user-123";
+   const sandbox = new LocalSandbox({
+     workdir: `/tmp/sessions/${sessionId}`,
+     // Omit templatesPath to reuse existing files
+     env: { ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY },
+   });
+   ```
+
+3. **Custom Template Directory:**
+   ```typescript
+   const sandbox = new LocalSandbox({
+     workdir: path.join(process.cwd(), "workspace"),
+     templatesPath: path.join(process.cwd(), "templates", "researcher"),
+     runnerCommand: ["npx", "-y", "@sandagent/runner-cli@latest", "run"],
+     defaultTimeout: 600000, // 10 minutes for research tasks
+     env: { ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY },
+   });
+   ```
 
 ### E2B Cloud Sandbox (Production)
 
@@ -363,7 +466,11 @@ The SDK can work with different CLI runners:
 #### Option 1: SandAgent Runner CLI
 
 ```typescript
+import path from "path";
+
 const sandbox = new LocalSandbox({
+  workdir: path.join(process.cwd(), "workspace"),
+  templatesPath: process.cwd(),
   runnerCommand: ["npx", "-y", "@sandagent/runner-cli@latest", "run"],
   env: { ANTHROPIC_API_KEY },
 });
@@ -372,7 +479,11 @@ const sandbox = new LocalSandbox({
 #### Option 2: Claude Code CLI
 
 ```typescript
+import path from "path";
+
 const sandbox = new LocalSandbox({
+  workdir: path.join(process.cwd(), "workspace"),
+  templatesPath: process.cwd(),
   runnerCommand: ["claude"],
   env: { ANTHROPIC_API_KEY },
 });
@@ -414,11 +525,16 @@ Usage:
 
 ```typescript
 import { SandAgentManager } from "@sandagent/manager";
+import { LocalSandbox } from "@sandagent/manager";
 import { CustomRunner } from "./custom-runner";
+import path from "path";
 
 const manager = new SandAgentManager({
   runner: new CustomRunner(),
-  sandbox: new LocalSandbox(),
+  sandbox: new LocalSandbox({
+    workdir: path.join(process.cwd(), "workspace"),
+    templatesPath: process.cwd(),
+  }),
 });
 ```
 
@@ -448,7 +564,7 @@ You are an expert data analyst specializing in:
 4. Create clear visualizations
 ```
 
-When `isolate: true`, this file is automatically copied to the sandbox.
+When `templatesPath` is specified, this file (along with the `.claude` directory) is automatically copied to the sandbox workdir when `attach()` is called.
 
 ### Agent Skills
 
@@ -501,18 +617,92 @@ Persist agent state across requests:
 
 ```typescript
 import { createSandAgent, LocalSandbox } from "@sandagent/sdk";
+import path from "path";
 
 // Create reusable sandbox for session
 const sessionId = "user-123-project-a";
 const sandbox = new LocalSandbox({
-  baseDir: `/tmp/sandagent-sessions/${sessionId}`,
-  isolate: false, // Reuse existing workspace
+  workdir: `/tmp/sandagent-sessions/${sessionId}`,
+  // Omit templatesPath to reuse existing workspace without copying templates
   runnerCommand: ["npx", "-y", "@sandagent/runner-cli@latest", "run"],
   env: { ANTHROPIC_API_KEY },
 });
 
-const sandagent = createSandAgent({ sandbox });
+const sandagent = createSandAgent({ 
+  sandbox,
+  cwd: sandbox.getWorkdir(),
+});
 ```
+
+### Artifacts - Display AI Generated Content
+
+SandAgent can automatically extract and display files, reports, charts, and other content generated by the AI agent. This is perfect for:
+
+- 📊 Data analysis reports
+- 📈 Visualizations and charts
+- 📄 Generated documents
+- 💻 Code files
+- 🎨 HTML previews
+
+**Basic Usage:**
+
+```typescript
+import { useSandAgentChat } from "@sandagent/sdk/react";
+
+export default function ChatPage() {
+  const {
+    messages,
+    sendMessage,
+    artifacts,              // All generated artifacts
+    selectedArtifact,       // Currently selected artifact
+    setSelectedArtifact,    // Switch between artifacts
+  } = useSandAgentChat({ apiEndpoint: "/api/ai" });
+
+  return (
+    <div className="flex h-screen">
+      {/* Chat area */}
+      <div className="flex-1">{/* ... */}</div>
+
+      {/* Artifacts panel */}
+      {artifacts.length > 0 && (
+        <div className="w-96 border-l">
+          <div className="flex gap-2 p-2 border-b">
+            {artifacts.map((artifact) => (
+              <button
+                key={artifact.artifactId}
+                onClick={() => setSelectedArtifact(artifact)}
+              >
+                {artifact.artifactId}
+              </button>
+            ))}
+          </div>
+          {selectedArtifact && (
+            <div className="p-4">
+              <pre>{selectedArtifact.content}</pre>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+**Enable artifacts in backend:**
+
+```typescript
+// app/api/ai/route.ts
+const sandagent = createSandAgent({
+  sandbox,
+  cwd: sandbox.getWorkdir?.(),
+  artifactProcessor: {
+    enabled: true,
+    sessionId: sessionId || "default",
+  },
+});
+```
+
+📖 **[Complete Artifacts Guide →](./SDK_ARTIFACTS_GUIDE.md)** - Learn about copy/download, Markdown rendering, HTML previews, and more advanced features.
 
 ### Error Handling
 
@@ -524,8 +714,8 @@ export async function POST(request: Request) {
     const { messages } = await request.json();
 
     const sandbox = new LocalSandbox({
-      baseDir: process.cwd(),
-      isolate: true,
+      workdir: path.join(process.cwd(), "workspace"),
+      templatesPath: process.cwd(),
       runnerCommand: ["npx", "-y", "@sandagent/runner-cli@latest", "run"],
       env: { ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY },
     });
@@ -679,6 +869,7 @@ Add monitoring and logging:
 
 ```typescript
 import { createSandAgent, LocalSandbox } from "@sandagent/sdk";
+import path from "path";
 
 export async function POST(request: Request) {
   const startTime = Date.now();
@@ -733,14 +924,18 @@ runnerCommand: ["/usr/local/bin/sandagent", "run"]
 
 **Solution**:
 ```typescript
+import path from "path";
+
 const env: Record<string, string> = {};
 if (process.env.ANTHROPIC_API_KEY) {
   env.ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 }
 
 const sandbox = new LocalSandbox({
+  workdir: path.join(process.cwd(), "workspace"),
+  templatesPath: process.cwd(),
   env, // Make sure to pass env
-  // ...other options
+  runnerCommand: ["npx", "-y", "@sandagent/runner-cli@latest", "run"],
 });
 ```
 
@@ -750,9 +945,11 @@ const sandbox = new LocalSandbox({
 
 **Solution**:
 ```typescript
+import path from "path";
+
 const sandbox = new LocalSandbox({
-  baseDir: process.cwd(), // Ensure correct base directory
-  isolate: true, // Enable isolation to copy files
+  workdir: path.join(process.cwd(), "workspace"), // Ensure correct working directory
+  templatesPath: process.cwd(), // Copy .claude and CLAUDE.md from current directory
   runnerCommand: ["npx", "-y", "@sandagent/runner-cli@latest", "run"],
 });
 ```
@@ -804,9 +1001,11 @@ const sandbox = new E2BSandbox({
 Enable debug logging:
 
 ```typescript
+import path from "path";
+
 const sandbox = new LocalSandbox({
-  baseDir: process.cwd(),
-  isolate: true,
+  workdir: path.join(process.cwd(), "workspace"),
+  templatesPath: process.cwd(),
   runnerCommand: ["npx", "-y", "@sandagent/runner-cli@latest", "run"],
   env: {
     DEBUG: "sandagent:*", // Enable debug logs
@@ -827,6 +1026,7 @@ const sandbox = new LocalSandbox({
 ## Next Steps
 
 - **[SDK Quick Start](./SDK_QUICK_START.md)** - 5-minute integration guide
+- **[Artifacts Feature Guide](./SDK_ARTIFACTS_GUIDE.md)** - Display AI-generated content
 - **[API Reference](../spec/API_REFERENCE.md)** - Complete API documentation
 - **[Templates Guide](../templates/README.md)** - Creating custom agent templates
 - **[Example Apps](../apps/)** - Production-ready examples
