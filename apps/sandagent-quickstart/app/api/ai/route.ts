@@ -27,7 +27,7 @@ export async function POST(request: Request) {
 
   const sandbox = new LocalSandbox({
     workdir: path.join(process.cwd(), "workspace"),
-    templatesPath: process.cwd(),
+    templatesPath: path.join(process.cwd(), "agent"),
     runnerCommand: ["npx", "-y", "@sandagent/runner-cli@0.2.1", "run"],
     defaultTimeout: 300000, // 5 分钟
     env,

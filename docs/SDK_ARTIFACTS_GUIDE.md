@@ -2,6 +2,8 @@
 
 让 AI Agent 生成的文件、图表、报告等内容自动在你的应用中展示和管理。
 
+![Artifacts Demo](./assets/artifacts-demo.png)
+
 ## 什么是 Artifacts？
 
 Artifacts（产物/工作成果）是 AI Agent 在执行任务时创建的**可视化内容**，比如：
