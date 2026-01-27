@@ -298,18 +298,103 @@ const sandbox = new LocalSandbox({
 
 **Options:**
 
-- `workdir`: Working directory for all operations (defaults to `process.cwd()`)
-- `templatesPath`: Path to the agent template directory to copy into the sandbox workdir. If specified, all files from this directory (including `.claude` and `CLAUDE.md`) will be copied to `workdir` when `attach()` is called
-- `runnerCommand`: Command to execute the runner (default: `["sandagent", "run"]`)
-- `defaultTimeout`: Default timeout for commands in milliseconds (default: 60000)
-- `env`: Environment variables to pass to all commands
+- **`workdir`** (optional, default: `process.cwd()`)
+  - Working directory for all sandbox operations
+  - All commands executed in the sandbox will run relative to this directory
+  - The directory will be created automatically if it doesn't exist
+  - Example: `workdir: path.join(process.cwd(), "workspace")`
+
+- **`templatesPath`** (optional)
+  - Path to the agent template directory to copy into the sandbox workdir
+  - If specified, all files from this directory (including `.claude/` and `CLAUDE.md`) will be recursively copied to `workdir` when `attach()` is called
+  - Useful for providing agent configuration, skills, and MCP server settings
+  - If omitted, no files are copied (useful for reusing existing workspaces)
+  - Example: `templatesPath: process.cwd()` (copies current directory)
+  - Example: `templatesPath: path.join(process.cwd(), "templates", "researcher")` (copies specific template)
+
+- **`runnerCommand`** (optional, default: `["sandagent", "run"]`)
+  - Command array to execute the AI agent runner
+  - First element is the command, subsequent elements are arguments
+  - Common options:
+    - `["npx", "-y", "@sandagent/runner-cli@latest", "run"]` - Use latest runner from npm
+    - `["sandagent", "run"]` - Use globally installed runner
+    - `["claude"]` - Use Claude Code CLI directly
+
+- **`defaultTimeout`** (optional, default: `60000` = 60 seconds)
+  - Default timeout for commands in milliseconds
+  - If a command runs longer than this, it will be terminated
+  - Set to `0` to disable timeout (not recommended)
+  - Example: `defaultTimeout: 300000` (5 minutes for long-running tasks)
+
+- **`env`** (optional, default: `{}`)
+  - Environment variables to pass to all commands executed in the sandbox
+  - Merged with `process.env`, with sandbox `env` taking precedence
+  - Required for API keys and other sensitive configuration
+  - Example:
+    ```typescript
+    env: {
+      ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+      GITHUB_TOKEN: process.env.GITHUB_TOKEN,
+      NODE_ENV: "development",
+    }
+    ```
 
 **Methods:**
 
-- `getWorkdir()`: Get the working directory configured for this sandbox
-- `getEnv()`: Get the environment variables configured for this sandbox
-- `getRunnerCommand()`: Get the runner command to execute in the sandbox
-- `attach()`: Attach to the sandbox (creates workdir and copies templates if needed)
+- **`getWorkdir()`: string**
+  - Returns the working directory path for this sandbox
+  - If sandbox is attached, returns the actual workdir from the handle
+  - Otherwise, returns the configured `workdir` option
+  - Use this when creating the SandAgent provider: `cwd: sandbox.getWorkdir()`
+
+- **`getEnv()`: Record<string, string>**
+  - Returns a copy of the environment variables configured for this sandbox
+  - Useful for debugging or logging what environment variables are set
+  - Returns a new object, so modifications won't affect the sandbox
+
+- **`getRunnerCommand()`: string[]**
+  - Returns a copy of the runner command array
+  - Useful for debugging or logging what command will be executed
+  - Returns a new array, so modifications won't affect the sandbox
+
+- **`attach()`: Promise<SandboxHandle>**
+  - Attaches to the sandbox, creating the workdir and copying templates if needed
+  - If already attached, returns the existing handle (idempotent)
+  - This method is called automatically by the SDK when needed
+  - Returns a `SandboxHandle` that provides methods like `exec()`, `runCommand()`, `upload()`, etc.
+  - The handle's `getWorkdir()` method returns the actual working directory path
+
+**Common Use Cases:**
+
+1. **Development with Template Copying:**
+   ```typescript
+   const sandbox = new LocalSandbox({
+     workdir: path.join(process.cwd(), "workspace"),
+     templatesPath: process.cwd(), // Copy .claude and CLAUDE.md
+     env: { ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY },
+   });
+   ```
+
+2. **Session Persistence (Reuse Existing Workspace):**
+   ```typescript
+   const sessionId = "user-123";
+   const sandbox = new LocalSandbox({
+     workdir: `/tmp/sessions/${sessionId}`,
+     // Omit templatesPath to reuse existing files
+     env: { ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY },
+   });
+   ```
+
+3. **Custom Template Directory:**
+   ```typescript
+   const sandbox = new LocalSandbox({
+     workdir: path.join(process.cwd(), "workspace"),
+     templatesPath: path.join(process.cwd(), "templates", "researcher"),
+     runnerCommand: ["npx", "-y", "@sandagent/runner-cli@latest", "run"],
+     defaultTimeout: 600000, // 10 minutes for research tasks
+     env: { ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY },
+   });
+   ```
 
 ### E2B Cloud Sandbox (Production)
 

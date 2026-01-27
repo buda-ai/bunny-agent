@@ -28,26 +28,23 @@ export async function POST(request: Request) {
   if (process.env.ANTHROPIC_API_KEY) {
     env.ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
   }
+  // or use aws bedrock
   if (process.env.AWS_BEARER_TOKEN_BEDROCK) {
     env.AWS_BEARER_TOKEN_BEDROCK = process.env.AWS_BEARER_TOKEN_BEDROCK;
     env.CLAUDE_CODE_USE_BEDROCK = "1";
   }
 
-  // 选择模型
-  const model = process.env.ANTHROPIC_API_KEY
-    ? "claude-sonnet-4-20250514"
-    : "us.anthropic.claude-sonnet-4-20250514-v1:0"; // AWS Bedrock
-
   const sandbox = new LocalSandbox({
-    baseDir: process.cwd(),
-    isolate: true, // 隔离目录，自动复制 .claude 和 CLAUDE.md
+    workdir: process.cwd(),
+    templatesPath: process.cwd(), // 复制当前目录的所有文件到工作目录
     runnerCommand: ["npx", "-y", "@sandagent/runner-cli@latest", "run"],
     env,
   });
 
   const stream = createUIMessageStream({
     execute: async ({ writer }) => {
-      const sandagent = createSandAgent({ sandbox, cwd: sandbox.getWorkdir?.() });
+      const sandagent = createSandAgent({ sandbox, cwd: sandbox.getWorkdir() });
+      const model = "sonnet";
       const result = streamText({
         model: sandagent(model),
         messages: await convertToModelMessages(messages),
@@ -139,7 +136,7 @@ npm run dev
 
 ## 自定义 Agent 行为
 
-在项目根目录创建 `CLAUDE.md`，定义 Agent 的角色：
+在模板目录中创建 `CLAUDE.md`，定义 Agent 的角色：
 
 ```markdown
 # 我的 AI 助手
@@ -147,16 +144,18 @@ npm run dev
 你是一个友好的助手，擅长回答问题和编写代码。
 ```
 
-添加自定义技能：
+**模板目录结构：**
 
 ```
-.claude/
-└── skills/
-    └── my-skill/
-        └── SKILL.md
+my-agent-template/
+├── CLAUDE.md
+└── .claude/
+    └── skills/
+        └── my-skill/
+            └── SKILL.md
 ```
 
-> **注意**：当 `isolate: true` 时，LocalSandbox 会自动将 `.claude` 目录和 `CLAUDE.md` 复制到隔离的工作目录中。
+> **提示**：通过 `templatesPath` 指定模板目录，LocalSandbox 会自动复制目录中的所有文件（包括 `CLAUDE.md` 和 `.claude`）到工作目录。
 
 ---
 
@@ -167,8 +166,8 @@ npm run dev
 ```typescript
 // 1. 创建沙箱
 const sandbox = new LocalSandbox({
-  baseDir: process.cwd(),
-  isolate: true,
+  workdir: process.cwd(),
+  templatesPath: process.cwd(), // 复制当前目录的所有文件到工作目录
   runnerCommand: ["npx", "-y", "@sandagent/runner-cli@latest", "run"],
   env: { ANTHROPIC_API_KEY },
 });
@@ -178,7 +177,7 @@ const sandagent = createSandAgent({ sandbox });
 
 // 3. 调用模型
 const result = streamText({
-  model: sandagent("sonnet"), // 支持: sonnet, opus, haiku 或完整模型 ID
+  model: sandagent("sonnet"),
   messages,
 });
 ```

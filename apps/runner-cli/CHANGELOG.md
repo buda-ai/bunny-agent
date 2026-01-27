@@ -1,5 +1,11 @@
 # @sandagent/runner-cli
 
+## 0.2.2
+
+### Patch Changes
+
+- 3a602d4: local-sandbox change
+
 ## 0.2.1
 
 ### Patch Changes

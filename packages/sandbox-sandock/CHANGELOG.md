@@ -1,5 +1,13 @@
 # @sandagent/sandbox-sandock
 
+## 0.2.2
+
+### Patch Changes
+
+- 3a602d4: local-sandbox change
+- Updated dependencies [3a602d4]
+  - @sandagent/manager@0.2.2
+
 ## 0.2.1
 
 ### Patch Changes
