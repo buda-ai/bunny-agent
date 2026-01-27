@@ -7,10 +7,10 @@ import type { ExecOptions, SandboxAdapter, SandboxHandle } from "./types.js";
  * Options for creating a LocalSandbox instance
  */
 export interface LocalSandboxOptions {
-  /** Base working directory for all operations (defaults to process.cwd()) */
-  baseDir?: string;
-  /** Whether to isolate each sandbox ID in its own subdirectory (default: true) */
-  isolate?: boolean;
+  /** Working directory for all operations (defaults to process.cwd()) */
+  workdir?: string;
+  /** Path to the agent template directory to copy into the sandbox workdir */
+  templatesPath?: string;
   /** Default timeout for commands in milliseconds (default: 60000) */
   defaultTimeout?: number;
   /** Environment variables to pass to all commands */
@@ -34,10 +34,10 @@ export interface LocalSandboxOptions {
  * ```typescript
  * import { LocalSandbox, SandAgent } from "@sandagent/manager";
  *
- * // Use current directory as workspace (no isolation)
+ * // Create sandbox with template
  * const sandbox = new LocalSandbox({
- *   baseDir: process.cwd(),
- *   isolate: false,
+ *   workdir: "/tmp/my-sandbox",
+ *   templatesPath: "/path/to/agent-template",
  * });
  *
  * const agent = new SandAgent({
@@ -48,15 +48,15 @@ export interface LocalSandboxOptions {
  *   },
  * });
  *
- * // Attach and run commands
+ * // Attach copies template files to workdir and returns handle
  * const handle = await sandbox.attach();
  * const result = await handle.runCommand("ls -la");
  * console.log(result.stdout);
  * ```
  */
 export class LocalSandbox implements SandboxAdapter {
-  private readonly baseDir: string;
-  private readonly isolate: boolean;
+  private readonly workdir: string;
+  private readonly templatesPath: string | undefined;
   private readonly defaultTimeout: number;
   private readonly env: Record<string, string>;
   private readonly runnerCommand: string[];
@@ -65,8 +65,8 @@ export class LocalSandbox implements SandboxAdapter {
   private currentHandle: LocalSandboxHandle | null = null;
 
   constructor(options: LocalSandboxOptions = {}) {
-    this.baseDir = options.baseDir ?? process.cwd();
-    this.isolate = options.isolate ?? true;
+    this.workdir = options.workdir ?? process.cwd();
+    this.templatesPath = options.templatesPath;
     this.defaultTimeout = options.defaultTimeout ?? 60000;
     this.env = options.env ?? {};
     this.runnerCommand = options.runnerCommand ?? ["sandagent", "run"];
@@ -85,11 +85,9 @@ export class LocalSandbox implements SandboxAdapter {
 
   /**
    * Get the working directory configured for this sandbox.
-   * Returns the current workDir if attached, otherwise the baseDir.
-   * Note: When isolate=true, the actual workDir will be baseDir/sandbox-xxx after attach().
    */
   getWorkdir(): string {
-    return this.currentHandle?.getWorkdir() ?? this.baseDir;
+    return this.currentHandle?.getWorkdir() ?? this.workdir;
   }
 
   /**
@@ -105,42 +103,37 @@ export class LocalSandbox implements SandboxAdapter {
       return this.currentHandle;
     }
 
-    // Determine the working directory for this sandbox
-    // If isolation is enabled, use a unique subdirectory
-    const workDir = this.isolate
-      ? path.join(
-          this.baseDir,
-          `sandbox-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
-        )
-      : this.baseDir;
+    // Use workdir as the working directory
+    const workdir = this.workdir;
 
     // Create the directory if it doesn't exist
-    await fs.mkdir(workDir, { recursive: true });
-    console.log(`[LocalSandbox] Created/using directory: ${workDir}`);
+    await fs.mkdir(workdir, { recursive: true });
+    console.log(`[LocalSandbox] Using directory: ${workdir}`);
 
-    // If isolated, copy .claude and CLAUDE.md from baseDir if they exist
-    if (this.isolate) {
-      const filesToCopy = [".claude", "CLAUDE.md"];
-      for (const file of filesToCopy) {
-        const src = path.join(this.baseDir, file);
-        const dest = path.join(workDir, file);
-        try {
-          const stat = await fs.stat(src);
-          if (stat.isDirectory()) {
-            await this.copyDir(src, dest);
-            console.log(`[LocalSandbox] Copied directory: ${file}`);
-          } else {
-            await fs.copyFile(src, dest);
-            console.log(`[LocalSandbox] Copied file: ${file}`);
-          }
-        } catch {
-          // File doesn't exist, skip
+    // Copy all files from templatesPath to workdir if specified
+    if (this.templatesPath) {
+      try {
+        const stat = await fs.stat(this.templatesPath);
+        if (stat.isDirectory()) {
+          await this.copyDir(this.templatesPath, workdir);
+          console.log(
+            `[LocalSandbox] Copied template directory: ${this.templatesPath} -> ${workdir}`,
+          );
+        } else {
+          console.warn(
+            `[LocalSandbox] templatesPath is not a directory: ${this.templatesPath}`,
+          );
         }
+      } catch (err) {
+        console.warn(
+          `[LocalSandbox] Failed to copy template directory: ${this.templatesPath}`,
+          err,
+        );
       }
     }
 
     const handle = new LocalSandboxHandle(
-      workDir,
+      workdir,
       this.defaultTimeout,
       this.env,
     );
@@ -170,7 +163,6 @@ export class LocalSandbox implements SandboxAdapter {
 
   /**
    * Reset the sandbox, clearing the current handle.
-   * Next call to attach() will create a new working directory (if isolate is true).
    */
   reset(): void {
     this.currentHandle = null;

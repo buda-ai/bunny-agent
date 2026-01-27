@@ -1,3 +1,5 @@
+import path from "path";
+import { TaskDrivenArtifactProcessor } from "@/lib/artifact-processor";
 import { LocalSandbox, createSandAgent } from "@sandagent/sdk";
 import {
   convertToModelMessages,
@@ -7,7 +9,7 @@ import {
 } from "ai";
 
 export async function POST(request: Request) {
-  const { messages } = await request.json();
+  const { messages, sessionId } = await request.json();
 
   // 构建环境变量，只传递已配置的
   const env: Record<string, string> = {};
@@ -24,20 +26,32 @@ export async function POST(request: Request) {
     : "us.anthropic.claude-sonnet-4-20250514-v1:0"; // AWS Bedrock model ID
 
   const sandbox = new LocalSandbox({
-    baseDir: process.cwd(),
-    isolate: true,
+    workdir: path.join(process.cwd(), "workspace"),
+    templatesPath: process.cwd(),
     runnerCommand: ["npx", "-y", "@sandagent/runner-cli@0.2.1", "run"],
     defaultTimeout: 300000, // 5 分钟
     env,
   });
-  console.log(`env: ${JSON.stringify(env)}`);
+
+  console.log(`[API] Session ID: ${sessionId || "default"}`);
+  console.log(`[API] Env keys: ${Object.keys(env).join(", ")}`);
+
   const stream = createUIMessageStream({
     execute: async ({ writer }) => {
       const workdir = sandbox.getWorkdir?.() || "/sandagent";
+
+      // ✨ 创建 artifact processor
+      const artifactProcessor = new TaskDrivenArtifactProcessor({
+        sandbox,
+        workdir,
+        writer,
+      });
+
       const sandagent = createSandAgent({
         sandbox,
         cwd: workdir,
         verbose: true,
+        artifactProcessors: [artifactProcessor], // 传递 processor 数组
       });
 
       const result = streamText({

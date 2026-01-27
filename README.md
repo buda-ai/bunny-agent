@@ -825,7 +825,7 @@ When PRs are merged to `main` or `develop`:
 
 ### 📖 Guides
 - **[SDK Quick Start](./docs/SDK_QUICK_START.md)** - 5-minute SDK integration
-- **[SDK Development Guide](./docs/SDK_DEVELOPMENT_GUIDE.md)** - Complete SDK integration guide
+- **[Artifacts Feature Guide](./docs/SDK_ARTIFACTS_GUIDE.md)** - Display AI-generated content (reports, charts, files)
 - **[Persistence Guide](./spec/PERSISTENCE_GUIDE.md)** - Managing state across runs
 - **[Sandbox Adapters](./spec/SANDBOX_ADAPTERS.md)** - E2B & Sandock configuration
 - **[Debugging Guide](./spec/DEBUGGING_GUIDE.md)** - Transcript recording

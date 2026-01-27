@@ -104,8 +104,7 @@ export async function runCommand(args: string[]): Promise<void> {
   } else if (values.sandbox === "local") {
     const { LocalSandbox } = await import("@sandagent/manager");
     sandboxAdapter = new LocalSandbox({
-      baseDir: values.workspace,
-      isolate: false, // Use workspace directly without creating subdirectory
+      workdir: values.workspace,
     });
     console.log(
       "⚠️  Warning: Local sandbox runs commands directly on your machine.",

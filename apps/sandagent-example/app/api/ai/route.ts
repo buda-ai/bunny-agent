@@ -227,7 +227,7 @@ export async function POST(request: Request) {
       apiKey: SANDOCK_API_KEY,
       runnerBundlePath: RUNNER_BUNDLE_PATH,
       templatesPath: path.join(TEMPLATES_PATH, template),
-      volumeName: sandboxName,
+      // volumeName: sandboxName,
       // Sandbox-level config
       env,
       workdir: "/workspace",
@@ -247,8 +247,8 @@ export async function POST(request: Request) {
     });
   } else {
     sandbox = new LocalSandbox({
-      baseDir: process.cwd(),
-      isolate: false,
+      workdir: path.join(process.cwd(), "/workspace"),
+      templatesPath: path.join(TEMPLATES_PATH, template),
       env,
     });
   }
