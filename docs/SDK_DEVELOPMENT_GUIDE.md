@@ -120,11 +120,17 @@ npm install @sandagent/sdk ai
 Creates an AI SDK-compatible provider that wraps your sandbox and runner.
 
 ```typescript
-import { createSandAgent } from "@sandagent/sdk";
+import { createSandAgent, LocalSandbox } from "@sandagent/sdk";
+import path from "path";
+
+const sandbox = new LocalSandbox({
+  workdir: path.join(process.cwd(), "workspace"),
+  templatesPath: process.cwd(),
+});
 
 const sandagent = createSandAgent({
-  sandbox: new LocalSandbox(),
-  cwd: process.cwd(),
+  sandbox,
+  cwd: sandbox.getWorkdir(),
 });
 ```
 
@@ -157,6 +163,7 @@ Create a basic AI chat endpoint in Next.js:
 
 ```typescript
 // app/api/ai/route.ts
+import path from "path";
 import { createSandAgent, LocalSandbox } from "@sandagent/sdk";
 import {
   convertToModelMessages,
@@ -176,16 +183,17 @@ export async function POST(request: Request) {
 
   // Create sandbox
   const sandbox = new LocalSandbox({
-    baseDir: process.cwd(),
-    isolate: true,
+    workdir: path.join(process.cwd(), "workspace"),
+    templatesPath: process.cwd(), // Copies .claude and CLAUDE.md from current directory
     runnerCommand: ["npx", "-y", "@sandagent/runner-cli@latest", "run"],
+    defaultTimeout: 300000, // 5 minutes
     env,
   });
 
   // Create AI provider
   const sandagent = createSandAgent({
     sandbox,
-    cwd: sandbox.getWorkdir?.(),
+    cwd: sandbox.getWorkdir(),
   });
 
   // Stream response
@@ -275,11 +283,13 @@ Perfect for local development and testing:
 
 ```typescript
 import { LocalSandbox } from "@sandagent/sdk";
+import path from "path";
 
 const sandbox = new LocalSandbox({
-  baseDir: process.cwd(),
-  isolate: true, // Creates isolated copy of workspace
+  workdir: path.join(process.cwd(), "workspace"),
+  templatesPath: process.cwd(), // Copies template files (.claude, CLAUDE.md) to workdir
   runnerCommand: ["npx", "-y", "@sandagent/runner-cli@latest", "run"],
+  defaultTimeout: 300000, // 5 minutes (default: 60000)
   env: {
     ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
   },
@@ -288,10 +298,18 @@ const sandbox = new LocalSandbox({
 
 **Options:**
 
-- `baseDir`: Base directory for the sandbox
-- `isolate`: If true, creates isolated copy with `.claude` and `CLAUDE.md`
-- `runnerCommand`: Command to execute the runner
-- `env`: Environment variables to pass to the runner
+- `workdir`: Working directory for all operations (defaults to `process.cwd()`)
+- `templatesPath`: Path to the agent template directory to copy into the sandbox workdir. If specified, all files from this directory (including `.claude` and `CLAUDE.md`) will be copied to `workdir` when `attach()` is called
+- `runnerCommand`: Command to execute the runner (default: `["sandagent", "run"]`)
+- `defaultTimeout`: Default timeout for commands in milliseconds (default: 60000)
+- `env`: Environment variables to pass to all commands
+
+**Methods:**
+
+- `getWorkdir()`: Get the working directory configured for this sandbox
+- `getEnv()`: Get the environment variables configured for this sandbox
+- `getRunnerCommand()`: Get the runner command to execute in the sandbox
+- `attach()`: Attach to the sandbox (creates workdir and copies templates if needed)
 
 ### E2B Cloud Sandbox (Production)
 
@@ -364,6 +382,8 @@ The SDK can work with different CLI runners:
 
 ```typescript
 const sandbox = new LocalSandbox({
+  workdir: path.join(process.cwd(), "workspace"),
+  templatesPath: process.cwd(),
   runnerCommand: ["npx", "-y", "@sandagent/runner-cli@latest", "run"],
   env: { ANTHROPIC_API_KEY },
 });
@@ -373,6 +393,8 @@ const sandbox = new LocalSandbox({
 
 ```typescript
 const sandbox = new LocalSandbox({
+  workdir: path.join(process.cwd(), "workspace"),
+  templatesPath: process.cwd(),
   runnerCommand: ["claude"],
   env: { ANTHROPIC_API_KEY },
 });
@@ -448,7 +470,7 @@ You are an expert data analyst specializing in:
 4. Create clear visualizations
 ```
 
-When `isolate: true`, this file is automatically copied to the sandbox.
+When `templatesPath` is specified, this file (along with the `.claude` directory) is automatically copied to the sandbox workdir when `attach()` is called.
 
 ### Agent Skills
 
@@ -501,17 +523,21 @@ Persist agent state across requests:
 
 ```typescript
 import { createSandAgent, LocalSandbox } from "@sandagent/sdk";
+import path from "path";
 
 // Create reusable sandbox for session
 const sessionId = "user-123-project-a";
 const sandbox = new LocalSandbox({
-  baseDir: `/tmp/sandagent-sessions/${sessionId}`,
-  isolate: false, // Reuse existing workspace
+  workdir: `/tmp/sandagent-sessions/${sessionId}`,
+  // Omit templatesPath to reuse existing workspace without copying templates
   runnerCommand: ["npx", "-y", "@sandagent/runner-cli@latest", "run"],
   env: { ANTHROPIC_API_KEY },
 });
 
-const sandagent = createSandAgent({ sandbox });
+const sandagent = createSandAgent({ 
+  sandbox,
+  cwd: sandbox.getWorkdir(),
+});
 ```
 
 ### Artifacts - Display AI Generated Content
@@ -594,8 +620,8 @@ export async function POST(request: Request) {
     const { messages } = await request.json();
 
     const sandbox = new LocalSandbox({
-      baseDir: process.cwd(),
-      isolate: true,
+      workdir: path.join(process.cwd(), "workspace"),
+      templatesPath: process.cwd(),
       runnerCommand: ["npx", "-y", "@sandagent/runner-cli@latest", "run"],
       env: { ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY },
     });
@@ -749,6 +775,7 @@ Add monitoring and logging:
 
 ```typescript
 import { createSandAgent, LocalSandbox } from "@sandagent/sdk";
+import path from "path";
 
 export async function POST(request: Request) {
   const startTime = Date.now();
@@ -820,9 +847,11 @@ const sandbox = new LocalSandbox({
 
 **Solution**:
 ```typescript
+import path from "path";
+
 const sandbox = new LocalSandbox({
-  baseDir: process.cwd(), // Ensure correct base directory
-  isolate: true, // Enable isolation to copy files
+  workdir: path.join(process.cwd(), "workspace"), // Ensure correct working directory
+  templatesPath: process.cwd(), // Copy .claude and CLAUDE.md from current directory
   runnerCommand: ["npx", "-y", "@sandagent/runner-cli@latest", "run"],
 });
 ```
@@ -874,9 +903,11 @@ const sandbox = new E2BSandbox({
 Enable debug logging:
 
 ```typescript
+import path from "path";
+
 const sandbox = new LocalSandbox({
-  baseDir: process.cwd(),
-  isolate: true,
+  workdir: path.join(process.cwd(), "workspace"),
+  templatesPath: process.cwd(),
   runnerCommand: ["npx", "-y", "@sandagent/runner-cli@latest", "run"],
   env: {
     DEBUG: "sandagent:*", // Enable debug logs
