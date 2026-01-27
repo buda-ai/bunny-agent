@@ -193,7 +193,7 @@ export async function POST(request: Request) {
   // Create AI provider
   const sandagent = createSandAgent({
     sandbox,
-    cwd: sandbox.getWorkdir(),
+    cwd: sandbox.getWorkdir?.(),
   });
 
   // Stream response
@@ -381,6 +381,8 @@ The SDK can work with different CLI runners:
 #### Option 1: SandAgent Runner CLI
 
 ```typescript
+import path from "path";
+
 const sandbox = new LocalSandbox({
   workdir: path.join(process.cwd(), "workspace"),
   templatesPath: process.cwd(),
@@ -392,6 +394,8 @@ const sandbox = new LocalSandbox({
 #### Option 2: Claude Code CLI
 
 ```typescript
+import path from "path";
+
 const sandbox = new LocalSandbox({
   workdir: path.join(process.cwd(), "workspace"),
   templatesPath: process.cwd(),
@@ -436,11 +440,16 @@ Usage:
 
 ```typescript
 import { SandAgentManager } from "@sandagent/manager";
+import { LocalSandbox } from "@sandagent/manager";
 import { CustomRunner } from "./custom-runner";
+import path from "path";
 
 const manager = new SandAgentManager({
   runner: new CustomRunner(),
-  sandbox: new LocalSandbox(),
+  sandbox: new LocalSandbox({
+    workdir: path.join(process.cwd(), "workspace"),
+    templatesPath: process.cwd(),
+  }),
 });
 ```
 
@@ -830,14 +839,18 @@ runnerCommand: ["/usr/local/bin/sandagent", "run"]
 
 **Solution**:
 ```typescript
+import path from "path";
+
 const env: Record<string, string> = {};
 if (process.env.ANTHROPIC_API_KEY) {
   env.ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 }
 
 const sandbox = new LocalSandbox({
+  workdir: path.join(process.cwd(), "workspace"),
+  templatesPath: process.cwd(),
   env, // Make sure to pass env
-  // ...other options
+  runnerCommand: ["npx", "-y", "@sandagent/runner-cli@latest", "run"],
 });
 ```
 

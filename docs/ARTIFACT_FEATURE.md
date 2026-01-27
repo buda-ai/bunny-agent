@@ -734,7 +734,8 @@ return (
 
 - [架构设计文档](../docs/ARCHITECTURE_REFACTORING.md) - 了解 SandAgent 整体架构
 - [API 参考](../spec/API_REFERENCE.md) - API 接口文档
-- [快速开始](../spec/QUICK_START.md) - 快速上手指南
+- [SDK 快速开始](../docs/SDK_QUICK_START.md) - 快速上手指南
+- [SDK 开发指南](../docs/SDK_DEVELOPMENT_GUIDE.md) - 详细开发指南
 - [Write Tool UI](../docs/WRITE_TOOL_UI.md) - Write Tool 前端 UI 实现
 
 ## 代码位置
