@@ -702,6 +702,7 @@ If you see memory leaks with signals:
 
 ## Related Documentation
 
-- [API Reference](./API_REFERENCE.md) - Full API documentation
-- [Sandbox Adapters](./SANDBOX_ADAPTERS.md) - Sandbox implementation details
-- [Quick Start](./QUICK_START.md) - Getting started guide
+- [API Reference](../spec/API_REFERENCE.md) - Full API documentation
+- [Sandbox Adapters](../spec/SANDBOX_ADAPTERS.md) - Sandbox implementation details
+- [SDK Quick Start](./SDK_QUICK_START.md) - Getting started guide
+- [SDK Development Guide](./SDK_DEVELOPMENT_GUIDE.md) - Complete integration guide

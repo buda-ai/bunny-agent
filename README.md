@@ -251,6 +251,22 @@ pnpm install && pnpm build
 pnpm test  # 93 tests
 ```
 
+### Option F: SDK Development Mode
+
+Integrate SandAgent as an SDK into your own project to build custom AI-powered applications.
+
+```bash
+npm install @sandagent/sdk ai
+```
+
+This allows you to:
+- Add AI agent capabilities to existing projects
+- Customize sandbox environments
+- Build production-ready AI features
+- Integrate with your own backend infrastructure
+
+📖 **For detailed SDK integration guide, see [SDK Quick Start](./docs/SDK_QUICK_START.md) and [SDK Development Guide](./docs/SDK_DEVELOPMENT_GUIDE.md)**
+
 ---
 
 ## 🏗️ How It Works
@@ -808,7 +824,8 @@ When PRs are merged to `main` or `develop`:
 <td width="50%">
 
 ### 📖 Guides
-- **[Quick Start](./spec/QUICK_START.md)** - Get running in 5 minutes
+- **[SDK Quick Start](./docs/SDK_QUICK_START.md)** - 5-minute SDK integration
+- **[SDK Development Guide](./docs/SDK_DEVELOPMENT_GUIDE.md)** - Complete SDK integration guide
 - **[Persistence Guide](./spec/PERSISTENCE_GUIDE.md)** - Managing state across runs
 - **[Sandbox Adapters](./spec/SANDBOX_ADAPTERS.md)** - E2B & Sandock configuration
 - **[Debugging Guide](./spec/DEBUGGING_GUIDE.md)** - Transcript recording

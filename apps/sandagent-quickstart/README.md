@@ -59,5 +59,6 @@ npm run dev
 
 ## 下一步
 
-- [完整文档](../../docs/QUICK_START.md)
+- [SDK 快速开始](../../docs/SDK_QUICK_START.md)
+- [SDK 开发指南](../../docs/SDK_DEVELOPMENT_GUIDE.md)
 - [云端部署](../../packages/sandbox-e2b/README.md)
