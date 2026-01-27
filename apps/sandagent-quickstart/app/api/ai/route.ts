@@ -24,8 +24,7 @@ export async function POST(request: Request) {
     : "us.anthropic.claude-sonnet-4-20250514-v1:0"; // AWS Bedrock model ID
 
   const sandbox = new LocalSandbox({
-    baseDir: process.cwd(),
-    isolate: true,
+    workdir: process.cwd(),
     runnerCommand: ["npx", "-y", "@sandagent/runner-cli@0.2.1", "run"],
     defaultTimeout: 300000, // 5 分钟
     env,

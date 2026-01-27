@@ -185,8 +185,74 @@ const result = streamText({
 
 ---
 
+## 高级功能
+
+### 使用 Artifacts（工作成果展示）
+
+让 AI 生成的报告、图表、代码等内容自动在你的应用中展示：
+
+```tsx
+import { useSandAgentChat } from "@sandagent/sdk/react";
+
+export default function ChatPage() {
+  const {
+    messages,
+    sendMessage,
+    artifacts,              // 📦 AI 生成的所有文件
+    selectedArtifact,       // 📄 当前选中的文件
+    setSelectedArtifact,    // 🔄 切换文件
+  } = useSandAgentChat({ apiEndpoint: "/api/ai" });
+
+  return (
+    <div className="flex">
+      {/* 左侧：聊天区 */}
+      <div className="flex-1">
+        {/* ... 聊天界面 ... */}
+      </div>
+
+      {/* 右侧：Artifacts 展示 */}
+      {artifacts.length > 0 && (
+        <div className="w-96 border-l">
+          {/* Artifact 标签页 */}
+          <div className="flex gap-2 p-2 border-b">
+            {artifacts.map((artifact) => (
+              <button
+                key={artifact.artifactId}
+                onClick={() => setSelectedArtifact(artifact)}
+                className={
+                  selectedArtifact?.artifactId === artifact.artifactId
+                    ? "bg-blue-500 text-white"
+                    : "bg-gray-100"
+                }
+              >
+                {artifact.artifactId}
+              </button>
+            ))}
+          </div>
+
+          {/* Artifact 内容 */}
+          {selectedArtifact && (
+            <div className="p-4">
+              <pre>{selectedArtifact.content}</pre>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+当用户问："帮我分析数据并生成报告"，AI 生成的报告会自动出现在右侧面板！
+
+📖 **[完整 Artifacts 使用指南 →](./SDK_ARTIFACTS_GUIDE.md)** - 包含复制、下载、Markdown 渲染等高级功能
+
+---
+
 ## 下一步
 
+- **[Artifacts 功能指南](./SDK_ARTIFACTS_GUIDE.md)** - 展示 AI 生成的内容
 - [完整示例](../apps/sandagent-quickstart) - 可运行的示例项目
 - [使用云端沙箱](../packages/sandbox-e2b/README.md) - 生产环境部署
+- [SDK 开发指南](./SDK_DEVELOPMENT_GUIDE.md) - 深入的开发文档
 - [API 参考](../spec/API_REFERENCE.md) - 详细配置选项

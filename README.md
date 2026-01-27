@@ -809,6 +809,7 @@ When PRs are merged to `main` or `develop`:
 
 ### 📖 Guides
 - **[Quick Start](./spec/QUICK_START.md)** - Get running in 5 minutes
+- **[Artifacts Feature Guide](./docs/SDK_ARTIFACTS_GUIDE.md)** - Display AI-generated content (reports, charts, files)
 - **[Persistence Guide](./spec/PERSISTENCE_GUIDE.md)** - Managing state across runs
 - **[Sandbox Adapters](./spec/SANDBOX_ADAPTERS.md)** - E2B & Sandock configuration
 - **[Debugging Guide](./spec/DEBUGGING_GUIDE.md)** - Transcript recording
