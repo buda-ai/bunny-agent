@@ -83,14 +83,6 @@ export async function POST(request: Request) {
   console.log("[API] Has DAYTONA_API_KEY:", !!DAYTONA_API_KEY);
   console.log("[API] SANDBOX_PROVIDER:", SANDBOX_PROVIDER);
 
-  // Validate required fields
-  if (!sessionId) {
-    return new Response(JSON.stringify({ error: "sessionId is required" }), {
-      status: 400,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
-
   // Either ANTHROPIC_API_KEY or AWS_BEARER_TOKEN_BEDROCK is required
   if (!ANTHROPIC_API_KEY && !AWS_BEARER_TOKEN_BEDROCK) {
     return new Response(
@@ -290,12 +282,6 @@ export async function POST(request: Request) {
       writer.merge(
         result.toUIMessageStream({
           sendSources: true,
-          messageMetadata({ part }) {
-            if (part.type === "text-start") {
-              console.log("[Stream] Provider metadata:", part.providerMetadata);
-              return part.providerMetadata?.["claude-code"];
-            }
-          },
         }),
       );
 

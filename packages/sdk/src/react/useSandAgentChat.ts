@@ -37,13 +37,7 @@ import type {
 export function useSandAgentChat({
   apiEndpoint = "/api/ai",
   body = {},
-  sessionId: providedSessionId,
 }: UseSandAgentChatOptions = {}): UseSandAgentChatReturn {
-  // Session ID management
-  const [sessionId] = useState(
-    () => providedSessionId || `session-${Date.now()}`,
-  );
-
   // Artifact selection state
   const [selectedArtifact, setSelectedArtifact] = useState<ArtifactData | null>(
     null,
@@ -57,6 +51,25 @@ export function useSandAgentChat({
     bodyRef.current = body;
   }, [body]);
 
+  // Helper to extract sessionId from message parts' providerMetadata
+  const getSessionIdFromMessage = (
+    message: UIMessage | undefined,
+  ): string | undefined => {
+    if (!message?.parts) return undefined;
+    // Find the first text part with providerMetadata.sandagent.sessionId
+    for (const part of message.parts) {
+      if (part.type === "text") {
+        const providerMetadata = (
+          part as { providerMetadata?: { sandagent?: { sessionId?: string } } }
+        ).providerMetadata;
+        if (providerMetadata?.sandagent?.sessionId) {
+          return providerMetadata.sandagent.sessionId;
+        }
+      }
+    }
+    return undefined;
+  };
+
   // Core chat hook
   const {
     messages,
@@ -69,12 +82,9 @@ export function useSandAgentChat({
       api: apiEndpoint,
       body: () => {
         const lastMessage = messagesRef.current[messagesRef.current.length - 1];
-        const metadata = lastMessage?.metadata as
-          | { sessionId?: string }
-          | undefined;
+        const sessionId = getSessionIdFromMessage(lastMessage);
         return {
-          sessionId,
-          resume: metadata?.sessionId,
+          resume: sessionId,
           ...bodyRef.current,
         };
       },
@@ -183,7 +193,6 @@ export function useSandAgentChat({
   );
 
   return {
-    sessionId,
     messages,
     status,
     error,

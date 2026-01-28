@@ -1,6 +1,6 @@
 {
   "name": "@sandagent/runner-claude",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Claude Agent SDK runtime for SandAgent",
   "type": "module",
@@ -13,7 +13,9 @@
       "types": "./dist/index.d.ts"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc",
     "clean": "rm -rf dist",
