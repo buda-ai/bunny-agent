@@ -219,7 +219,8 @@ export async function POST(request: Request) {
       apiKey: SANDOCK_API_KEY,
       runnerBundlePath: RUNNER_BUNDLE_PATH,
       templatesPath: path.join(TEMPLATES_PATH, template),
-      // volumeName: sandboxName,
+      volumeName: sandboxName,
+      volumeMountPath: "/workspace",
       // Sandbox-level config
       env,
       workdir: "/workspace",
