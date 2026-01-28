@@ -1,5 +1,13 @@
 # @sandagent/sandbox-sandock
 
+## 0.2.5
+
+### Patch Changes
+
+- add readme to sdk
+- Updated dependencies
+  - @sandagent/manager@0.2.5
+
 ## 0.2.4
 
 ### Patch Changes
