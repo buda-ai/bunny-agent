@@ -9,7 +9,6 @@
  * @see https://ai-sdk.dev/docs/ai-sdk-ui/stream-protocol
  */
 
-import { privateDecrypt } from "crypto";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type {
@@ -116,7 +115,6 @@ export interface AISDKUsage {
  */
 export interface StreamToAISDKUIOptions {
   signal?: AbortSignal;
-  onCleanup?: () => void;
   /** Working directory for debug files (default: process.cwd()) */
   cwd?: string;
 }
@@ -204,6 +202,15 @@ export function convertUsageToAISDK(usage: ClaudeCodeUsage): AISDKUsage {
   const cacheWrite = usage.cache_creation_input_tokens ?? 0;
   const cacheRead = usage.cache_read_input_tokens ?? 0;
 
+  // Try to extract text/reasoning tokens if available (even if not in type definition)
+  const usageAny = usage as Record<string, unknown>;
+  const textTokens =
+    typeof usageAny.text_tokens === "number" ? usageAny.text_tokens : undefined;
+  const reasoningTokens =
+    typeof usageAny.reasoning_tokens === "number"
+      ? usageAny.reasoning_tokens
+      : undefined;
+
   return {
     inputTokens: {
       total: inputTokens + cacheWrite + cacheRead,
@@ -211,7 +218,11 @@ export function convertUsageToAISDK(usage: ClaudeCodeUsage): AISDKUsage {
       cacheRead,
       cacheWrite,
     },
-    outputTokens: { total: outputTokens },
+    outputTokens: {
+      total: outputTokens,
+      text: textTokens,
+      reasoning: reasoningTokens,
+    },
     raw: usage,
   };
 }
@@ -426,8 +437,6 @@ export class AISDKStreamConverter {
   ): AsyncGenerator<string> {
     // Collect messages for debugging
     const debugMessages: unknown[] = [];
-    const debugDir = options?.cwd ?? process.cwd();
-    const debugFile = `ai-sdk-stream-debug-${Date.now()}.json`;
 
     try {
       for await (const message of messageIterator) {
@@ -553,6 +562,7 @@ export class AISDKStreamConverter {
             ),
             messageMetadata: {
               usage: convertUsageToAISDK(resultMsg.usage ?? {}),
+              sessionId: this.sessionId,
             },
           });
           console.error(
@@ -646,10 +656,12 @@ export class AISDKStreamConverter {
       // }
     } finally {
       // Write debug messages to file asynchronously (don't block stream completion)
-      if (debugMessages.length > 0) {
+      if (debugMessages.length > 0 && process.env.DEBUG === "true") {
+        const debugDir = options?.cwd ?? process.cwd();
+        const debugFile = join(debugDir, `claude-message-stream-debug.json`);
         // Don't await - let it write in background
         writeFile(
-          join(debugDir, debugFile),
+          debugFile,
           JSON.stringify(debugMessages, null, 2),
           "utf-8",
         ).catch((writeError) => {
@@ -659,7 +671,6 @@ export class AISDKStreamConverter {
           );
         });
       }
-      options?.onCleanup?.();
       yield `data: [DONE]\n\n`;
     }
   }

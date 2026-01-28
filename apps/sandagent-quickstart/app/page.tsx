@@ -14,7 +14,6 @@ export default function Home() {
     artifacts,
     selectedArtifact,
     setSelectedArtifact,
-    sessionId,
   } = useSandAgentChat({
     apiEndpoint: "/api/ai",
   });
@@ -33,9 +32,7 @@ export default function Home() {
         {/* Header */}
         <header className="px-6 py-4 bg-white border-b">
           <h1 className="text-lg font-semibold">SandAgent Quickstart</h1>
-          <p className="text-sm text-gray-500">
-            Local Sandbox • Session: {sessionId?.slice(0, 8)}
-          </p>
+          <p className="text-sm text-gray-500">Local Sandbox</p>
         </header>
 
         {/* Messages */}
