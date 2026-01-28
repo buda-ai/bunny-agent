@@ -1,5 +1,13 @@
 # @sandagent/sandbox-sandock
 
+## 0.2.4
+
+### Patch Changes
+
+- refactor provider
+- Updated dependencies
+  - @sandagent/manager@0.2.4
+
 ## 0.2.3
 
 ### Patch Changes

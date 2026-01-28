@@ -1,5 +1,11 @@
 # @sandagent/manager
 
+## 0.2.4
+
+### Patch Changes
+
+- refactor provider
+
 ## 0.2.3
 
 ### Patch Changes
