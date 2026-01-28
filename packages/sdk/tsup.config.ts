@@ -14,7 +14,6 @@ export default defineConfig([
     external: [
       "@sandagent/manager",
       "@ai-sdk/provider",
-      "@ai-sdk/provider-utils",
       "ai",
     ],
   },

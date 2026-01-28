@@ -1,4 +1,5 @@
 import type {
+  JSONObject,
   JSONValue,
   LanguageModelV3,
   LanguageModelV3CallOptions,
@@ -64,6 +65,7 @@ function createEmptyUsage(): LanguageModelV3Usage {
       text: undefined,
       reasoning: undefined,
     },
+    raw: undefined,
   };
 }
 
@@ -372,7 +374,7 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
           type: "text-start",
           id: parsed.id as string,
           providerMetadata: {
-            "claude-code": {
+            sandagent: {
               sessionId: this.sessionId,
             },
           },
@@ -466,10 +468,10 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
           finishReason = this.mapFinishReason(rawFinishReason as string);
         }
 
-        const rawUsage = parsed.usage ?? parsed.messageMetadata;
-        const usage = this.convertUsage(
-          rawUsage as Record<string, unknown> | undefined,
-        );
+        const { usage: rawUsage } = parsed.messageMetadata as {
+          usage: Record<string, unknown>;
+        };
+        const usage = this.convertUsage(rawUsage);
 
         parts.push({
           type: "finish",
@@ -573,6 +575,9 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
     if ("inputTokens" in data && "outputTokens" in data) {
       const inputTokens = data.inputTokens as Record<string, number>;
       const outputTokens = data.outputTokens as Record<string, number>;
+      // Check if there's a raw field in the data
+      const rawData =
+        "raw" in data ? (data.raw as Record<string, unknown>) : data;
 
       return {
         inputTokens: {
@@ -583,19 +588,24 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
         },
         outputTokens: {
           total: outputTokens.total ?? 0,
-          text: undefined,
-          reasoning: undefined,
+          text: outputTokens.text ?? outputTokens.textTokens ?? undefined,
+          reasoning:
+            outputTokens.reasoning ?? outputTokens.reasoningTokens ?? undefined,
         },
+        raw: rawData as JSONObject,
       };
     }
 
-    const usage = (data.usage ?? data) as Record<string, number>;
+    const usage = (data.usage ?? data) as Record<string, number | undefined>;
 
     if ("input_tokens" in usage || "output_tokens" in usage) {
       const inputTokens = (usage.input_tokens as number) ?? 0;
       const outputTokens = (usage.output_tokens as number) ?? 0;
       const cacheWrite = (usage.cache_creation_input_tokens as number) ?? 0;
       const cacheRead = (usage.cache_read_input_tokens as number) ?? 0;
+      // Check for text/reasoning tokens if available
+      const textTokens = (usage.text_tokens as number) ?? undefined;
+      const reasoningTokens = (usage.reasoning_tokens as number) ?? undefined;
 
       return {
         inputTokens: {
@@ -606,9 +616,10 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
         },
         outputTokens: {
           total: outputTokens,
-          text: undefined,
-          reasoning: undefined,
+          text: textTokens,
+          reasoning: reasoningTokens,
         },
+        raw: usage as JSONObject,
       };
     }
 

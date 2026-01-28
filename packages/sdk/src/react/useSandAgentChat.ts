@@ -37,13 +37,7 @@ import type {
 export function useSandAgentChat({
   apiEndpoint = "/api/ai",
   body = {},
-  sessionId: providedSessionId,
 }: UseSandAgentChatOptions = {}): UseSandAgentChatReturn {
-  // Session ID management
-  const [sessionId] = useState(
-    () => providedSessionId || `session-${Date.now()}`,
-  );
-
   // Artifact selection state
   const [selectedArtifact, setSelectedArtifact] = useState<ArtifactData | null>(
     null,
@@ -73,7 +67,6 @@ export function useSandAgentChat({
           | { sessionId?: string }
           | undefined;
         return {
-          sessionId,
           resume: metadata?.sessionId,
           ...bodyRef.current,
         };
@@ -183,7 +176,6 @@ export function useSandAgentChat({
   );
 
   return {
-    sessionId,
     messages,
     status,
     error,

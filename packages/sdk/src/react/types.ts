@@ -24,16 +24,12 @@ export interface UseSandAgentChatOptions {
   apiEndpoint?: string;
   /** Additional body params to pass to API on each request */
   body?: Record<string, unknown>;
-  /** Session ID (auto-generated if not provided) */
-  sessionId?: string;
 }
 
 /**
  * Return type for useSandAgentChat hook
  */
 export interface UseSandAgentChatReturn {
-  /** Current session ID */
-  sessionId: string;
   /** All chat messages */
   messages: UIMessage[];
   /** Current chat status */

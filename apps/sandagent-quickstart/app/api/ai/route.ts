@@ -60,7 +60,18 @@ export async function POST(request: Request) {
         abortSignal: request.signal,
       });
 
-      writer.merge(result.toUIMessageStream({ sendSources: true }));
+      const usage = await result.usage;
+      if (usage) {
+        console.log("usage", usage);
+      }
+
+      writer.merge(
+        result.toUIMessageStream({
+          sendSources: true,
+          generateMessageId: () =>
+            "msg_" + Math.random().toString(36).substring(2, 15),
+        }),
+      );
     },
   });
 
