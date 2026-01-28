@@ -1,5 +1,11 @@
 # @sandagent/runner-cli
 
+## 0.2.3
+
+### Patch Changes
+
+- refactor runner
+
 ## 0.2.2
 
 ### Patch Changes

@@ -12,7 +12,9 @@ export async function POST(request: Request) {
   const { messages, sessionId } = await request.json();
 
   // 构建环境变量，只传递已配置的
-  const env: Record<string, string> = {};
+  const env: Record<string, string> = {
+    DEBUG: "true",
+  };
   if (process.env.ANTHROPIC_API_KEY) {
     env.ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
   }
@@ -28,7 +30,7 @@ export async function POST(request: Request) {
   const sandbox = new LocalSandbox({
     workdir: path.join(process.cwd(), "workspace"),
     templatesPath: path.join(process.cwd(), "agent"),
-    runnerCommand: ["npx", "-y", "@sandagent/runner-cli@0.2.1", "run"],
+    runnerCommand: ["npx", "-y", "@sandagent/runner-cli@latest", "run"],
     defaultTimeout: 300000, // 5 分钟
     env,
   });
