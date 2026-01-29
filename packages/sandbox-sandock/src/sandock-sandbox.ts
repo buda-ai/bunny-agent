@@ -135,8 +135,8 @@ export class SandockSandbox implements SandboxAdapter {
       // Local bundle is uploaded to ${workdir}/runner/bundle.mjs
       return ["node", `${this.workdir}/runner/bundle.mjs`, "run"];
     }
-    // npm installed runner-cli has bin symlink
-    return ["sandagent", "run"];
+    // npm installed runner-cli has bin symlink in workspace
+    return [`${this.workdir}/node_modules/.bin/sandagent`, "run"];
   }
 
   /**
@@ -376,8 +376,29 @@ export class SandockSandbox implements SandboxAdapter {
   }
 
   private async initializeSandbox(handle: SandockHandle): Promise<void> {
-    // Upload runner bundle to /sandagent (fixed location for node to find it)
+    // Step 0: Create workspace directory
+    console.log(`[Sandock] Creating workspace directory: ${this.workdir}`);
+    const mkdirResult = await handle.runCommand(`mkdir -p ${this.workdir}`);
+    if (mkdirResult.exitCode !== 0) {
+      console.warn(`[Sandock] mkdir warning: ${mkdirResult.stderr}`);
+    }
+
+    // Step 1: Install claude-agent-sdk to workspace
+    console.log(
+      `[Sandock] Installing @anthropic-ai/claude-agent-sdk to ${this.workdir}`,
+    );
+    const sdkInstallResult = await handle.runCommand(
+      `cd ${this.workdir} && npm install --no-audit --no-fund --prefer-offline @anthropic-ai/claude-agent-sdk 2>&1`,
+    );
+    if (sdkInstallResult.exitCode !== 0) {
+      console.error(
+        `[Sandock] Failed to install claude-agent-sdk: ${sdkInstallResult.stdout}`,
+      );
+    }
+
+    // Step 2: Setup runner
     if (this.runnerBundlePath && fs.existsSync(this.runnerBundlePath)) {
+      // Option A: Upload local runner bundle to workspace
       const bundleContent = fs.readFileSync(this.runnerBundlePath);
       const bundleFileName = path.basename(this.runnerBundlePath);
       const runnerFiles = [
@@ -387,23 +408,26 @@ export class SandockSandbox implements SandboxAdapter {
         },
       ];
       console.log(
-        `[Sandock] Uploading runner bundle (${bundleFileName}) to /sandagent`,
+        `[Sandock] Uploading runner bundle (${bundleFileName}) to ${this.workdir}`,
       );
-      await handle.upload(runnerFiles, "/sandagent");
+      await handle.upload(runnerFiles, this.workdir);
+    } else {
+      // Option B: Install runner-cli to workspace from npm
+      console.log(
+        `[Sandock] No runnerBundlePath provided, installing @sandagent/runner-cli to ${this.workdir}`,
+      );
 
-      // Install claude-agent-sdk in sandbox
-      console.log(`[Sandock] Installing @anthropic-ai/claude-agent-sdk`);
       const installResult = await handle.runCommand(
-        "npm install --prefix /sandagent @anthropic-ai/claude-agent-sdk",
+        `cd ${this.workdir} && npm install --no-audit --no-fund --prefer-offline @sandagent/runner-cli@beta 2>&1`,
       );
       if (installResult.exitCode !== 0) {
         console.error(
-          `[Sandock] Failed to install claude-agent-sdk: ${installResult.stderr}`,
+          `[Sandock] Failed to install runner-cli: ${installResult.stdout}`,
         );
       }
     }
 
-    // Upload template to workdir (where runner will execute)
+    // Step 3: Upload template
     if (this.templatesPath && fs.existsSync(this.templatesPath)) {
       const templateFiles = this.collectFiles(this.templatesPath, "");
       console.log(
@@ -517,12 +541,10 @@ class SandockHandle implements SandboxHandle {
     const signal = opts?.signal;
 
     // Merge sandbox-level env with call-level env (call-level takes precedence)
-    // Add NODE_PATH so Node can find packages installed in /sandagent
     const envWithNodePath: Record<string, string> = {
       ...this.sandboxEnv,
       ...opts?.env,
       IS_SANDBOX: "1",
-      NODE_PATH: "/sandagent/node_modules",
     };
 
     // Debug: log environment variables being passed to sandbox
