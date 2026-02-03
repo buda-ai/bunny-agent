@@ -1,20 +1,20 @@
-# SandAgent 快速开始
+# SandAgent Quick Start
 
-5 分钟为你的项目添加 AI Agent 聊天功能。
+Add an AI agent chat to your project in about 5 minutes.
 
 ![SandAgent Quickstart Demo](./assets/quickstart-demo.png)
 
-## 安装
+## Install
 
 ```bash
 npm install @sandagent/sdk ai
 ```
 
-## 使用
+## Usage
 
-### 1. 创建后端 API
+### 1. Create the Backend API
 
-创建 `app/api/ai/route.ts`（Next.js App Router）：
+Create `app/api/ai/route.ts` (Next.js App Router):
 
 ```typescript
 import { createSandAgent, LocalSandbox } from "@sandagent/sdk";
@@ -23,12 +23,10 @@ import { convertToModelMessages, createUIMessageStream, createUIMessageStreamRes
 export async function POST(request: Request) {
   const { messages } = await request.json();
 
-  // 构建环境变量
   const env: Record<string, string> = {};
   if (process.env.ANTHROPIC_API_KEY) {
     env.ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
   }
-  // or use aws bedrock
   if (process.env.AWS_BEARER_TOKEN_BEDROCK) {
     env.AWS_BEARER_TOKEN_BEDROCK = process.env.AWS_BEARER_TOKEN_BEDROCK;
     env.CLAUDE_CODE_USE_BEDROCK = "1";
@@ -36,7 +34,7 @@ export async function POST(request: Request) {
 
   const sandbox = new LocalSandbox({
     workdir: process.cwd(),
-    templatesPath: process.cwd(), // 复制当前目录的所有文件到工作目录
+    templatesPath: process.cwd(),
     runnerCommand: ["npx", "-y", "@sandagent/runner-cli@latest", "run"],
     env,
   });
@@ -44,9 +42,8 @@ export async function POST(request: Request) {
   const stream = createUIMessageStream({
     execute: async ({ writer }) => {
       const sandagent = createSandAgent({ sandbox, cwd: sandbox.getWorkdir() });
-      const model = "sonnet";
       const result = streamText({
-        model: sandagent(model),
+        model: sandagent("sonnet"),
         messages: await convertToModelMessages(messages),
         abortSignal: request.signal,
       });
@@ -58,9 +55,9 @@ export async function POST(request: Request) {
 }
 ```
 
-### 2. 创建聊天页面
+### 2. Create the Chat Page
 
-创建 `app/page.tsx`：
+Create `app/page.tsx`:
 
 ```tsx
 "use client";
@@ -93,18 +90,18 @@ export default function ChatPage() {
             </div>
           </div>
         ))}
-        {isLoading && <div className="text-gray-500">思考中...</div>}
+        {isLoading && <div className="text-gray-500">Thinking...</div>}
       </div>
 
       <form onSubmit={handleSubmit} className="p-4 border-t flex gap-2">
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="输入消息..."
+          placeholder="Type a message..."
           className="flex-1 px-4 py-2 border rounded-lg"
         />
         <button type="submit" disabled={isLoading} className="px-4 py-2 bg-blue-500 text-white rounded-lg">
-          发送
+          Send
         </button>
       </form>
     </div>
@@ -112,21 +109,21 @@ export default function ChatPage() {
 }
 ```
 
-### 3. 设置环境变量
+### 3. Set Environment Variables
 
-支持两种认证方式：
+**Anthropic API (recommended):**
 
-**Anthropic API（推荐）：**
 ```
 ANTHROPIC_API_KEY=sk-ant-xxx
 ```
 
-**AWS Bedrock：**
+**AWS Bedrock:**
+
 ```
 AWS_BEARER_TOKEN_BEDROCK=xxx
 ```
 
-### 4. 启动项目
+### 4. Start the App
 
 ```bash
 npm run dev
@@ -134,17 +131,17 @@ npm run dev
 
 ---
 
-## 自定义 Agent 行为
+## Customize Agent Behavior
 
-在模板目录中创建 `CLAUDE.md`，定义 Agent 的角色：
+Create `CLAUDE.md` in your template directory:
 
 ```markdown
-# 我的 AI 助手
+# My AI Assistant
 
-你是一个友好的助手，擅长回答问题和编写代码。
+You are a helpful assistant that answers questions and writes code.
 ```
 
-**模板目录结构：**
+**Template structure:**
 
 ```
 my-agent-template/
@@ -155,27 +152,24 @@ my-agent-template/
             └── SKILL.md
 ```
 
-> **提示**：通过 `templatesPath` 指定模板目录，LocalSandbox 会自动复制目录中的所有文件（包括 `CLAUDE.md` 和 `.claude`）到工作目录。
+`templatesPath` tells `LocalSandbox` to copy the template files into the workdir.
 
 ---
 
-## 其他框架
+## Other Frameworks
 
-核心代码相同，适用于 Express、Fastify、Koa 等：
+The same core logic works for Express, Fastify, Koa, etc.:
 
 ```typescript
-// 1. 创建沙箱
 const sandbox = new LocalSandbox({
   workdir: process.cwd(),
-  templatesPath: process.cwd(), // 复制当前目录的所有文件到工作目录
+  templatesPath: process.cwd(),
   runnerCommand: ["npx", "-y", "@sandagent/runner-cli@latest", "run"],
   env: { ANTHROPIC_API_KEY },
 });
 
-// 2. 创建 provider
 const sandagent = createSandAgent({ sandbox });
 
-// 3. 调用模型
 const result = streamText({
   model: sandagent("sonnet"),
   messages,
@@ -184,74 +178,18 @@ const result = streamText({
 
 ---
 
-## 高级功能
+## Artifacts (Files in the UI)
 
-### 使用 Artifacts（工作成果展示）
+Artifacts let the agent stream files (reports, charts, code) into the UI. See:
 
-让 AI 生成的报告、图表、代码等内容自动在你的应用中展示：
-
-```tsx
-import { useSandAgentChat } from "@sandagent/sdk/react";
-
-export default function ChatPage() {
-  const {
-    messages,
-    sendMessage,
-    artifacts,              // 📦 AI 生成的所有文件
-    selectedArtifact,       // 📄 当前选中的文件
-    setSelectedArtifact,    // 🔄 切换文件
-  } = useSandAgentChat({ apiEndpoint: "/api/ai" });
-
-  return (
-    <div className="flex">
-      {/* 左侧：聊天区 */}
-      <div className="flex-1">
-        {/* ... 聊天界面 ... */}
-      </div>
-
-      {/* 右侧：Artifacts 展示 */}
-      {artifacts.length > 0 && (
-        <div className="w-96 border-l">
-          {/* Artifact 标签页 */}
-          <div className="flex gap-2 p-2 border-b">
-            {artifacts.map((artifact) => (
-              <button
-                key={artifact.artifactId}
-                onClick={() => setSelectedArtifact(artifact)}
-                className={
-                  selectedArtifact?.artifactId === artifact.artifactId
-                    ? "bg-blue-500 text-white"
-                    : "bg-gray-100"
-                }
-              >
-                {artifact.artifactId}
-              </button>
-            ))}
-          </div>
-
-          {/* Artifact 内容 */}
-          {selectedArtifact && (
-            <div className="p-4">
-              <pre>{selectedArtifact.content}</pre>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-```
-
-当用户问："帮我分析数据并生成报告"，AI 生成的报告会自动出现在右侧面板！
-
-📖 **[完整 Artifacts 使用指南 →](./SDK_ARTIFACTS_GUIDE.md)** - 包含复制、下载、Markdown 渲染等高级功能
+- `docs/SDK_ARTIFACTS_GUIDE.md`
 
 ---
 
-## 下一步
+## Next Steps
 
-- **[Artifacts 功能指南](./SDK_ARTIFACTS_GUIDE.md)** - 展示 AI 生成的内容
-- [完整示例](../apps/sandagent-quickstart) - 可运行的示例项目
-- [使用云端沙箱](../packages/sandbox-e2b/README.md) - 生产环境部署
-- [SDK 开发指南](./SDK_DEVELOPMENT_GUIDE.md) - 深入的开发文档
-- [API 参考](../spec/API_REFERENCE.md) - 详细配置选项
+- `docs/SDK_ARTIFACTS_GUIDE.md`
+- `docs/SDK_DEVELOPMENT_GUIDE.md`
+- `spec/API_REFERENCE.md`
+- `apps/sandagent-quickstart`
+- `packages/sandbox-e2b/README.md`

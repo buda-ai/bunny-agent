@@ -21,8 +21,6 @@ export interface BaseRunnerOptions {
   allowedTools?: string[];
   /** Resume session ID for multi-turn conversation */
   resume?: string;
-  /** Approval file directory for tool approval flow (e.g., "/sandagent/approvals") */
-  approvalDir?: string;
   /** Output format for streaming responses */
   outputFormat?: OutputFormat;
 }

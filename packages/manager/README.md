@@ -125,7 +125,6 @@ interface RunnerSpec {
   systemPrompt?: string;
   maxTurns?: number;
   allowedTools?: string[];
-  approvalDir?: string;
   outputFormat?: 'stream' | 'json';
 }
 ```

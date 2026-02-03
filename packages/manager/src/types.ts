@@ -54,6 +54,16 @@ export interface SandboxHandle {
 }
 
 /**
+ * Question for AskUserQuestion tool
+ */
+export interface Question {
+  question: string;
+  header?: string;
+  options?: Array<{ label: string; description?: string }>;
+  multiSelect?: boolean;
+}
+
+/**
  * Adapter interface for sandbox implementations
  */
 export interface SandboxAdapter {
@@ -110,8 +120,6 @@ export interface RunnerSpec {
   maxTurns?: number;
   /** Allowed tools (undefined means all tools, or use template's settings) */
   allowedTools?: string[];
-  /** Approval file directory for tool approval flow (e.g., "/sandagent/approvals") */
-  approvalDir?: string;
   /** Output format for streaming responses */
   outputFormat?: OutputFormat;
 }

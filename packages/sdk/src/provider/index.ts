@@ -10,6 +10,9 @@ export type { SandAgentProvider } from "./sandagent-provider";
 export { SandAgentLanguageModel } from "./sandagent-language-model";
 export type { SandAgentLanguageModelOptions } from "./sandagent-language-model";
 
+export { submitAnswer } from "./question-processor";
+export type { SubmitAnswerOptions } from "./question-processor";
+
 export type {
   SandAgentProviderSettings,
   SandAgentModelId,
@@ -17,6 +20,8 @@ export type {
   ArtifactProcessor,
   ArtifactResult,
   StreamWriter,
+  SubmitAnswerParams,
+  Question,
 } from "./types";
 
 export { resolveModelId } from "./types";

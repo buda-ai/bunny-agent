@@ -97,7 +97,9 @@ export interface AskUserQuestionOutput {
 export interface UseAskUserQuestionOptions {
   /** The dynamic tool UI part from the message */
   part: DynamicToolUIPart;
-  /** Callback when user selects an answer */
+  /** API endpoint for submitting answers (default: "/api/answer") */
+  answerEndpoint?: string;
+  /** Callback when user selects an answer (called after API submission) */
   onAnswer?: (data: {
     toolCallId: string;
     questions: Question[];

@@ -1,30 +1,25 @@
 "use client";
 
+import { useAskUserQuestion } from "@sandagent/sdk/react";
 import type { DynamicToolUIPart } from "ai";
-import { useState } from "react";
-import type { AskUserQuestionOutput, ChatAddToolOutputFunction } from "./type";
 
 // AskUserQuestion interactive component
 export function AskUserQuestionUI({
   part,
-  sessionId,
-  config = {},
 }: {
   part: DynamicToolUIPart;
-  sessionId: string;
-  config?: Record<string, string>;
 }) {
-  const [answers, setAnswers] = useState<Record<string, string | string[]>>({});
-
-  // Safely extract questions with type checking
-  const questions = (() => {
-    if (!part.input || typeof part.input !== "object") return [];
-    const input = part.input as AskUserQuestionOutput;
-    if (!input.questions || !Array.isArray(input.questions)) return [];
-    return input.questions;
-  })();
-
-  const approval = part.approval;
+  const {
+    questions,
+    answers,
+    isCompleted,
+    isWaitingForInput,
+    selectAnswer,
+    isSelected,
+  } = useAskUserQuestion({
+    part,
+    // Auto-submits to /api/answer
+  });
 
   // If questions is empty or invalid, show error state
   if (questions.length === 0) {
@@ -37,111 +32,50 @@ export function AskUserQuestionUI({
     );
   }
 
-  // Parse answers from part.output if available (for restored sessions)
-  const outputAnswers = (() => {
-    if (part.output && typeof part.output === "object") {
-      const output = part.output as { answers?: Record<string, string> };
-      if (output.answers) {
-        // Check if any answer is non-empty
-        const hasRealAnswers = Object.values(output.answers).some(
-          (v) => v && v.trim() !== "",
-        );
-        if (hasRealAnswers) {
-          // Convert comma-separated strings back to arrays for multiSelect
-          const parsed: Record<string, string | string[]> = {};
-          for (const q of questions) {
-            const val = output.answers[q.question];
-            if (q.multiSelect && val) {
-              parsed[q.question] = val.split(", ").filter(Boolean);
-            } else {
-              parsed[q.question] = val || "";
-            }
-          }
-          return parsed;
-        }
-      }
-    }
-    return null;
-  })();
-
-  const displayAnswers =
-    Object.keys(answers).length > 0 ? answers : outputAnswers || {};
-
-  // Show read-only state if:
-  // 1. Tool state is 'output-available' (tool execution completed)
-  // 2. OR user hasn't started selecting AND there are answers from previous session
-  const isCompleted =
-    part.state === "output-available" ||
-    (Object.keys(answers).length === 0 && outputAnswers !== null);
-
+  // Completed state - show read-only answers
   if (isCompleted) {
     return (
       <div className="my-2 space-y-4">
         {questions.map((q, idx) => {
-          const selectedValue = displayAnswers[q.question];
-          const isMulti = q.multiSelect ?? false;
+          const answer = answers[q.question];
+          const displayValue = Array.isArray(answer)
+            ? answer.join(", ")
+            : answer || "";
 
           return (
-            <div key={idx} className="rounded-lg border border-border p-4">
+            <div
+              key={`${q.question}-${idx}`}
+              className="rounded-lg border border-border bg-muted/30 p-4"
+            >
               {q.header && (
-                <h4 className="mb-2 font-medium text-foreground">{q.header}</h4>
+                <div className="mb-2 text-sm font-medium text-muted-foreground">
+                  {q.header}
+                </div>
               )}
-              <p className="mb-3 text-sm text-muted-foreground">{q.question}</p>
-              {q.options && (
-                <div className="space-y-2">
-                  {q.options.map((opt, optIdx) => {
-                    const isSelected = isMulti
-                      ? (selectedValue as string[] | undefined)?.includes(
-                          opt.label,
-                        )
-                      : selectedValue === opt.label;
-
-                    return (
-                      <div
-                        key={optIdx}
-                        className={`flex items-start gap-3 rounded-md border p-3 ${
-                          isSelected
-                            ? "border-primary bg-primary/5"
-                            : "border-border opacity-50"
-                        }`}
-                      >
-                        <div
-                          className={`mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-${isMulti ? "sm" : "full"} border ${
-                            isSelected
-                              ? "border-primary bg-primary text-primary-foreground"
-                              : "border-muted-foreground"
-                          }`}
-                        >
-                          {isSelected && (
-                            <svg
-                              className="size-3"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                              strokeWidth={3}
-                              aria-hidden="true"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M5 13l4 4L19 7"
-                              />
-                            </svg>
-                          )}
-                        </div>
-                        <div>
-                          <div className="font-medium text-foreground">
-                            {opt.label}
-                          </div>
-                          {opt.description && (
-                            <div className="text-sm text-muted-foreground">
-                              {opt.description}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
+              <div className="mb-2 text-sm">{q.question}</div>
+              <div className="flex flex-wrap gap-2">
+                {q.options?.map((opt, optIdx) => {
+                  const selected = Array.isArray(answer)
+                    ? answer.includes(opt.label)
+                    : answer === opt.label;
+                  return (
+                    <div
+                      key={`${opt.label}-${optIdx}`}
+                      className={`rounded-md px-3 py-1.5 text-sm ${
+                        selected
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {opt.label}
+                      {selected && <span className="ml-1">✓</span>}
+                    </div>
+                  );
+                })}
+              </div>
+              {displayValue && !q.options && (
+                <div className="mt-2 text-sm text-foreground">
+                  {displayValue}
                 </div>
               )}
             </div>
@@ -151,144 +85,88 @@ export function AskUserQuestionUI({
     );
   }
 
-  const handleSelect = (
-    question: string,
-    value: string,
-    multiSelect: boolean,
-  ) => {
-    const newAnswers = { ...answers };
-    if (multiSelect) {
-      const current = (newAnswers[question] as string[]) || [];
-      newAnswers[question] = current.includes(value)
-        ? current.filter((v) => v !== value)
-        : [...current, value];
-    } else {
-      newAnswers[question] = value;
-    }
-    setAnswers(newAnswers);
-
-    // Prepare all answers for submission
-    const answersMap: Record<string, string> = {};
-    for (const q of questions) {
-      const answer = newAnswers[q.question];
-      if (q.multiSelect) {
-        answersMap[q.question] = Array.isArray(answer) ? answer.join(", ") : "";
-      } else {
-        answersMap[q.question] = (answer as string) || "";
-      }
-    }
-
-    // Submit all collected answers to approval API (updates file in sandbox)
-    // This allows the runner to read partial answers if timeout occurs
-    fetch("/api/approval/submit", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        sessionId,
-        toolCallId: part.toolCallId,
-        questions,
-        answers: answersMap,
-        template: config.template || "default",
-        E2B_API_KEY: config.E2B_API_KEY,
-        SANDOCK_API_KEY: config.SANDOCK_API_KEY,
-        SANDBOX_PROVIDER: config.SANDBOX_PROVIDER || "e2b",
-      }),
-    }).catch((error) => {
-      console.error("Failed to submit answer:", error);
-    });
-
-    // Note: We don't call addToolOutput here to avoid changing tool state
-    // The tool output will be set when user sends the message
-  };
-
-  // Show animation when waiting for user input
-  const shouldAnimate = part.state === "input-available";
-
+  // Interactive state - show selection UI (radio 单选 / checkbox 多选)
   return (
-    <div className="my-2 space-y-4">
-      {questions.map((q, idx) => {
-        const selectedValue = answers[q.question];
-        const isMulti = q.multiSelect ?? false;
+    <div className="my-2 space-y-4 overflow-visible">
+      {questions.map((q, idx) => (
+        <fieldset
+          key={`${q.question}-${idx}`}
+          className={`rounded-lg border border-border p-4 transition-all duration-300 overflow-visible ${
+            isWaitingForInput ? "animate-pulse border-primary/50" : ""
+          }`}
+        >
+          {q.header && (
+            <legend className="mb-2 text-sm font-medium text-foreground">
+              {q.header}
+            </legend>
+          )}
+          <div className="mb-3 text-sm text-muted-foreground">{q.question}</div>
+          {q.multiSelect && (
+            <div className="mb-2 text-xs text-muted-foreground">可多选</div>
+          )}
+          <div className="flex flex-col gap-2 overflow-visible min-h-[2rem]">
+            {q.options?.map((opt, optIdx) => {
+              const selected = isSelected(q.question, opt.label, q.multiSelect);
+              const id = `ask-${idx}-${optIdx}-${opt.label.slice(0, 8)}`;
 
-        return (
-          <div
-            key={idx}
-            className={`rounded-lg border p-4 ${shouldAnimate ? "bounce-animation" : "border-border"}`}
-          >
-            {q.header && (
-              <h4 className="mb-2 font-medium text-foreground">{q.header}</h4>
-            )}
-            <p className="mb-3 text-sm text-muted-foreground">{q.question}</p>
-            {q.options && (
-              <div className="space-y-2">
-                {q.options.map((opt, optIdx) => {
-                  const isSelected = isMulti
-                    ? (selectedValue as string[] | undefined)?.includes(
-                        opt.label,
-                      )
-                    : selectedValue === opt.label;
+              if (q.multiSelect) {
+                return (
+                  <label
+                    key={`${opt.label}-${optIdx}`}
+                    htmlFor={id}
+                    className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm cursor-pointer border transition-colors ${
+                      selected
+                        ? "bg-primary/10 border-primary text-foreground"
+                        : "bg-muted/50 border-border hover:border-primary/30 text-foreground"
+                    }`}
+                  >
+                    <input
+                      id={id}
+                      type="checkbox"
+                      checked={!!selected}
+                      onChange={() => selectAnswer(q.question, opt.label, true)}
+                      className="size-4 shrink-0 rounded border-border"
+                    />
+                    <span className="flex-1">{opt.label}</span>
+                    {opt.description && (
+                      <span className="text-xs text-muted-foreground">
+                        {opt.description}
+                      </span>
+                    )}
+                  </label>
+                );
+              }
 
-                  return (
-                    <div
-                      key={optIdx}
-                      onClick={() =>
-                        handleSelect(q.question, opt.label, isMulti)
-                      }
-                      onKeyDown={(e) =>
-                        e.key === "Enter" &&
-                        handleSelect(q.question, opt.label, isMulti)
-                      }
-                      role={isMulti ? "checkbox" : "radio"}
-                      aria-checked={isSelected}
-                      tabIndex={0}
-                      className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 transition-colors ${
-                        isSelected
-                          ? "border-primary bg-primary/5"
-                          : "border-border hover:bg-muted"
-                      }`}
-                    >
-                      <div
-                        className={`mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-${isMulti ? "sm" : "full"} border ${
-                          isSelected
-                            ? "border-primary bg-primary text-primary-foreground"
-                            : "border-muted-foreground"
-                        }`}
-                      >
-                        {isSelected && (
-                          <svg
-                            className="size-3"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            strokeWidth={3}
-                            aria-hidden="true"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M5 13l4 4L19 7"
-                            />
-                          </svg>
-                        )}
-                      </div>
-                      <div>
-                        <div className="font-medium text-foreground">
-                          {opt.label}
-                        </div>
-                        {opt.description && (
-                          <div className="text-sm text-muted-foreground">
-                            {opt.description}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+              return (
+                <label
+                  key={`${opt.label}-${optIdx}`}
+                  htmlFor={id}
+                  className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm cursor-pointer border transition-colors ${
+                    selected
+                      ? "bg-primary/10 border-primary text-foreground"
+                      : "bg-muted/50 border-border hover:border-primary/30 text-foreground"
+                  }`}
+                >
+                  <input
+                    id={id}
+                    type="radio"
+                    name={`ask-${idx}-${q.question.slice(0, 12)}`}
+                    checked={!!selected}
+                    onChange={() => selectAnswer(q.question, opt.label, false)}
+                    className="size-4 shrink-0 border-border"
+                  />
+                  <span className="flex-1">{opt.label}</span>
+                  {opt.description && (
+                    <span className="text-xs text-muted-foreground">
+                      {opt.description}
+                    </span>
+                  )}
+                </label>
+              );
+            })}
           </div>
-        );
-      })}
+        </fieldset>
+      ))}
     </div>
   );
 }

@@ -61,7 +61,6 @@ export async function runAgent(options: RunAgentOptions): Promise<void> {
           maxTurns: options.maxTurns,
           allowedTools: options.allowedTools,
           resume: options.resume,
-          approvalDir: options.approvalDir,
           outputFormat: options.outputFormat,
           abortController: abortController,
         };

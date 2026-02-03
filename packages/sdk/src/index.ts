@@ -24,6 +24,7 @@ export {
   createSandAgent,
   SandAgentLanguageModel,
   resolveModelId,
+  submitAnswer,
 } from "./provider";
 
 export type {
@@ -35,6 +36,9 @@ export type {
   ArtifactProcessor,
   ArtifactResult,
   StreamWriter,
+  SubmitAnswerParams,
+  SubmitAnswerOptions,
+  Question,
   // Re-exports from @sandagent/manager
   SandboxAdapter,
   SandboxHandle,
