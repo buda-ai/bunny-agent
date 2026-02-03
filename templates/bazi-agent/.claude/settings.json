@@ -1,0 +1,22 @@
+{
+  "max_tokens": 8096,
+  "temperature": 0.6,
+  "timeout_ms": 600000,
+  "max_turns": 100,
+  "streaming": true,
+  "permissions": {
+    "allow": [
+      "Skill",
+      "WebSearch",
+      "WebFetch",
+      "Write(output/*)",
+      "Edit(output/*)",
+      "Read(*)",
+      "Bash(mkdir:*)",
+      "Bash(cat:*)",
+      "Bash(ls:*)",
+      "Bash(date:*)"
+    ],
+    "ask": ["AskUserQuestion"]
+  }
+}
