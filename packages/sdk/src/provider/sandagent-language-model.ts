@@ -264,20 +264,20 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
                     for (const part of parts) {
                       controller.enqueue(part);
 
-                      if (
-                        self.options.artifactProcessors?.length &&
-                        self.sessionId
-                      ) {
+                      if (self.sessionId) {
                         const sessionId: string = self.sessionId;
-                        for (const processor of self.options
-                          .artifactProcessors) {
-                          Promise.resolve()
-                            .then(() => processor.onChange(part, sessionId))
-                            .catch((e) => {
-                              self.logger.error(
-                                `[sandagent] Artifact processor error: ${e}`,
-                              );
-                            });
+
+                        if (self.options.artifactProcessors?.length) {
+                          for (const processor of self.options
+                            .artifactProcessors) {
+                            Promise.resolve()
+                              .then(() => processor.onChange(part, sessionId))
+                              .catch((e) => {
+                                self.logger.error(
+                                  `[sandagent] Artifact processor error: ${e}`,
+                                );
+                              });
+                          }
                         }
                       }
                     }

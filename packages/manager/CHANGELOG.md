@@ -1,5 +1,11 @@
 # @sandagent/manager
 
+## 0.2.5
+
+### Patch Changes
+
+- AskUserQuestion refactor: submitAnswer API, /api/answer route, docs reorg (quick start + approval file).
+
 ## 0.2.4
 
 ### Patch Changes

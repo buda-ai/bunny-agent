@@ -29,9 +29,9 @@ import type {
  *   } = useAskUserQuestion({
  *     part,
  *     onAnswer: (data) => {
- *       fetch("/api/approval/submit", {
+ *       fetch("/api/answer", {
  *         method: "POST",
- *         body: JSON.stringify({ sessionId, ...data }),
+ *         body: JSON.stringify(data),
  *       });
  *     },
  *   });
@@ -63,6 +63,7 @@ import type {
  */
 export function useAskUserQuestion({
   part,
+  answerEndpoint = "/api/answer",
   onAnswer,
 }: UseAskUserQuestionOptions): UseAskUserQuestionReturn {
   const [answers, setAnswers] = useState<Record<string, string | string[]>>({});
@@ -149,7 +150,7 @@ export function useAskUserQuestion({
 
       setAnswers(newAnswers);
 
-      // Prepare answers map for callback
+      // Prepare answers map for callback and API
       const answersMap: Record<string, string> = {};
       for (const q of questions) {
         const answer = newAnswers[q.question];
@@ -162,6 +163,19 @@ export function useAskUserQuestion({
         }
       }
 
+      // Auto-submit to answer endpoint
+      fetch(answerEndpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          toolCallId: part.toolCallId,
+          questions,
+          answers: answersMap,
+        }),
+      }).catch((err) => {
+        console.error("[useAskUserQuestion] Submit failed:", err);
+      });
+
       // Trigger callback
       onAnswer?.({
         toolCallId: part.toolCallId,
@@ -169,7 +183,7 @@ export function useAskUserQuestion({
         answers: answersMap,
       });
     },
-    [answers, questions, part.toolCallId, onAnswer],
+    [answers, questions, part.toolCallId, answerEndpoint, onAnswer],
   );
 
   // Check if option is selected

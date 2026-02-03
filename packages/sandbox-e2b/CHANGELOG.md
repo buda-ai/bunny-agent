@@ -1,5 +1,13 @@
 # @sandagent/sandbox-e2b
 
+## 0.2.5
+
+### Patch Changes
+
+- AskUserQuestion refactor: submitAnswer API, /api/answer route, docs reorg (quick start + approval file).
+- Updated dependencies
+  - @sandagent/manager@0.2.5
+
 ## 0.2.4
 
 ### Patch Changes

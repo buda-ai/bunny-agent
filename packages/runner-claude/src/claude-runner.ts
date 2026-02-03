@@ -93,6 +93,8 @@ interface ClaudeAgentSDKModule {
 
 /**
  * Create canUseTool callback for tool approval flow
+ * Uses default path: {cwd}/.sandagent/approvals/{toolUseID}.json
+ *
  * @param claudeOptions - Claude runner options
  * @returns canUseTool callback function
  */
@@ -121,18 +123,18 @@ function createCanUseToolCallback(
       };
     }
 
-    const approvalDir = claudeOptions.approvalDir;
-
-    // If no approval directory configured, deny the tool call
-    if (!approvalDir) {
-      return { behavior: "deny", message: "User not answer" };
-    }
+    // Build approval file path: {cwd}/.sandagent/approvals/{toolUseID}.json
+    const cwd = claudeOptions.cwd || process.cwd();
 
     try {
       const { execSync } = await import("node:child_process");
       const path = await import("node:path");
 
+      const approvalDir = path.join(cwd, ".sandagent", "approvals");
       const approvalFile = path.join(approvalDir, `${toolUseID}.json`);
+
+      // Ensure approval directory exists
+      execSync(`mkdir -p "${approvalDir}"`);
 
       // Poll for answers (60 second timeout)
       const timeout = Date.now() + 60000;
@@ -146,7 +148,7 @@ function createCanUseToolCallback(
         try {
           // Use shell command to check if file exists and read it
           // Redirect stderr to /dev/null to suppress "No such file or directory" errors
-          const data = execSync(`cat ${approvalFile} 2>/dev/null`, {
+          const data = execSync(`cat "${approvalFile}" 2>/dev/null`, {
             encoding: "utf-8",
           });
           const approval = JSON.parse(data);
@@ -156,7 +158,7 @@ function createCanUseToolCallback(
           if (approval.status === "completed") {
             // Clean up file
             try {
-              execSync(`rm ${approvalFile} 2>/dev/null`);
+              execSync(`rm "${approvalFile}" 2>/dev/null`);
             } catch {
               // Ignore cleanup errors
             }
@@ -179,7 +181,7 @@ function createCanUseToolCallback(
 
       // Timeout - return partial answers if any were collected
       try {
-        execSync(`rm ${approvalFile} 2>/dev/null`);
+        execSync(`rm "${approvalFile}" 2>/dev/null`);
       } catch {
         // Ignore cleanup errors
       }
@@ -475,7 +477,6 @@ async function* runWithAISDKUIOutput(
   );
 
   try {
-    // Use ai-sdk-stream to handle the conversion
     yield* streamSDKMessagesToAISDKUI(queryIterator, { cwd: options.cwd });
   } finally {
     cleanup();

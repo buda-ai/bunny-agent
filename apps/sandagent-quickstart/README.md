@@ -1,54 +1,69 @@
 # SandAgent Quickstart
 
-5 分钟搭建 AI Agent 聊天界面。
+Get an AI agent chat running in a few minutes.
 
-## 快速开始
+## Quick Start
 
-### 1. 安装依赖
+### 1. Install dependencies
 
 ```bash
 npm install
 ```
 
-### 2. 配置 API Key
+### 2. Configure API key
 
-创建 `.env.local` 文件：
+Create a `.env.local` file:
 
 ```bash
-ANTHROPIC_API_KEY=sk-ant-你的密钥
+ANTHROPIC_API_KEY=sk-ant-your-key
 ```
 
-### 3. 启动
+### 3. Run
 
 ```bash
 npm run dev
 ```
 
-打开 http://localhost:3000
+Open http://localhost:3000
 
-## 自定义 Agent
+## Customize the Agent
 
-修改 `CLAUDE.md` 定义 Agent 角色：
+Edit `agent/CLAUDE.md` to define the agent’s role:
 
 ```markdown
-# 我的 AI 助手
+# My AI Assistant
 
-你是一个友好的助手...
+You are a helpful assistant...
 ```
 
-添加技能到 `.claude/skills/` 目录。
+Add skills under `agent/.claude/skills/`.
 
-## 项目结构
+## Project structure
 
 ```
 ├── app/
-│   ├── page.tsx           # 聊天界面
-│   └── api/ai/route.ts    # 后端 API
-├── CLAUDE.md              # Agent 角色定义
-└── .claude/skills/        # 技能文件
+│   ├── page.tsx           # Chat UI
+│   └── api/ai/route.ts    # Backend API
+├── agent/
+│   ├── CLAUDE.md          # Agent role
+│   └── .claude/skills/    # Skills
+└── lib/
+    └── artifact-processor.ts  # Artifact processor
 ```
 
-## 使用的包
+## AskUserQuestion (user Q&A)
+
+When the agent needs to ask the user questions during a run, it uses the `AskUserQuestion` tool. To add this feature:
+
+1. **Add the answer API route** — Create `app/api/answer/route.ts` that receives `{ toolCallId, questions, answers }` and calls `submitAnswer(sandbox, ...)` with the same workdir as your chat sandbox.
+2. **Add the UI component** — Use `useAskUserQuestion` from `@sandagent/sdk/react` and render it for dynamic tool parts with `toolName === "AskUserQuestion"`.
+3. **Render in the chat page** — When rendering message parts, detect `AskUserQuestion` and render your `AskUserQuestionUI` component.
+
+**Full step-by-step guide (developer):** [docs/ASK_USER_QUESTION_QUICK_START.md](../../docs/ASK_USER_QUESTION_QUICK_START.md)
+
+**Approval file path:** The runner polls for answers at `{workdir}/.sandagent/approvals/{toolCallId}.json`.
+
+## Dependencies
 
 ```json
 {
@@ -57,8 +72,11 @@ npm run dev
 }
 ```
 
-## 下一步
+## Next steps
 
-- [SDK 快速开始](../../docs/SDK_QUICK_START.md)
-- [SDK 开发指南](../../docs/SDK_DEVELOPMENT_GUIDE.md)
-- [云端部署](../../packages/sandbox-e2b/README.md)
+- [SDK Quick Start](../../docs/SDK_QUICK_START.md)
+- [SDK Development Guide](../../docs/SDK_DEVELOPMENT_GUIDE.md)
+- [AskUserQuestion Quick Start](../../docs/ASK_USER_QUESTION_QUICK_START.md)
+- [AskUserQuestion UI](../../docs/ASK_USER_QUESTION_UI.md)
+- [Approval file (data contract)](../../docs/ASK_USER_QUESTION_APPROVAL_FILE.md)
+- [E2B / cloud sandbox](../../packages/sandbox-e2b/README.md)

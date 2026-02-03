@@ -37,7 +37,6 @@ const TEMPLATES_PATH = path.join(MONOREPO_ROOT, "templates");
  *
  * Request body:
  * {
- *   sessionId: string,
  *   messages: [{ role: "user" | "assistant", content: string }],
  *   template?: string,
  *   ANTHROPIC_API_KEY?: string,          // Client-provided API key
@@ -55,7 +54,6 @@ const TEMPLATES_PATH = path.join(MONOREPO_ROOT, "templates");
 export async function POST(request: Request) {
   const body = await request.json();
   const {
-    sessionId,
     messages,
     template = "default",
     resume,
@@ -186,10 +184,10 @@ export async function POST(request: Request) {
   };
   if (ANTHROPIC_API_KEY) env.ANTHROPIC_API_KEY = ANTHROPIC_API_KEY;
   if (ANTHROPIC_BASE_URL) env.ANTHROPIC_BASE_URL = ANTHROPIC_BASE_URL;
-  if (AWS_BEARER_TOKEN_BEDROCK) {
-    env.AWS_BEARER_TOKEN_BEDROCK = AWS_BEARER_TOKEN_BEDROCK;
-    env.CLAUDE_CODE_USE_BEDROCK = "1";
-  }
+  // if (AWS_BEARER_TOKEN_BEDROCK) {
+  //   env.AWS_BEARER_TOKEN_BEDROCK = AWS_BEARER_TOKEN_BEDROCK;
+  //   env.CLAUDE_CODE_USE_BEDROCK = "1";
+  // }
 
   // Create sandbox based on provider
   // env and workdir are now part of sandbox config
@@ -240,15 +238,29 @@ export async function POST(request: Request) {
     });
   } else {
     sandbox = new LocalSandbox({
-      workdir: path.join(process.cwd(), "/workspace"),
+      workdir: path.join(process.cwd(), "workspace"),
       templatesPath: path.join(TEMPLATES_PATH, template),
-      env,
+      env: {
+        ...env,
+        DEBUG: "true",
+        API_TIMEOUT_MS: "3000000",
+        // ANTHROPIC_AUTH_TOKEN: ANTHROPIC_API_KEY,
+        // ANTHROPIC_BASE_URL: ANTHROPIC_BASE_URL,
+        // CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
+        ANTHROPIC_DEFAULT_HAIKU_MODEL: "glm-4.5-air",
+        ANTHROPIC_DEFAULT_SONNET_MODEL: "glm-4.7",
+        ANTHROPIC_DEFAULT_OPUS_MODEL: "glm-4.7",
+      },
+      // test local bundle
+      runnerCommand: ["node", RUNNER_BUNDLE_PATH, "run"],
+      // use npm package
+      // runnerCommand: ["npx", "-y", "@sandagent/runner-cli@latest", "run"],
     });
   }
 
   // Determine model based on whether using AWS Bedrock
   const model = ANTHROPIC_API_KEY
-    ? "claude-sonnet-4-20250514" // Standard Anthropic model ID
+    ? "glm-4.7" // Standard Anthropic model ID
     : "us.anthropic.claude-sonnet-4-20250514-v1:0"; // AWS Bedrock model ID
 
   // Streaming - use createUIMessageStream to handle artifact data
@@ -261,7 +273,6 @@ export async function POST(request: Request) {
         writer,
       });
 
-      // Create the provider with sandbox, artifact processor, and writer
       const sandagentOptions: SandAgentProviderSettings = {
         sandbox,
         cwd: sandbox.getWorkdir?.() || "/sandagent",
