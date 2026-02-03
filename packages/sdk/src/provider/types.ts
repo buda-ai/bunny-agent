@@ -2,7 +2,7 @@ import type { LanguageModelV3StreamPart } from "@ai-sdk/provider";
 import type { SandAgentOptions } from "@sandagent/manager";
 
 /**
- * Artifact Processor 返回结果
+ * Artifact Processor result
  */
 export interface ArtifactResult {
   artifactId: string;
@@ -23,15 +23,37 @@ export interface StreamWriter {
 }
 
 /**
- * Artifact Processor 接口
+ * Artifact Processor interface
  */
 export interface ArtifactProcessor {
   /**
-   * 当收到 stream part 时触发
-   * @param event - Stream part 事件
-   * @param sessionId - 当前会话 ID（taskId）
+   * Invoked when a stream part is received
+   * @param event - Stream part event
+   * @param sessionId - Current session ID (taskId)
    */
   onChange(event: LanguageModelV3StreamPart, sessionId: string): Promise<void>;
+}
+
+/**
+ * Question structure for AskUserQuestion tool
+ */
+export interface Question {
+  question: string;
+  header?: string;
+  options?: Array<{ label: string; description?: string }>;
+  multiSelect?: boolean;
+}
+
+/**
+ * Parameters for submitting an answer
+ */
+export interface SubmitAnswerParams {
+  /** Tool call ID from the AskUserQuestion tool */
+  toolCallId: string;
+  /** Original questions from the tool */
+  questions: Question[];
+  /** User's answers keyed by question text */
+  answers: Record<string, string>;
 }
 
 /**

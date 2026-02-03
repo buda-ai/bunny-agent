@@ -27,6 +27,7 @@ import {
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
+import { AskUserQuestionUI } from "./claude-tools/AskUserQuestionUI";
 import { STORAGE_KEY } from "./settings/page";
 
 const REQUIRED_KEYS = ["E2B_API_KEY"];
@@ -49,7 +50,13 @@ const templates = [
   },
 ];
 
-function ChatMessage({ message }: { message: UIMessage }) {
+function ChatMessage({
+  message,
+  messages,
+}: {
+  message: UIMessage;
+  messages: UIMessage[];
+}) {
   const isUser = message.role === "user";
 
   return (
@@ -73,6 +80,14 @@ function ChatMessage({ message }: { message: UIMessage }) {
             }
             if (part.type === "dynamic-tool") {
               const toolPart = part as DynamicToolUIPart;
+              if (toolPart.toolName === "AskUserQuestion") {
+                return (
+                  <AskUserQuestionUI
+                    key={toolPart.toolCallId ?? `ask-${index}`}
+                    part={toolPart}
+                  />
+                );
+              }
               return (
                 <div
                   key={index}
@@ -195,7 +210,11 @@ function HomeContent() {
             />
           ) : (
             messages.map((message) => (
-              <ChatMessage key={message.id} message={message} />
+              <ChatMessage
+                key={message.id}
+                message={message}
+                messages={messages}
+              />
             ))
           )}
           {isLoading && (

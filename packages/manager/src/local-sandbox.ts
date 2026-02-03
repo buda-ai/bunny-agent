@@ -11,7 +11,7 @@ export interface LocalSandboxOptions {
   workdir?: string;
   /** Path to the agent template directory to copy into the sandbox workdir */
   templatesPath?: string;
-  /** Default timeout for commands in milliseconds (default: 60000) */
+  /** Default timeout for commands in milliseconds (default: 300000 = 5 min) */
   defaultTimeout?: number;
   /** Environment variables to pass to all commands */
   env?: Record<string, string>;
@@ -67,7 +67,7 @@ export class LocalSandbox implements SandboxAdapter {
   constructor(options: LocalSandboxOptions = {}) {
     this.workdir = options.workdir ?? process.cwd();
     this.templatesPath = options.templatesPath;
-    this.defaultTimeout = options.defaultTimeout ?? 60000;
+    this.defaultTimeout = options.defaultTimeout ?? 300000; // 5 min for agent runs
     this.env = options.env ?? {};
     this.runnerCommand = options.runnerCommand ?? ["sandagent", "run"];
   }
@@ -105,6 +105,17 @@ export class LocalSandbox implements SandboxAdapter {
 
     // Use workdir as the working directory
     const workdir = this.workdir;
+
+    // Clear template files before copying (only .claude dir and CLAUDE.md)
+    if (this.templatesPath) {
+      const claudeDir = path.join(workdir, ".claude");
+      const claudeMd = path.join(workdir, "CLAUDE.md");
+
+      await fs.rm(claudeDir, { recursive: true, force: true }).catch(() => {});
+      await fs.rm(claudeMd, { force: true }).catch(() => {});
+
+      console.log(`[LocalSandbox] Cleared template files: .claude, CLAUDE.md`);
+    }
 
     // Create the directory if it doesn't exist
     await fs.mkdir(workdir, { recursive: true });
@@ -210,6 +221,9 @@ class LocalSandboxHandle implements SandboxHandle {
     console.log(`[LocalSandbox] Working directory: ${cwd}`);
     console.log(
       `[LocalSandbox] ENV AWS_BEARER_TOKEN_BEDROCK: ${env.AWS_BEARER_TOKEN_BEDROCK ? "SET" : "NOT SET"}`,
+    );
+    console.log(
+      `[LocalSandbox] ENV CLAUDE_CODE_USE_BEDROCK: ${env.CLAUDE_CODE_USE_BEDROCK || "NOT SET"}`,
     );
     console.log(
       `[LocalSandbox] ENV ANTHROPIC_API_KEY: ${env.ANTHROPIC_API_KEY ? "SET" : "NOT SET"}`,

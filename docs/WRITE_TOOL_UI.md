@@ -1,32 +1,30 @@
-# Write 工具 UI 文档
+# Write Tool UI Guide
 
-## Output 对象结构
+## Output Shape
 
-当 Write 工具执行成功后，`output` 字段包含以下结构：
+When the Write tool succeeds, its `output` typically looks like this:
 
 ```json
 {
   "type": "create",
   "filePath": "/sandagent/output/technical-seo-audit-bika-ai.md",
-  "content": "# 标题\n\n文件的完整内容...",
+  "content": "# Title\n\nFull file contents...",
   "structuredPatch": [],
   "originalFile": null
 }
 ```
 
-### 字段说明
+### Field Reference
 
-| 字段 | 类型 | 说明 |
+| Field | Type | Notes |
 |------|------|------|
-| `type` | `string` | 操作类型，通常为 `"create"` 或 `"edit"` |
-| `filePath` | `string` | 文件的完整路径（绝对路径） |
-| `content` | `string` | 文件的完整内容（可能包含 `\n` 等转义字符） |
-| `structuredPatch` | `array` | 结构化的补丁数组（编辑操作时使用） |
-| `originalFile` | `string \| null` | 原始文件内容（编辑操作时使用，创建时为 `null`） |
+| `type` | `string` | Usually `"create"` or `"edit"` |
+| `filePath` | `string` | Absolute path of the file |
+| `content` | `string` | Full file contents |
+| `structuredPatch` | `array` | Patch data for edits |
+| `originalFile` | `string | null` | Original file contents for edits |
 
-## UI 渲染逻辑
-
-前端根据 `DynamicToolUIPart` 的 `output` 字段渲染：
+## DynamicToolUIPart
 
 ```typescript
 interface DynamicToolUIPart {
@@ -47,9 +45,9 @@ interface DynamicToolUIPart {
 }
 ```
 
-### 状态说明
+### State Behavior
 
-- `input-streaming`: 模型正在生成文件内容
-- `input-available`: 内容已完成，准备执行写入
-- `output-available`: 文件写入成功
-- `output-error`: 写入过程中发生错误
+- `input-streaming`: model is generating file content
+- `input-available`: content is ready to write
+- `output-available`: write succeeded
+- `output-error`: write failed

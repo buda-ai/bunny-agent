@@ -4,5 +4,6 @@
   "allowed_tools": ["bash", "read_file", "write_file"],
   "timeout_ms": 300000,
   "max_turns": 50,
-  "streaming": true
+  "streaming": true,
+  "hasCompletedOnboarding": true
 }
