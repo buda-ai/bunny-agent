@@ -30,6 +30,9 @@ const RUNNER_BUNDLE_PATH = path.join(
 );
 const TEMPLATES_PATH = path.join(MONOREPO_ROOT, "templates");
 
+/** Docker image for Sandock (pre-built SandAgent). Override with env SANDBOX_IMAGE. */
+const SANDBOX_IMAGE = process.env.SANDBOX_IMAGE ?? "vikadata/sandagent:0.1.0";
+
 /**
  * POST /api/ai
  *
@@ -199,7 +202,6 @@ export async function POST(request: Request) {
     const { DaytonaSandbox } = await import("@sandagent/sandbox-daytona");
     sandbox = new DaytonaSandbox({
       apiKey: DAYTONA_API_KEY,
-      // runnerBundlePath: RUNNER_BUNDLE_PATH,
       templatesPath: path.join(TEMPLATES_PATH, template),
       volumeName: sandboxName,
       volumeMountPath: "/workspace",
@@ -215,25 +217,40 @@ export async function POST(request: Request) {
   } else if (SANDBOX_PROVIDER === "sandock") {
     sandbox = new SandockSandbox({
       apiKey: SANDOCK_API_KEY,
-      runnerBundlePath: RUNNER_BUNDLE_PATH,
+      image: SANDBOX_IMAGE,
+      skipBootstrap: true,
       templatesPath: path.join(TEMPLATES_PATH, template),
-      volumeName: sandboxName,
-      volumeMountPath: "/workspace",
-      // Sandbox-level config
+      volumes: [
+        { volumeName: sandboxName, volumeMountPath: "/workspace" },
+        {
+          volumeName: `${sandboxName}-claude-session`,
+          volumeMountPath: "/root/.claude", // ~/.claude when container runs as root; use /home/node/.claude if image runs as node user
+        },
+      ],
       env,
       workdir: "/workspace",
+      name: sandboxName,
     });
+    console.log(
+      `[API] Sandock sandbox configured with image: ${SANDBOX_IMAGE}, template: ${template}`,
+    );
   } else if (SANDBOX_PROVIDER === "e2b") {
     sandbox = new E2BSandbox({
       apiKey: E2B_API_KEY,
-      // TODO: E2B alias cache issue - use template ID directly for now
-      // template: `sandagent-claude-${template}`,
-      // template: "0ztjw3uqpwmhryuwo8vh", // sandagent-claude-researcher
-      runnerBundlePath: RUNNER_BUNDLE_PATH,
       templatesPath: path.join(TEMPLATES_PATH, template),
       name: sandboxName,
       // Sandbox-level config
-      env,
+      env: {
+        ...env,
+        DEBUG: "true",
+        API_TIMEOUT_MS: "3000000",
+        // ANTHROPIC_AUTH_TOKEN: ANTHROPIC_API_KEY,
+        // ANTHROPIC_BASE_URL: ANTHROPIC_BASE_URL,
+        // CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
+        ANTHROPIC_DEFAULT_HAIKU_MODEL: "glm-4.5-air",
+        ANTHROPIC_DEFAULT_SONNET_MODEL: "glm-4.7",
+        ANTHROPIC_DEFAULT_OPUS_MODEL: "glm-4.7",
+      },
       workdir: "/workspace",
     });
   } else {
