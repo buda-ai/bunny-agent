@@ -8,6 +8,20 @@ import type {
 } from "@sandagent/manager";
 import { type SandockClient, createSandockClient } from "sandock";
 
+function normalizeVolumeConfig(
+  options: SandockSandboxOptions,
+): SandockVolumeConfig[] {
+  return options.volumes ?? [];
+}
+
+/** Single volume mount configuration (name → get/create by name; mountPath inside container) */
+export interface SandockVolumeConfig {
+  /** Volume name for persistence (will be created if not exists) */
+  volumeName: string;
+  /** Mount path inside the sandbox */
+  volumeMountPath: string;
+}
+
 /**
  * Options for creating a SandockSandbox instance
  */
@@ -33,10 +47,11 @@ export interface SandockSandboxOptions {
   timeout?: number;
   /** Path to template directory to upload */
   templatesPath?: string;
-  /** Volume name for persistence (will be created if not exists) */
-  volumeName?: string;
-  /** Mount path for the volume (default: /sandagent) */
-  volumeMountPath?: string;
+  /**
+   * Volume mounts for persistence (e.g. workspace + Claude SDK session storage).
+   * Each volume is created/fetched by name and mounted at the given path.
+   */
+  volumes?: SandockVolumeConfig[];
   /** Sandbox name for reuse (similar to Daytona). */
   name?: string;
 
@@ -68,8 +83,7 @@ export class SandockSandbox implements SandboxAdapter {
   private readonly keep: boolean;
   private readonly timeout: number;
   private readonly templatesPath?: string;
-  private readonly volumeName?: string;
-  private readonly volumeMountPath: string;
+  private readonly volumes: SandockVolumeConfig[];
   private readonly skipBootstrap: boolean;
   private readonly env: Record<string, string>;
   private readonly name?: string;
@@ -96,8 +110,7 @@ export class SandockSandbox implements SandboxAdapter {
     this.keep = options.keep ?? true;
     this.timeout = options.timeout ?? 300000;
     this.templatesPath = options.templatesPath;
-    this.volumeName = options.volumeName;
-    this.volumeMountPath = options.volumeMountPath ?? "/sandagent";
+    this.volumes = normalizeVolumeConfig(options);
     this.skipBootstrap = options.skipBootstrap ?? false;
     this.env = options.env ?? {};
     this.name = options.name;
@@ -139,45 +152,49 @@ export class SandockSandbox implements SandboxAdapter {
    * Attach to or create a sandbox (always creates a new sandbox).
    */
   async attach(): Promise<SandboxHandle> {
-    // Get or create volume if volumeName is provided
-    let volumeId: string | undefined;
-    if (this.volumeName) {
-      console.log(`[Sandock] Getting/creating volume: ${this.volumeName}`);
-      const volume = await this.client.volume.getByName(this.volumeName, true);
+    // Resolve all volumes (get or create by name, wait for ready)
+    const volumeMounts: Array<{ volumeId: string; mountPath: string }> = [];
+    for (const v of this.volumes) {
+      console.log(`[Sandock] Getting/creating volume: ${v.volumeName}`);
+      const volume = await this.client.volume.getByName(v.volumeName, true);
+      const mountPath = v.volumeMountPath;
 
-      // Wait for volume to be ready if needed
       if (volume.data.status && volume.data.status !== "ready") {
         console.log(
-          `[Sandock] Volume status: ${volume.data.status}, waiting...`,
+          `[Sandock] Volume ${v.volumeName} status: ${volume.data.status}, waiting...`,
         );
         const maxWaitMs = 30000;
         const startTime = Date.now();
+        let current = volume;
         while (
-          volume.data.status !== "ready" &&
+          current.data.status !== "ready" &&
           Date.now() - startTime < maxWaitMs
         ) {
           await new Promise((resolve) => setTimeout(resolve, 1000));
-          const updatedVolume = await this.client.volume.getByName(
-            this.volumeName,
+          const updated = await this.client.volume.getByName(
+            v.volumeName,
             false,
           );
-          volume.data = updatedVolume.data;
+          current = updated;
         }
 
-        if (volume.data.status !== "ready") {
+        if (current.data.status !== "ready") {
           throw new Error(
-            `Volume '${this.volumeName}' failed to become ready. Status: ${volume.data.status}`,
+            `Volume '${v.volumeName}' failed to become ready. Status: ${current.data.status}`,
           );
         }
       }
 
-      volumeId = volume.data.id;
+      volumeMounts.push({
+        volumeId: volume.data.id,
+        mountPath,
+      });
       console.log(
-        `[Sandock] Using volume ${volumeId} at ${this.volumeMountPath}`,
+        `[Sandock] Using volume ${volume.data.id} (${v.volumeName}) at ${mountPath}`,
       );
     }
 
-    // Create sandbox using high-level API with optional volume mount
+    // Create sandbox using high-level API with optional volume mounts
     const createOptions: {
       image: string;
       memory?: number;
@@ -191,8 +208,8 @@ export class SandockSandbox implements SandboxAdapter {
       title: this.name,
     };
 
-    if (volumeId) {
-      createOptions.volumes = [{ volumeId, mountPath: this.volumeMountPath }];
+    if (volumeMounts.length > 0) {
+      createOptions.volumes = volumeMounts;
     }
 
     const createResult = await this.client.sandbox.create(createOptions);

@@ -220,8 +220,13 @@ export async function POST(request: Request) {
       image: SANDBOX_IMAGE,
       skipBootstrap: true,
       templatesPath: path.join(TEMPLATES_PATH, template),
-      volumeName: sandboxName,
-      volumeMountPath: "/workspace",
+      volumes: [
+        { volumeName: sandboxName, volumeMountPath: "/workspace" },
+        {
+          volumeName: `${sandboxName}-claude-session`,
+          volumeMountPath: "/root/.claude", // ~/.claude when container runs as root; use /home/node/.claude if image runs as node user
+        },
+      ],
       env,
       workdir: "/workspace",
       name: sandboxName,
