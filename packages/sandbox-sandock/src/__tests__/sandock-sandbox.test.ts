@@ -330,7 +330,9 @@ describe("SandockSandbox Volume Persistence", () => {
 
   it("should use existing volume if it exists", async () => {
     const sandbox = new SandockSandbox({
-      volumes: [{ volumeName: "existing-volume", volumeMountPath: "/sandagent" }],
+      volumes: [
+        { volumeName: "existing-volume", volumeMountPath: "/sandagent" },
+      ],
     });
 
     const handle = await sandbox.attach();
@@ -340,9 +342,7 @@ describe("SandockSandbox Volume Persistence", () => {
 
   it("should mount volume at specified path", () => {
     const sandbox = new SandockSandbox({
-      volumes: [
-        { volumeName: "test-volume", volumeMountPath: "/custom/path" },
-      ],
+      volumes: [{ volumeName: "test-volume", volumeMountPath: "/custom/path" }],
     });
 
     expect(sandbox).toBeInstanceOf(SandockSandbox);
@@ -355,7 +355,9 @@ describe("SandockSandbox Volume Persistence", () => {
     // - Skip upload of runner bundle and templates
 
     const sandbox = new SandockSandbox({
-      volumes: [{ volumeName: "existing-volume", volumeMountPath: "/sandagent" }],
+      volumes: [
+        { volumeName: "existing-volume", volumeMountPath: "/sandagent" },
+      ],
     });
 
     const handle = await sandbox.attach();

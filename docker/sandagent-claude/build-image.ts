@@ -56,8 +56,7 @@ type Args = {
 };
 
 function parseArgs(scriptDir: string): Args {
-  const defaultTag =
-    process.env.IMAGE_TAG || getPackageVersion(scriptDir);
+  const defaultTag = process.env.IMAGE_TAG || getPackageVersion(scriptDir);
   const args: Args = {
     name: process.env.IMAGE_NAME || "vikadata/sandagent",
     tag: defaultTag,
