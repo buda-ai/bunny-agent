@@ -22,8 +22,6 @@ export interface DaytonaSandboxOptions {
   apiUrl?: string;
   /** Timeout in seconds (0 means no timeout, default is 60) */
   timeout?: number;
-  /** Path to runner bundle.js (required for running sandagent) */
-  runnerBundlePath?: string;
   /** Path to template directory to upload */
   templatesPath?: string;
   /** Volume name for persistence (will be created if not exists) */
@@ -86,7 +84,6 @@ export class DaytonaSandbox implements SandboxAdapter {
   private readonly apiKey?: string;
   private readonly apiUrl?: string;
   private readonly timeout: number;
-  private readonly runnerBundlePath?: string;
   private readonly templatesPath?: string;
   private readonly volumeName?: string;
   private readonly volumeMountPath: string;
@@ -104,7 +101,6 @@ export class DaytonaSandbox implements SandboxAdapter {
     this.apiKey = options.apiKey ?? process.env.DAYTONA_API_KEY;
     this.apiUrl = options.apiUrl ?? process.env.DAYTONA_API_URL;
     this.timeout = options.timeout ?? 0;
-    this.runnerBundlePath = options.runnerBundlePath;
     this.templatesPath = options.templatesPath;
     this.volumeName = options.volumeName;
     this.volumeMountPath = options.volumeMountPath ?? "/sandagent";
@@ -134,18 +130,12 @@ export class DaytonaSandbox implements SandboxAdapter {
 
   /**
    * Get the runner command to execute in the sandbox.
-   * Returns different commands based on whether a local bundle or npm package is used.
+   * Snapshot uses image's sandagent; otherwise npm-installed runner-cli.
    */
   getRunnerCommand(): string[] {
-    if (this.runnerBundlePath && fs.existsSync(this.runnerBundlePath)) {
-      // Local bundle is uploaded to ${workdir}/runner/bundle.mjs
-      return ["node", `${this.workdir}/runner/bundle.mjs`, "run"];
-    }
     if (this.snapshot) {
-      // Snapshot has sandagent as system command in /usr/local/bin
       return ["sandagent", "run"];
     }
-    // npm installed runner-cli in workspace
     return [`${this.workdir}/node_modules/.bin/sandagent`, "run"];
   }
 
@@ -401,48 +391,15 @@ export class DaytonaSandbox implements SandboxAdapter {
       if (copyTemplateResult.stdout) {
         console.log(`[Daytona] ${copyTemplateResult.stdout.trim()}`);
       }
-    } else {
-      // Step 1: Install claude-agent-sdk to workspace
-      console.log(
-        `[Daytona] Installing @anthropic-ai/claude-agent-sdk to ${this.workdir}`,
-      );
-      const sdkInstallResult = await handle.runCommand(
-        `cd ${this.workdir} && npm install --no-audit --no-fund --prefer-offline @anthropic-ai/claude-agent-sdk 2>&1`,
-        10 * 60,
-      );
-      if (sdkInstallResult.exitCode !== 0) {
-        console.error(
-          `[Daytona] Failed to install claude-agent-sdk (exit ${sdkInstallResult.exitCode}): ${sdkInstallResult.stdout}`,
-        );
-        throw new Error(
-          `Failed to install @anthropic-ai/claude-agent-sdk: ${sdkInstallResult.stdout}`,
-        );
-      }
     }
 
-    // Step 2: Setup runner - either upload local bundle, use snapshot, or install from npm
-    if (this.runnerBundlePath && fs.existsSync(this.runnerBundlePath)) {
-      // Option A: Upload local runner bundle to workspace
-      const bundleContent = fs.readFileSync(this.runnerBundlePath);
-      const bundleFileName = path.basename(this.runnerBundlePath);
-      const runnerFiles = [
-        {
-          path: `runner/${bundleFileName}`,
-          content: bundleContent,
-        },
-      ];
-      console.log(
-        `[Daytona] Uploading runner bundle (${bundleFileName}) to ${this.workdir}`,
-      );
-      await handle.upload(runnerFiles, this.workdir);
-      console.log(`[Daytona] Runner bundle uploaded`);
-    } else if (this.snapshot) {
-      // Option B: Using custom snapshot - runner-cli is pre-installed
+    // Setup runner (runner-cli brings in @anthropic-ai/claude-agent-sdk as dependency)
+    if (this.snapshot) {
       console.log(`[Daytona] Using pre-installed runner-cli from snapshot`);
     } else {
-      // Option C: Install runner-cli to workspace from npm
+      // Install runner-cli from npm (includes claude-agent-sdk)
       console.log(
-        `[Daytona] No runnerBundlePath provided, installing @sandagent/runner-cli to ${this.workdir}`,
+        `[Daytona] Installing @sandagent/runner-cli@beta to ${this.workdir}`,
       );
 
       const installResult = await handle.runCommand(

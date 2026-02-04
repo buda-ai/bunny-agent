@@ -1,35 +1,47 @@
 #!/usr/bin/env node
 /**
- * Build (and optionally push) a Docker image for Sandock.
+ * Build (and optionally push) the SandAgent Docker image.
  *
  * Usage (from project root):
- *   pnpm exec tsx docker/sandagent-claude/build-sandock-image.ts [options]
+ *   pnpm exec tsx docker/sandagent-claude/build-image.ts [options]
  *
- * Or from script directory:
- *   npx tsx build-sandock-image.ts [options]
+ * Or from this directory:
+ *   pnpm run image [-- options]
  *
  * Options:
- *   --name <name>        Image name (default: sandagent-claude)
- *   --tag <tag>          Image tag (default: 0.1.0)
+ *   --name <name>        Image name (default: vikadata/sandagent)
+ *   --tag <tag>          Image tag (default: root package.json version)
  *   --image <image>      Full image name override (e.g., user/repo:tag)
  *   --repo <repo>        Repo/namespace for push (e.g., dockerhub username)
  *   --platform <plat>    Build platform (default: linux/amd64)
- *   --template <name>    Include template (e.g., researcher, coder)
+ *   --template <name>    Include template (e.g., researcher, coder) → name-templateName
  *   --context <path>     Build context (default: script directory)
  *   --push               Push image to registry after build
  *   --help, -h           Show this help message
  *
  * Environment:
- *   IMAGE_NAME           Default image name (fallback: sandagent-claude)
- *   IMAGE_TAG            Default image tag (fallback: 0.1.0)
+ *   IMAGE_NAME           Default image name (fallback: vikadata/sandagent)
+ *   IMAGE_TAG            Override image tag (default: root package.json version)
  *   DOCKERHUB_USERNAME   Default repo/namespace for push
  */
 
 import "dotenv/config";
 import { execSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+
+/** Read version from repo root package.json (single source of truth). */
+function getPackageVersion(scriptDir: string): string {
+  const path = resolve(scriptDir, "../../package.json");
+  if (!existsSync(path)) return "0.1.0";
+  try {
+    const json = JSON.parse(readFileSync(path, "utf8"));
+    return typeof json?.version === "string" ? json.version : "0.1.0";
+  } catch {
+    return "0.1.0";
+  }
+}
 
 type Args = {
   name: string;
@@ -43,10 +55,12 @@ type Args = {
   contextProvided: boolean;
 };
 
-function parseArgs(): Args {
+function parseArgs(scriptDir: string): Args {
+  const defaultTag =
+    process.env.IMAGE_TAG || getPackageVersion(scriptDir);
   const args: Args = {
-    name: process.env.IMAGE_NAME || "sandagent-claude",
-    tag: process.env.IMAGE_TAG || "0.1.0",
+    name: process.env.IMAGE_NAME || "vikadata/sandagent",
+    tag: defaultTag,
     image: null,
     repo: process.env.DOCKERHUB_USERNAME || null,
     platform: "linux/amd64",
@@ -77,28 +91,28 @@ function parseArgs(): Args {
       args.push = true;
     } else if (arg === "--help" || arg === "-h") {
       console.log(`
-Usage: npx tsx build-sandock-image.ts [options]
+Usage: pnpm run image [-- options]   or   tsx build-image.ts [options]
 
 Options:
-  --name <name>        Image name (default: sandagent-claude)
-  --tag <tag>          Image tag (default: 0.1.0)
+  --name <name>        Image name (default: vikadata/sandagent)
+  --tag <tag>          Image tag (default: root package.json version)
   --image <image>      Full image name override (e.g., user/repo:tag)
   --repo <repo>        Repo/namespace for push (e.g., dockerhub username)
   --platform <plat>    Build platform (default: linux/amd64)
-  --template <name>    Include template (e.g., researcher, coder)
+  --template <name>    Include template → vikadata/sandagent-<name>
   --context <path>     Build context (default: script directory)
   --push               Push image to registry after build
   --help, -h           Show this help message
 
 Environment:
-  IMAGE_NAME           Default image name (fallback: sandagent-claude)
-  IMAGE_TAG            Default image tag (fallback: 0.1.0)
+  IMAGE_NAME           Default image name (fallback: vikadata/sandagent)
+  IMAGE_TAG            Override tag (default: root package.json version)
   DOCKERHUB_USERNAME   Default repo/namespace for push
 
 Examples:
-  npx tsx build-sandock-image.ts --push --repo yourname
-  npx tsx build-sandock-image.ts --template researcher --push --repo yourname
-  npx tsx build-sandock-image.ts --image yourname/sandagent-claude:0.1.0 --push
+  pnpm run image -- --push
+  pnpm run image -- --template researcher --push
+  pnpm run image -- --push   # pushes vikadata/sandagent:0.1.0
 `);
       process.exit(0);
     }
@@ -121,8 +135,8 @@ function ensureDocker() {
 }
 
 async function main() {
-  const args = parseArgs();
   const scriptDir = dirname(fileURLToPath(import.meta.url));
+  const args = parseArgs(scriptDir);
 
   const imageName = args.template ? `${args.name}-${args.template}` : args.name;
   const localImage = args.image ?? `${imageName}:${args.tag}`;
@@ -139,7 +153,7 @@ async function main() {
     ? resolve(buildContext, "Dockerfile")
     : resolve(context, "Dockerfile");
 
-  console.log("📦 Sandock Image Builder");
+  console.log("📦 SandAgent Docker Image Builder");
   console.log("========================");
   console.log(`  Image: ${localImage}`);
   console.log(`  Platform: ${args.platform}`);
@@ -207,7 +221,7 @@ async function main() {
   console.log("");
   console.log("✅ Image pushed:", pushImage);
   console.log("");
-  console.log("You can now use this image in Sandock:");
+  console.log("You can now use this image (e.g. in Sandock):");
   console.log(`  image: "${pushImage}"`);
 }
 

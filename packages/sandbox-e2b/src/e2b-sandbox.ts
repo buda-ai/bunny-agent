@@ -25,8 +25,6 @@ export interface E2BSandboxOptions {
    * Note: Sandbox can be paused for up to 30 days with E2B's persistence feature.
    */
   timeout?: number;
-  /** Path to runner bundle.js (required for running sandagent) */
-  runnerBundlePath?: string;
   /** Path to template directory to upload */
   templatesPath?: string;
   /**
@@ -84,7 +82,6 @@ export class E2BSandbox implements SandboxAdapter {
   private readonly apiKey?: string;
   private readonly template: string;
   private readonly timeout: number;
-  private readonly runnerBundlePath?: string;
   private readonly templatesPath?: string;
   private readonly name?: string;
   private readonly env: Record<string, string>;
@@ -104,7 +101,6 @@ export class E2BSandbox implements SandboxAdapter {
     this.template = options.template ?? "base";
     // Default to 1 hour (hobby tier limit), convert to milliseconds for E2B SDK
     this.timeout = (options.timeout ?? E2BSandbox.DEFAULT_TIMEOUT_SEC) * 1000;
-    this.runnerBundlePath = options.runnerBundlePath;
     this.templatesPath = options.templatesPath;
     this.name = options.name;
     this.env = options.env ?? {};
@@ -145,18 +141,12 @@ export class E2BSandbox implements SandboxAdapter {
 
   /**
    * Get the runner command to execute in the sandbox.
-   * Returns different commands based on whether a local bundle or npm package is used.
+   * Custom template uses image's sandagent; otherwise npm-installed runner-cli.
    */
   getRunnerCommand(): string[] {
-    if (this.runnerBundlePath && fs.existsSync(this.runnerBundlePath)) {
-      // Local bundle is uploaded to ${workdir}/runner/bundle.mjs
-      return ["node", `${this.workdir}/runner/bundle.mjs`, "run"];
-    }
     if (this.isCustomTemplate()) {
-      // Custom template has sandagent as system command in /usr/local/bin
       return ["sandagent", "run"];
     }
-    // npm installed runner-cli in workspace
     return [`${this.workdir}/node_modules/.bin/sandagent`, "run"];
   }
 
@@ -334,47 +324,15 @@ export class E2BSandbox implements SandboxAdapter {
         );
         // Not fatal - templates might be uploaded via templatesPath instead
       }
-    } else {
-      // Step 1: Install claude-agent-sdk to workspace
-      console.log(
-        `[E2B] Installing @anthropic-ai/claude-agent-sdk to ${this.workdir}`,
-      );
-      const sdkInstallResult = await handle.runCommand(
-        `cd ${this.workdir} && npm install @anthropic-ai/claude-agent-sdk`,
-      );
-      if (sdkInstallResult.exitCode !== 0) {
-        console.error(
-          `[E2B] Failed to install claude-agent-sdk: ${sdkInstallResult.stderr}`,
-        );
-        throw new Error(
-          `Failed to install @anthropic-ai/claude-agent-sdk: ${sdkInstallResult.stderr}`,
-        );
-      }
     }
 
-    // Step 2: Setup runner - either upload local bundle, use pre-installed, or install from npm
-    if (this.runnerBundlePath && fs.existsSync(this.runnerBundlePath)) {
-      // Option A: Upload local runner bundle to workspace
-      const bundleContent = fs.readFileSync(this.runnerBundlePath);
-      const bundleFileName = path.basename(this.runnerBundlePath);
-      const runnerFiles = [
-        {
-          path: `runner/${bundleFileName}`,
-          content: bundleContent,
-        },
-      ];
-      console.log(
-        `[E2B] Uploading runner bundle (${bundleFileName}) to ${this.workdir}`,
-      );
-      await handle.upload(runnerFiles, this.workdir);
-      console.log(`[E2B] Runner bundle uploaded`);
-    } else if (this.isCustomTemplate()) {
-      // Option B: Using custom template - runner-cli is pre-installed
+    // Setup runner (runner-cli brings in @anthropic-ai/claude-agent-sdk as dependency)
+    if (this.isCustomTemplate()) {
       console.log(`[E2B] Using pre-installed runner-cli from template`);
     } else {
-      // Option C: Install runner-cli to workspace from npm
+      // Install runner-cli from npm (includes claude-agent-sdk)
       console.log(
-        `[E2B] No runnerBundlePath provided, installing @sandagent/runner-cli to ${this.workdir}`,
+        `[E2B] Installing @sandagent/runner-cli@beta to ${this.workdir}`,
       );
 
       const installResult = await handle.runCommand(
