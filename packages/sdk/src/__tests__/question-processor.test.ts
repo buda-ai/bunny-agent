@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
 import type { SandboxAdapter, SandboxHandle } from "@sandagent/manager";
+import { describe, expect, it, vi } from "vitest";
 import { submitAnswer } from "../provider/question-processor";
 
 function createHandle() {
