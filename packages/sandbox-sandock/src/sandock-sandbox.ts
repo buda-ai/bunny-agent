@@ -8,6 +8,20 @@ import type {
 } from "@sandagent/manager";
 import { type SandockClient, createSandockClient } from "sandock";
 
+function normalizeVolumeConfig(
+  options: SandockSandboxOptions,
+): SandockVolumeConfig[] {
+  return options.volumes ?? [];
+}
+
+/** Single volume mount configuration (name → get/create by name; mountPath inside container) */
+export interface SandockVolumeConfig {
+  /** Volume name for persistence (will be created if not exists) */
+  volumeName: string;
+  /** Mount path inside the sandbox */
+  volumeMountPath: string;
+}
+
 /**
  * Options for creating a SandockSandbox instance
  */
@@ -24,33 +38,34 @@ export interface SandockSandboxOptions {
   memoryLimitMb?: number;
   /** CPU shares */
   cpuShares?: number;
-  /** Keep sandbox running after execution */
+  /**
+   * If true (default), keep sandbox running after execution (platform may retain it for e.g. 30 minutes).
+   * If false, sandbox is stopped and deleted after the command finishes.
+   */
   keep?: boolean;
   /** Timeout for sandbox operations in milliseconds (default: 300000 = 5 min) */
   timeout?: number;
-  /** Path to runner bundle.js (required for running sandagent) */
-  runnerBundlePath?: string;
   /** Path to template directory to upload */
   templatesPath?: string;
-  /** Volume name for persistence (will be created if not exists) */
-  volumeName?: string;
-  /** Mount path for the volume (default: /sandagent) */
-  volumeMountPath?: string;
+  /**
+   * Volume mounts for persistence (e.g. workspace + Claude SDK session storage).
+   * Each volume is created/fetched by name and mounted at the given path.
+   */
+  volumes?: SandockVolumeConfig[];
+  /** Sandbox name for reuse (similar to Daytona). */
+  name?: string;
+
+  /**
+   * If true, skip installing SDK and runner (image already has them).
+   * Only upload template files and use `sandagent run`. Use with pre-built images like vikadata/sandagent.
+   */
+  skipBootstrap?: boolean;
 
   /**
    * Environment variables to set in the sandbox.
    * These will be available to all commands executed in the sandbox.
    */
   env?: Record<string, string>;
-}
-
-/**
- * Cached sandbox instance with metadata
- */
-interface CachedInstance {
-  sandboxId: string;
-  lastAccessTime: number;
-  handle?: SandboxHandle;
 }
 
 /**
@@ -67,22 +82,11 @@ export class SandockSandbox implements SandboxAdapter {
   private readonly cpuShares?: number;
   private readonly keep: boolean;
   private readonly timeout: number;
-  private readonly runnerBundlePath?: string;
   private readonly templatesPath?: string;
-  private readonly volumeName?: string;
-  private readonly volumeMountPath: string;
+  private readonly volumes: SandockVolumeConfig[];
+  private readonly skipBootstrap: boolean;
   private readonly env: Record<string, string>;
-
-  /** Global cache for sandbox instances (shared across all SandockSandbox instances) */
-  private static readonly instances: Map<string, CachedInstance> = new Map();
-  private static readonly initializedInstances: Set<string> = new Set();
-
-  /** Maximum number of cached instances */
-  private static readonly MAX_CACHE_SIZE = 50;
-  /** Instance expiration time in milliseconds (default: 30 minutes) */
-  private static readonly INSTANCE_TTL_MS = 30 * 60 * 1000;
-  /** Cleanup interval timer (lazy initialized on first cache write) */
-  private static cleanupTimer: ReturnType<typeof setInterval> | null = null;
+  private readonly name?: string;
 
   constructor(options: SandockSandboxOptions = {}) {
     const apiKey = options.apiKey ?? process.env.SANDOCK_API_KEY;
@@ -105,11 +109,11 @@ export class SandockSandbox implements SandboxAdapter {
     this.cpuShares = options.cpuShares;
     this.keep = options.keep ?? true;
     this.timeout = options.timeout ?? 300000;
-    this.runnerBundlePath = options.runnerBundlePath;
     this.templatesPath = options.templatesPath;
-    this.volumeName = options.volumeName;
-    this.volumeMountPath = options.volumeMountPath ?? "/sandagent";
+    this.volumes = normalizeVolumeConfig(options);
+    this.skipBootstrap = options.skipBootstrap ?? false;
     this.env = options.env ?? {};
+    this.name = options.name;
   }
 
   /**
@@ -128,222 +132,95 @@ export class SandockSandbox implements SandboxAdapter {
 
   /**
    * Get the runner command to execute in the sandbox.
-   * Returns different commands based on whether a local bundle or npm package is used.
+   * When skipBootstrap is true, use image's sandagent; otherwise use npm-installed runner.
    */
   getRunnerCommand(): string[] {
-    if (this.runnerBundlePath && fs.existsSync(this.runnerBundlePath)) {
-      // Local bundle is uploaded to ${workdir}/runner/bundle.mjs
-      return ["node", `${this.workdir}/runner/bundle.mjs`, "run"];
+    if (this.skipBootstrap) {
+      return ["sandagent", "run"];
     }
-    // npm installed runner-cli has bin symlink in workspace
     return [`${this.workdir}/node_modules/.bin/sandagent`, "run"];
-  }
-
-  /**
-   * Ensure cleanup timer is running (lazy initialization)
-   */
-  private static ensureCleanupTimer(client: SandockClient): void {
-    if (SandockSandbox.cleanupTimer) return;
-
-    SandockSandbox.cleanupTimer = setInterval(
-      () => {
-        SandockSandbox.cleanupExpiredInstances(client);
-      },
-      5 * 60 * 1000,
-    ); // Run every 5 minutes
-
-    // Don't prevent process exit
-    if (SandockSandbox.cleanupTimer.unref) {
-      SandockSandbox.cleanupTimer.unref();
-    }
-  }
-
-  /**
-   * Remove expired instances from cache
-   */
-  private static cleanupExpiredInstances(client: SandockClient): void {
-    const now = Date.now();
-    const expiredIds: string[] = [];
-
-    for (const [id, cached] of SandockSandbox.instances) {
-      if (now - cached.lastAccessTime > SandockSandbox.INSTANCE_TTL_MS) {
-        expiredIds.push(id);
-      }
-    }
-
-    for (const id of expiredIds) {
-      const cached = SandockSandbox.instances.get(id);
-      if (cached) {
-        console.log(`[Sandock] Removing expired sandbox instance: ${id}`);
-        client.sandbox.stop(cached.sandboxId).catch((e) => {
-          console.error(`[Sandock] Error stopping expired sandbox:`, e);
-        });
-        SandockSandbox.instances.delete(id);
-        SandockSandbox.initializedInstances.delete(id);
-      }
-    }
-  }
-
-  /**
-   * Evict oldest instance if cache is full
-   */
-  private evictOldestIfNeeded(): void {
-    // Lazy start cleanup timer on first cache write
-    SandockSandbox.ensureCleanupTimer(this.client);
-
-    if (SandockSandbox.instances.size < SandockSandbox.MAX_CACHE_SIZE) return;
-
-    let oldestId: string | null = null;
-    let oldestTime = Number.POSITIVE_INFINITY;
-
-    for (const [id, cached] of SandockSandbox.instances) {
-      if (cached.lastAccessTime < oldestTime) {
-        oldestTime = cached.lastAccessTime;
-        oldestId = id;
-      }
-    }
-
-    if (oldestId) {
-      const cached = SandockSandbox.instances.get(oldestId);
-      if (cached) {
-        console.log(`[Sandock] Evicting oldest sandbox instance: ${oldestId}`);
-        this.client.sandbox.stop(cached.sandboxId).catch((e) => {
-          console.error(
-            `[Sandock] Error stopping evicted sandbox ${oldestId}:`,
-            e,
-          );
-        });
-        SandockSandbox.instances.delete(oldestId);
-        SandockSandbox.initializedInstances.delete(oldestId);
-      }
-    }
   }
 
   /**
    * Get the current handle if already attached, or null if not attached yet.
    */
   getHandle(): SandboxHandle | null {
-    // For Sandock, we need to check the instances cache
-    // Since we don't have a single current handle, return null
-    // The caller should use attach() with the id
     return null;
   }
 
   /**
-   * Attach to or create a sandbox
+   * Attach to or create a sandbox (always creates a new sandbox).
    */
   async attach(): Promise<SandboxHandle> {
-    // Generate a unique id for this sandbox instance (used for caching and logging)
-    const id = `sandock-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-    console.log(`[Sandock] Attaching sandbox with id: ${id}`);
+    // Resolve all volumes (get or create by name, wait for ready)
+    const volumeMounts: Array<{ volumeId: string; mountPath: string }> = [];
+    for (const v of this.volumes) {
+      console.log(`[Sandock] Getting/creating volume: ${v.volumeName}`);
+      const volume = await this.client.volume.getByName(v.volumeName, true);
+      const mountPath = v.volumeMountPath;
 
-    // Check if we already have a cached instance for this id
-    const cached = SandockSandbox.instances.get(id);
-    if (cached) {
-      console.log(
-        `[Sandock] Reusing cached sandbox: ${cached.sandboxId} for id: ${id}`,
-      );
-      cached.lastAccessTime = Date.now();
-
-      // Return cached handle if it exists
-      if (cached?.handle) {
-        return cached.handle;
-      }
-
-      // Create new handle if not cached
-      const handle = new SandockHandle(
-        this.client,
-        cached.sandboxId,
-        this.workdir,
-        this.timeout,
-        () => {
-          // Cleanup callback when handle is destroyed
-          SandockSandbox.instances.delete(id);
-          SandockSandbox.initializedInstances.delete(id);
-        },
-        this.env,
-      );
-
-      // Only initialize if this is the first time we're using this instance
-      if (!SandockSandbox.initializedInstances.has(id)) {
-        await this.initializeSandbox(handle);
-        SandockSandbox.initializedInstances.add(id);
-      }
-
-      // Cache the handle
-      cached.handle = handle;
-
-      return handle;
-    }
-
-    // Evict oldest instance if cache is full
-    this.evictOldestIfNeeded();
-
-    // Get or create volume if volumeName is provided
-    let volumeId: string | undefined;
-    if (this.volumeName) {
-      console.log(`[Sandock] Getting/creating volume: ${this.volumeName}`);
-      const volume = await this.client.volume.getByName(this.volumeName, true);
-
-      // Wait for volume to be ready if needed
       if (volume.data.status && volume.data.status !== "ready") {
         console.log(
-          `[Sandock] Volume status: ${volume.data.status}, waiting...`,
+          `[Sandock] Volume ${v.volumeName} status: ${volume.data.status}, waiting...`,
         );
         const maxWaitMs = 30000;
         const startTime = Date.now();
+        let current = volume;
         while (
-          volume.data.status !== "ready" &&
+          current.data.status !== "ready" &&
           Date.now() - startTime < maxWaitMs
         ) {
           await new Promise((resolve) => setTimeout(resolve, 1000));
-          const updatedVolume = await this.client.volume.getByName(
-            this.volumeName,
+          const updated = await this.client.volume.getByName(
+            v.volumeName,
             false,
           );
-          volume.data = updatedVolume.data;
+          current = updated;
         }
 
-        if (volume.data.status !== "ready") {
+        if (current.data.status !== "ready") {
           throw new Error(
-            `Volume '${this.volumeName}' failed to become ready. Status: ${volume.data.status}`,
+            `Volume '${v.volumeName}' failed to become ready. Status: ${current.data.status}`,
           );
         }
       }
 
-      volumeId = volume.data.id;
+      volumeMounts.push({
+        volumeId: volume.data.id,
+        mountPath,
+      });
       console.log(
-        `[Sandock] Using volume ${volumeId} at ${this.volumeMountPath}`,
+        `[Sandock] Using volume ${volume.data.id} (${v.volumeName}) at ${mountPath}`,
       );
     }
 
-    // Create sandbox using high-level API with optional volume mount
+    // Create sandbox using high-level API with optional volume mounts
     const createOptions: {
       image: string;
       memory?: number;
       cpu?: number;
       volumes?: Array<{ volumeId: string; mountPath: string }>;
+      title?: string;
     } = {
       image: this.image,
       memory: this.memoryLimitMb,
       cpu: this.cpuShares,
+      title: this.name,
     };
 
-    if (volumeId) {
-      createOptions.volumes = [{ volumeId, mountPath: this.volumeMountPath }];
+    if (volumeMounts.length > 0) {
+      createOptions.volumes = volumeMounts;
     }
 
     const createResult = await this.client.sandbox.create(createOptions);
-
-    console.log(
-      `[Sandock] Sandbox creation result: ${JSON.stringify(createResult)}`,
-    );
     const sandboxId = createResult.data.id;
     if (!sandboxId) {
       throw new Error("No sandbox ID returned from Sandock API");
     }
 
-    console.log(`[Sandock] Created new sandbox: ${sandboxId} (user id: ${id})`);
+    console.log(
+      `[Sandock] Created new sandbox: ${sandboxId} ${this.name ? `, title: ${this.name}` : ""}`,
+    );
 
     // Start the sandbox using high-level API
     await this.client.sandbox.start(sandboxId);
@@ -353,24 +230,13 @@ export class SandockSandbox implements SandboxAdapter {
       sandboxId,
       this.workdir,
       this.timeout,
-      () => {
-        // Cleanup callback when handle is explicitly destroyed
-        SandockSandbox.instances.delete(id);
-        SandockSandbox.initializedInstances.delete(id);
-      },
+      () => {},
+      this.keep,
       this.env,
     );
 
     // Initialize sandbox with runner and templates
     await this.initializeSandbox(handle);
-    SandockSandbox.initializedInstances.add(id);
-
-    // Cache the instance with handle
-    SandockSandbox.instances.set(id, {
-      sandboxId,
-      lastAccessTime: Date.now(),
-      handle,
-    });
 
     return handle;
   }
@@ -383,40 +249,15 @@ export class SandockSandbox implements SandboxAdapter {
       console.warn(`[Sandock] mkdir warning: ${mkdirResult.stderr}`);
     }
 
-    // Step 1: Install claude-agent-sdk to workspace
-    console.log(
-      `[Sandock] Installing @anthropic-ai/claude-agent-sdk to ${this.workdir}`,
-    );
-    const sdkInstallResult = await handle.runCommand(
-      `cd ${this.workdir} && npm install --no-audit --no-fund --prefer-offline @anthropic-ai/claude-agent-sdk 2>&1`,
-    );
-    if (sdkInstallResult.exitCode !== 0) {
-      console.error(
-        `[Sandock] Failed to install claude-agent-sdk: ${sdkInstallResult.stdout}`,
-      );
-    }
-
-    // Step 2: Setup runner
-    if (this.runnerBundlePath && fs.existsSync(this.runnerBundlePath)) {
-      // Option A: Upload local runner bundle to workspace
-      const bundleContent = fs.readFileSync(this.runnerBundlePath);
-      const bundleFileName = path.basename(this.runnerBundlePath);
-      const runnerFiles = [
-        {
-          path: `runner/${bundleFileName}`,
-          content: bundleContent,
-        },
-      ];
+    if (this.skipBootstrap) {
       console.log(
-        `[Sandock] Uploading runner bundle (${bundleFileName}) to ${this.workdir}`,
+        `[Sandock] skipBootstrap=true, skipping SDK and runner install`,
       );
-      await handle.upload(runnerFiles, this.workdir);
     } else {
-      // Option B: Install runner-cli to workspace from npm
+      // Install runner-cli from npm (brings in @anthropic-ai/claude-agent-sdk as dependency)
       console.log(
-        `[Sandock] No runnerBundlePath provided, installing @sandagent/runner-cli to ${this.workdir}`,
+        `[Sandock] Installing @sandagent/runner-cli@beta to ${this.workdir}`,
       );
-
       const installResult = await handle.runCommand(
         `cd ${this.workdir} && npm install --no-audit --no-fund --prefer-offline @sandagent/runner-cli@beta 2>&1`,
       );
@@ -427,7 +268,7 @@ export class SandockSandbox implements SandboxAdapter {
       }
     }
 
-    // Step 3: Upload template
+    // Step 3: Upload template (user-selected template; always apply)
     if (this.templatesPath && fs.existsSync(this.templatesPath)) {
       const templateFiles = this.collectFiles(this.templatesPath, "");
       console.log(
@@ -479,6 +320,7 @@ class SandockHandle implements SandboxHandle {
   private readonly defaultWorkdir: string;
   private readonly timeout: number;
   private readonly onDestroy: () => void;
+  private readonly keep: boolean;
   private readonly sandboxEnv: Record<string, string>;
 
   constructor(
@@ -487,6 +329,7 @@ class SandockHandle implements SandboxHandle {
     defaultWorkdir: string,
     timeout: number,
     onDestroy: () => void,
+    keep: boolean,
     sandboxEnv: Record<string, string> = {},
   ) {
     this.client = client;
@@ -494,6 +337,7 @@ class SandockHandle implements SandboxHandle {
     this.defaultWorkdir = defaultWorkdir;
     this.timeout = timeout;
     this.onDestroy = onDestroy;
+    this.keep = keep;
     this.sandboxEnv = sandboxEnv;
   }
 
@@ -666,7 +510,6 @@ class SandockHandle implements SandboxHandle {
               resolveWait?.();
             },
             onStderr: (chunk: string) => {
-              console.log("STDERR CHUNK:", chunk);
               queue.push(new TextEncoder().encode(chunk));
               resolveWait?.();
             },
@@ -692,18 +535,6 @@ class SandockHandle implements SandboxHandle {
               };
             }) => {
               // Check for errors in the result
-              console.log(
-                "[Sandock] Command completed with exit code:",
-                result.data.exitCode,
-              );
-              console.log(
-                "[Sandock] Command stdout:",
-                result.data.stdout?.substring(0, 500) || "(empty)",
-              );
-              console.log(
-                "[Sandock] Command stderr:",
-                result.data.stderr?.substring(0, 500) || "(empty)",
-              );
               if (result.data.timedOut) {
                 error = new Error(
                   `Command timed out after ${result.data.durationMs}ms`,
@@ -732,9 +563,20 @@ class SandockHandle implements SandboxHandle {
             resolveWait?.();
           })
           .finally(() => {
-            // Remove event listener when iterator completes
             if (signal) {
               signal.removeEventListener("abort", abortHandler);
+            }
+            // When keep is false, stop and delete sandbox after execution (default keep=true ~30 min retention)
+            if (!self.keep) {
+              self.client.sandbox
+                .stop(self.sandboxId)
+                .then(() => self.client.sandbox.delete(self.sandboxId))
+                .catch((e) =>
+                  console.error(
+                    "[Sandock] Failed to stop/delete sandbox after execution:",
+                    e,
+                  ),
+                );
             }
           });
 

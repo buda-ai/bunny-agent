@@ -1,5 +1,11 @@
 # @sandagent/manager
 
+## 0.2.7
+
+### Patch Changes
+
+- add readme
+
 ## 0.2.5
 
 ### Patch Changes

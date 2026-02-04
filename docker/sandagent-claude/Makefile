@@ -5,22 +5,27 @@
 -include .env
 export
 
-# Default configuration
-IMAGE_NAME ?= sandagent-claude
-IMAGE_TAG ?= 0.1.0
+# Default configuration (unified image name)
+# IMAGE_NAME can be overridden in .env; for "make image" we use BUILD_IMAGE_NAME so default is always vikadata/sandagent
+IMAGE_NAME ?= vikadata/sandagent
+BUILD_IMAGE_NAME ?= vikadata/sandagent
+# Image tag: from .env IMAGE_TAG, or root package.json version (single source of truth)
+MAKEFILE_DIR := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
+DEFAULT_IMAGE_TAG := $(shell cd "$(MAKEFILE_DIR)" && node -p "try{require('../../package.json').version}catch(e){'0.1.0'}")
+IMAGE_TAG ?= $(DEFAULT_IMAGE_TAG)
 
 # Template configuration (optional)
 TEMPLATE ?=
 
 # Full image name:
-#   With template: sandagent-claude-researcher:0.1.2
-#   Without template: sandagent-claude:0.1.2
+#   With template: vikadata/sandagent-researcher:0.1.0
+#   Without template: vikadata/sandagent:0.1.0
 FULL_IMAGE = $(if $(TEMPLATE),$(IMAGE_NAME)-$(TEMPLATE):$(IMAGE_TAG),$(IMAGE_NAME):$(IMAGE_TAG))
 
 # Daytona snapshot name (same as image name)
 DAYTONA_SNAPSHOT = $(FULL_IMAGE)
 
-# E2B template alias (with template: sandagent-claude-researcher, without: sandagent-claude)
+# E2B template alias (with template: vikadata/sandagent-researcher, without: vikadata/sandagent)
 E2B_ALIAS = $(if $(TEMPLATE),$(IMAGE_NAME)-$(TEMPLATE),$(IMAGE_NAME))
 
 # Resource configuration
@@ -31,7 +36,7 @@ DISK ?= 8
 # Force mode (delete existing before create)
 FORCE ?= false
 
-.PHONY: help build daytona daytona-dockerfile e2b clean check-docker check-daytona install-daytona list
+.PHONY: help build daytona daytona-dockerfile e2b image image-push clean check-docker check-daytona install-daytona list
 
 help:
 	@echo "SandAgent Claude Docker Image Builder"
@@ -40,10 +45,12 @@ help:
 	@echo "Usage: make <target> [OPTIONS]"
 	@echo ""
 	@echo "Targets:"
-	@echo "  build              Build Docker image locally"
+	@echo "  build              Build Docker image locally (Daytona/E2B naming)"
 	@echo "  daytona            Deploy to Daytona (build + push)"
 	@echo "  daytona-dockerfile Deploy to Daytona (use Dockerfile directly)"
 	@echo "  e2b                Deploy to E2B"
+	@echo "  image              Build Docker image (default: vikadata/sandagent:0.1.0)"
+	@echo "  image-push         Build and push image to Docker Hub"
 	@echo "  list               List existing Daytona snapshots"
 	@echo "  clean              Remove local Docker image"
 	@echo "  check-docker       Verify Docker is running"
@@ -58,22 +65,26 @@ help:
 	@echo "  DISK=n             Disk in GB (default: $(DISK))"
 	@echo "  FORCE=true         Delete existing snapshot before creating"
 	@echo ""
-	@echo "Snapshot Naming (auto-generated):"
-	@echo "  Without TEMPLATE:  sandagent-claude:0.1.2"
-	@echo "  With TEMPLATE:     sandagent-claude-researcher:0.1.2"
+	@echo "Image Naming (IMAGE_NAME=$(IMAGE_NAME)):"
+	@echo "  Without TEMPLATE:  $(IMAGE_NAME):$(IMAGE_TAG)"
+	@echo "  With TEMPLATE:     $(IMAGE_NAME)-researcher:$(IMAGE_TAG)"
 	@echo ""
 	@echo "Examples:"
-	@echo "  make daytona                           # → sandagent-claude:$(IMAGE_TAG)"
-	@echo "  make daytona TEMPLATE=researcher       # → sandagent-claude-researcher:$(IMAGE_TAG)"
-	@echo "  make daytona TEMPLATE=coder            # → sandagent-claude-coder:$(IMAGE_TAG)"
-	@echo "  make daytona IMAGE_TAG=0.2.0           # → sandagent-claude:0.2.0"
+	@echo "  make daytona                           # → $(IMAGE_NAME):$(IMAGE_TAG)"
+	@echo "  make daytona TEMPLATE=researcher       # → $(IMAGE_NAME)-researcher:$(IMAGE_TAG)"
+	@echo "  make daytona TEMPLATE=coder            # → $(IMAGE_NAME)-coder:$(IMAGE_TAG)"
+	@echo "  make daytona IMAGE_TAG=0.2.0           # → $(IMAGE_NAME):0.2.0"
 	@echo "  make daytona TEMPLATE=analyst FORCE=true"
 	@echo "  make e2b TEMPLATE=researcher CPU=4 MEMORY=8"
+	@echo "  make image                      # build vikadata/sandagent:0.1.0 (uses BUILD_IMAGE_NAME)"
+	@echo "  make image TEMPLATE=researcher  # build vikadata/sandagent-researcher:0.1.0"
+	@echo "  make image-push                 # build + push to Docker Hub"
 	@echo ""
 	@echo "Environment (set in .env or export):"
 	@echo "  DAYTONA_API_KEY    Required for Daytona deployment"
 	@echo "  E2B_API_KEY        Required for E2B deployment"
-	@echo "  IMAGE_TAG          Docker image version (default: 0.1.0)"
+	@echo "  IMAGE_TAG          Override image tag (default: root package.json version)"
+	@echo "  BUILD_IMAGE_NAME   Image name for 'make image' (default: vikadata/sandagent)"
 
 # Check Docker is running
 check-docker:
@@ -194,6 +205,21 @@ e2b:
 			--memory $$(( $(MEMORY) * 1024 )) \
 			$$FORCE_FLAG; \
 	fi
+
+# Build Docker image (vikadata/sandagent, or vikadata/sandagent-TEMPLATE)
+# Use BUILD_IMAGE_NAME so "make image" always uses vikadata/sandagent unless you pass BUILD_IMAGE_NAME=...
+image: check-docker
+	@echo "Building image..."
+	@cd "$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))" && \
+		( [ -n "$(TEMPLATE)" ] && pnpm run image -- --name $(BUILD_IMAGE_NAME) --tag $(IMAGE_TAG) --template $(TEMPLATE) || pnpm run image -- --name $(BUILD_IMAGE_NAME) --tag $(IMAGE_TAG) )
+	@echo "✅ Done. Image: $(BUILD_IMAGE_NAME)$(if $(TEMPLATE),-$(TEMPLATE),):$(IMAGE_TAG)"
+
+# Build and push image to Docker Hub
+image-push: check-docker
+	@echo "Building and pushing image..."
+	@cd "$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))" && \
+		( [ -n "$(TEMPLATE)" ] && pnpm run image -- --name $(BUILD_IMAGE_NAME) --tag $(IMAGE_TAG) --push --template $(TEMPLATE) || pnpm run image -- --name $(BUILD_IMAGE_NAME) --tag $(IMAGE_TAG) --push )
+	@echo "✅ Done."
 
 # List Daytona snapshots
 list:
