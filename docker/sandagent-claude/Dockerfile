@@ -1,4 +1,4 @@
-# SandAgent Claude Image
+# SandAgent Image (vikadata/sandagent)
 # Pre-installs runner-cli and @anthropic-ai/claude-agent-sdk
 # Compatible with both Daytona Snapshots and E2B custom templates
 #
@@ -7,7 +7,7 @@
 
 FROM node:20-slim
 
-LABEL org.opencontainers.image.title="sandagent-claude"
+LABEL org.opencontainers.image.title="sandagent"
 LABEL org.opencontainers.image.description="SandAgent with Claude Agent SDK pre-installed"
 LABEL org.opencontainers.image.version="0.1.0"
 

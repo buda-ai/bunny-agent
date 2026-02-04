@@ -9,8 +9,8 @@
  *   npx tsx build-daytona-snapshot.ts [options]
  *
  * Options:
- *   --name <name>        Snapshot name (default: sandagent-claude)
- *   --image <image>      Docker image name (default: sandagent-claude:0.1.0)
+ *   --name <name>        Snapshot name (default: vikadata/sandagent)
+ *   --image <image>      Docker image name (default: vikadata/sandagent:0.1.0)
  *   --cpu <count>        CPU cores (default: 2)
  *   --memory <gb>        Memory in GB (default: 4)
  *   --disk <gb>          Disk in GB (default: 8)
@@ -29,7 +29,7 @@ import { Daytona } from "@daytonaio/sdk";
 function parseArgs() {
   // Read IMAGE_TAG from .env (loaded by dotenv/config)
   const imageTag = process.env.IMAGE_TAG || "0.1.0";
-  const imageName = process.env.IMAGE_NAME || "sandagent-claude";
+  const imageName = process.env.IMAGE_NAME || "vikadata/sandagent";
 
   const args: {
     name: string;
@@ -39,7 +39,7 @@ function parseArgs() {
     disk: number;
     force: boolean;
   } = {
-    // Snapshot name includes version with colon: sandagent-claude:0.1.2
+    // Snapshot name includes version with colon: vikadata/sandagent:0.1.0
     name: `${imageName}:${imageTag}`,
     image: `${imageName}:${imageTag}`,
     cpu: 2,
@@ -67,8 +67,8 @@ function parseArgs() {
 Usage: npx tsx build-daytona-snapshot.ts [options]
 
 Options:
-  --name <name>     Snapshot name (default: sandagent-claude)
-  --image <image>   Docker image name (default: sandagent-claude:0.1.0)
+  --name <name>     Snapshot name (default: vikadata/sandagent)
+  --image <image>   Docker image name (default: vikadata/sandagent:0.1.0)
   --cpu <count>     CPU cores (default: 2)
   --memory <gb>     Memory in GB (default: 4)
   --disk <gb>       Disk in GB (default: 8)

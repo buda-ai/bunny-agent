@@ -1,5 +1,12 @@
 # @sandagent/sandbox-daytona
 
+## 0.2.7
+
+### Patch Changes
+
+- Updated dependencies
+  - @sandagent/manager@0.2.7
+
 ## 0.2.5
 
 ### Patch Changes
