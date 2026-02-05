@@ -1,5 +1,11 @@
 # @sandagent/manager
 
+## 0.2.8
+
+### Patch Changes
+
+- add detail quickstart
+
 ## 0.2.7
 
 ### Patch Changes

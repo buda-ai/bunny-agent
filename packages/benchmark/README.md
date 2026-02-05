@@ -2,6 +2,28 @@
 
 GAIA benchmark runner for comparing agent CLI performance.
 
+Download the GAIA dataset, run benchmarks across multiple agent CLIs, and generate comparable reports.
+
+> Note: this is a monorepo internal tool (`"private": true`) and is not published to npm. Use it via pnpm workspace scripts.
+
+## Quick start (beginner-friendly)
+
+Prereqs: Node.js >= 20 and `pnpm`.
+
+```bash
+# 1) Install deps (from monorepo root)
+pnpm install
+
+# 2) Download the GAIA validation dataset
+pnpm --filter @sandagent/benchmark benchmark:download
+
+# 3) Run a tiny demo (Level 1, 1 random task)
+pnpm --filter @sandagent/benchmark benchmark:run -- --runner sandagent --level 1 --random --verbose
+
+# 4) Compare results (after you ran multiple runners)
+pnpm --filter @sandagent/benchmark benchmark:compare
+```
+
 ## Features
 
 - **Download GAIA benchmark** from Hugging Face
@@ -18,11 +40,9 @@ GAIA benchmark runner for comparing agent CLI performance.
 - **Wrong answers tracking** - Track and retry failed tasks
 - **Reflection helper** - Improve agent performance with reflection prompts
 
-## Installation
+## Installation (monorepo use)
 
-```bash
-pnpm add @sandagent/benchmark
-```
+This package is not published to npm. Clone the repo, run `pnpm install` at the root, then use `pnpm --filter @sandagent/benchmark ...` (see Quick start).
 
 ## CLI Usage
 
@@ -32,10 +52,10 @@ Download the GAIA benchmark dataset from Hugging Face:
 
 ```bash
 # Download validation dataset (default)
-sandagent-benchmark download
+pnpm --filter @sandagent/benchmark benchmark:download
 
 # Download test dataset
-sandagent-benchmark download --dataset test
+pnpm --filter @sandagent/benchmark benchmark:download -- --dataset test
 ```
 
 > **Note**: You may need to set `HUGGINGFACE_TOKEN` in your environment for private dataset access.
@@ -46,19 +66,19 @@ Run a benchmark with a specific agent:
 
 ```bash
 # Run with SandAgent on all validation tasks
-sandagent-benchmark run --runner sandagent
+pnpm --filter @sandagent/benchmark benchmark:run -- --runner sandagent
 
 # Run with Claude Code on Level 1 tasks only
-sandagent-benchmark run --runner claudecode --level 1
+pnpm --filter @sandagent/benchmark benchmark:run -- --runner claudecode --level 1
 
 # Run with Gemini on 10 random tasks
-sandagent-benchmark run --runner gemini-cli --limit 10 --random
+pnpm --filter @sandagent/benchmark benchmark:run -- --runner gemini-cli --limit 10 --random
 
 # Run a specific task with verbose output
-sandagent-benchmark run --runner sandagent --task-id abc123 --verbose
+pnpm --filter @sandagent/benchmark benchmark:run -- --runner sandagent --task-id abc123 --verbose
 
 # Resume an interrupted benchmark
-sandagent-benchmark run --runner sandagent --resume
+pnpm --filter @sandagent/benchmark benchmark:run -- --runner sandagent --resume
 ```
 
 ### Compare Results
@@ -66,7 +86,7 @@ sandagent-benchmark run --runner sandagent --resume
 Compare results across all agents that have been run:
 
 ```bash
-sandagent-benchmark compare
+pnpm --filter @sandagent/benchmark benchmark:compare
 ```
 
 This generates:
@@ -174,7 +194,7 @@ Results are saved in JSON format:
 
 ### Setup
 ```bash
-pnpm install && pnpm build
+pnpm install
 ```
 
 ### Environment Setup

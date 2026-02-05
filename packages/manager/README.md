@@ -2,6 +2,8 @@
 
 Core manager package for SandAgent - manages sandbox and runner lifecycle, defines core interfaces.
 
+This package is the core runtime that wires **sandbox adapters** + a **runner spec** into an AI SDK UI stream you can consume from your server or CLI.
+
 ## Overview
 
 `@sandagent/manager` is the foundational package that provides:
@@ -19,7 +21,7 @@ This package is typically used as a dependency by higher-level packages like `@s
 npm install @sandagent/manager
 ```
 
-## Usage
+## Quickstart
 
 ### Basic Usage
 

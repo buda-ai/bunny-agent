@@ -32,13 +32,23 @@ Dependencies:
 ## Installation
 
 ```bash
-pnpm add @sandagent/runner-cli
+# Global install (recommended if you want the `sandagent` command)
+npm install -g @sandagent/runner-cli@beta
+
+# Or add to a project
+npm install @sandagent/runner-cli@beta
 ```
 
 ## Usage
 
 ```bash
 sandagent run [options] -- "<user input>"
+```
+
+Without installing globally, you can also run it via `npx`:
+
+```bash
+npx -y @sandagent/runner-cli@beta run -- "Create a hello world script"
 ```
 
 ### Basic Examples
@@ -150,4 +160,3 @@ The CLI is designed to:
 
 - [Claude Agent SDK](https://platform.claude.com/docs/agent-sdk/typescript)
 - [AI SDK UI Stream Protocol](https://ai-sdk.dev/docs/ai-sdk-ui/stream-protocol)
-

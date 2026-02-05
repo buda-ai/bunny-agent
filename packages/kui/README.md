@@ -2,6 +2,34 @@
 
 A custom design system built on top of shadcn/ui with full tree-shaking support.
 
+A monorepo-friendly React + Tailwind component library with per-component subpath exports for great tree-shaking.
+
+> Note: this is a monorepo internal UI package (`"private": true`) and is not published to npm. Consume it via workspace dependency.
+
+## Quick start (beginner-friendly)
+
+Prereqs: Node.js >= 20, `pnpm`, and a Tailwind CSS app.
+
+```bash
+# 1) Install deps from monorepo root
+pnpm install
+```
+
+Add the dependency to your app (e.g. `apps/sandagent-example`) via workspace:
+
+```json
+{
+  "dependencies": {
+    "kui": "workspace:*"
+  }
+}
+```
+
+Then do these 3 steps:
+1) Add `../../packages/kui/src/**/*` to Tailwind `content` (so classes used by components are generated).
+2) Import `kui/styles.css` once in your app entry.
+3) Import components by subpath, e.g. `import { Button } from "kui/button"`.
+
 ## Features
 
 - 🎨 **45+ Components**: Complete UI component library based on shadcn/ui
