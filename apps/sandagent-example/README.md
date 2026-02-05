@@ -2,6 +2,10 @@
 
 A complete SandAgent example showing how to run AI Agents in E2B sandboxes with Next.js.
 
+A full Next.js example showing SandAgent running in (E2B/Sandock/Daytona/Local) sandboxes with real-time streaming UI.
+
+> Note: this is a demo app (`"private": true`) and is not published to npm. Run it from the repo.
+
 ## Quick Start
 
 ### 1. Install dependencies
@@ -11,27 +15,11 @@ A complete SandAgent example showing how to run AI Agents in E2B sandboxes with 
 pnpm install
 ```
 
-### 2. Build runner-cli
+### 2. (Optional) Build runner-cli (only if you use LocalSandbox)
 
 ```bash
-# For local development (creates bundle.mjs for uploading to sandbox)
+# For LocalSandbox (uses apps/runner-cli/dist/bundle.mjs)
 pnpm --filter @sandagent/runner-cli build:bundle
-# Run directly with node
-node apps/runner-cli/dist/cli.js run --template coder
-
-
-# For npm publish (only compiles TypeScript)
-pnpm --filter @sandagent/runner-cli build
-
-## Or
-# Build CLI
-pnpm --filter @sandagent/runner-cli build
-
-# Global link (optional, allows using sandagent command directly)
-cd apps/runner-cli && pnpm link --global && cd ../..
-
-# Run built-in template
-sandagent run --template coder
 ```
 
 ### 3. Configure API keys
@@ -43,13 +31,11 @@ In the browser Settings panel, configure:
 ### 4. Start dev server
 
 ```bash
-cd apps/sandagent-example
-pnpm dev
+pnpm --filter @sandagent/example dev
 ```
 
 This starts:
 - Next.js dev server
-- `@sandagent/core` TypeScript watch
 - `@sandagent/sandbox-e2b` TypeScript watch
 
 ## Architecture

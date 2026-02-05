@@ -2,6 +2,10 @@
 
 Docker image with **Claude Agent SDK** and `@sandagent/runner-cli` for Daytona, E2B, and Sandock.
 
+Bundle everything needed to run a Claude agent (Claude Agent SDK + runner-cli + templates) into an image/template for faster, consistent sandbox startup.
+
+> Note: this is a build/deploy project (`"private": true`) and is not published to npm. Use it inside this repo.
+
 ## Quick start
 
 ```bash

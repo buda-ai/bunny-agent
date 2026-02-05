@@ -2,6 +2,8 @@
 
 E2B sandbox adapter for SandAgent - run agents in secure cloud sandboxes.
 
+Use E2B as the execution environment for SandAgent (isolated cloud sandbox with optional persistence and reuse).
+
 ## Overview
 
 `@sandagent/sandbox-e2b` provides an E2B-based sandbox implementation for SandAgent. E2B offers secure, isolated cloud environments with:

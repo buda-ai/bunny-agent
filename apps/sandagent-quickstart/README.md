@@ -2,12 +2,17 @@
 
 Get an AI agent chat running in a few minutes.
 
+A minimal Next.js chat app showing how to run an agent via `@sandagent/sdk` (local sandbox).
+
+> Note: this is a demo app (`"private": true`) and is not published to npm. Run it from the repo.
+
 ## Quick Start
 
 ### 1. Install dependencies
 
 ```bash
-npm install
+# From monorepo root
+pnpm install
 ```
 
 ### 2. Configure API key
@@ -21,7 +26,7 @@ ANTHROPIC_API_KEY=sk-ant-your-key
 ### 3. Run
 
 ```bash
-npm run dev
+pnpm --filter @sandagent/quickstart dev
 ```
 
 Open http://localhost:3000
