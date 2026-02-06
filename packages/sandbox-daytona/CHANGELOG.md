@@ -1,5 +1,13 @@
 # @sandagent/sandbox-daytona
 
+## 0.2.9
+
+### Patch Changes
+
+- question handler
+- Updated dependencies
+  - @sandagent/manager@0.2.9
+
 ## 0.2.8
 
 ### Patch Changes
