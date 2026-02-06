@@ -127,16 +127,13 @@ function createCanUseToolCallback(
     const cwd = claudeOptions.cwd || process.cwd();
 
     try {
-      const { execSync } = await import("node:child_process");
+      const fs = await import("node:fs");
       const path = await import("node:path");
 
       const approvalDir = path.join(cwd, ".sandagent", "approvals");
       const approvalFile = path.join(approvalDir, `${toolUseID}.json`);
 
-      // Ensure approval directory exists
-      execSync(`mkdir -p "${approvalDir}"`);
-
-      // Poll for answers (60 second timeout)
+      // Poll for answers (60 second timeout) — must wait for file like "looking for file"
       const timeout = Date.now() + 60000;
       let lastApproval: {
         questions: unknown;
@@ -146,23 +143,20 @@ function createCanUseToolCallback(
 
       while (Date.now() < timeout) {
         try {
-          // Use shell command to check if file exists and read it
-          // Redirect stderr to /dev/null to suppress "No such file or directory" errors
-          const data = execSync(`cat "${approvalFile}" 2>/dev/null`, {
-            encoding: "utf-8",
-          });
-          const approval = JSON.parse(data);
+          const data = fs.readFileSync(approvalFile, "utf-8");
+          const approval = JSON.parse(data) as {
+            questions: unknown;
+            answers: Record<string, unknown>;
+            status: string;
+          };
           lastApproval = approval;
 
-          // If completed, return immediately
           if (approval.status === "completed") {
-            // Clean up file
             try {
-              execSync(`rm "${approvalFile}" 2>/dev/null`);
+              fs.unlinkSync(approvalFile);
             } catch {
               // Ignore cleanup errors
             }
-
             return {
               behavior: "allow",
               updatedInput: {
@@ -175,13 +169,11 @@ function createCanUseToolCallback(
           // File doesn't exist yet or can't be read, continue waiting
         }
 
-        // Wait 500ms before next poll
         await new Promise((resolve) => setTimeout(resolve, 500));
       }
 
-      // Timeout - return partial answers if any were collected
       try {
-        execSync(`rm "${approvalFile}" 2>/dev/null`);
+        fs.unlinkSync(approvalFile);
       } catch {
         // Ignore cleanup errors
       }

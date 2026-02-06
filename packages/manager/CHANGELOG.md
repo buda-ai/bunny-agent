@@ -1,5 +1,11 @@
 # @sandagent/manager
 
+## 0.2.9
+
+### Patch Changes
+
+- question handler
+
 ## 0.2.8
 
 ### Patch Changes

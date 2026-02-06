@@ -18,7 +18,6 @@ export function AskUserQuestionUI({
     isSelected,
   } = useAskUserQuestion({
     part,
-    // Auto-submits to /api/answer
   });
 
   // If questions is empty or invalid, show error state

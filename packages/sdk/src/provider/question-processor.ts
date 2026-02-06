@@ -48,12 +48,18 @@ export async function submitAnswer(
 
   const filename = `${toolCallId}.json`;
   const handle = sandbox.getHandle() ?? (await sandbox.attach());
+  // Absolute path so remote sandboxes (Sandock) write to the same path the runner reads (/workspace/.sandagent/approvals).
+  const workdir = handle.getWorkdir();
+  const targetDir = workdir
+    ? `${workdir.replace(/\/$/, "")}/${basePath}`
+    : basePath;
+
   await handle.upload(
     [{ path: filename, content: JSON.stringify(answerData, null, 2) }],
-    basePath,
+    targetDir,
   );
 
   console.log(
-    `[submitAnswer] Answer submitted: ${basePath}/${filename} (status: ${answerData.status})`,
+    `[submitAnswer] Answer submitted: ${targetDir}/${filename} (status: ${answerData.status}, workdir: ${workdir ?? "(none)"})`,
   );
 }

@@ -63,6 +63,23 @@ make build TEMPLATE=coder
 
 Uses `IMAGE_NAME` / `IMAGE_TAG` from `.env` or defaults (see `make help`).
 
+### Build from local monorepo (no npm publish)
+
+Use when you changed `runner-claude` or `runner-cli` and want an image with your code without publishing to npm. Build context = repo root; uses `Dockerfile.local`.
+
+```bash
+cd docker/sandagent-claude
+make image-local              # build vikadata/sandagent:0.1.0 (or IMAGE_TAG from .env)
+make image-local IMAGE_TAG=local
+make image-local-push          # build + push (docker login first)
+```
+
+Or from repo root:
+
+```bash
+docker build -f docker/sandagent-claude/Dockerfile.local -t vikadata/sandagent:local .
+```
+
 ## Setup
 
 1. Copy `.env.example` to `.env`.
@@ -70,12 +87,14 @@ Uses `IMAGE_NAME` / `IMAGE_TAG` from `.env` or defaults (see `make help`).
 
 ## Make targets
 
-| Target           | Description                    |
-|------------------|--------------------------------|
-| `make help`      | Show all options               |
-| `make image`     | Build image (vikadata/sandagent or -TEMPLATE) |
-| `make image-push`| Build + push image to Docker Hub              |
-| `make build`     | Build local image              |
+| Target               | Description                                      |
+|----------------------|--------------------------------------------------|
+| `make help`          | Show all options                                 |
+| `make image`         | Build image (npm packages)                       |
+| `make image-local`   | Build from local monorepo (Dockerfile.local)      |
+| `make image-local-push` | Build image-local + push to Docker Hub        |
+| `make image-push`    | Build image + push to Docker Hub                  |
+| `make build`         | Build local image                                |
 | `make daytona`   | Build + deploy to Daytona      |
 | `make e2b`       | Deploy to E2B                  |
 | `make clean`     | Remove local image             |
