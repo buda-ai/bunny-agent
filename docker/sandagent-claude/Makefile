@@ -36,7 +36,7 @@ DISK ?= 8
 # Force mode (delete existing before create)
 FORCE ?= false
 
-.PHONY: help build daytona daytona-dockerfile e2b image image-push clean check-docker check-daytona install-daytona list
+.PHONY: help build daytona daytona-dockerfile e2b image image-local image-local-push image-push clean check-docker check-daytona install-daytona list
 
 help:
 	@echo "SandAgent Claude Docker Image Builder"
@@ -50,6 +50,8 @@ help:
 	@echo "  daytona-dockerfile Deploy to Daytona (use Dockerfile directly)"
 	@echo "  e2b                Deploy to E2B"
 	@echo "  image              Build Docker image (default: vikadata/sandagent:0.1.0)"
+	@echo "  image-local        Build image from local monorepo (Dockerfile.local, no npm)"
+	@echo "  image-local-push   Build image-local and push to Docker Hub"
 	@echo "  image-push         Build and push image to Docker Hub"
 	@echo "  list               List existing Daytona snapshots"
 	@echo "  clean              Remove local Docker image"
@@ -213,6 +215,19 @@ image: check-docker
 	@cd "$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))" && \
 		( [ -n "$(TEMPLATE)" ] && pnpm run image -- --name $(BUILD_IMAGE_NAME) --tag $(IMAGE_TAG) --template $(TEMPLATE) || pnpm run image -- --name $(BUILD_IMAGE_NAME) --tag $(IMAGE_TAG) )
 	@echo "✅ Done. Image: $(BUILD_IMAGE_NAME)$(if $(TEMPLATE),-$(TEMPLATE),):$(IMAGE_TAG)"
+
+# Build from local monorepo (runner-cli + runner-claude from repo, no npm publish)
+# Context = repo root. Result: $(IMAGE_NAME):$(IMAGE_TAG) e.g. vikadata/sandagent:0.1.0
+REPO_ROOT := $(MAKEFILE_DIR)/../..
+image-local: check-docker
+	@echo "Building image from local repo (Dockerfile.local)..."
+	@docker build --platform=linux/amd64 -f "$(MAKEFILE_DIR)/Dockerfile.local" -t "$(FULL_IMAGE)" "$(REPO_ROOT)"
+	@echo "✅ Done. Image: $(FULL_IMAGE)"
+
+image-local-push: image-local
+	@echo "Pushing $(FULL_IMAGE)..."
+	@docker push "$(FULL_IMAGE)"
+	@echo "✅ Pushed."
 
 # Build and push image to Docker Hub
 image-push: check-docker

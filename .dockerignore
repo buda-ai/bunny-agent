@@ -1,0 +1,22 @@
+# Used when building from repo root (e.g. Dockerfile.local)
+node_modules
+**/node_modules
+.git
+.gitignore
+*.md
+!docker/sandagent-claude/README.md
+.dockerignore
+.env
+.env.*
+*.log
+.cursor
+.vscode
+apps/*/dist
+packages/*/dist
+**/__tests__
+**/*.test.ts
+**/*.spec.ts
+benchmark-results
+.next
+coverage
+. turbo

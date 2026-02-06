@@ -88,6 +88,9 @@ export class SandockSandbox implements SandboxAdapter {
   private readonly env: Record<string, string>;
   private readonly name?: string;
 
+  /** Current handle for the sandbox instance */
+  private currentHandle: SandboxHandle | null = null;
+
   constructor(options: SandockSandboxOptions = {}) {
     const apiKey = options.apiKey ?? process.env.SANDOCK_API_KEY;
 
@@ -145,13 +148,19 @@ export class SandockSandbox implements SandboxAdapter {
    * Get the current handle if already attached, or null if not attached yet.
    */
   getHandle(): SandboxHandle | null {
-    return null;
+    return this.currentHandle;
   }
 
   /**
    * Attach to or create a sandbox (always creates a new sandbox).
    */
   async attach(): Promise<SandboxHandle> {
+    if (this.currentHandle) {
+      console.log(
+        `[Sandock] Reusing existing handle${this.name ? ` (${this.name})` : ""}`,
+      );
+      return this.currentHandle;
+    }
     // Resolve all volumes (get or create by name, wait for ready)
     const volumeMounts: Array<{ volumeId: string; mountPath: string }> = [];
     for (const v of this.volumes) {
@@ -237,7 +246,7 @@ export class SandockSandbox implements SandboxAdapter {
 
     // Initialize sandbox with runner and templates
     await this.initializeSandbox(handle);
-
+    this.currentHandle = handle;
     return handle;
   }
 
@@ -621,6 +630,15 @@ class SandockHandle implements SandboxHandle {
     files: Array<{ path: string; content: Uint8Array | string }>,
     targetDir: string,
   ): Promise<void> {
+    if (files.length === 0) return;
+    // Ensure target directory exists (fs.write may not create parent dirs on the volume)
+    const escapedDir = targetDir.replace(/'/g, "'\\''");
+    const mkdirResult = await this.runCommand(`mkdir -p '${escapedDir}'`);
+    if (mkdirResult.exitCode !== 0) {
+      console.warn(
+        `[Sandock] mkdir -p ${targetDir} failed: ${mkdirResult.stderr}`,
+      );
+    }
     for (const file of files) {
       const fullPath = `${targetDir}/${file.path}`;
 

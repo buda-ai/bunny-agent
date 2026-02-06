@@ -1,13 +1,26 @@
-import path from "node:path";
-import { LocalSandbox, type Question, submitAnswer } from "@sandagent/sdk";
+import {
+  type CreateSandboxParams,
+  getOrCreateSandbox,
+} from "@/lib/create-sandbox";
+import { type Question, submitAnswer } from "@sandagent/sdk";
 
 /**
  * POST /api/answer
  *
  * Receives user answers for AskUserQuestion tool calls.
- * Writes the answer file to the sandbox workdir so the runner can pick it up.
+ * Reuses the same cached sandbox that /api/ai created for this chat so the
+ * approval file is written where the runner can read it.
  *
- * Request body: { toolCallId: string, questions: Question[], answers: Record<string, string> }
+ * Request body:
+ *   toolCallId: string
+ *   questions: Question[]
+ *   answers: Record<string, string>
+ *   SANDBOX_PROVIDER?: string
+ *   E2B_API_KEY?: string
+ *   SANDOCK_API_KEY?: string
+ *   DAYTONA_API_KEY?: string
+ *   ANTHROPIC_API_KEY?: string
+ *   template?: string
  */
 export async function POST(request: Request) {
   let body: unknown;
@@ -20,11 +33,8 @@ export async function POST(request: Request) {
     );
   }
 
-  const { toolCallId, questions, answers } = body as {
-    toolCallId?: string;
-    questions?: Question[];
-    answers?: Record<string, string>;
-  };
+  const b = body as Record<string, unknown>;
+  const { toolCallId, questions, answers } = b;
 
   if (!toolCallId || !questions || !answers) {
     return Response.json(
@@ -36,15 +46,21 @@ export async function POST(request: Request) {
     );
   }
 
-  try {
-    const sandbox = new LocalSandbox({
-      workdir: path.join(process.cwd(), "workspace"),
-    });
+  const sandboxParams: CreateSandboxParams = {
+    SANDBOX_PROVIDER: b.SANDBOX_PROVIDER as string | undefined,
+    E2B_API_KEY: b.E2B_API_KEY as string | undefined,
+    SANDOCK_API_KEY: b.SANDOCK_API_KEY as string | undefined,
+    DAYTONA_API_KEY: b.DAYTONA_API_KEY as string | undefined,
+    ANTHROPIC_API_KEY: b.ANTHROPIC_API_KEY as string | undefined,
+    template: (b.template as string) ?? "default",
+  };
 
+  try {
+    const sandbox = await getOrCreateSandbox(sandboxParams);
     await submitAnswer(sandbox, {
-      toolCallId,
-      questions,
-      answers,
+      toolCallId: toolCallId as string,
+      questions: questions as Question[],
+      answers: answers as Record<string, string>,
     });
 
     return Response.json({ success: true });
