@@ -1,6 +1,6 @@
 {
   "name": "sandagent",
-  "version": "0.1.0",
+  "version": "0.1.4",
   "private": true,
   "description": "Sandboxed Super Agent runtime that speaks AI SDK UI natively",
   "repository": {
