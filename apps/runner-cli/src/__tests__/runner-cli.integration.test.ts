@@ -14,9 +14,22 @@ describe("runner-cli Integration Tests", () => {
   const TIMEOUT = 10000;
 
   it(
-    "should display help message",
+    "should display top-level help",
     async () => {
       const output = await runCLI(["--help"]);
+
+      expect(output.stdout).toContain("SandAgent Runner CLI");
+      expect(output.stdout).toContain("run");
+      expect(output.stdout).toContain("image build");
+      expect(output.exitCode).toBe(0);
+    },
+    TIMEOUT,
+  );
+
+  it(
+    "should display run command options in run --help",
+    async () => {
+      const output = await runCLI(["run", "--help"]);
 
       expect(output.stdout).toContain("SandAgent Runner CLI");
       expect(output.stdout).toContain("--runner");
