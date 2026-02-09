@@ -12,11 +12,11 @@ import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export interface BuildImageOptions {
-  /** Image name, e.g. "myorg/sandagent" */
+  /** Image name, e.g. "vikadata/sandagent-seo" */
   name: string;
   /** Image tag, e.g. "0.1.0" */
   tag: string;
-  /** Full image override, e.g. "myorg/repo:tag" */
+  /** Full image override, e.g. "myorg/myimage:v1" */
   image?: string;
   /** Docker platform (default: linux/amd64) */
   platform: string;
@@ -24,8 +24,6 @@ export interface BuildImageOptions {
   template?: string;
   /** Push image to registry after build */
   push: boolean;
-  /** Repo/namespace for push (e.g. dockerhub username) */
-  repo?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -38,12 +36,28 @@ function getPackageRoot(): string {
 }
 
 function getShippedDockerfile(): string {
-  const p = join(getPackageRoot(), "Dockerfile");
-  if (!existsSync(p)) {
-    console.error(`❌ Dockerfile not found at ${p}`);
-    process.exit(1);
+  // Look for Dockerfile in several locations:
+  // 1. Package root (apps/runner-cli/Dockerfile) — shipped with npm package
+  // 2. docker/sandagent-claude/Dockerfile — monorepo development
+  const packageRoot = getPackageRoot();
+  const candidates = [
+    join(packageRoot, "Dockerfile"),
+    resolve(
+      packageRoot,
+      "..",
+      "..",
+      "docker",
+      "sandagent-claude",
+      "Dockerfile",
+    ),
+  ];
+  for (const p of candidates) {
+    if (existsSync(p)) return p;
   }
-  return p;
+  console.error(
+    `❌ Dockerfile not found. Searched:\n${candidates.map((c) => `   ${c}`).join("\n")}`,
+  );
+  process.exit(1);
 }
 
 function run(cmd: string, cwd?: string) {
@@ -90,8 +104,7 @@ export async function buildImage(opts: BuildImageOptions): Promise<void> {
     ? resolveTemplatePath(opts.template)
     : null;
   const templateName = templatePath ? basename(templatePath) : null;
-  const imageName = templateName ? `${opts.name}-${templateName}` : opts.name;
-  const localImage = opts.image ?? `${imageName}:${opts.tag}`;
+  const localImage = opts.image ?? `${opts.name}:${opts.tag}`;
 
   console.log("📦 SandAgent Docker Image Builder");
   console.log("========================");
@@ -99,14 +112,11 @@ export async function buildImage(opts: BuildImageOptions): Promise<void> {
   console.log(`  Platform: ${opts.platform}`);
   console.log(`  Template: ${templateName ?? "(none)"}`);
   console.log(`  Push: ${opts.push}`);
-  if (opts.push && opts.repo) {
-    console.log(`  Repo: ${opts.repo}`);
-  }
   console.log("");
 
   ensureDocker();
 
-  const buildContext = join(process.cwd(), ".sandagent-build-context");
+  const buildContext = join(process.cwd(), ".docker-staging");
   mkdirSync(buildContext, { recursive: true });
 
   let dockerfile = readFileSync(getShippedDockerfile(), "utf8");
@@ -144,21 +154,14 @@ export async function buildImage(opts: BuildImageOptions): Promise<void> {
 
   if (!opts.push) return;
 
-  let pushImage = localImage;
   if (!localImage.includes("/")) {
-    if (!opts.repo) {
-      console.error("❌ --push requires --name to include org/ or use --repo");
-      process.exit(1);
-    }
-    pushImage = `${opts.repo}/${localImage}`;
-  }
-
-  if (pushImage !== localImage) {
-    console.log(`🏷️  Tagging: ${pushImage}`);
-    run(`docker tag ${localImage} ${pushImage}`);
+    console.error(
+      "❌ --push requires --name to include namespace (e.g. vikadata/sandagent-seo)",
+    );
+    process.exit(1);
   }
 
   console.log("🚀 Pushing image...");
-  run(`docker push ${pushImage}`);
-  console.log(`\n✅ Image pushed: ${pushImage}`);
+  run(`docker push ${localImage}`);
+  console.log(`\n✅ Image pushed: ${localImage}`);
 }

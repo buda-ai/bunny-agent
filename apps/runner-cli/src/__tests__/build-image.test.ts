@@ -24,7 +24,7 @@ import { buildImage } from "../build-image.js";
 const mockedExecSync = vi.mocked(execSync);
 
 const TEST_DIR = join(process.cwd(), ".test-build-image");
-const BUILD_CONTEXT = join(TEST_DIR, ".sandagent-build-context");
+const BUILD_CONTEXT = join(TEST_DIR, ".docker-staging");
 
 beforeEach(() => {
   mkdirSync(TEST_DIR, { recursive: true });
@@ -35,7 +35,7 @@ afterEach(() => {
   rmSync(TEST_DIR, { recursive: true, force: true });
   rmSync(BUILD_CONTEXT, { recursive: true, force: true });
   // Also clean up the default build context location
-  rmSync(join(process.cwd(), ".sandagent-build-context"), {
+  rmSync(join(process.cwd(), ".docker-staging"), {
     recursive: true,
     force: true,
   });
@@ -72,7 +72,7 @@ describe("buildImage", () => {
       push: false,
     });
 
-    const contextDir = join(process.cwd(), ".sandagent-build-context");
+    const contextDir = join(process.cwd(), ".docker-staging");
     const dockerfilePath = join(contextDir, "Dockerfile");
     expect(existsSync(dockerfilePath)).toBe(true);
 
@@ -116,10 +116,10 @@ describe("buildImage", () => {
     // Image name should include template name
     const calls = mockedExecSync.mock.calls.map((c) => c[0] as string);
     const buildCmd = calls.find((c) => c.includes("docker build"))!;
-    expect(buildCmd).toContain("-t myorg/sandagent-my-agent:0.1.0");
+    expect(buildCmd).toContain("-t myorg/sandagent:0.1.0");
 
     // Generated Dockerfile should have template COPY lines
-    const contextDir = join(process.cwd(), ".sandagent-build-context");
+    const contextDir = join(process.cwd(), ".docker-staging");
     const dockerfile = readFileSync(join(contextDir, "Dockerfile"), "utf8");
     expect(dockerfile).toContain("COPY templates/my-agent/CLAUDE.md");
     expect(dockerfile).toContain("COPY templates/my-agent/.claude");
@@ -151,24 +151,27 @@ describe("buildImage", () => {
     ).toBe(true);
   });
 
-  it("tags and pushes with --repo when image has no org", async () => {
-    await buildImage({
-      name: "sandagent",
-      tag: "0.1.0",
-      platform: "linux/amd64",
-      push: true,
-      repo: "myuser",
+  it("fails push when name has no namespace", async () => {
+    const mockExit = vi.spyOn(process, "exit").mockImplementation(() => {
+      throw new Error("process.exit");
     });
+    const mockError = vi.spyOn(console, "error").mockImplementation(() => {});
 
-    const calls = mockedExecSync.mock.calls.map((c) => c[0] as string);
-    expect(
-      calls.some((c) =>
-        c.includes("docker tag sandagent:0.1.0 myuser/sandagent:0.1.0"),
-      ),
-    ).toBe(true);
-    expect(
-      calls.some((c) => c.includes("docker push myuser/sandagent:0.1.0")),
-    ).toBe(true);
+    await expect(
+      buildImage({
+        name: "sandagent",
+        tag: "0.1.0",
+        platform: "linux/amd64",
+        push: true,
+      }),
+    ).rejects.toThrow("process.exit");
+
+    expect(mockError).toHaveBeenCalledWith(
+      expect.stringContaining("--push requires --name to include namespace"),
+    );
+
+    mockExit.mockRestore();
+    mockError.mockRestore();
   });
 
   it("does not push when --push is false", async () => {

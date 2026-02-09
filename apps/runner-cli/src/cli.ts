@@ -156,7 +156,6 @@ interface ParsedImageBuildArgs {
   name: string;
   tag: string;
   image?: string;
-  repo?: string;
   platform: string;
   template?: string;
   push: boolean;
@@ -169,7 +168,6 @@ function parseImageBuildArgs(): ParsedImageBuildArgs {
       name: { type: "string", default: "sandagent" },
       tag: { type: "string", default: "latest" },
       image: { type: "string" },
-      repo: { type: "string" },
       platform: { type: "string", default: "linux/amd64" },
       template: { type: "string" },
       push: { type: "boolean", default: false },
@@ -188,7 +186,6 @@ function parseImageBuildArgs(): ParsedImageBuildArgs {
     name: values.name!,
     tag: values.tag!,
     image: values.image,
-    repo: values.repo ?? process.env.DOCKERHUB_USERNAME,
     platform: values.platform!,
     template: values.template,
     push: values.push ?? false,
@@ -236,23 +233,18 @@ Usage:
   sandagent image build [options]
 
 Options:
-  --name <name>          Image name (default: sandagent)
+  --name <name>          Image name, e.g. vikadata/sandagent-seo (default: sandagent)
   --tag <tag>            Image tag (default: latest)
   --image <full>         Full image name override (e.g. myorg/myimage:v1)
-  --repo <repo>          Registry namespace for push (e.g. dockerhub username)
   --platform <plat>      Build platform (default: linux/amd64)
   --template <path>      Path to agent template directory to bake into the image
   --push                 Push image to registry after build
   -h, --help             Show this help
 
-Environment:
-  DOCKERHUB_USERNAME     Default --repo value
-
 Examples:
-  sandagent image build --name myorg/sandagent --tag 0.1.0
-  sandagent image build --name myorg/sandagent --tag 0.1.0 --template ./my-agent
-  sandagent image build --name myorg/sandagent --tag 0.1.0 --push
-  sandagent image build --name myorg/sandagent --tag 0.1.0 --template ./my-agent --push
+  sandagent image build --name vikadata/sandagent-seo --tag 0.1.0
+  sandagent image build --name vikadata/sandagent-seo --tag 0.1.0 --template ./templates/seo-agent
+  sandagent image build --name vikadata/sandagent-seo --tag 0.1.0 --template ./templates/seo-agent --push
 `);
 }
 
