@@ -3,21 +3,61 @@
 /**
  * SandAgent Runner CLI
  *
- * Like gemini-cli or claude-code - runs locally in your terminal.
- * Streams AI SDK UI messages directly to stdout.
- *
- * Usage:
- *   sandagent run [options] -- "<user input>"
- *
- * The CLI is designed to be executed in a specific working directory
- * and outputs AI SDK UI messages directly.
+ * Subcommands:
+ *   sandagent run         [options] -- "<user input>"   Run an agent locally
+ *   sandagent image build [options]                     Build (and optionally push) a Docker image
  */
 
 import { parseArgs } from "node:util";
 import type { OutputFormat } from "@sandagent/runner-claude";
+import { buildImage } from "./build-image.js";
 import { runAgent } from "./runner.js";
 
-interface ParsedArgs {
+// ---------------------------------------------------------------------------
+// Shared helpers
+// ---------------------------------------------------------------------------
+
+/** Get the first positional arg (top-level subcommand). */
+function getSubcommand(): string | undefined {
+  for (let i = 2; i < process.argv.length; i++) {
+    const a = process.argv[i];
+    if (a === "--") break;
+    if (!a.startsWith("-")) return a;
+  }
+  return undefined;
+}
+
+/** Get the second positional arg (sub-subcommand, e.g. "build" in "image build"). */
+function getSubSubcommand(): string | undefined {
+  let found = 0;
+  for (let i = 2; i < process.argv.length; i++) {
+    const a = process.argv[i];
+    if (a === "--") break;
+    if (!a.startsWith("-")) {
+      found++;
+      if (found === 2) return a;
+    }
+  }
+  return undefined;
+}
+
+/** Slice process.argv to args after N positionals. */
+function argsAfterPositionals(n: number): string[] {
+  let found = 0;
+  for (let i = 2; i < process.argv.length; i++) {
+    if (!process.argv[i].startsWith("-") && process.argv[i] !== "--") {
+      found++;
+      if (found === n) return process.argv.slice(i + 1);
+    }
+  }
+  return [];
+}
+
+// ---------------------------------------------------------------------------
+// `sandagent run`
+// ---------------------------------------------------------------------------
+
+interface ParsedRunArgs {
   runner: string;
   model: string;
   cwd: string;
@@ -29,14 +69,11 @@ interface ParsedArgs {
   userInput: string;
 }
 
-function parseCliArgs(): ParsedArgs {
+function parseRunArgs(): ParsedRunArgs {
   const { values, positionals } = parseArgs({
+    args: argsAfterPositionals(1),
     options: {
-      runner: {
-        type: "string",
-        short: "r",
-        default: "claude",
-      },
+      runner: { type: "string", short: "r", default: "claude" },
       model: {
         type: "string",
         short: "m",
@@ -47,55 +84,28 @@ function parseCliArgs(): ParsedArgs {
         short: "c",
         default: process.env.SANDAGENT_WORKSPACE ?? process.cwd(),
       },
-      "system-prompt": {
-        type: "string",
-        short: "s",
-      },
-      "max-turns": {
-        type: "string",
-        short: "t",
-      },
-      "allowed-tools": {
-        type: "string",
-        short: "a",
-      },
-      resume: {
-        type: "string",
-        short: "r",
-      },
-      "output-format": {
-        type: "string",
-        short: "o",
-      },
-      help: {
-        type: "boolean",
-        short: "h",
-      },
+      "system-prompt": { type: "string", short: "s" },
+      "max-turns": { type: "string", short: "t" },
+      "allowed-tools": { type: "string", short: "a" },
+      resume: { type: "string" },
+      "output-format": { type: "string", short: "o" },
+      help: { type: "boolean", short: "h" },
     },
     allowPositionals: true,
     strict: true,
   });
 
   if (values.help) {
-    printHelp();
+    printRunHelp();
     process.exit(0);
   }
 
-  // Check for "run" command
-  if (positionals[0] !== "run") {
-    console.error('Error: Expected "run" command');
-    console.error('Usage: sandagent run [options] -- "<user input>"');
-    process.exit(1);
-  }
-
-  // Get user input from positionals after "--"
   const dashIndex = process.argv.indexOf("--");
   let userInput = "";
-
   if (dashIndex !== -1 && dashIndex < process.argv.length - 1) {
     userInput = process.argv.slice(dashIndex + 1).join(" ");
-  } else if (positionals.length > 1) {
-    userInput = positionals.slice(1).join(" ");
+  } else if (positionals.length > 0) {
+    userInput = positionals.join(" ");
   }
 
   if (!userInput) {
@@ -104,7 +114,6 @@ function parseCliArgs(): ParsedArgs {
     process.exit(1);
   }
 
-  // Validate runner
   const runner = values.runner!;
   if (!["claude", "codex", "copilot"].includes(runner)) {
     console.error(
@@ -113,7 +122,6 @@ function parseCliArgs(): ParsedArgs {
     process.exit(1);
   }
 
-  // Validate output-format
   const outputFormat = values["output-format"] as OutputFormat | undefined;
   if (
     outputFormat &&
@@ -140,66 +148,197 @@ function parseCliArgs(): ParsedArgs {
   };
 }
 
-function printHelp(): void {
-  console.log(`
-🤖 SandAgent Runner CLI
+// ---------------------------------------------------------------------------
+// `sandagent image build`
+// ---------------------------------------------------------------------------
 
-Like gemini-cli or claude-code - runs locally in your terminal.
-Streams AI SDK UI messages directly to stdout.
+interface ParsedImageBuildArgs {
+  name: string;
+  tag: string;
+  image?: string;
+  repo?: string;
+  platform: string;
+  template?: string;
+  push: boolean;
+}
+
+function parseImageBuildArgs(): ParsedImageBuildArgs {
+  const { values } = parseArgs({
+    args: argsAfterPositionals(2),
+    options: {
+      name: { type: "string", default: "sandagent" },
+      tag: { type: "string", default: "latest" },
+      image: { type: "string" },
+      repo: { type: "string" },
+      platform: { type: "string", default: "linux/amd64" },
+      template: { type: "string" },
+      push: { type: "boolean", default: false },
+      help: { type: "boolean", short: "h" },
+    },
+    allowPositionals: false,
+    strict: true,
+  });
+
+  if (values.help) {
+    printImageBuildHelp();
+    process.exit(0);
+  }
+
+  return {
+    name: values.name!,
+    tag: values.tag!,
+    image: values.image,
+    repo: values.repo ?? process.env.DOCKERHUB_USERNAME,
+    platform: values.platform!,
+    template: values.template,
+    push: values.push ?? false,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Help text
+// ---------------------------------------------------------------------------
+
+function printRunHelp(): void {
+  console.log(`
+🤖 SandAgent Runner CLI — run
+
+Runs an agent locally in your terminal, streaming AI SDK UI messages to stdout.
 
 Usage:
   sandagent run [options] -- "<user input>"
 
 Options:
-  -r, --runner <runner>        Runner to use: claude, codex, copilot (default: claude)
-  -m, --model <model>          Model to use (default: claude-sonnet-4-20250514)
-  -c, --cwd <path>             Working directory (default: current directory)
+  -r, --runner <runner>        Runner: claude, codex, copilot (default: claude)
+  -m, --model <model>          Model (default: claude-sonnet-4-20250514)
+  -c, --cwd <path>             Working directory (default: cwd)
   -s, --system-prompt <prompt> Custom system prompt
-  -t, --max-turns <n>          Maximum conversation turns
-  -a, --allowed-tools <tools>  Comma-separated list of allowed tools
-  -r, --resume <session-id>    Resume a previous session
-  -o, --output-format <format> Output format (default: stream)
-                               Available: text, json(single result), stream-json(realtime streaming), stream(ai sdk ui sse format)
-  -h, --help                   Show this help message
+  -t, --max-turns <n>          Max conversation turns
+  -a, --allowed-tools <tools>  Comma-separated allowed tools
+      --resume <session-id>    Resume a previous session
+  -o, --output-format <fmt>    text | json | stream-json | stream (default: stream)
+  -h, --help                   Show this help
 
-Environment Variables:
-  ANTHROPIC_API_KEY           Anthropic API key (required)
-  SANDAGENT_WORKSPACE         Default workspace path
-  SANDAGENT_LOG_LEVEL         Logging level (debug, info, warn, error)
-
-Examples:
-  # Run with default settings
-  sandagent run -- "Create a hello world script"
-
-  # Run with custom system prompt
-  sandagent run --system-prompt "You are a coding assistant" -- "Build a REST API with Express"
-
-  # Specify working directory
-  sandagent run --cwd ./my-project -- "Fix the bug in main.ts"
+Environment:
+  ANTHROPIC_API_KEY            Anthropic API key (required)
+  SANDAGENT_WORKSPACE          Default workspace path
 `);
 }
 
+function printImageBuildHelp(): void {
+  console.log(`
+🐳 SandAgent Runner CLI — image build
+
+Build (and optionally push) a SandAgent Docker image.
+The image includes Claude Agent SDK + runner-cli pre-installed.
+
+Usage:
+  sandagent image build [options]
+
+Options:
+  --name <name>          Image name (default: sandagent)
+  --tag <tag>            Image tag (default: latest)
+  --image <full>         Full image name override (e.g. myorg/myimage:v1)
+  --repo <repo>          Registry namespace for push (e.g. dockerhub username)
+  --platform <plat>      Build platform (default: linux/amd64)
+  --template <path>      Path to agent template directory to bake into the image
+  --push                 Push image to registry after build
+  -h, --help             Show this help
+
+Environment:
+  DOCKERHUB_USERNAME     Default --repo value
+
+Examples:
+  sandagent image build --name myorg/sandagent --tag 0.1.0
+  sandagent image build --name myorg/sandagent --tag 0.1.0 --template ./my-agent
+  sandagent image build --name myorg/sandagent --tag 0.1.0 --push
+  sandagent image build --name myorg/sandagent --tag 0.1.0 --template ./my-agent --push
+`);
+}
+
+function printImageHelp(): void {
+  console.log(`
+🐳 SandAgent Runner CLI — image
+
+Manage SandAgent Docker images.
+
+Usage:
+  sandagent image <subcommand> [options]
+
+Subcommands:
+  build    Build (and optionally push) a Docker image
+
+Run "sandagent image build --help" for build options.
+`);
+}
+
+function printGlobalHelp(): void {
+  console.log(`
+🤖 SandAgent Runner CLI
+
+Usage:
+  sandagent <command> [options]
+
+Commands:
+  run          Run an agent locally (streams AI SDK UI messages to stdout)
+  image build  Build a SandAgent Docker image (with optional --push)
+
+Run "sandagent <command> --help" for command-specific options.
+`);
+}
+
+// ---------------------------------------------------------------------------
+// Main
+// ---------------------------------------------------------------------------
+
 async function main(): Promise<void> {
-  const args = parseCliArgs();
+  const sub = getSubcommand();
 
-  // Change to the specified working directory
-  process.chdir(args.cwd);
+  if (!sub || sub === "--help" || sub === "-h") {
+    printGlobalHelp();
+    process.exit(0);
+  }
 
-  // Run the agent and stream output to stdout
-  await runAgent({
-    runner: args.runner,
-    model: args.model,
-    userInput: args.userInput,
-    systemPrompt: args.systemPrompt,
-    maxTurns: args.maxTurns,
-    allowedTools: args.allowedTools,
-    resume: args.resume,
-    outputFormat: args.outputFormat,
-  });
+  switch (sub) {
+    case "run": {
+      const args = parseRunArgs();
+      process.chdir(args.cwd);
+      await runAgent({
+        runner: args.runner,
+        model: args.model,
+        userInput: args.userInput,
+        systemPrompt: args.systemPrompt,
+        maxTurns: args.maxTurns,
+        allowedTools: args.allowedTools,
+        resume: args.resume,
+        outputFormat: args.outputFormat,
+      });
+      break;
+    }
+    case "image": {
+      const subSub = getSubSubcommand();
+      if (!subSub || subSub === "--help" || subSub === "-h") {
+        printImageHelp();
+        process.exit(0);
+      }
+      if (subSub === "build") {
+        const args = parseImageBuildArgs();
+        await buildImage(args);
+      } else {
+        console.error(`Unknown image subcommand: ${subSub}`);
+        printImageHelp();
+        process.exit(1);
+      }
+      break;
+    }
+    default:
+      console.error(`Unknown command: ${sub}`);
+      printGlobalHelp();
+      process.exit(1);
+  }
 }
 
 main().catch((error) => {
-  // Errors go to stderr, not stdout
   console.error("Fatal error:", error.message);
   process.exit(1);
 });

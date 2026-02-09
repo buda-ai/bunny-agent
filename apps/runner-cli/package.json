@@ -16,7 +16,8 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "Dockerfile"
   ],
   "scripts": {
     "build": "tsc && pnpm bundle",
