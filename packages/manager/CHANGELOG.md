@@ -1,5 +1,11 @@
 # @sandagent/manager
 
+## 0.2.10
+
+### Patch Changes
+
+- Simplify image build CLI: remove --repo option, use --name as full image name (matching docker convention), fix Dockerfile lookup for monorepo development, rename build context to .docker-staging
+
 ## 0.2.9
 
 ### Patch Changes
