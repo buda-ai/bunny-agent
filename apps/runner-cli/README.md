@@ -156,6 +156,32 @@ The CLI is designed to:
 3. Stream AI SDK UI messages directly to stdout
 4. Support both SSE stream and JSON output formats
 
+## 🐳 Docker Image Build
+
+Build Docker images with agent templates baked in:
+
+```bash
+# Build image
+sandagent image build --name vikadata/sandagent-seo --tag 0.1.0 --template ./templates/seo-agent
+
+# Build and push
+sandagent image build --name vikadata/sandagent-seo --tag 0.1.0 --template ./templates/seo-agent --push
+
+# Without template
+sandagent image build --name vikadata/sandagent --tag 0.1.0
+```
+
+### Image Build Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--name <name>` | Full image name (e.g. `vikadata/sandagent-seo`) | `sandagent` |
+| `--tag <tag>` | Image tag | `latest` |
+| `--image <full>` | Full image name override (e.g. `myorg/myimage:v1`) | - |
+| `--platform <plat>` | Build platform | `linux/amd64` |
+| `--template <path>` | Path to agent template directory | - |
+| `--push` | Push image to registry after build | `false` |
+
 ## Related Documentation
 
 - [Claude Agent SDK](https://platform.claude.com/docs/agent-sdk/typescript)
