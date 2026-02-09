@@ -18,22 +18,24 @@ make help
 
 ### Docker image (generic)
 
-Image name: **vikadata/sandagent**. No template = default; with template = **vikadata/sandagent-&lt;templateName&gt;** (e.g. `vikadata/sandagent-researcher`).
+Build with the `sandagent` CLI (`--name` is the full image name):
+
+```bash
+# Build
+sandagent image build --name vikadata/sandagent --tag 0.1.0
+
+# Build with template
+sandagent image build --name vikadata/sandagent-seo --tag 0.1.0 --template ../../templates/seo-agent
+
+# Build + push
+sandagent image build --name vikadata/sandagent-seo --tag 0.1.0 --template ../../templates/seo-agent --push
+```
+
+Or with make:
 
 ```bash
 make image                        # build vikadata/sandagent:0.1.0
-make image TEMPLATE=researcher    # build vikadata/sandagent-researcher:0.1.0
 make image-push                   # build + push (docker login first)
-```
-
-Or with pnpm:
-
-```bash
-pnpm run image
-pnpm run image -- --push
-pnpm run image -- --template researcher --push
-pnpm run image -- --tag 0.2.0 --push
-pnpm run image -- --help
 ```
 
 ### Daytona
@@ -83,7 +85,7 @@ docker build -f docker/sandagent-claude/Dockerfile.local -t vikadata/sandagent:l
 ## Setup
 
 1. Copy `.env.example` to `.env`.
-2. Set keys: `DAYTONA_API_KEY`, `E2B_API_KEY` (and `DOCKERHUB_USERNAME` if pushing Sandock under another account).
+2. Set keys: `DAYTONA_API_KEY`, `E2B_API_KEY`.
 
 ## Make targets
 
@@ -109,7 +111,11 @@ docker build -f docker/sandagent-claude/Dockerfile.local -t vikadata/sandagent:l
 
 ## Image naming
 
-Unified name: **vikadata/sandagent** (set in Makefile and build-image.ts; override with `.env` or `IMAGE_NAME`). No template → `vikadata/sandagent:tag`. With template → `vikadata/sandagent-&lt;name&gt;:tag` (e.g. `vikadata/sandagent-researcher:0.1.0`).
+`--name` is the full Docker image name, matching `docker build -t` convention. No magic concatenation — what you pass is what you get.
+
+Examples:
+- `--name vikadata/sandagent` → `vikadata/sandagent:tag`
+- `--name vikadata/sandagent-seo` → `vikadata/sandagent-seo:tag`
 
 ## Templates
 
