@@ -1,209 +1,192 @@
 ---
 name: prompt-generator
-description: Generates detailed image generation prompts from keyframes, descriptions, or style references. Optimized for AI image generators to create video-ready visuals.
+description: 从分镜表的画面描述生成完整的 AI 生图提示词。核心功能：自动注入角色一致性 Token，确保同一角色跨镜头视觉一致。支持 Midjourney / DALL-E / Stable Diffusion 等平台。
 ---
 
-# Prompt Generator
+# Prompt Generator — 剧照提示词生成器
 
-This skill creates detailed, optimized prompts for AI image generation tools (Midjourney, DALL-E, Stable Diffusion, etc.). Perfect for creating consistent visual assets for video production.
+从分镜表中的画面描述生成可直接使用的 AI 生图提示词。**核心机制**：自动从角色档案加载一致性 Token，注入到每个包含该角色的剧照提示词中，保证角色在所有镜头中外貌一致。
 
 ## When to Use This Skill
 
-- Creating image prompts from extracted keyframes
-- Generating prompts for B-roll visuals
-- Designing consistent style across multiple images
-- Translating descriptions into generation-ready prompts
-- Creating variations while maintaining style consistency
-- Batch prompt generation for video segments
+- 从分镜表生成剧照 (角色镜头) 的 AI 生图提示词
+- 从 B-Roll 规划生成补充镜头提示词
+- 批量生成一组风格一致的图片提示词
+- 需要跨多张图保持角色外貌一致
+- 为不同 AI 平台优化提示词格式
+- 翻译中文描述为英文提示词
 
 ## What This Skill Does
 
-1. **Prompt Engineering**: Creates detailed, structured prompts for AI generators
-2. **Style Consistency**: Ensures prompts maintain visual coherence
-3. **Technical Optimization**: Includes proper parameters and quality markers
-4. **Negative Prompts**: Specifies what to avoid in generation
-5. **Batch Generation**: Creates multiple related prompts efficiently
-6. **Platform Optimization**: Tailors prompts for specific AI tools
+1. **角色 Token 注入**: 从 `./output/characters/` 加载一致性 Token，自动嵌入提示词
+2. **画面→提示词**: 将分镜的画面描述转化为结构化提示词
+3. **风格一致**: 使用共享的风格基底 (Style Foundation) 确保系列一致
+4. **平台适配**: 为 Midjourney / DALL-E / SD 分别优化
+5. **反向提示词**: 生成精确的 Negative Prompt
+6. **批量输出**: 批量生成可直接复制使用的提示词文件
 
 ## How to Use
 
-### From Keyframe
+### 从分镜表批量生成
 
 ```
-Generate image prompt from keyframe: [frame file or description]
+从分镜表生成所有剧照提示词
 ```
 
-### From Description
+### 指定镜头生成
 
 ```
-Create image prompts for: [scene description]
-Style: [visual style]
+为 S01-C01 和 S02-C03 生成生图提示词
 ```
 
-### Batch Generation
+### 风格参考生成
 
 ```
-Generate 5 image prompts for [topic/scene] with consistent [style]
+参考这张图的风格，为分镜表生成提示词: [图片描述/URL]
 ```
 
 ## Instructions
 
 When user requests prompt generation:
 
-1. **Gather Input Information**
+1. **加载角色 Token 和风格基底**
 
    ```markdown
-   I'll create image generation prompts for you.
-   
-   **Source Material**:
-   [ ] Keyframe/reference image
-   [ ] Text description
-   [ ] Style guide
-   [ ] Existing video/brand materials
-   
-   **Generation Platform** (optional, for optimization):
-   [ ] Midjourney
-   [ ] DALL-E 3
-   [ ] Stable Diffusion
-   [ ] Other: ___________
-   [ ] Generic (works across platforms)
-   
-   **Prompt Purpose**:
-   [ ] Video backgrounds
-   [ ] Product shots
-   [ ] Character/presenter backgrounds
-   [ ] B-roll visuals
-   [ ] Title cards/graphics
-   [ ] Other: ___________
-   
-   **Style Requirements**:
-   - Visual style: [Modern/Cinematic/Minimal/Bold/etc.]
-   - Color palette: [Colors or mood]
-   - Mood/feeling: [Emotion to evoke]
-   - Quality level: [Photorealistic/Illustrated/3D/etc.]
+   ## 角色一致性 Token 加载
+
+   **角色档案来源**: `./output/characters/`
+
+   | 角色 | Token 状态 | 简短版 Token |
+   |------|-----------|-------------|
+   | A: [Name] | ✅ 已加载 | `30-year-old asian woman with shoulder-length black hair...` |
+   | B: [Name] | ✅ 已加载 | `45-year-old man with short gray hair, square jaw...` |
+
+   **风格基底** (Style Foundation):
+   ```
+   [art style], [quality: 4K, sharp focus, detailed],
+   [lighting: soft three-point / cinematic / natural],
+   [render: photorealistic / 3D / illustration],
+   [color: warm palette / brand colors #XXX #XXX],
+   [camera: professional photography / cinematic]
    ```
 
-2. **Analyze Source Material**
-
-   If keyframe provided:
-   
-   ```markdown
-   ## Keyframe Analysis
-   
-   **Visual Elements Identified**:
-   - Main subject: [Subject]
-   - Setting/background: [Environment]
-   - Lighting: [Lighting characteristics]
-   - Colors: [Dominant colors]
-   - Composition: [How elements arranged]
-   - Style: [Aesthetic quality]
-   - Technical: [Quality indicators]
-   
-   **Elements to Replicate**:
-   - [Element 1]
-   - [Element 2]
-   - [Element 3]
-   
-   **Elements to Enhance/Change**:
-   - [Element 1]: [How to improve]
-   - [Element 2]: [How to improve]
+   > ⚠ 以下所有提示词将自动注入对应角色的 Token
+   > ⚠ 风格基底统一应用于所有提示词
    ```
 
-3. **Prompt Structure Template**
+2. **角色 Token 注入机制**
 
    ```markdown
-   ## Prompt Engineering Formula
-   
-   **Structure**: [Subject] + [Style] + [Setting] + [Lighting] + [Camera] + [Quality]
-   
-   **Components**:
-   
-   1. **Subject** (What's the main focus)
-      - Primary subject
-      - Actions/pose
-      - Details and attributes
-   
-   2. **Style** (Visual aesthetic)
-      - Art style (photorealistic, cinematic, illustrated, etc.)
-      - Artistic reference (if any)
-      - Medium (photography, digital art, 3D render, etc.)
-   
-   3. **Setting** (Environment/background)
-      - Location description
-      - Background elements
-      - Atmosphere
-   
-   4. **Lighting** (Light quality and direction)
-      - Light source
-      - Quality (soft/hard)
-      - Direction
-      - Time of day
-   
-   5. **Camera** (Technical framing)
-      - Shot type (close-up, medium, wide)
-      - Angle (eye-level, high, low)
-      - Lens characteristics
-   
-   6. **Quality** (Technical excellence markers)
-      - Resolution (4K, 8K, etc.)
-      - Rendering quality
-      - Detail level
-      - Professional indicators
+   ## Token 注入规则
+
+   ### 提示词组装公式
+
+   ```
+   PROMPT = [SCENE/环境描述]
+          + [CHARACTER TOKEN: 角色完整外貌]
+          + [POSE/动作姿态]
+          + [EXPRESSION/表情]
+          + [CAMERA/镜头参数]
+          + [STYLE FOUNDATION/风格基底]
    ```
 
-4. **Create Detailed Prompts**
+   ### 规则
+
+   1. **必须注入**: 任何包含角色的剧照，必须完整注入该角色的 Token
+   2. **不可修改**: Token 中的面部和体型描述不可修改 (除非换装)
+   3. **换装替换**: 如场景需要不同服装，仅替换 Token 中的服装部分
+   4. **多角色**: 多个角色出现时，每个角色都注入各自的 Token
+   5. **B-Roll**: 不含角色的画面不需要注入 Token
+   6. **表情追加**: 在 Token 后追加当前镜头的表情描述
+
+   ### 注入示例
+
+   **输入** (从分镜表):
+   - 分镜: S01-C01
+   - 角色: A
+   - 姿态: 站在中央偏右, 面对镜头
+   - 表情: 自信微笑
+   - 场景: 简洁演播室
+   - 景别: 中景
+
+   **输出** (注入后的提示词):
+   ```
+   Clean minimalist studio background, soft gray tones,
+   [30-year-old asian woman with shoulder-length black hair 
+   and side bangs, wearing navy blazer over white blouse, 
+   wire-rimmed glasses, slim build],
+   standing center-right of frame, facing camera directly,
+   confident warm smile, hands clasped naturally in front,
+   medium shot from waist up, eye-level angle,
+   soft three-point lighting, key light from right,
+   photorealistic, 4K, sharp focus, professional portrait
+   ```
+
+   > 注意: `[30-year-old asian woman...]` 就是从 
+   > `./output/characters/[name]/consistency-tokens.md` 
+   > 加载的角色 Token — 原封不动嵌入
+   ```
+
+3. **分镜→提示词批量转换**
 
    ```markdown
-   ## Generated Image Prompts
-   
-   ### Prompt 001: [Scene Name]
-   
-   **Main Prompt**:
-   ```
-   [Subject description], [action/pose], [detailed attributes],
-   [style keywords], [artistic reference if any],
-   [setting and environment description],
-   [lighting setup and quality],
-   [camera angle and framing],
-   [mood and atmosphere],
-   [technical quality indicators],
-   --ar [aspect ratio] --v [version] [other parameters]
-   ```
-   
-   **Simplified Version**:
-   ```
-   [Concise version of above, 1-2 sentences]
-   ```
-   
-   **Negative Prompt** (what to avoid):
-   ```
-   [unwanted elements], [bad qualities], [artifacts to exclude],
-   low quality, blurry, distorted, [specific issues]
-   ```
-   
-   **Platform-Specific Notes**:
-   - **Midjourney**: [MJ-specific parameters]
-   - **DALL-E**: [DALL-E considerations]
-   - **SD**: [Stable Diffusion settings]
-   
-   **Expected Output**:
-   - Resolution: [Target resolution]
-   - Aspect ratio: [16:9, 9:16, 1:1, etc.]
-   - Use case: [Where in video]
-   - Shot type: [Establishing/main/B-roll/etc.]
-   
+   ## 批量提示词生成
+
+   **来源**: `./output/storyboard/photo-gen-tasks.md`
+   **总计**: [N] 张剧照
+
    ---
-   
-   ### Prompt 002: [Scene Name]
-   
-   [Same structure as above]
-   
-   ---
-   
-   [Continue for all requested prompts]
+
+   ### Prompt S01-C01: [场景标题] — [角色 A] 自信开场
+
+   **Prompt**:
+   ```
+   [Complete prompt with character token injected,
+    scene description, pose, expression, camera, style]
    ```
 
-5. **Platform-Specific Optimization**
+   **Negative Prompt**:
+   ```
+   blurry, low quality, distorted face, extra limbs,
+   bad anatomy, deformed, watermark, text,
+   multiple characters, wrong outfit, extra accessories,
+   wrong hair color, wrong hair style
+   ```
+
+   **参数**:
+   - 平台: [Midjourney / SD / DALL-E]
+   - 比例: 16:9 (--ar 16:9)
+   - 种子: [seed for consistency]
+   - 风格: [--style raw / --s 250]
+
+   **来源分镜**: S01-C01
+   **角色**: [A]
+   **用途**: 主镜头剧照
+
+   ---
+
+   ### Prompt S01-C02: [场景标题] — [角色 A] 好奇提问
+
+   [Same structure...]
+
+   ---
+
+   ### Prompt S01-B01: B-Roll — 科技氛围
+
+   **Prompt**:
+   ```
+   [No character token — B-Roll without characters]
+   Abstract digital data flow, glowing particles...
+   ```
+
+   [No character token needed for B-Roll]
+
+   ---
+
+   [Continue for all shots...]
+   ```
+
+4. **平台适配优化**
 
    **For Midjourney**:
    ```markdown
@@ -477,60 +460,61 @@ When user requests prompt generation:
 
 11. **Save Prompts**
 
-    Save to `./output/assets/prompts/[prompt-set-name]-[date].md` and also create a plain text file for easy copying: `./output/assets/prompts/[prompt-set-name]-[date].txt`
+    保存到 `./output/prompts/`:
+
+    ```
+    ./output/prompts/
+    ├── prompt-index.md            # 提示词总索引
+    ├── style-foundation.md        # 风格基底定义
+    ├── character-shots/           # 角色剧照提示词
+    │   ├── S01-C01.md
+    │   ├── S01-C02.md
+    │   └── ...
+    ├── broll-shots/               # B-Roll 提示词
+    │   ├── S01-B01.md
+    │   └── ...
+    └── all-prompts.txt            # 所有提示词 (纯文本，便于复制)
+    ```
 
 12. **Provide Summary**
 
     ```markdown
-    ✅ Image prompts generated!
-    
-    **Saved to**: 
-    - `./output/assets/prompts/[filename].md` (detailed)
-    - `./output/assets/prompts/[filename].txt` (copy-ready)
-    
-    **Prompt Summary**:
-    - Total prompts: [N]
-    - Style: [Style description]
-    - Platform optimized for: [Platform or generic]
-    - Aspect ratio: [Ratio]
-    
-    **Quick Start**:
-    1. Copy prompts from .txt file
-    2. Paste into [recommended platform]
-    3. Generate images
-    4. Review and refine if needed
-    
+    ✅ 剧照提示词生成完成！
+
+    **总计**: [N] 组提示词
+    - 角色剧照: [N] 张 (已注入一致性 Token)
+    - B-Roll: [N] 张
+    - 三视图: [N] 张
+
+    **保存位置**:
+    - 详细版: `./output/prompts/character-shots/`
+    - 纯文本: `./output/prompts/all-prompts.txt`
+    - 风格基底: `./output/prompts/style-foundation.md`
+
+    **角色 Token 状态**:
+    - [Name A]: ✅ 已注入 [N] 张
+    - [Name B]: ✅ 已注入 [N] 张
+
     **Next Steps**:
-    1. Generate images: `Generate images from these prompts`
-    2. Refine prompts: `Adjust prompts to be more [specific quality]`
-    3. Create variations: `Generate 3 variations of prompt [N]`
-    4. Batch generate: `Generate all images in batch mode`
-    
-    Ready to generate images?
+    1. 批量生图: `使用 batch-image-generator 生成所有剧照`
+    2. 调整提示词: `修改 S01-C02 的表情为 [新表情]`
+    3. 更换风格: `将风格改为 3D 卡通`
+    4. 换装生成: `为角色 A 使用休闲装方案重新生成`
     ```
-
-## Output Format
-
-Prompts should be:
-- **Detailed yet concise**: Specific but not overly verbose
-- **Structured**: Organized flow from subject to technical
-- **Consistent**: Series prompts maintain visual coherence
-- **Platform-appropriate**: Optimized for target generator
-- **Actionable**: Ready to copy and use immediately
 
 ## Tips
 
-- **Test first**: Generate 1-2 test images before full batch
-- **Iterate**: Refine prompts based on results
-- **Save winners**: Document prompts that work well
-- **Version control**: Keep track of prompt iterations
-- **Platform differences**: Same subject may need different prompt per platform
-- **Style consistency**: Use prompt templates for series
-- **Negative prompts**: Just as important as positive prompts
+- **Token 完整注入**: 不要省略角色 Token 的任何部分，完整性 = 一致性
+- **风格基底统一**: 所有提示词共享相同的 Style Foundation
+- **先测后批**: 先用 1-2 张测试效果，再批量生成
+- **种子一致**: 使用相同种子提高同场景的一致性
+- **表情单独控制**: 表情描述放在 Token 之后，不修改 Token 本身
+- **中→英翻译**: 分镜表可以是中文，但提示词输出必须是英文
 
 ## Related Skills
 
-- Use after `keyframe-extractor` to recreate frames
-- Input to `batch-image-generator` for mass generation
-- Reference `project-context` for brand visual style
-- Use `video-analyzer` results to match existing aesthetics
+- `character-designer` — 上游：提供角色一致性 Token
+- `storyboard-generator` — 上游：提供剧照画面描述
+- `broll-generator` — 并行：提供 B-Roll 画面描述
+- `batch-image-generator` — 下游：使用提示词批量生图
+- `keyframe-extractor` — 参考：从参考视频提取风格
