@@ -1,0 +1,123 @@
+---
+title: Agent Templates
+description: Customize agent behavior with Markdown-based templates
+---
+
+Templates turn a generic Coding Agent into a domain-specific expert — using only Markdown files.
+
+## Template Structure
+
+```
+my-agent/
+├── CLAUDE.md              # System instructions
+├── skills/
+│   └── sql-expert/
+│       └── SKILL.md       # Modular capability
+└── .claude/
+    ├── settings.json      # Model settings, allowed tools
+    └── mcp.json           # MCP server integrations
+```
+
+## CLAUDE.md — Define Your Agent
+
+The main instruction file. Tells the agent who it is and how to behave.
+
+```markdown
+# Data Analyst Agent
+
+You are an expert data analyst specializing in:
+- SQL query optimization
+- Python data analysis (pandas, numpy)
+- Data visualization (matplotlib, plotly)
+
+## Your Workflow
+1. Understand the data structure first
+2. Write clean, documented SQL/Python
+3. Always validate results before presenting
+4. Create clear visualizations with proper labels
+```
+
+## Skills — Modular Capabilities
+
+Skills are auto-discovered by the agent when relevant. Each skill has a `SKILL.md`:
+
+```markdown
+---
+description: "SQL query optimization patterns. Use when writing or reviewing SQL queries."
+---
+
+# SQL Expert Skill
+
+## Query Optimization Patterns
+- Always use indexes on WHERE clauses
+- Prefer JOINs over subqueries for large datasets
+- Use EXPLAIN ANALYZE to verify query plans
+```
+
+## MCP Integrations
+
+Connect to databases, APIs, and other services via `.claude/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "postgres": {
+      "command": "mcp-server-postgres",
+      "args": ["postgresql://localhost/mydb"]
+    },
+    "filesystem": {
+      "command": "mcp-server-filesystem",
+      "args": ["/workspace"]
+    }
+  }
+}
+```
+
+## Using Templates with the SDK
+
+Point `templatesPath` to your template directory:
+
+```typescript
+import { createSandAgent, LocalSandbox } from "@sandagent/sdk";
+
+const sandbox = new LocalSandbox({
+  workdir: process.cwd(),
+  templatesPath: "./templates/analyst",
+});
+
+const sandagent = createSandAgent({ sandbox, cwd: sandbox.getWorkdir() });
+```
+
+For cloud sandboxes, the template files are automatically uploaded:
+
+```typescript
+import { SandockSandbox } from "@sandagent/sandbox-sandock";
+
+const sandbox = new SandockSandbox({
+  apiKey: process.env.SANDOCK_API_KEY,
+  templatesPath: "./templates/analyst",
+  image: "vikadata/sandagent:0.1.0",
+  skipBootstrap: true,
+});
+```
+
+## Built-in Templates
+
+| Template | Description |
+|----------|-------------|
+| `default` | General-purpose assistant |
+| `coder` | Software development — code review, debugging, refactoring |
+| `analyst` | Data analysis — SQL, data cleaning, visualization |
+| `researcher` | Web research — information gathering, fact-checking |
+| `seo-agent` | SEO — keyword research, content optimization |
+
+## Claude Code Compatibility
+
+SandAgent templates are fully compatible with [Claude Code](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview). You can use them directly:
+
+```bash
+cd templates/coder
+claude "Build a REST API with Express"
+```
+
+No vendor lock-in — your templates work everywhere.

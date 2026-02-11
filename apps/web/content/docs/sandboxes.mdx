@@ -1,0 +1,160 @@
+---
+title: Sandbox Configuration
+description: Local and cloud sandbox options for SandAgent
+---
+
+SandAgent runs Coding Agents inside sandboxes — isolated environments with their own filesystem. You choose between local execution and cloud sandboxes depending on your use case.
+
+## Local Sandbox
+
+Built-in, no extra packages. The agent runs directly on your machine's filesystem.
+
+```typescript
+import { createSandAgent, LocalSandbox } from "@sandagent/sdk";
+
+const sandbox = new LocalSandbox({
+  workdir: "/path/to/project",
+  templatesPath: "./my-agent-template",
+  env: { ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY! },
+});
+
+const sandagent = createSandAgent({ sandbox, cwd: sandbox.getWorkdir() });
+```
+
+Best for: Electron/Tauri desktop apps, local development, debugging.
+
+| Option | Description |
+|--------|-------------|
+| `workdir` | Working directory for the agent |
+| `templatesPath` | Path to agent template directory (copied into workdir) |
+| `runnerCommand` | Custom runner command (defaults to built-in) |
+| `env` | Environment variables passed to the agent |
+
+## Sandock (Recommended for Cloud)
+
+[Sandock](https://sandock.ai) provides Docker-based cloud sandboxes with persistent volumes and fast startup.
+
+### Install
+
+```bash
+npm install @sandagent/sandbox-sandock
+```
+
+### Get an API Key
+
+1. Go to [sandock.ai](https://sandock.ai)
+2. Sign up and create an API key
+3. Set `SANDOCK_API_KEY` in your environment
+
+### Usage
+
+```typescript
+import { createSandAgent } from "@sandagent/sdk";
+import { SandockSandbox } from "@sandagent/sandbox-sandock";
+
+const sandbox = new SandockSandbox({
+  apiKey: process.env.SANDOCK_API_KEY,
+  image: "vikadata/sandagent:0.1.0",  // Pre-built image (fast startup)
+  skipBootstrap: true,
+  workdir: "/workspace",
+  env: { ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY! },
+});
+
+const sandagent = createSandAgent({ sandbox, cwd: sandbox.getWorkdir() });
+```
+
+### Persistent Volumes
+
+Keep workspace and session data across sandbox restarts:
+
+```typescript
+const sandbox = new SandockSandbox({
+  apiKey: process.env.SANDOCK_API_KEY,
+  image: "vikadata/sandagent:0.1.0",
+  skipBootstrap: true,
+  workdir: "/workspace",
+  volumes: [
+    { volumeName: "my-workspace", volumeMountPath: "/workspace" },
+    { volumeName: "my-claude-session", volumeMountPath: "/root/.claude" },
+  ],
+  env: { ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY! },
+});
+```
+
+### Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `apiKey` | `SANDOCK_API_KEY` env | Sandock API key |
+| `baseUrl` | `https://sandock.ai` | Sandock API endpoint |
+| `image` | `sandockai/sandock-code:latest` | Docker image. Use `vikadata/sandagent:0.1.0` for pre-built |
+| `skipBootstrap` | `false` | `true` when using pre-built image (skips npm install inside sandbox) |
+| `workdir` | `/workspace` | Working directory inside sandbox |
+| `volumes` | `[]` | Named volumes for persistent storage |
+| `keep` | `true` | Keep sandbox alive ~30 min after execution |
+| `memoryLimitMb` | — | Memory limit in MB |
+| `cpuShares` | — | CPU shares |
+| `timeout` | `300000` | Command timeout in ms (5 min) |
+| `templatesPath` | — | Local template directory to upload into sandbox |
+| `name` | — | Sandbox name for identification |
+
+### Bootstrap Modes
+
+**Pre-built image** (`skipBootstrap: true`): Uses `sandagent run` from the image. Fastest startup.
+
+```typescript
+new SandockSandbox({
+  image: "vikadata/sandagent:0.1.0",
+  skipBootstrap: true,
+});
+```
+
+**Dynamic install** (`skipBootstrap: false`): Installs `@sandagent/runner-cli@beta` via npm inside the sandbox. More flexible, slower startup.
+
+```typescript
+new SandockSandbox({
+  image: "sandockai/sandock-code:latest",
+  skipBootstrap: false,
+});
+```
+
+## E2B
+
+[E2B](https://e2b.dev) provides cloud sandboxes optimized for AI agents.
+
+```bash
+npm install @sandagent/sandbox-e2b
+```
+
+```typescript
+import { E2BSandbox } from "@sandagent/sandbox-e2b";
+
+const sandbox = new E2BSandbox({
+  apiKey: process.env.E2B_API_KEY,
+});
+```
+
+## Daytona
+
+[Daytona](https://daytona.io) provides enterprise workspace environments.
+
+```bash
+npm install @sandagent/sandbox-daytona
+```
+
+```typescript
+import { DaytonaSandbox } from "@sandagent/sandbox-daytona";
+
+const sandbox = new DaytonaSandbox({
+  apiKey: process.env.DAYTONA_API_KEY,
+});
+```
+
+## Comparison
+
+| Provider | Best For | Persistent Volumes | Pre-built Images |
+|----------|----------|-------------------|-----------------|
+| **LocalSandbox** | Desktop apps, debugging | N/A (local FS) | N/A |
+| **Sandock** | Cloud production | ✅ | ✅ |
+| **E2B** | Cloud production | ✅ | ✅ |
+| **Daytona** | Enterprise workspaces | ✅ | ✅ |
