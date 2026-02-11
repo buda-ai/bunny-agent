@@ -1,11 +1,18 @@
 ---
 name: daily-horoscope-generator
-description: Creates engaging, personalized daily horoscopes for all zodiac signs with actionable insights and fortune predictions.
+description: Creates derivable, explainable daily horoscopes using structured astrological formulas with non-fatalistic language.
 ---
 
 # Daily Horoscope Generator
 
-This skill generates personalized daily horoscopes for individual or all zodiac signs. Each horoscope includes fortune predictions across multiple life dimensions with an empowering and positive tone.
+This skill generates personalized daily horoscopes using the **Explainable Astrology System**. Each interpretation is derivable from current transit positions, uses tendency language (not fatalistic), and provides actionable insights.
+
+## Core Principles
+
+1. **Derivable**: Every statement traces to transit positions
+2. **Non-Fatalistic**: Use "tends to", "may", never "will definitely"
+3. **Prioritized**: Core transits first, then secondary influences
+4. **Explainable**: Reader understands "why" for each insight
 
 ## When to Use This Skill
 
@@ -17,12 +24,23 @@ This skill generates personalized daily horoscopes for individual or all zodiac 
 
 ## What This Skill Does
 
-1. **Daily Forecast Generation**: Creates personalized horoscopes for the current or specified date
-2. **Multi-dimensional Analysis**: Covers love, career, health, and financial aspects
-3. **Lucky Elements**: Includes lucky numbers, colors, and activities
-4. **Actionable Insights**: Provides specific guidance and recommendations
-5. **Social-ready Format**: Optimizes content for easy sharing
-6. **Emoji Integration**: Adds relevant emojis for visual engagement
+1. **Transit Analysis**: Analyzes current planetary positions affecting each sign
+2. **Formula Application**: Uses Planet + Sign + House formula for derivations
+3. **Priority Weighting**: Core transits (Sun/Moon) weighted higher
+4. **Multi-dimensional Scoring**: Derivable 5-star ratings with reasoning
+5. **Tendency Language**: All predictions use non-fatalistic wording
+6. **Actionable Insights**: Specific guidance based on transit energies
+
+## Astrological Basis
+
+Daily horoscopes are derived from:
+
+| Factor | Source | Weight |
+|--------|--------|--------|
+| Moon transits | Current Moon sign/aspects | ⭐⭐⭐⭐⭐ |
+| Sun position | Solar energy of the day | ⭐⭐⭐⭐ |
+| Personal planet aspects | Mercury/Venus/Mars transits | ⭐⭐⭐ |
+| Major aspects | Significant planetary interactions | ⭐⭐ |
 
 ## How to Use
 
