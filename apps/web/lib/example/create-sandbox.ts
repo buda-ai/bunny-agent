@@ -1,4 +1,5 @@
 import path from "node:path";
+import type { DaytonaSandboxOptions } from "@sandagent/sandbox-daytona";
 import { E2BSandbox } from "@sandagent/sandbox-e2b";
 import { SandockSandbox } from "@sandagent/sandbox-sandock";
 import { LocalSandbox, type SandboxAdapter } from "@sandagent/sdk";
@@ -61,7 +62,9 @@ export async function getOrCreateSandbox(
   return sandbox;
 }
 
-async function buildSandbox(params: CreateSandboxParams): Promise<any> {
+async function buildSandbox(
+  params: CreateSandboxParams,
+): Promise<SandboxAdapter> {
   const {
     SANDBOX_PROVIDER = "e2b",
     E2B_API_KEY,
@@ -83,7 +86,7 @@ async function buildSandbox(params: CreateSandboxParams): Promise<any> {
 
   if (SANDBOX_PROVIDER === "daytona" && DAYTONA_API_KEY) {
     const { DaytonaSandbox } = await import("@sandagent/sandbox-daytona");
-    return new DaytonaSandbox({
+    const opts: DaytonaSandboxOptions & { snapshot?: string } = {
       apiKey: DAYTONA_API_KEY,
       templatesPath: path.join(TEMPLATES_PATH, template),
       volumeName: sandboxName,
@@ -94,7 +97,8 @@ async function buildSandbox(params: CreateSandboxParams): Promise<any> {
       env: baseEnv,
       snapshot: "sandagent-claude-researcher:0.1.2",
       workdir: "/workspace",
-    } as any);
+    };
+    return new DaytonaSandbox(opts) as unknown as SandboxAdapter;
   }
 
   if (SANDBOX_PROVIDER === "sandock" && SANDOCK_API_KEY) {

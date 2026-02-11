@@ -94,22 +94,26 @@ function ChatMessage({
         </div>
         <MessageContent>
           {message.parts.map((part, index) => {
+            const key =
+              part.type === "dynamic-tool"
+                ? ((part as DynamicToolUIPart).toolCallId ?? `part-${index}`)
+                : `part-${index}`;
             if (part.type === "text") {
-              return <MessageResponse key={index}>{part.text}</MessageResponse>;
+              return <MessageResponse key={key}>{part.text}</MessageResponse>;
             }
             if (part.type === "dynamic-tool") {
               const toolPart = part as DynamicToolUIPart;
               if (toolPart.toolName === "AskUserQuestion") {
                 return (
                   <AskUserQuestionUI
-                    key={toolPart.toolCallId ?? `ask-${index}`}
+                    key={toolPart.toolCallId ?? key}
                     part={toolPart}
                   />
                 );
               }
               return (
                 <div
-                  key={index}
+                  key={key}
                   className="my-2 p-3 rounded-lg border border-border bg-muted/50"
                 >
                   <div className="text-sm font-medium">{toolPart.toolName}</div>
