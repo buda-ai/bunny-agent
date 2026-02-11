@@ -1,5 +1,13 @@
 # @sandagent/sandbox-sandock
 
+## 0.2.11
+
+### Patch Changes
+
+- - Fix: update changeset ignore list (use @sandagent/web instead of removed @sandagent/example)
+- Updated dependencies
+  - @sandagent/manager@0.2.11
+
 ## 0.2.10
 
 ### Patch Changes
