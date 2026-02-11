@@ -158,6 +158,8 @@ Best for: Electron/Tauri desktop apps, local development, debugging.
 
 [Sandock](https://sandock.ai) provides Docker-based cloud sandboxes with persistent volumes.
 
+> **Why Sandock?** Coding Agents rely on filesystem `append` and other POSIX semantics. Sandock is the only cloud sandbox with **100% POSIX-compatible filesystems**, ensuring agents run without FS failures. Volumes are **persistent and shareable** across sandboxes.
+
 ```bash
 npm install @sandagent/sandbox-sandock
 ```
