@@ -65,7 +65,7 @@ await agent.destroy();
 
 - If you set `name`, the adapter will try to reuse an existing sandbox with that name.
 - If you set `volumeName`, the adapter creates/attaches a persistent volume.
-- The adapter installs `@sandagent/runner-cli@beta` inside the sandbox `workdir` on first attach (unless you provide `snapshot`).
+- The adapter installs `@sandagent/runner-cli@latest` inside the sandbox `workdir` on first attach (unless you provide `snapshot`).
 - If you set `snapshot`, `getRunnerCommand()` uses `sandagent run` from the snapshot; otherwise it uses `${workdir}/node_modules/.bin/sandagent`.
 
 ## License

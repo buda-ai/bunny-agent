@@ -410,11 +410,11 @@ export class DaytonaSandbox implements SandboxAdapter {
     } else {
       // Install runner-cli from npm (includes claude-agent-sdk)
       console.log(
-        `[Daytona] Installing @sandagent/runner-cli@beta to ${this.workdir}`,
+        `[Daytona] Installing @sandagent/runner-cli@latest to ${this.workdir}`,
       );
 
       const installResult = await handle.runCommand(
-        `cd ${this.workdir} && npm install --no-audit --no-fund --prefer-offline @sandagent/runner-cli@beta 2>&1`,
+        `cd ${this.workdir} && npm install --no-audit --no-fund --prefer-offline @sandagent/runner-cli@latest 2>&1`,
         10 * 60,
       );
       if (installResult.exitCode !== 0) {

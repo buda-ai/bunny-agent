@@ -1,6 +1,7 @@
-# SandAgent SDK Development Guide
-
-This guide explains how to integrate SandAgent SDK into your app and how the main pieces fit together. For a minimal setup, see `docs/SDK_QUICK_START.md`.
+---
+title: SDK Development Guide
+description: Full integration guide for SandAgent SDK
+---
 
 ## Installation
 
@@ -18,13 +19,11 @@ npm install @sandagent/sandbox-sandock
 
 ## Core Concepts
 
-### Provider + Sandbox + Runner
-
 - **Provider**: `createSandAgent()` returns an AI SDK-compatible model
-- **Sandbox**: isolates code execution
+- **Sandbox**: isolates code execution (local or cloud)
 - **Runner**: executes the agent inside the sandbox
 
-### Minimal Provider Setup
+### Minimal Setup
 
 ```typescript
 import { createSandAgent, LocalSandbox } from "@sandagent/sdk";
@@ -40,11 +39,16 @@ const sandagent = createSandAgent({
 });
 ```
 
-## Basic Integration (Next.js)
+## Next.js Integration
 
 ```typescript
 import { createSandAgent, LocalSandbox } from "@sandagent/sdk";
-import { convertToModelMessages, createUIMessageStream, createUIMessageStreamResponse, streamText } from "ai";
+import {
+  convertToModelMessages,
+  createUIMessageStream,
+  createUIMessageStreamResponse,
+  streamText,
+} from "ai";
 
 export async function POST(request: Request) {
   const { messages } = await request.json();
@@ -75,42 +79,13 @@ export async function POST(request: Request) {
 ## Sandbox Options
 
 | Adapter | Use Case | Package |
-|------|------|------|
+|---------|----------|---------|
 | `LocalSandbox` | Local dev/test | Built in |
 | `E2BSandbox` | Cloud production | `@sandagent/sandbox-e2b` |
 | `DaytonaSandbox` | Persistent volumes | `@sandagent/sandbox-daytona` |
 | `SandockSandbox` | Docker-based | `@sandagent/sandbox-sandock` |
 
-See:
-
-- `docs/SERVER_SANDBOX_GUIDE.md`
-- `docs/SANDBOX_REUSE.md`
-
-## Templates and Skills
-
-- Templates live under `templates/`
-- `CLAUDE.md` defines system instructions
-- `.claude/skills/` defines skills
-
-See:
-
-- `templates/README.md`
-- `docs/DEPLOY_CUSTOM_TEMPLATE.md`
-
-## Output Formats
-
-`runner-cli` supports SSE and JSON output. See `docs/OUTPUT_FORMAT.md`.
-
-## Artifacts
-
-Artifacts let the agent stream files into the UI. See:
-
-- `docs/SDK_ARTIFACTS_GUIDE.md`
-- `docs/ARTIFACT_FEATURE.md`
-
-## AskUserQuestion
-
-- `docs/ASK_USER_QUESTION_APPROVAL_GUIDE.md`
+See [Sandbox Configuration](/docs/sandboxes) and [Sandbox Reuse](/docs/sandbox-reuse) for details.
 
 ## Production Notes
 
@@ -118,14 +93,8 @@ Artifacts let the agent stream files into the UI. See:
 - Ensure provider API keys are set
 - Increase `timeout` for long-running tasks
 
-## Troubleshooting (Quick)
+## Troubleshooting
 
-- **Missing API key**: verify env vars
-- **Template not found**: deploy or use `templatesPath`
-- **No streaming**: check AI SDK integration and `createUIMessageStream`
-
-## Related Docs
-
-- `docs/SDK_QUICK_START.md`
-- `docs/OUTPUT_FORMAT.md`
-- `spec/API_REFERENCE.md`
+- Missing API key → verify env vars
+- Template not found → deploy or use `templatesPath`
+- No streaming → check AI SDK integration and `createUIMessageStream`

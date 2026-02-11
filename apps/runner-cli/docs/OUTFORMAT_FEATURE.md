@@ -10,7 +10,7 @@ This note documents the addition of `--output-format` (`-o`) to `runner-cli`.
 
 ## Where to Find Details
 
-- Full guide: `docs/OUTPUT_FORMAT.md`
+- Full guide: [Output Format](https://sandagent.dev/docs/output-format)
 - CLI reference: `apps/runner-cli/README.md`
 
 ## Implementation Touchpoints

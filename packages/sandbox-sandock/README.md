@@ -102,7 +102,7 @@ Install: `npm install @sandagent/sandbox-sandock @sandagent/sdk ai`
 ## About skipBootstrap
 
 - **`skipBootstrap: true`**: Image already includes `sandagent run`; only upload seed files (from `templatesPath`), no runner install. Use with pre-built images like `vikadata/sandagent:latest`.
-- **`skipBootstrap: false`**: On attach, runs `npm install @sandagent/runner-cli@beta` in `workdir`, then uses `${workdir}/node_modules/.bin/sandagent run` for execution.
+- **`skipBootstrap: false`**: On attach, runs `npm install @sandagent/runner-cli@latest` in `workdir`, then uses `${workdir}/node_modules/.bin/sandagent run` for execution.
 
 ## License
 

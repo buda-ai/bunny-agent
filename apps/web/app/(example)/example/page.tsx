@@ -19,6 +19,7 @@ import {
 } from "kui/ai-elements";
 import {
   AlertCircle,
+  BookOpen,
   BotIcon,
   CheckCircle,
   Settings,
@@ -218,6 +219,13 @@ function HomeContent() {
               )}
             </div>
           )}
+          <Link
+            href="/docs"
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md border border-border hover:bg-muted text-sm text-muted-foreground hover:text-foreground"
+          >
+            <BookOpen className="size-4" />
+            Docs
+          </Link>
           <Link
             href="/example/settings"
             className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md border border-border hover:bg-muted text-sm text-muted-foreground hover:text-foreground"

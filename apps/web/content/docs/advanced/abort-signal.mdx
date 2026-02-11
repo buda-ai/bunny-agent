@@ -1,0 +1,75 @@
+---
+title: Abort Signal
+description: Cancel long-running agent work with AbortSignal
+---
+
+SandAgent uses the standard [AbortController/AbortSignal API](https://developer.mozilla.org/en-US/docs/Web/API/AbortController) to propagate cancellation from the API layer into the sandbox and runner.
+
+## Signal Flow
+
+```
+API Route (request.signal)
+    ↓
+SandAgent Manager → sandbox.exec()
+    ↓
+Sandbox Adapter → SIGTERM to remote process
+    ↓
+Runner CLI → converts SIGTERM to AbortSignal, stops execution
+```
+
+## API Layer
+
+Pass `request.signal` directly — don't create a new controller on the server.
+
+```typescript
+export async function POST(request: Request) {
+  const response = await agent.stream({
+    messages: [...],
+    signal: request.signal,
+  });
+  return response;
+}
+```
+
+## Sandbox Adapter Behavior
+
+Adapters listen to `signal.abort` and terminate the remote process. E2B/Sandock use PID capture to issue `kill -TERM`.
+
+```typescript
+signal?.addEventListener("abort", abortHandler);
+```
+
+## Runner Behavior
+
+The runner converts OS signals to an internal AbortSignal and stops iteration.
+
+```typescript
+process.on("SIGTERM", () => controller.abort());
+
+for await (const chunk of runner.run(input, controller.signal)) {
+  process.stdout.write(chunk);
+}
+```
+
+## Best Practices
+
+- Always pass the signal through your own wrappers
+- Clean up listeners in `finally`
+- Treat `AbortError` as normal cancellation, not a failure
+
+```typescript
+try {
+  await agent.stream({ messages, signal });
+} catch (error) {
+  if (error.name === "AbortError") {
+    return; // Normal cancellation
+  }
+  throw error;
+}
+```
+
+## Common Pitfalls
+
+- Creating a new controller on the server — use `request.signal` instead
+- Returning a response after abort — clients already disconnected
+- Leaking listeners — always remove them

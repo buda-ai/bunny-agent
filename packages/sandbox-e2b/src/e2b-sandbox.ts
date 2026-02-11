@@ -343,11 +343,11 @@ export class E2BSandbox implements SandboxAdapter {
     } else {
       // Install runner-cli from npm (includes claude-agent-sdk)
       console.log(
-        `[E2B] Installing @sandagent/runner-cli@beta to ${this.workdir}`,
+        `[E2B] Installing @sandagent/runner-cli@latest to ${this.workdir}`,
       );
 
       const installResult = await handle.runCommand(
-        `cd ${this.workdir} && npm install @sandagent/runner-cli@beta`,
+        `cd ${this.workdir} && npm install @sandagent/runner-cli@latest`,
       );
       if (installResult.exitCode !== 0) {
         console.error(

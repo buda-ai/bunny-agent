@@ -282,10 +282,10 @@ export class SandockSandbox implements SandboxAdapter {
     } else {
       // Install runner-cli from npm (brings in @anthropic-ai/claude-agent-sdk as dependency)
       console.log(
-        `[Sandock] Installing @sandagent/runner-cli@beta to ${this.workdir}`,
+        `[Sandock] Installing @sandagent/runner-cli@latest to ${this.workdir}`,
       );
       const installResult = await handle.runCommand(
-        `cd ${this.workdir} && npm install --no-audit --no-fund --prefer-offline @sandagent/runner-cli@beta 2>&1`,
+        `cd ${this.workdir} && npm install --no-audit --no-fund --prefer-offline @sandagent/runner-cli@latest 2>&1`,
       );
       if (installResult.exitCode !== 0) {
         console.error(
