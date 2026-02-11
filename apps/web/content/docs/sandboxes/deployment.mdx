@@ -1,0 +1,180 @@
+---
+title: Deployment
+description: Deploy agent templates with runtime upload or prebuilt images
+---
+
+SandAgent supports two deployment modes:
+
+1. **Runtime templates** — upload templates at startup (best for dev)
+2. **Prebuilt images** — bake templates into the sandbox image (best for production)
+
+## Runtime Templates (No Prebuild)
+
+No Docker build required. Switch templates at runtime.
+
+### E2B
+
+```typescript
+import { createSandAgent } from "@sandagent/sdk";
+import { E2BSandbox } from "@sandagent/sandbox-e2b";
+import path from "path";
+
+const sandbox = new E2BSandbox({
+  template: "base",
+  templatesPath: path.join(__dirname, "../templates/<your-template>"),
+  workdir: "/workspace",
+  env: { ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY! },
+});
+
+const sandagent = createSandAgent({ sandbox });
+```
+
+### Daytona
+
+```typescript
+import { DaytonaSandbox } from "@sandagent/sandbox-daytona";
+
+const sandbox = new DaytonaSandbox({
+  name: "my-agent",
+  volumeName: "my-agent-volume",
+  templatesPath: path.join(__dirname, "../templates/<your-template>"),
+  workdir: "/workspace",
+  env: { ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY! },
+});
+```
+
+### Sandock
+
+```typescript
+import { SandockSandbox } from "@sandagent/sandbox-sandock";
+
+const sandbox = new SandockSandbox({
+  apiKey: process.env.SANDOCK_API_KEY,
+  image: "sandockai/sandock-code:latest",
+  templatesPath: path.join(__dirname, "../templates/<your-template>"),
+  workdir: "/workspace",
+  env: { ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY! },
+});
+```
+
+## Prebuilt Images (Templates Baked In)
+
+Fast startup for production. Requires Docker.
+
+### E2B Deployment
+
+```bash
+cd docker/sandagent-claude
+
+# Base image (no template)
+make e2b
+
+# With template
+make e2b TEMPLATE=<your-template>
+
+# Force overwrite
+make e2b TEMPLATE=<your-template> FORCE=true
+```
+
+Use in code:
+
+```typescript
+const sandbox = new E2BSandbox({
+  template: "sandagent-claude-<your-template>",
+  workdir: "/workspace",
+  env: { ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY! },
+});
+```
+
+### Daytona Deployment
+
+```bash
+cd docker/sandagent-claude
+
+# Base snapshot
+make daytona
+
+# With template
+make daytona TEMPLATE=researcher
+```
+
+Use in code:
+
+```typescript
+const sandbox = new DaytonaSandbox({
+  snapshot: "sandagent-claude-researcher:0.1.0",
+  name: "my-agent",
+  volumeName: "my-agent-volume",
+  workdir: "/workspace",
+  env: { ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY! },
+});
+```
+
+### Sandock Deployment (via runner-cli)
+
+`@sandagent/runner-cli` includes a built-in `image build` command that generates a Docker image with the runner pre-installed. You can optionally bake an agent template into the image.
+
+```bash
+# Install runner-cli
+npm install -g @sandagent/runner-cli@latest
+
+# Build a base image (no template)
+sandagent image build --name <your-org>/<your-image> --tag <version>
+
+# Build with a template baked in
+sandagent image build --name <your-org>/<your-image> --tag <version> --template <path-to-template>
+
+# Build and push to registry
+sandagent image build --name <your-org>/<your-image> --tag <version> --template <path-to-template> --push
+```
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--name` | Image name (e.g. `<your-org>/<your-image>`) | `sandagent` |
+| `--tag` | Image tag (e.g. `0.1.0`) | `latest` |
+| `--image` | Full image name override (e.g. `<your-org>/<your-image>:<version>`) | — |
+| `--platform` | Build platform | `linux/amd64` |
+| `--template` | Path to agent template directory (e.g. `./templates/seo-agent`) | — |
+| `--push` | Push to registry after build | `false` |
+
+Use the built image with Sandock:
+
+```typescript
+import { SandockSandbox } from "@sandagent/sandbox-sandock";
+
+const sandbox = new SandockSandbox({
+  apiKey: process.env.SANDOCK_API_KEY,
+  image: "<your-org>/<your-image>:<version>",
+  skipBootstrap: true, // runner is pre-installed in the image
+  workdir: "/workspace",
+  env: { ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY! },
+});
+```
+
+When using a pre-built image, set `skipBootstrap: true` — the image already has `@sandagent/runner-cli` installed, so there's no need to install it at runtime.
+
+## Template Structure
+
+```
+templates/my-agent/
+├── CLAUDE.md
+└── .claude/
+    ├── settings.json
+    ├── mcp.json
+    └── skills/
+        └── my-skill/
+            └── SKILL.md
+```
+
+## FAQs
+
+**Do I have to prebuild?**
+No. Runtime templates are fully supported and simpler for development.
+
+**Can I run without templates?**
+Yes. Omit `templatesPath` and use a base image.
+
+**E2B vs Daytona vs Sandock?**
+- E2B: fast start with pause/resume
+- Daytona: volume persistence for long-lived projects
+- Sandock: Docker-based cloud sandboxes with persistent volumes, use `sandagent image build` to create pre-built images

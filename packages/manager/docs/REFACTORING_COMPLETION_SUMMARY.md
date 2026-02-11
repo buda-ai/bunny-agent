@@ -32,4 +32,4 @@ This is a concise summary of the architecture refactor work and test results.
 
 ## Related Docs
 
-- `docs/ARCHITECTURE_REFACTORING.md`
+- `ARCHITECTURE_REFACTORING.md`

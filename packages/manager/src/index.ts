@@ -15,6 +15,7 @@ export type {
   ExecOptions,
   TranscriptWriter,
   TranscriptEntry,
+  Volume,
 } from "./types.js";
 
 // Default sandbox adapter (built-in)

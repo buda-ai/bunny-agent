@@ -2,7 +2,7 @@
 
 ## Overview
 
-Artifacts let the agent generate files (reports, charts, code, etc.) that can be streamed to the UI. This document focuses on the backend processor and data flow. For user-facing setup and UI integration, see `docs/SDK_ARTIFACTS_GUIDE.md`.
+Artifacts let the agent generate files (reports, charts, code, etc.) that can be streamed to the UI. This document focuses on the backend processor and data flow. For user-facing setup and UI integration, see the [Artifacts Guide](https://sandagent.dev/docs/artifacts).
 
 ## Architecture
 
@@ -147,6 +147,6 @@ The processor streams `data-artifact` parts:
 
 ## Related Docs
 
-- `docs/SDK_ARTIFACTS_GUIDE.md` (manifest format, skills, UI rendering)
-- `docs/SDK_DEVELOPMENT_GUIDE.md` (full SDK integration)
-- `docs/WRITE_TOOL_UI.md` (Write tool UI details)
+- [Artifacts Guide](https://sandagent.dev/docs/artifacts) (manifest format, skills, UI rendering)
+- [SDK Development Guide](https://sandagent.dev/docs/sdk-guide) (full SDK integration)
+- [Write Tool UI](https://sandagent.dev/docs/write-tool-ui) (Write tool UI details)

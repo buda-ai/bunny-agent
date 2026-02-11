@@ -25,40 +25,16 @@ export interface CreateSandboxParams {
   localWorkdir?: string;
 }
 
-/** Use globalThis so the cache is shared across all API routes in the same Node process. */
-const g = globalThis as typeof globalThis & {
-  __sandagentSandboxCache?: Map<string, { sandbox: SandboxAdapter }>;
-};
-if (!g.__sandagentSandboxCache) g.__sandagentSandboxCache = new Map();
-const sandboxCache = g.__sandagentSandboxCache;
-
-function cacheKey(params: CreateSandboxParams): string {
-  const template = params.template ?? "default";
-  return `sandagent-${template}`;
+export function evictSandbox(_params: CreateSandboxParams): void {
+  // No-op; no cache.
 }
 
-export function evictSandbox(params: CreateSandboxParams): void {
-  const key = cacheKey(params);
-  if (sandboxCache.delete(key)) {
-    console.log(`[SandboxCache] Evicted sandbox "${key}"`);
-  }
-}
-
-/** Get or create sandbox. Answer is only sent after the AI stream has shown AskUserQuestion, so the sandbox is always attached by then. */
+/** Build sandbox and attach. */
 export async function getOrCreateSandbox(
   params: CreateSandboxParams,
 ): Promise<SandboxAdapter> {
-  const key = cacheKey(params);
-  const existing = sandboxCache.get(key);
-  if (existing) {
-    console.log(`[SandboxCache] Reusing sandbox "${key}"`);
-    return existing.sandbox;
-  }
-
   const sandbox = await buildSandbox(params);
   await sandbox.attach();
-  sandboxCache.set(key, { sandbox });
-  console.log(`[SandboxCache] Created sandbox "${key}"`);
   return sandbox;
 }
 

@@ -1,0 +1,133 @@
+---
+title: AskUserQuestion
+description: Let the agent ask interactive questions during a run
+---
+
+`AskUserQuestion` is a dynamic tool that lets the agent ask the user questions during execution. Your UI renders the questions and submits answers to an answer API. The runner waits for an approval file in the sandbox, then continues.
+
+## Architecture
+
+```
+Runner (inside sandbox)
+  - Polls approval file every 500ms
+  - Continues when status == "completed"
+        ↕
+Answer API (server)
+  - Receives { toolCallId, questions, answers }
+  - Writes approval file via submitAnswer()
+        ↕
+UI
+  - Renders questions
+  - Submits answers on selection
+```
+
+Key points:
+- The runner only reads/polls the file — it does not create it
+- The answer API overwrites the file on every update
+- If timeout occurs, the runner may continue with partial answers
+
+## 1. Answer API
+
+Use the same `workdir` as your chat sandbox.
+
+```typescript
+import path from "node:path";
+import { LocalSandbox, submitAnswer, type Question } from "@sandagent/sdk";
+
+export async function POST(request: Request) {
+  const { toolCallId, questions, answers } = await request.json();
+
+  const sandbox = new LocalSandbox({
+    workdir: path.join(process.cwd(), "workspace"),
+  });
+
+  await submitAnswer(sandbox, { toolCallId, questions, answers });
+  return Response.json({ success: true });
+}
+```
+
+## 2. Render in UI
+
+Detect the tool part and render a component using `useAskUserQuestion`.
+
+```tsx
+import { useAskUserQuestion } from "@sandagent/sdk/react";
+import type { DynamicToolUIPart } from "ai";
+
+function AskUserQuestionUI({ part }: { part: DynamicToolUIPart }) {
+  const {
+    questions,
+    answers,
+    isCompleted,
+    isWaitingForInput,
+    selectAnswer,
+    isSelected,
+  } = useAskUserQuestion({
+    part,
+    answerEndpoint: "/api/answer",
+  });
+
+  // Render questions/options; call selectAnswer on click
+  return null;
+}
+```
+
+## 3. Flow Summary
+
+1. Agent emits `AskUserQuestion` tool call
+2. UI renders the tool and submits answers
+3. Answer API writes approval file via `submitAnswer`
+4. Runner reads the file, continues, and the tool becomes completed
+
+## Data Structures
+
+### Input
+
+```typescript
+interface AskUserQuestionInput {
+  questions: Array<{
+    question: string;
+    header?: string;
+    options?: Array<{ label: string; description?: string }>;
+    multiSelect?: boolean;
+  }>;
+}
+```
+
+### Output
+
+```typescript
+interface AskUserQuestionOutput {
+  questions: Array<{...}>;
+  answers: Record<string, string>; // multi-select = comma-separated
+}
+```
+
+### Approval File
+
+Location: `{workdir}/.sandagent/approvals/{toolCallId}.json`
+
+```json
+{
+  "questions": [
+    {
+      "question": "What is your preferred language?",
+      "options": [
+        { "label": "TypeScript" },
+        { "label": "Python" }
+      ]
+    }
+  ],
+  "answers": {
+    "What is your preferred language?": "TypeScript"
+  },
+  "status": "completed",
+  "timestamp": "2025-01-30T12:00:00.000Z"
+}
+```
+
+## Troubleshooting
+
+- No progress → verify both APIs use the same `workdir`
+- UI not rendering → ensure you handle `dynamic-tool` parts with `toolName === "AskUserQuestion"`
+- Answers not applied → confirm `answerEndpoint` matches your API route

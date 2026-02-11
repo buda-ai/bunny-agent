@@ -1,24 +1,18 @@
 ---
 name: artifact
-description: Create and manage artifact.json for task outputs. Use when creating research reports, notes, or any files that should be tracked as artifacts.
+description: Create and manage artifact.json for task outputs. Use at the START of every task to define planned deliverables before beginning research.
 ---
 
-# Artifact Management Skill
+# Artifact Management
 
-Use this skill to create and manage `artifact.json` for tracking task outputs.
+Every task must have an `artifact.json` that declares all output files.
 
-## Session Information
-
-- **Current Session ID**: `${CLAUDE_SESSION_ID}`
-- **Artifact Path**: `tasks/${CLAUDE_SESSION_ID}/artifact.json`
-
-## Create Task Directory and Artifact.json
+## Setup
 
 ```bash
-# Create task directory
-mkdir -p "tasks/${CLAUDE_SESSION_ID}"
+mkdir -p "tasks/${CLAUDE_SESSION_ID}/reports"
+mkdir -p "tasks/${CLAUDE_SESSION_ID}/notes"
 
-# Initialize artifact.json
 cat > "tasks/${CLAUDE_SESSION_ID}/artifact.json" << 'EOF'
 {
   "artifacts": []
@@ -26,42 +20,27 @@ cat > "tasks/${CLAUDE_SESSION_ID}/artifact.json" << 'EOF'
 EOF
 ```
 
-## Add Artifact Entry
+## Adding Artifacts
 
-When you create a file that should be tracked, update `artifact.json`:
+Read the current file, append new entries, and write it back. Each entry needs:
 
-```json
-{
-  "artifacts": [
-    {
-      "id": "unique-id",
-      "path": "tasks/${CLAUDE_SESSION_ID}/reports/report.md",
-      "mimeType": "text/markdown",
-      "description": "Description of the file"
-    }
-  ]
-}
-```
+| Field | Required | Description |
+|-------|----------|-------------|
+| `id` | Yes | Unique identifier (e.g. `research-report`) |
+| `path` | Yes | File path relative to `/sandagent` |
+| `mimeType` | Yes | MIME type of the file |
+| `description` | No | Brief description of the content |
 
-## Common MIME Types
-
-- `text/markdown` - Markdown files (.md)
-- `application/json` - JSON files (.json)
-- `text/plain` - Plain text files (.txt)
-- `text/html` - HTML files (.html)
-- `text/csv` - CSV files (.csv)
-- `application/pdf` - PDF files (.pdf)
-
-## Example: Complete Artifact.json
+## Example
 
 ```json
 {
   "artifacts": [
     {
       "id": "research-report",
-      "path": "tasks/${CLAUDE_SESSION_ID}/reports/quantum-computing-analysis.md",
+      "path": "tasks/${CLAUDE_SESSION_ID}/reports/report.md",
       "mimeType": "text/markdown",
-      "description": "Comprehensive research report on quantum computing"
+      "description": "Main research report with findings and analysis"
     },
     {
       "id": "source-notes",
@@ -73,8 +52,20 @@ When you create a file that should be tracked, update `artifact.json`:
 }
 ```
 
-## Important Notes
+## Common MIME Types
 
-- Always use `${CLAUDE_SESSION_ID}` for the task directory
-- File paths in `artifact.json` should be relative to the working directory (`/sandagent`)
+| Type | Extension |
+|------|-----------|
+| `text/markdown` | .md |
+| `text/plain` | .txt |
+| `text/html` | .html |
+| `text/csv` | .csv |
+| `application/json` | .json |
+| `application/pdf` | .pdf |
+
+## Rules
+
+- Always call this skill BEFORE starting research
+- Use `${CLAUDE_SESSION_ID}` in paths — it auto-resolves in this file
 - Update `artifact.json` whenever you create a new output file
+- Every task must produce at least one artifact (typically a Markdown report)

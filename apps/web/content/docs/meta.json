@@ -1,4 +1,17 @@
 {
   "title": "Documentation",
-  "pages": ["index", "quick-start", "sandboxes", "templates", "api"]
+  "pages": [
+    "index",
+    "quick-start",
+    "sdk-guide",
+    "---Sandboxes---",
+    "...sandboxes",
+    "---Agent---",
+    "templates",
+    "...tools",
+    "---Advanced---",
+    "...advanced",
+    "---Reference---",
+    "api"
+  ]
 }

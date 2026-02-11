@@ -4,7 +4,14 @@ import { useAskUserQuestion } from "@sandagent/sdk/react";
 import type { DynamicToolUIPart } from "ai";
 
 // AskUserQuestion interactive component
-export function AskUserQuestionUI({ part }: { part: DynamicToolUIPart }) {
+export function AskUserQuestionUI({
+  part,
+  extraBody,
+}: {
+  part: DynamicToolUIPart;
+  /** Sandbox params to include in answer request (SANDBOX_PROVIDER, SANDOCK_API_KEY, template, etc.) */
+  extraBody?: Record<string, unknown>;
+}) {
   const {
     questions,
     answers,
@@ -14,6 +21,7 @@ export function AskUserQuestionUI({ part }: { part: DynamicToolUIPart }) {
     isSelected,
   } = useAskUserQuestion({
     part,
+    extraBody,
   });
 
   // If questions is empty or invalid, show error state

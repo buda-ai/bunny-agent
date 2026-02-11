@@ -265,7 +265,7 @@ This allows you to:
 - Build production-ready AI features
 - Integrate with your own backend infrastructure
 
-📖 **For detailed SDK integration guide, see [SDK Quick Start](./docs/SDK_QUICK_START.md) and [SDK Development Guide](./docs/SDK_DEVELOPMENT_GUIDE.md)**
+📖 **For detailed SDK integration guide, see [SDK Quick Start](https://sandagent.dev/docs/quick-start) and [SDK Development Guide](https://sandagent.dev/docs/sdk-guide)**
 
 ---
 
@@ -824,8 +824,8 @@ When PRs are merged to `main` or `develop`:
 <td width="50%">
 
 ### 📖 Guides
-- **[SDK Quick Start](./docs/SDK_QUICK_START.md)** - 5-minute SDK integration
-- **[Artifacts Feature Guide](./docs/SDK_ARTIFACTS_GUIDE.md)** - Display AI-generated content (reports, charts, files)
+- **[SDK Quick Start](https://sandagent.dev/docs/quick-start)** - 5-minute SDK integration
+- **[Artifacts Feature Guide](https://sandagent.dev/docs/artifacts)** - Display AI-generated content (reports, charts, files)
 - **[Persistence Guide](./spec/PERSISTENCE_GUIDE.md)** - Managing state across runs
 - **[Sandbox Adapters](./spec/SANDBOX_ADAPTERS.md)** - E2B & Sandock configuration
 - **[Debugging Guide](./spec/DEBUGGING_GUIDE.md)** - Transcript recording
