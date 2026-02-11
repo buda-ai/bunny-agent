@@ -47,11 +47,13 @@
       "**/.turbo/**",
       "**/.vercel/**",
       "**/coverage/**",
+      "**/.source/**",
       "**/*.d.ts",
       "**/*.js",
       "**/*.jsx",
       "**/*.mjs",
       "**/*.cjs",
+      "**/*.css",
       "**/pnpm-lock.yaml"
     ]
   }
