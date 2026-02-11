@@ -1,6 +1,5 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { noDeprecation } from "node:process";
 import type {
   ExecOptions,
   SandboxAdapter,
@@ -51,6 +50,12 @@ export interface SandockSandboxOptions {
   name?: string;
 
   /**
+   * Existing sandbox ID to attach to. When set, attach() will first try to use this sandbox
+   * (get + start); on failure (e.g. not found, deleted), falls back to creating a new sandbox.
+   */
+  sandboxId?: string;
+
+  /**
    * If true, skip installing SDK and runner (image already has them).
    * Only upload template files and use `sandagent run`. Use with pre-built images like vikadata/sandagent.
    */
@@ -83,10 +88,9 @@ export class SandockSandbox implements SandboxAdapter {
   private readonly env: Record<string, string>;
   private readonly name?: string;
 
-  /** Current handle for the sandbox instance */
+  /** Current handle for the sandbox instance; also holds optional existing sandbox id to attach to (before attach) */
   private currentHandle: SandboxHandle | null = null;
   private _sandboxId: string | null = null;
-  private _volumes: Volume[] | null = null;
 
   constructor(options: SandockSandboxOptions = {}) {
     const apiKey = options.apiKey ?? process.env.SANDOCK_API_KEY;
@@ -114,6 +118,7 @@ export class SandockSandbox implements SandboxAdapter {
     this.skipBootstrap = options.skipBootstrap ?? false;
     this.env = options.env ?? {};
     this.name = options.name;
+    this._sandboxId = options.sandboxId ?? null;
   }
 
   /**
@@ -148,26 +153,52 @@ export class SandockSandbox implements SandboxAdapter {
     return this.currentHandle;
   }
 
-  async getSandboxId(): Promise<string | null> {
-    if (!this.currentHandle) await this.attach();
-    return this._sandboxId;
-  }
-
-  async getVolumes(): Promise<Volume[] | null> {
-    if (!this.currentHandle) await this.attach();
-    return this._volumes;
-  }
-
   /**
-   * Attach to or create a sandbox. Creates a new sandbox each time (no caching).
+   * Attach to or create a sandbox. When _sandboxId is set (from options.sandboxId), tries to
+   * attach to that sandbox first (get + start); on failure, falls back to creating a new sandbox.
    */
   async attach(): Promise<SandboxHandle> {
-    if (this.currentHandle) {
-      return this.currentHandle;
+    if (this.currentHandle) return this.currentHandle;
+    const existing = await this.tryAttachExisting();
+    if (existing) return existing;
+    return this.createAndAttachNew();
+  }
+
+  /** Try to attach to existing sandbox by _sandboxId; on failure clear id and return null. */
+  private async tryAttachExisting(): Promise<SandboxHandle | null> {
+    const id = this._sandboxId;
+    if (!id) return null;
+    try {
+      await this.client.sandbox.get(id);
+      await this.client.sandbox.start(id);
+      const volumeMounts = await this.resolveVolumeMounts();
+      const handle = new SandockHandle(
+        this.client,
+        id,
+        this.workdir,
+        this.timeout,
+        () => {},
+        this.keep,
+        this.env,
+        volumeMounts,
+      );
+      this.currentHandle = handle;
+      console.log(`[Sandock] Attached to existing sandbox: ${id}`);
+      return handle;
+    } catch (err) {
+      console.warn(
+        `[Sandock] Failed to attach to sandbox ${id}, creating new:`,
+        err instanceof Error ? err.message : err,
+      );
+      this._sandboxId = null;
+      return null;
     }
+  }
+
+  /** Create a new sandbox, initialize it, and set as current handle. */
+  private async createAndAttachNew(): Promise<SandboxHandle> {
     const volumeMounts = await this.resolveVolumeMounts();
     const { sandboxId } = await this.createAndStartSandbox(volumeMounts);
-
     const handle = new SandockHandle(
       this.client,
       sandboxId,
@@ -176,9 +207,9 @@ export class SandockSandbox implements SandboxAdapter {
       () => {},
       this.keep,
       this.env,
+      volumeMounts,
     );
     this._sandboxId = sandboxId;
-    this._volumes = volumeMounts;
     await this.initializeSandbox(handle);
     this.currentHandle = handle;
     return handle;
@@ -348,6 +379,7 @@ class SandockHandle implements SandboxHandle {
   private readonly onDestroy: () => void;
   private readonly keep: boolean;
   private readonly sandboxEnv: Record<string, string>;
+  private readonly volumes: Volume[] | null;
 
   constructor(
     client: SandockClient,
@@ -357,6 +389,7 @@ class SandockHandle implements SandboxHandle {
     onDestroy: () => void,
     keep: boolean,
     sandboxEnv: Record<string, string> = {},
+    volumes: Volume[] | null = null,
   ) {
     this.client = client;
     this.sandboxId = sandboxId;
@@ -365,6 +398,21 @@ class SandockHandle implements SandboxHandle {
     this.onDestroy = onDestroy;
     this.keep = keep;
     this.sandboxEnv = sandboxEnv;
+    this.volumes = volumes;
+  }
+
+  /**
+   * Get the sandbox instance ID.
+   */
+  getSandboxId(): string {
+    return this.sandboxId;
+  }
+
+  /**
+   * Get the volume mounts for this sandbox.
+   */
+  getVolumes(): Volume[] | null {
+    return this.volumes;
   }
 
   /**

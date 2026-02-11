@@ -12,6 +12,8 @@ describe("Signal Integration Tests", () => {
 
     mockHandle = {
       getWorkdir: vi.fn().mockReturnValue("/workspace"),
+      getSandboxId: vi.fn().mockReturnValue(null),
+      getVolumes: vi.fn().mockReturnValue(null),
       exec: vi.fn((command: string[], opts) => {
         // Capture the signal that was passed
         execSignalReceived = opts?.signal;
@@ -45,8 +47,6 @@ describe("Signal Integration Tests", () => {
     mockSandbox = {
       attach: vi.fn(async () => mockHandle),
       getHandle: vi.fn(() => mockHandle),
-      getSandboxId: vi.fn().mockResolvedValue(null),
-      getVolumes: vi.fn().mockResolvedValue(null),
     };
   });
 

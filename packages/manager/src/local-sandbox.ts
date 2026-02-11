@@ -90,14 +90,6 @@ export class LocalSandbox implements SandboxAdapter {
     return this.currentHandle?.getWorkdir() ?? this.workdir;
   }
 
-  async getSandboxId(): Promise<null> {
-    return null;
-  }
-
-  async getVolumes(): Promise<null> {
-    return null;
-  }
-
   /**
    * Get the runner command to execute in the sandbox.
    */
@@ -195,6 +187,7 @@ class LocalSandboxHandle implements SandboxHandle {
   private readonly workDir: string;
   private readonly defaultTimeout: number;
   private readonly env: Record<string, string>;
+  private readonly _sandboxId: string;
 
   constructor(
     workDir: string,
@@ -204,6 +197,21 @@ class LocalSandboxHandle implements SandboxHandle {
     this.workDir = workDir;
     this.defaultTimeout = defaultTimeout;
     this.env = env;
+    this._sandboxId = `local-${crypto.randomUUID()}`;
+  }
+
+  /**
+   * Get the sandbox instance ID.
+   */
+  getSandboxId(): string {
+    return this._sandboxId;
+  }
+
+  /**
+   * Local sandbox has no volumes.
+   */
+  getVolumes(): null {
+    return null;
   }
 
   /**

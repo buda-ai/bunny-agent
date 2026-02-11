@@ -94,10 +94,20 @@ Install: `npm install @sandagent/sandbox-sandock @sandagent/sdk ai`
 
 ## API
 
-- `attach()` — Create or reuse a sandbox; returns a handle
+### SandockSandbox (Adapter)
+
+- `attach()` — Create or reuse a sandbox; returns a `SandboxHandle`
 - `getHandle()` — Returns the current handle if attached, otherwise `null`
-- `getSandboxId()` — Async; attaches if needed, then returns sandbox ID
-- `getVolumes()` — Async; attaches if needed, then returns mounted volume list
+
+### SandboxHandle (returned by `attach()`)
+
+- `getSandboxId()` — Returns the sandbox instance ID
+- `getVolumes()` — Returns mounted volume list (or `null`)
+- `getWorkdir()` — Returns the working directory
+- `exec(command, opts)` — Execute a command and stream output
+- `upload(files, targetDir)` — Upload files to the sandbox
+- `readFile(filePath)` — Read a file from the sandbox
+- `destroy()` — Stop and delete the sandbox
 
 ## About skipBootstrap
 
