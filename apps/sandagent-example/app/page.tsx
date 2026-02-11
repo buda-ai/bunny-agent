@@ -48,6 +48,26 @@ const templates = [
     name: "Web Game Expert",
     description: "3D web games & interactive experiences",
   },
+  {
+    id: "shortsdrone-agent",
+    name: "ShortsDrone Agent",
+    description: "Video content creation and editing",
+  },
+  {
+    id: "bazi-agent",
+    name: "Bazi Agent",
+    description: "Chinese Astrology and Bazi Analysis",
+  },
+  {
+    id: "zodiacdrone-agent",
+    name: "ZodiacDrone Agent",
+    description: "Astrology-based Video Content Creation",
+  },
+  {
+    id: "videodrone-agent",
+    name: "VideoDrone Agent",
+    description: "General Video Content Creation and Editing",
+  },
 ];
 
 function ChatMessage({
