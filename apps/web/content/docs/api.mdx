@@ -1,0 +1,172 @@
+---
+title: API Reference
+description: Complete API reference for @sandagent/sdk
+---
+
+## Provider
+
+### `createSandAgent(options)`
+
+Creates an AI SDK-compatible provider.
+
+```typescript
+import { createSandAgent } from "@sandagent/sdk";
+
+const sandagent = createSandAgent({
+  sandbox,          // SandboxAdapter (required)
+  cwd: "/workspace",
+  env: { ANTHROPIC_API_KEY: "..." },
+  resume: "session-id",
+  verbose: true,
+});
+```
+
+**Options** (`SandAgentProviderSettings`):
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `sandbox` | `SandboxAdapter` | Sandbox instance (required) |
+| `cwd` | `string` | Working directory inside sandbox |
+| `env` | `Record<string, string>` | Environment variables |
+| `template` | `string` | Template name |
+| `resume` | `string` | Session ID for multi-turn conversations |
+| `verbose` | `boolean` | Enable debug logging |
+| `logger` | `Logger \| false` | Custom logger or disable logging |
+| `artifactProcessors` | `ArtifactProcessor[]` | Processors for artifact events |
+
+**Returns** a provider function:
+
+```typescript
+const model = sandagent("sonnet");           // Claude Sonnet (latest)
+const model = sandagent("opus");             // Claude Opus
+const model = sandagent("haiku");            // Claude Haiku
+const model = sandagent("claude-sonnet-4-20250514"); // Specific version
+```
+
+### `LocalSandbox`
+
+Built-in sandbox for local execution.
+
+```typescript
+import { LocalSandbox } from "@sandagent/sdk";
+
+const sandbox = new LocalSandbox({
+  workdir: process.cwd(),
+  templatesPath: "./my-template",
+  runnerCommand: ["npx", "-y", "@sandagent/runner-cli@latest", "run"],
+  env: { ANTHROPIC_API_KEY: "..." },
+});
+```
+
+### `resolveModelId(alias)`
+
+Resolves model aliases to full model IDs.
+
+```typescript
+import { resolveModelId } from "@sandagent/sdk";
+
+resolveModelId("sonnet");  // "claude-sonnet-4-20250514"
+resolveModelId("opus");    // "claude-opus-4-20250514"
+resolveModelId("haiku");   // "claude-3-5-haiku-20241022"
+```
+
+### `submitAnswer(params)`
+
+Submit user answers for interactive `AskUserQuestion` tool calls.
+
+```typescript
+import { submitAnswer } from "@sandagent/sdk";
+
+await submitAnswer({
+  toolCallId: "call_123",
+  questions: [{ question: "Which framework?" }],
+  answers: { "Which framework?": "Next.js" },
+});
+```
+
+## React Hooks
+
+All hooks are imported from `@sandagent/sdk/react`.
+
+### `useSandAgentChat`
+
+Full chat hook with streaming support.
+
+```tsx
+import { useSandAgentChat } from "@sandagent/sdk/react";
+
+const {
+  messages,     // UIMessage[]
+  isLoading,    // boolean
+  sendMessage,  // (text: string) => void
+} = useSandAgentChat({
+  apiEndpoint: "/api/ai",
+});
+```
+
+### `useArtifacts`
+
+Handle agent-generated files (reports, charts, code).
+
+```tsx
+import { useArtifacts } from "@sandagent/sdk/react";
+
+const { artifacts } = useArtifacts({ messages });
+```
+
+### `useWriteTool`
+
+Handle file write tool calls from the agent.
+
+```tsx
+import { useWriteTool } from "@sandagent/sdk/react";
+
+const { writeResults } = useWriteTool({ messages });
+```
+
+### `useAskUserQuestion`
+
+Handle interactive questions from the agent.
+
+```tsx
+import { useAskUserQuestion } from "@sandagent/sdk/react";
+
+const { questions, submitAnswer } = useAskUserQuestion({ messages });
+```
+
+## Exports
+
+| Entry Point | Exports |
+|-------------|---------|
+| `@sandagent/sdk` | `createSandAgent`, `LocalSandbox`, `SandAgentLanguageModel`, `resolveModelId`, `submitAnswer` |
+| `@sandagent/sdk/react` | `useSandAgentChat`, `useArtifacts`, `useWriteTool`, `useAskUserQuestion` |
+
+## Types
+
+Key types exported from `@sandagent/sdk`:
+
+```typescript
+type SandAgentModelId =
+  | "sonnet" | "opus" | "haiku"
+  | "claude-sonnet-4-20250514"
+  | "claude-opus-4-20250514"
+  | (string & {});
+
+interface SandboxAdapter {
+  attach(id?: string): Promise<SandboxHandle>;
+}
+
+interface SandboxHandle {
+  exec(command: string[], opts?: ExecOptions): AsyncIterable<Uint8Array>;
+  upload(files: Array<{ path: string; content: Uint8Array | string }>, targetDir: string): Promise<void>;
+  readFile(filePath: string): Promise<string>;
+  destroy(): Promise<void>;
+}
+
+interface Question {
+  question: string;
+  header?: string;
+  options?: Array<{ label: string; description?: string }>;
+  multiSelect?: boolean;
+}
+```

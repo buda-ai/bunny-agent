@@ -1,0 +1,38 @@
+@import 'tailwindcss';
+@import 'fumadocs-ui/css/neutral.css';
+@import 'fumadocs-ui/css/preset.css';
+
+/* Example app styles */
+@import "kui/styles.css";
+@source "../../../packages/kui";
+
+html, body {
+  height: 100%;
+}
+
+@keyframes bounce-attention {
+  0%, 100% { transform: translateY(0) scale(1); }
+  25% { transform: translateY(-8px) scale(1.02); }
+  50% { transform: translateY(0) scale(1); }
+}
+
+@keyframes border-pulse {
+  0%, 100% {
+    border-color: hsl(var(--primary));
+    box-shadow: 0 0 0 0 hsla(var(--primary), 0.4);
+  }
+  50% {
+    border-color: hsl(var(--primary));
+    box-shadow: 0 0 0 4px hsla(var(--primary), 0);
+  }
+}
+
+.bounce-animation {
+  animation: bounce-attention 0.6s ease-in-out, border-pulse 2s ease-in-out infinite;
+  border-color: hsl(var(--primary));
+}
+
+.scrollable-content {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--muted-foreground)) hsl(var(--muted));
+}
