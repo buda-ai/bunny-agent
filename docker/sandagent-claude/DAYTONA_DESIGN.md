@@ -29,7 +29,7 @@ Sandbox 创建时:
 # 依赖安装到 /opt/sandagent（Volume-safe）
 RUN mkdir -p /opt/sandagent && \
     cd /opt/sandagent && \
-    npm install @anthropic-ai/claude-agent-sdk @sandagent/runner-cli@beta
+    npm install @anthropic-ai/claude-agent-sdk @sandagent/runner-cli@latest
 
 # 设置 NODE_PATH 让 Node.js 找到依赖
 ENV NODE_PATH=/opt/sandagent/node_modules

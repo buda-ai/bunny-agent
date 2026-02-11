@@ -33,5 +33,5 @@ This document summarizes the architecture refactor that split responsibilities b
 
 ## Related Docs
 
-- `docs/REFACTORING_COMPLETION_SUMMARY.md`
+- `REFACTORING_COMPLETION_SUMMARY.md`
 - `spec/SANDBOX_ADAPTERS.md`

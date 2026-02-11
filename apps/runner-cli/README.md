@@ -33,10 +33,10 @@ Dependencies:
 
 ```bash
 # Global install (recommended if you want the `sandagent` command)
-npm install -g @sandagent/runner-cli@beta
+npm install -g @sandagent/runner-cli@latest
 
 # Or add to a project
-npm install @sandagent/runner-cli@beta
+npm install @sandagent/runner-cli@latest
 ```
 
 ## Usage
@@ -48,7 +48,7 @@ sandagent run [options] -- "<user input>"
 Without installing globally, you can also run it via `npx`:
 
 ```bash
-npx -y @sandagent/runner-cli@beta run -- "Create a hello world script"
+npx -y @sandagent/runner-cli@latest run -- "Create a hello world script"
 ```
 
 ### Basic Examples

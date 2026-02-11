@@ -19,6 +19,7 @@ import {
 } from "kui/ai-elements";
 import {
   AlertCircle,
+  BookOpen,
   BotIcon,
   CheckCircle,
   Settings,
@@ -72,9 +73,12 @@ const templates = [
 
 function ChatMessage({
   message,
+  messages,
+  chatBody,
 }: {
   message: UIMessage;
   messages: UIMessage[];
+  chatBody?: Record<string, unknown>;
 }) {
   const isUser = message.role === "user";
 
@@ -108,6 +112,7 @@ function ChatMessage({
                   <AskUserQuestionUI
                     key={toolPart.toolCallId ?? key}
                     part={toolPart}
+                    extraBody={chatBody}
                   />
                 );
               }
@@ -215,6 +220,13 @@ function HomeContent() {
             </div>
           )}
           <Link
+            href="/docs"
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md border border-border hover:bg-muted text-sm text-muted-foreground hover:text-foreground"
+          >
+            <BookOpen className="size-4" />
+            Docs
+          </Link>
+          <Link
             href="/example/settings"
             className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md border border-border hover:bg-muted text-sm text-muted-foreground hover:text-foreground"
           >
@@ -239,6 +251,7 @@ function HomeContent() {
                 key={message.id}
                 message={message}
                 messages={messages}
+                chatBody={{ template: selectedTemplate, ...clientConfig }}
               />
             ))
           )}

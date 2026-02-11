@@ -1,11 +1,12 @@
-# Server Sandbox Architecture Guide
-
-This guide explains the server-side sandbox architecture and how to integrate cloud sandboxes in production. For template deployment details, see `docs/DEPLOY_CUSTOM_TEMPLATE.md`. For reuse and persistence strategies, see `docs/SANDBOX_REUSE.md`.
+---
+title: Server Sandbox Architecture
+description: Cloud sandbox integration for production deployments
+---
 
 ## Why Server Sandboxes
 
-| Aspect | LocalSandbox | Server Sandbox (E2B / Daytona / Sandock) |
-|------|------|------|
+| Aspect | LocalSandbox | Server Sandbox |
+|--------|-------------|----------------|
 | Isolation | Local process | Isolated containers |
 | Access to user code | Possible | Fully isolated |
 | Resource control | Shared | Dedicated CPU/memory |
@@ -14,34 +15,12 @@ This guide explains the server-side sandbox architecture and how to integrate cl
 
 ## High-Level Architecture
 
-```mermaid
-flowchart TB
-  subgraph client [Client]
-    UI[Web UI / CLI]
-  end
-
-  subgraph server [Server]
-    API[Next.js API]
-    SDK[SandAgent SDK]
-    Adapter[Sandbox Adapter]
-  end
-
-  subgraph sandbox [Cloud Sandbox]
-    Runner[sandagent CLI]
-    Claude[Claude Agent SDK]
-    Workspace[/workspace]
-  end
-
-  UI -->|HTTP Stream| API
-  API --> SDK
-  SDK --> Adapter
-  Adapter -->|exec| Runner
-  Runner --> Claude
-  Claude -->|File I/O| Workspace
-
-  style sandbox fill:#e1f5fe
-  style server fill:#fff3e0
-  style client fill:#f3e5f5
+```
+Client (Web UI / CLI)
+    ↓ HTTP Stream
+Server (Next.js API → SandAgent SDK → Sandbox Adapter)
+    ↓ exec
+Cloud Sandbox (sandagent CLI → Claude Agent SDK → /workspace)
 ```
 
 ## Supported Providers
@@ -91,20 +70,6 @@ const sandbox = new SandockSandbox({
 });
 ```
 
-## Docker Image Packaging (Overview)
-
-The prebuilt image lives under `docker/sandagent-claude/` and includes:
-
-- Node.js 20
-- `@anthropic-ai/claude-agent-sdk`
-- `@sandagent/runner-cli`
-- Common CLI tools
-
-For full build and deploy steps, see:
-
-- `docs/DEPLOY_CUSTOM_TEMPLATE.md`
-- `docker/sandagent-claude/README.md`
-
 ## SDK Integration Example
 
 ```typescript
@@ -130,17 +95,10 @@ for await (const chunk of result.textStream) {
 }
 ```
 
-## Troubleshooting (Quick)
+## Troubleshooting
 
 | Issue | Cause | Fix |
-|------|------|------|
+|-------|-------|-----|
 | `Invalid API key` | Missing provider key | Check env vars |
-| `Template not found` | Template/snapshot not deployed | Deploy with `make e2b/daytona` |
+| `Template not found` | Not deployed | Deploy with `make e2b/daytona` |
 | Timeout | Long-running task | Increase `timeout` |
-
-## Related Docs
-
-- `docs/DEPLOY_CUSTOM_TEMPLATE.md`
-- `docs/SANDBOX_REUSE.md`
-- `docs/SDK_QUICK_START.md`
-- `spec/SANDBOX_ADAPTERS.md`

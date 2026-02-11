@@ -64,7 +64,7 @@ When the agent needs to ask the user questions during a run, it uses the `AskUse
 2. **Add the UI component** — Use `useAskUserQuestion` from `@sandagent/sdk/react` and render it for dynamic tool parts with `toolName === "AskUserQuestion"`.
 3. **Render in the chat page** — When rendering message parts, detect `AskUserQuestion` and render your `AskUserQuestionUI` component.
 
-**Full step-by-step guide (developer):** [docs/ASK_USER_QUESTION_QUICK_START.md](../../docs/ASK_USER_QUESTION_QUICK_START.md)
+**Full step-by-step guide (developer):** [AskUserQuestion Guide](https://sandagent.dev/docs/ask-user-question)
 
 **Approval file path:** The runner polls for answers at `{workdir}/.sandagent/approvals/{toolCallId}.json`.
 
@@ -79,9 +79,7 @@ When the agent needs to ask the user questions during a run, it uses the `AskUse
 
 ## Next steps
 
-- [SDK Quick Start](../../docs/SDK_QUICK_START.md)
-- [SDK Development Guide](../../docs/SDK_DEVELOPMENT_GUIDE.md)
-- [AskUserQuestion Quick Start](../../docs/ASK_USER_QUESTION_QUICK_START.md)
-- [AskUserQuestion UI](../../docs/ASK_USER_QUESTION_UI.md)
-- [Approval file (data contract)](../../docs/ASK_USER_QUESTION_APPROVAL_FILE.md)
+- [SDK Quick Start](https://sandagent.dev/docs/quick-start)
+- [SDK Development Guide](https://sandagent.dev/docs/sdk-guide)
+- [AskUserQuestion Guide](https://sandagent.dev/docs/ask-user-question)
 - [E2B / cloud sandbox](../../packages/sandbox-e2b/README.md)

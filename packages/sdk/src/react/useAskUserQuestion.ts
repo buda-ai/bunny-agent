@@ -64,6 +64,7 @@ import type {
 export function useAskUserQuestion({
   part,
   answerEndpoint = "/api/answer",
+  extraBody,
   onAnswer,
 }: UseAskUserQuestionOptions): UseAskUserQuestionReturn {
   const [answers, setAnswers] = useState<Record<string, string | string[]>>({});
@@ -171,6 +172,7 @@ export function useAskUserQuestion({
           toolCallId: part.toolCallId,
           questions,
           answers: answersMap,
+          ...extraBody,
         }),
       }).catch((err) => {
         console.error("[useAskUserQuestion] Submit failed:", err);
@@ -183,7 +185,7 @@ export function useAskUserQuestion({
         answers: answersMap,
       });
     },
-    [answers, questions, part.toolCallId, answerEndpoint, onAnswer],
+    [answers, questions, part.toolCallId, answerEndpoint, extraBody, onAnswer],
   );
 
   // Check if option is selected

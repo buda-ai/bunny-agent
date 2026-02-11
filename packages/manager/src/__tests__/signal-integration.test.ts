@@ -45,6 +45,8 @@ describe("Signal Integration Tests", () => {
     mockSandbox = {
       attach: vi.fn(async () => mockHandle),
       getHandle: vi.fn(() => mockHandle),
+      getSandboxId: vi.fn().mockResolvedValue(null),
+      getVolumes: vi.fn().mockResolvedValue(null),
     };
   });
 

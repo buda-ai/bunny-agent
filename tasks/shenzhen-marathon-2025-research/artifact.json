@@ -1,0 +1,16 @@
+{
+  "artifacts": [
+    {
+      "id": "research-report",
+      "path": "tasks/shenzhen-marathon-2025-research/reports/shenzhen-marathon-2025-report.md",
+      "mimeType": "text/markdown",
+      "description": "Comprehensive research report on Shenzhen Marathon 2025"
+    },
+    {
+      "id": "summary",
+      "path": "tasks/shenzhen-marathon-2025-research/summary.md",
+      "mimeType": "text/markdown",
+      "description": "Task summary and key findings"
+    }
+  ]
+}

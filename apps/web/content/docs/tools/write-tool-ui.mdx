@@ -1,28 +1,29 @@
-# Write Tool UI Guide
+---
+title: Write Tool UI
+description: Handle file write tool calls from the agent in your UI
+---
+
+When the agent uses the Write tool, it produces a `DynamicToolUIPart` that your UI can render.
 
 ## Output Shape
-
-When the Write tool succeeds, its `output` typically looks like this:
 
 ```json
 {
   "type": "create",
-  "filePath": "/sandagent/output/technical-seo-audit-bika-ai.md",
+  "filePath": "/sandagent/output/report.md",
   "content": "# Title\n\nFull file contents...",
   "structuredPatch": [],
   "originalFile": null
 }
 ```
 
-### Field Reference
-
 | Field | Type | Notes |
-|------|------|------|
-| `type` | `string` | Usually `"create"` or `"edit"` |
+|-------|------|-------|
+| `type` | `string` | `"create"` or `"edit"` |
 | `filePath` | `string` | Absolute path of the file |
 | `content` | `string` | Full file contents |
 | `structuredPatch` | `array` | Patch data for edits |
-| `originalFile` | `string | null` | Original file contents for edits |
+| `originalFile` | `string \| null` | Original file contents for edits |
 
 ## DynamicToolUIPart
 
@@ -45,9 +46,11 @@ interface DynamicToolUIPart {
 }
 ```
 
-### State Behavior
+## State Behavior
 
-- `input-streaming`: model is generating file content
-- `input-available`: content is ready to write
-- `output-available`: write succeeded
-- `output-error`: write failed
+| State | Description |
+|-------|-------------|
+| `input-streaming` | Model is generating file content |
+| `input-available` | Content is ready to write |
+| `output-available` | Write succeeded |
+| `output-error` | Write failed |

@@ -1,10 +1,9 @@
-# Artifacts Guide
+---
+title: Artifacts
+description: Stream agent-generated files (reports, charts, code) to the UI
+---
 
-![Artifacts Demo](./assets/artifacts-demo.png)
-
-## What Are Artifacts?
-
-Artifacts are files produced by the agent during a task (reports, charts, code, etc.) that can be streamed to the UI. The SDK surfaces them via the `useSandAgentChat` and `useArtifacts` hooks.
+Artifacts are files produced by the agent during a task that can be streamed to the UI. The SDK surfaces them via `useSandAgentChat` and `useArtifacts` hooks.
 
 ## Quick UI Example
 
@@ -31,11 +30,6 @@ export default function ChatPage() {
               <button
                 key={artifact.artifactId}
                 onClick={() => setSelectedArtifact(artifact)}
-                className={
-                  selectedArtifact?.artifactId === artifact.artifactId
-                    ? "bg-blue-500 text-white"
-                    : "bg-gray-100"
-                }
               >
                 {artifact.artifactId}
               </button>
@@ -56,7 +50,7 @@ export default function ChatPage() {
 
 ## useArtifacts (Standalone)
 
-If you already have a custom chat UI, you can extract artifacts directly:
+If you have a custom chat UI, extract artifacts directly:
 
 ```tsx
 import { useArtifacts } from "@sandagent/sdk/react";
@@ -75,29 +69,20 @@ function MyArtifactPanel({ messages }) {
 
   return (
     <div>
-      <div>
-        {artifacts.map((artifact) => (
-          <button key={artifact.artifactId} onClick={() => setSelectedArtifact(artifact)}>
-            {artifact.artifactId}
-          </button>
-        ))}
-      </div>
-
-      {selectedArtifact && (
-        <div>
-          <button onClick={() => copyContent(selectedArtifact)}>Copy</button>
-          <button onClick={() => downloadArtifact(selectedArtifact)}>Download</button>
-          <pre>{selectedArtifact.content}</pre>
-        </div>
-      )}
+      {artifacts.map((a) => (
+        <button key={a.artifactId} onClick={() => setSelectedArtifact(a)}>
+          {a.artifactId}
+        </button>
+      ))}
+      {selectedArtifact && <pre>{selectedArtifact.content}</pre>}
     </div>
   );
 }
 ```
 
-## Backend Enablement
+## Backend Setup
 
-Artifacts are streamed by an `ArtifactProcessor` registered with the provider.
+Register an `ArtifactProcessor` with the provider:
 
 ```typescript
 import { createSandAgent, LocalSandbox } from "@sandagent/sdk";
@@ -105,7 +90,6 @@ import { createUIMessageStream, createUIMessageStreamResponse, streamText } from
 
 export async function POST(request: Request) {
   const { messages } = await request.json();
-
   const sandbox = new LocalSandbox({ workdir: process.cwd() });
 
   const stream = createUIMessageStream({
@@ -121,11 +105,7 @@ export async function POST(request: Request) {
         artifactProcessors: [artifactProcessor],
       });
 
-      const result = streamText({
-        model: sandagent("sonnet"),
-        messages,
-      });
-
+      const result = streamText({ model: sandagent("sonnet"), messages });
       writer.merge(result.toUIMessageStream());
       await result.response;
     },
@@ -135,17 +115,9 @@ export async function POST(request: Request) {
 }
 ```
 
-For processor internals, see `docs/ARTIFACT_FEATURE.md`.
-
 ## Artifact Manifest
 
-The agent should write a manifest at:
-
-```
-tasks/{sessionId}/artifact.json
-```
-
-Example:
+The agent writes a manifest at `tasks/{sessionId}/artifact.json`:
 
 ```json
 {
@@ -160,35 +132,31 @@ Example:
 }
 ```
 
-### Fields
-
-- `id` (optional): unique identifier for UI de-duplication
-- `path` (required): relative or absolute file path
-- `mimeType` (optional): e.g. `text/markdown`, `text/html`, `application/json`
-- `description` (optional): short description
+| Field | Required | Description |
+|-------|----------|-------------|
+| `id` | No | Unique identifier for UI de-duplication |
+| `path` | Yes | Relative or absolute file path |
+| `mimeType` | No | e.g. `text/markdown`, `text/html` |
+| `description` | No | Short description |
 
 ## Artifact Skill (Recommended)
 
-Add an `artifact` skill to your agent template so it reliably writes the manifest:
+Add an `artifact` skill to your template so the agent reliably writes the manifest:
 
 ```
-templates/
-  your-template/
-    .claude/
-      skills/
-        artifact/
-          SKILL.md
+templates/your-template/
+  .claude/
+    skills/
+      artifact/
+        SKILL.md
 ```
 
 The skill should instruct the agent to:
-
 1. Create `tasks/${CLAUDE_SESSION_ID}/artifact.json`
 2. Add entries whenever a new output file is created
 3. Keep paths consistent with the workdir
 
-A reference implementation exists at:
-
-`templates/researcher/.claude/skills/artifact/SKILL.md`
+A reference implementation exists at `templates/researcher/.claude/skills/artifact/SKILL.md`.
 
 ## Rendering Tips
 
@@ -198,22 +166,6 @@ A reference implementation exists at:
 
 ## Troubleshooting
 
-- **No artifacts showing**: confirm `artifact.json` exists and paths are valid
-- **Duplicate artifacts**: ensure `id` is unique and stable
-- **Infinite render loop**: memoize extracted artifacts when using custom hooks
-
-## Types
-
-```typescript
-interface ArtifactData {
-  artifactId: string;
-  content: string;
-  mimeType: string;
-}
-```
-
-## Related Docs
-
-- `docs/ARTIFACT_FEATURE.md` (implementation details)
-- `docs/SDK_QUICK_START.md`
-- `docs/SDK_DEVELOPMENT_GUIDE.md`
+- No artifacts showing → confirm `artifact.json` exists and paths are valid
+- Duplicate artifacts → ensure `id` is unique and stable
+- Infinite render loop → memoize extracted artifacts when using custom hooks
