@@ -154,12 +154,12 @@ const sandbox = new DaytonaSandbox({
 
 ## Comparison
 
-| Provider | Best For | POSIX FS | Pre-built Images | Network Limits | Volume Reuse Across Sandboxes |
-|----------|----------|----------|-----------------|----------------|-------------------------------|
-| **LocalSandbox** | Desktop apps, debugging | ✅ (native) | N/A | None | N/A |
-| **Sandock** | Cloud production | ✅ Full POSIX | ✅ | None | ✅ |
-| **E2B** | Cloud production | ✅ | ✅ | None | ❌ |
-| **Daytona** | Cloud production | ❌ | ✅ | [Tier 1 & 2](https://www.daytona.io/docs/en/network-limits/) | ✅ |
+| Provider | Best For | POSIX FS | Pre-built Images | Network Limits | Volume Reuse Across Sandboxes | Volume Public Access |
+|----------|----------|----------|-----------------|----------------|-------------------------------|----------------------|
+| **LocalSandbox** | Desktop apps, debugging | ✅ (native) | N/A | None | N/A | N/A |
+| **Sandock** | Cloud production | ✅ Full POSIX | ✅ | None | ✅ | ✅ |
+| **E2B** | Cloud production | ✅ | ✅ | None | ❌ | ❌ |
+| **Daytona** | Cloud production | ❌ | ✅ | [Tier 1 & 2](https://www.daytona.io/docs/en/network-limits/) | ✅ | ❌ |
 | **Sandock** | Cloud production | ✅ Full POSIX | ✅ Cross-sandbox | ✅ |
 | **E2B** | Cloud production | ⚠️ Partial | ❌ | ✅ |
 | **Daytona** | Enterprise workspaces | ⚠️ Partial | ❌ | ✅ |
