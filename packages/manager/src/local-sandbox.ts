@@ -90,6 +90,14 @@ export class LocalSandbox implements SandboxAdapter {
     return this.currentHandle?.getWorkdir() ?? this.workdir;
   }
 
+  async getSandboxId(): Promise<null> {
+    return null;
+  }
+
+  async getVolumes(): Promise<null> {
+    return null;
+  }
+
   /**
    * Get the runner command to execute in the sandbox.
    */

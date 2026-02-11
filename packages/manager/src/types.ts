@@ -1,4 +1,14 @@
 /**
+ * Volume info (for backends that support persistent volumes)
+ */
+export interface Volume {
+  volumeId: string;
+  mountPath: string;
+  /** Optional display name (e.g. volume name from config) */
+  name?: string;
+}
+
+/**
  * Options for executing a command in the sandbox
  */
 export interface ExecOptions {
@@ -95,6 +105,16 @@ export interface SandboxAdapter {
    * Returns the command array (e.g., ["sandagent", "run"] or ["node", "/path/to/bundle.mjs", "run"])
    */
   getRunnerCommand?(): string[];
+
+  /**
+   * Get sandbox instance ID. Attaches first if not attached, then returns the id (null if none).
+   */
+  getSandboxId(): Promise<string | null>;
+
+  /**
+   * Get volume mounts. Attaches first if not attached, then returns volumes (null if none).
+   */
+  getVolumes(): Promise<Volume[] | null>;
 }
 
 /**

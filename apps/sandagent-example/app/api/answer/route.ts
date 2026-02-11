@@ -8,8 +8,7 @@ import { type Question, submitAnswer } from "@sandagent/sdk";
  * POST /api/answer
  *
  * Receives user answers for AskUserQuestion tool calls.
- * Reuses the same cached sandbox that /api/ai created for this chat so the
- * approval file is written where the runner can read it.
+ * Creates a sandbox to write the approval file for the runner to read.
  *
  * Request body:
  *   toolCallId: string

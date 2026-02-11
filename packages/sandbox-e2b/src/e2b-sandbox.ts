@@ -89,6 +89,7 @@ export class E2BSandbox implements SandboxAdapter {
 
   /** Current handle for the sandbox instance */
   private currentHandle: SandboxHandle | null = null;
+  private _sandboxId: string | null = null;
 
   /** Default timeout in seconds (1 hour for hobby tier) */
   private static readonly DEFAULT_TIMEOUT_SEC = 3600;
@@ -202,6 +203,15 @@ export class E2BSandbox implements SandboxAdapter {
     return this.currentHandle;
   }
 
+  async getSandboxId(): Promise<string | null> {
+    if (!this.currentHandle) await this.attach();
+    return this._sandboxId;
+  }
+
+  async getVolumes(): Promise<null> {
+    return null;
+  }
+
   async attach(): Promise<SandboxHandle> {
     if (!this.apiKey) {
       throw new Error(
@@ -242,6 +252,7 @@ export class E2BSandbox implements SandboxAdapter {
       needsInit = true;
     }
 
+    this._sandboxId = instance.sandboxId;
     const handle = new E2BHandle(instance, this.env, this.workdir);
 
     // Initialize sandbox if it's new (upload files, install dependencies)
@@ -410,13 +421,6 @@ class E2BHandle implements SandboxHandle {
     this.instance = instance;
     this.sandboxEnv = sandboxEnv;
     this.workdir = workdir;
-  }
-
-  /**
-   * Get the sandbox ID (useful for external tracking)
-   */
-  getSandboxId(): string {
-    return this.instance.sandboxId;
   }
 
   /**

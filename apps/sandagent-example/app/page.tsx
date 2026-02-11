@@ -53,9 +53,11 @@ const templates = [
 function ChatMessage({
   message,
   messages,
+  chatBody,
 }: {
   message: UIMessage;
   messages: UIMessage[];
+  chatBody?: Record<string, unknown>;
 }) {
   const isUser = message.role === "user";
 
@@ -85,6 +87,7 @@ function ChatMessage({
                   <AskUserQuestionUI
                     key={toolPart.toolCallId ?? `ask-${index}`}
                     part={toolPart}
+                    extraBody={chatBody}
                   />
                 );
               }
@@ -214,6 +217,7 @@ function HomeContent() {
                 key={message.id}
                 message={message}
                 messages={messages}
+                chatBody={{ template: selectedTemplate, ...clientConfig }}
               />
             ))
           )}

@@ -99,6 +99,8 @@ export interface UseAskUserQuestionOptions {
   part: DynamicToolUIPart;
   /** API endpoint for submitting answers (default: "/api/answer") */
   answerEndpoint?: string;
+  /** Extra body params merged into the answer request (e.g. SANDBOX_PROVIDER, SANDOCK_API_KEY, template) */
+  extraBody?: Record<string, unknown>;
   /** Callback when user selects an answer (called after API submission) */
   onAnswer?: (data: {
     toolCallId: string;

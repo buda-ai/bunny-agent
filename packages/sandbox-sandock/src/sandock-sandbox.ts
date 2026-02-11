@@ -5,14 +5,9 @@ import type {
   ExecOptions,
   SandboxAdapter,
   SandboxHandle,
+  Volume,
 } from "@sandagent/manager";
 import { type SandockClient, createSandockClient } from "sandock";
-
-function normalizeVolumeConfig(
-  options: SandockSandboxOptions,
-): SandockVolumeConfig[] {
-  return options.volumes ?? [];
-}
 
 /** Single volume mount configuration (name → get/create by name; mountPath inside container) */
 export interface SandockVolumeConfig {
@@ -52,7 +47,7 @@ export interface SandockSandboxOptions {
    * Each volume is created/fetched by name and mounted at the given path.
    */
   volumes?: SandockVolumeConfig[];
-  /** Sandbox name for reuse (similar to Daytona). */
+  /** Sandbox name/title for the Sandock API (e.g. for display in dashboard) */
   name?: string;
 
   /**
@@ -83,13 +78,15 @@ export class SandockSandbox implements SandboxAdapter {
   private readonly keep: boolean;
   private readonly timeout: number;
   private readonly templatesPath?: string;
-  private readonly volumes: SandockVolumeConfig[];
+  private readonly volumeConfigs: SandockVolumeConfig[];
   private readonly skipBootstrap: boolean;
   private readonly env: Record<string, string>;
   private readonly name?: string;
 
   /** Current handle for the sandbox instance */
   private currentHandle: SandboxHandle | null = null;
+  private _sandboxId: string | null = null;
+  private _volumes: Volume[] | null = null;
 
   constructor(options: SandockSandboxOptions = {}) {
     const apiKey = options.apiKey ?? process.env.SANDOCK_API_KEY;
@@ -113,7 +110,7 @@ export class SandockSandbox implements SandboxAdapter {
     this.keep = options.keep ?? true;
     this.timeout = options.timeout ?? 300000;
     this.templatesPath = options.templatesPath;
-    this.volumes = normalizeVolumeConfig(options);
+    this.volumeConfigs = options.volumes ?? [];
     this.skipBootstrap = options.skipBootstrap ?? false;
     this.env = options.env ?? {};
     this.name = options.name;
@@ -151,45 +148,55 @@ export class SandockSandbox implements SandboxAdapter {
     return this.currentHandle;
   }
 
+  async getSandboxId(): Promise<string | null> {
+    if (!this.currentHandle) await this.attach();
+    return this._sandboxId;
+  }
+
+  async getVolumes(): Promise<Volume[] | null> {
+    if (!this.currentHandle) await this.attach();
+    return this._volumes;
+  }
+
   /**
-   * Attach to or create a sandbox (always creates a new sandbox).
+   * Attach to or create a sandbox. Creates a new sandbox each time (no caching).
    */
   async attach(): Promise<SandboxHandle> {
     if (this.currentHandle) {
-      console.log(
-        `[Sandock] Reusing existing handle${this.name ? ` (${this.name})` : ""}`,
-      );
       return this.currentHandle;
     }
-    // Resolve all volumes (get or create by name, wait for ready)
-    const volumeMounts: Array<{ volumeId: string; mountPath: string }> = [];
-    for (const v of this.volumes) {
+    const volumeMounts = await this.resolveVolumeMounts();
+    const { sandboxId } = await this.createAndStartSandbox(volumeMounts);
+
+    const handle = new SandockHandle(
+      this.client,
+      sandboxId,
+      this.workdir,
+      this.timeout,
+      () => {},
+      this.keep,
+      this.env,
+    );
+    this._sandboxId = sandboxId;
+    this._volumes = volumeMounts;
+    await this.initializeSandbox(handle);
+    this.currentHandle = handle;
+    return handle;
+  }
+
+  /** Resolve volume configs to Volume[] (get/create by name, wait for ready). */
+  private async resolveVolumeMounts(): Promise<Volume[]> {
+    const volumeMounts: Volume[] = [];
+    for (const v of this.volumeConfigs) {
       console.log(`[Sandock] Getting/creating volume: ${v.volumeName}`);
       const volume = await this.client.volume.getByName(v.volumeName, true);
       const mountPath = v.volumeMountPath;
 
       if (volume.data.status && volume.data.status !== "ready") {
-        console.log(
-          `[Sandock] Volume ${v.volumeName} status: ${volume.data.status}, waiting...`,
-        );
-        const maxWaitMs = 30000;
-        const startTime = Date.now();
-        let current = volume;
-        while (
-          current.data.status !== "ready" &&
-          Date.now() - startTime < maxWaitMs
-        ) {
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-          const updated = await this.client.volume.getByName(
-            v.volumeName,
-            false,
-          );
-          current = updated;
-        }
-
-        if (current.data.status !== "ready") {
+        const ready = await this.waitVolumeReady(v.volumeName, 30000);
+        if (!ready) {
           throw new Error(
-            `Volume '${v.volumeName}' failed to become ready. Status: ${current.data.status}`,
+            `Volume '${v.volumeName}' failed to become ready. Status: ${volume.data.status}`,
           );
         }
       }
@@ -197,13 +204,38 @@ export class SandockSandbox implements SandboxAdapter {
       volumeMounts.push({
         volumeId: volume.data.id,
         mountPath,
+        name: v.volumeName,
       });
       console.log(
         `[Sandock] Using volume ${volume.data.id} (${v.volumeName}) at ${mountPath}`,
       );
     }
+    return volumeMounts;
+  }
 
-    // Create sandbox using high-level API with optional volume mounts
+  private async waitVolumeReady(
+    volumeName: string,
+    maxWaitMs: number,
+  ): Promise<boolean> {
+    const startTime = Date.now();
+    let current = await this.client.volume.getByName(volumeName, false);
+    while (
+      current.data.status !== "ready" &&
+      Date.now() - startTime < maxWaitMs
+    ) {
+      console.log(
+        `[Sandock] Volume ${volumeName} status: ${current.data.status}, waiting...`,
+      );
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      current = await this.client.volume.getByName(volumeName, false);
+    }
+    return current.data.status === "ready";
+  }
+
+  /** Create sandbox and start it; returns sandbox id and volume mounts. */
+  private async createAndStartSandbox(
+    volumeMounts: Volume[],
+  ): Promise<{ sandboxId: string; volumeMounts: Volume[] }> {
     const createOptions: {
       image: string;
       memory?: number;
@@ -216,9 +248,11 @@ export class SandockSandbox implements SandboxAdapter {
       cpu: this.cpuShares,
       title: this.name,
     };
-
     if (volumeMounts.length > 0) {
-      createOptions.volumes = volumeMounts;
+      createOptions.volumes = volumeMounts.map((v) => ({
+        volumeId: v.volumeId,
+        mountPath: v.mountPath,
+      }));
     }
 
     const createResult = await this.client.sandbox.create(createOptions);
@@ -226,28 +260,11 @@ export class SandockSandbox implements SandboxAdapter {
     if (!sandboxId) {
       throw new Error("No sandbox ID returned from Sandock API");
     }
-
     console.log(
       `[Sandock] Created new sandbox: ${sandboxId} ${this.name ? `, title: ${this.name}` : ""}`,
     );
-
-    // Start the sandbox using high-level API
     await this.client.sandbox.start(sandboxId);
-
-    const handle = new SandockHandle(
-      this.client,
-      sandboxId,
-      this.workdir,
-      this.timeout,
-      () => {},
-      this.keep,
-      this.env,
-    );
-
-    // Initialize sandbox with runner and templates
-    await this.initializeSandbox(handle);
-    this.currentHandle = handle;
-    return handle;
+    return { sandboxId, volumeMounts };
   }
 
   private async initializeSandbox(handle: SandockHandle): Promise<void> {
@@ -674,7 +691,6 @@ class SandockHandle implements SandboxHandle {
     // Delete sandbox using high-level API
     await this.client.sandbox.delete(this.sandboxId);
 
-    // Clean up from cache
     this.onDestroy();
   }
 }

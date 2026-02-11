@@ -40,6 +40,8 @@ function createMockSandbox(): SandboxAdapter & { handle: SandboxHandle } {
   const adapter: SandboxAdapter & { handle: SandboxHandle } = {
     attach: vi.fn().mockResolvedValue(handle),
     getHandle: vi.fn().mockReturnValue(handle),
+    getSandboxId: vi.fn().mockResolvedValue(null),
+    getVolumes: vi.fn().mockResolvedValue(null),
     handle,
   };
 

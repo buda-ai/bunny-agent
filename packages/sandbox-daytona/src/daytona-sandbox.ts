@@ -96,6 +96,7 @@ export class DaytonaSandbox implements SandboxAdapter {
 
   /** Current handle for the sandbox instance */
   private currentHandle: SandboxHandle | null = null;
+  private _sandboxId: string | null = null;
 
   constructor(options: DaytonaSandboxOptions = {}) {
     this.apiKey = options.apiKey ?? process.env.DAYTONA_API_KEY;
@@ -141,6 +142,15 @@ export class DaytonaSandbox implements SandboxAdapter {
 
   getHandle(): SandboxHandle | null {
     return this.currentHandle;
+  }
+
+  async getSandboxId(): Promise<string | null> {
+    if (!this.currentHandle) await this.attach();
+    return this._sandboxId;
+  }
+
+  async getVolumes(): Promise<null> {
+    return null;
   }
 
   async attach(): Promise<SandboxHandle> {
@@ -288,6 +298,7 @@ export class DaytonaSandbox implements SandboxAdapter {
 
     console.log(`[Daytona] Sandbox ${sandbox.id} ready`);
 
+    this._sandboxId = sandbox.id;
     const handle = new DaytonaHandle(sandbox, this.env, this.workdir);
 
     // Initialize sandbox if needed (upload files, install dependencies)
@@ -477,13 +488,6 @@ class DaytonaHandle implements SandboxHandle {
     this.sandbox = sandbox;
     this.sandboxEnv = sandboxEnv;
     this.workdir = workdir;
-  }
-
-  /**
-   * Get the sandbox ID (useful for external tracking)
-   */
-  getSandboxId(): string {
-    return this.sandbox.id;
   }
 
   /**
