@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import Link from "next/link";
 
 export default function HomePage() {
   return (
@@ -10,7 +10,8 @@ export default function HomePage() {
       </p>
       <p className="text-fd-muted-foreground max-w-xl mb-8">
         Plug Claude Code, Anthropic Agent SDK, Codex CLI, Gemini CLI, and more
-        into your app as a standard AI SDK model. Local or cloud sandbox. No prompt engineering.
+        into your app as a standard AI SDK model. Local or cloud sandbox. No
+        prompt engineering.
       </p>
 
       <div className="flex gap-4 mb-12">
@@ -29,7 +30,8 @@ export default function HomePage() {
       </div>
 
       <div className="rounded-lg border border-fd-border bg-fd-card p-4 font-mono text-sm text-left max-w-lg w-full">
-        <span className="text-fd-muted-foreground">$</span> npm install @sandagent/sdk ai
+        <span className="text-fd-muted-foreground">$</span> npm install
+        @sandagent/sdk ai
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-16 max-w-4xl w-full text-left">
@@ -37,21 +39,24 @@ export default function HomePage() {
           <div className="text-2xl mb-2">🔌</div>
           <h3 className="font-semibold mb-1">AI SDK Compatible</h3>
           <p className="text-sm text-fd-muted-foreground">
-            Drop-in model for <code>streamText</code> / <code>generateText</code>. Works with Vercel AI SDK v6.
+            Drop-in model for <code>streamText</code> /{" "}
+            <code>generateText</code>. Works with Vercel AI SDK v6.
           </p>
         </div>
         <div className="rounded-lg border border-fd-border p-6">
           <div className="text-2xl mb-2">🏖️</div>
           <h3 className="font-semibold mb-1">Sandboxed Execution</h3>
           <p className="text-sm text-fd-muted-foreground">
-            Local mode for desktop apps. Cloud sandboxes (Sandock, E2B, Daytona) for production.
+            Local mode for desktop apps. Cloud sandboxes (Sandock, E2B, Daytona)
+            for production.
           </p>
         </div>
         <div className="rounded-lg border border-fd-border p-6">
           <div className="text-2xl mb-2">🎨</div>
           <h3 className="font-semibold mb-1">Agent Templates</h3>
           <p className="text-sm text-fd-muted-foreground">
-            Markdown-based templates turn a generic agent into a domain expert. No code required.
+            Markdown-based templates turn a generic agent into a domain expert.
+            No code required.
           </p>
         </div>
       </div>

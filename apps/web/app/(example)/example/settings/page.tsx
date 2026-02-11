@@ -322,12 +322,14 @@ export default function SettingsPage() {
         {/* Action Buttons */}
         <div className="flex items-center gap-4 mb-8">
           <button
+            type="button"
             onClick={handleSave}
             className="px-4 py-2 rounded-md bg-primary text-primary-foreground font-medium hover:bg-primary/90"
           >
             {saved ? "✓ Saved!" : "Save Configuration"}
           </button>
           <button
+            type="button"
             onClick={handleClear}
             className="px-4 py-2 rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted"
           >

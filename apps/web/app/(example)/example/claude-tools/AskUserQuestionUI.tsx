@@ -4,11 +4,7 @@ import { useAskUserQuestion } from "@sandagent/sdk/react";
 import type { DynamicToolUIPart } from "ai";
 
 // AskUserQuestion interactive component
-export function AskUserQuestionUI({
-  part,
-}: {
-  part: DynamicToolUIPart;
-}) {
+export function AskUserQuestionUI({ part }: { part: DynamicToolUIPart }) {
   const {
     questions,
     answers,

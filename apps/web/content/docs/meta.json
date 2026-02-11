@@ -1,10 +1,4 @@
 {
   "title": "Documentation",
-  "pages": [
-    "index",
-    "quick-start",
-    "sandboxes",
-    "templates",
-    "api"
-  ]
+  "pages": ["index", "quick-start", "sandboxes", "templates", "api"]
 }

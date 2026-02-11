@@ -61,9 +61,7 @@ export async function getOrCreateSandbox(
   return sandbox;
 }
 
-async function buildSandbox(
-  params: CreateSandboxParams,
-): Promise<any> {
+async function buildSandbox(params: CreateSandboxParams): Promise<any> {
   const {
     SANDBOX_PROVIDER = "e2b",
     E2B_API_KEY,

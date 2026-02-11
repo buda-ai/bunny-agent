@@ -72,7 +72,6 @@ const templates = [
 
 function ChatMessage({
   message,
-  messages,
 }: {
   message: UIMessage;
   messages: UIMessage[];
@@ -168,7 +167,9 @@ function HomeContent() {
     } else {
       params.set("template", newTemplate);
     }
-    const newUrl = params.toString() ? `/example?${params.toString()}` : "/example";
+    const newUrl = params.toString()
+      ? `/example?${params.toString()}`
+      : "/example";
     router.replace(newUrl, { scroll: false });
   };
 

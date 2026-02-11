@@ -112,7 +112,7 @@ export class TaskDrivenArtifactProcessor implements ArtifactProcessor {
               });
           }
         }
-      } catch (e) {
+      } catch (_e) {
         return Promise.resolve();
       }
     }
