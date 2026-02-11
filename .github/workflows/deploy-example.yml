@@ -1,31 +1,11 @@
 # =============================================================================
-# Deploy SandAgent Example to Vercel
+# Deploy SandAgent Web to Vercel
 # =============================================================================
 #
+# Deploys apps/web (docs + example) to https://sandagent.vercel.com
+#
 # Architecture:
-#   Browser -> Vercel (Next.js) -> E2B Sandbox -> runner-cli -> Claude Agent SDK
-#
-# Current Status: DEV MODE
-# -------------------------
-# runner-cli and runner-claude are not yet published to npm, so:
-# 1. Build bundle.mjs locally (includes runner-cli + runner-claude + dependencies)
-# 2. Include bundle.mjs in Vercel deployment
-# 3. At runtime, E2BSandbox uploads bundle.mjs to the sandbox
-# 4. Install @anthropic-ai/claude-agent-sdk in sandbox before execution
-#
-# After npm Publish: PRODUCTION MODE
-# ----------------------------------
-# After publishing @sandagent/runner-cli to npm, you can:
-#
-# Option A: Create pre-installed E2B template (Recommended, fastest startup)
-#   1. Create E2B template with @sandagent/runner-cli pre-installed
-#   2. Update E2BSandbox to use that template ID
-#   3. Remove bundle upload logic
-#   4. This workflow only needs to build the example app
-#
-# Option B: Dynamic installation (Simple, but slower startup)
-#   1. Run npm install -g @sandagent/runner-cli on sandbox startup
-#   2. No custom template needed
+#   Browser -> Vercel (Next.js) -> E2B/Sandock Sandbox -> runner-cli -> Claude Agent SDK
 #
 # Required Secrets:
 #   - VERCEL_TOKEN: Vercel deployment token
@@ -35,16 +15,17 @@
 # Client Configuration (Settings page):
 #   - ANTHROPIC_API_KEY: Claude API key
 #   - E2B_API_KEY: E2B sandbox API key
+#   - SANDOCK_API_KEY: Sandock sandbox API key
 #
 # =============================================================================
 
-name: Deploy SandAgent Example to Vercel
+name: Deploy SandAgent Web to Vercel
 
 on:
   push:
     branches:
       - main
-  workflow_dispatch: # Allow manual trigger
+  workflow_dispatch:
 
 env:
   VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
@@ -68,10 +49,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      # =========================================
-      # DEV MODE: Build local packages
-      # =========================================
-      - name: Build all packages (TypeScript)
+      - name: Build all packages
         run: pnpm build
 
       - name: Build runner-cli bundle
@@ -85,20 +63,6 @@ jobs:
           fi
           echo "✅ bundle.mjs: $(du -h apps/runner-cli/dist/bundle.mjs | cut -f1)"
 
-      # =========================================
-      # PRODUCTION MODE (Enable after npm publish)
-      # =========================================
-      # Uncomment below and comment out the DEV MODE section above
-      #
-      # - name: Build example app only
-      #   run: |
-      #     pnpm --filter @sandagent/core build
-      #     pnpm --filter @sandagent/sandbox-e2b build
-      #     pnpm --filter @sandagent/example build
-
-      # =========================================
-      # Deploy to Vercel
-      # =========================================
       - name: Install Vercel CLI
         run: pnpm add -g vercel@latest
 
@@ -118,14 +82,12 @@ jobs:
         if: github.ref == 'refs/heads/main'
         run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
 
-      # Deploy to Preview for develop branch
       - name: Deploy Preview to Vercel
         if: github.ref == 'refs/heads/develop'
         run: |
           url=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
           echo "Preview URL: $url"
 
-      # Deploy to Production for main branch
       - name: Deploy Production to Vercel
         if: github.ref == 'refs/heads/main'
         run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
