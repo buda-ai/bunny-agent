@@ -7,6 +7,17 @@ description: Provide career guidance and recommendations based on BaZi elemental
 
 This skill provides personalized career guidance based on BaZi analysis, matching natural talents (elemental strengths) with suitable professions, work environments, and career strategies.
 
+**💼 For Modern Professionals**: This is NOT fortune-telling - it's a **strategic career assessment tool** that:
+- Maps your natural strengths to market opportunities
+- Identifies work environments where you'll thrive
+- Highlights optimal timing for career transitions
+- Provides data-driven recommendations for skill development
+
+**Think of it as**: Personality assessment (MBTI/StrengthsFinder) + Market analysis + Timing strategy
+
+> "八字不决定职业，但揭示你的天赋优势。选择权在你手中。"  
+> *BaZi doesn't determine your career - it reveals your natural advantages. The choice is yours.*
+
 ## When to Use This Skill
 
 - **Career exploration**: Choosing a career path
