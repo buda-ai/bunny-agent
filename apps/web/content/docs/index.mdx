@@ -1,0 +1,49 @@
+---
+title: Introduction
+description: What is SandAgent and why you need it
+---
+
+## What is SandAgent?
+
+SandAgent lets you plug **Coding Agent superpowers** into your own product — as a standard [AI SDK](https://sdk.vercel.ai/) model.
+
+Coding Agents like Claude Code, Codex CLI, and Gemini CLI already have sophisticated memory management, battle-tested tool use (bash, file I/O, web search), MCP server integrations, and refined prompts from millions of interactions.
+
+**@sandagent/sdk** wraps all of that into a single `createSandAgent()` call that returns an AI SDK-compatible model you can pass to `streamText` or `generateText`.
+
+```
+Your App  →  @sandagent/sdk  →  Coding Agent (Claude / Codex / …)
+                                      ↕
+                              Sandbox (Local or Cloud)
+```
+
+## Key Features
+
+- **AI SDK Provider** — `createSandAgent()` returns a model compatible with Vercel AI SDK v6
+- **React Hooks** — `useSandAgentChat`, `useArtifacts`, `useWriteTool`, `useAskUserQuestion`
+- **Local Mode** — Built-in `LocalSandbox` for desktop apps and debugging
+- **Cloud Sandboxes** — [Sandock](https://sandock.ai), E2B, Daytona for isolated production execution
+- **Agent Templates** — Markdown-based templates that turn a generic agent into a domain expert
+- **Multi-turn Sessions** — Resume conversations with full filesystem continuity
+
+## Supported Coding Agents
+
+| Agent | Runner Package | Status |
+|-------|---------------|--------|
+| Claude Code / Anthropic Agent SDK | `@sandagent/runner-claude` | ✅ Production |
+| Codex CLI | `@sandagent/runner-codex` | 🚧 Planned |
+| Gemini CLI | `@sandagent/runner-gemini` | 🚧 Planned |
+| OpenCode | `@sandagent/runner-opencode` | 🚧 Planned |
+
+## Install
+
+```bash
+npm install @sandagent/sdk ai
+```
+
+<Cards>
+  <Card title="Quick Start" href="/docs/quick-start" />
+  <Card title="Sandbox Configuration" href="/docs/sandboxes" />
+  <Card title="Agent Templates" href="/docs/templates" />
+  <Card title="API Reference" href="/docs/api" />
+</Cards>

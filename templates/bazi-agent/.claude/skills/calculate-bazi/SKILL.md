@@ -274,12 +274,36 @@ Person B:
 **Issue**: Leap month confusion
 **Solution**: Always verify with solar term. Leap months don't affect month pillar.
 
-## Calculation Tools
+## Implementation
 
-### Recommended Libraries
-- `lunar-javascript`: Comprehensive lunar calendar library
-- `chinese-lunar-calendar`: Alternative implementation
-- `solarlunar`: Lightweight option
+### Core Library
+This skill uses the shared **BaZi Core Library** located at `.claude/lib/bazi_core.py`.
+
+**Python API**:
+```python
+from lib.bazi_core import BaZiCalculator
+
+calculator = BaZiCalculator()
+result = calculator.calculate_bazi(
+    birth_date="1990-05-15",  # Format: YYYY-MM-DD
+    birth_time="10:00",        # Format: HH:MM
+    location="北京"            # Optional, default: 北京
+)
+
+# Access results
+print(result['four_pillars'])
+print(result['day_master'])
+print(result['elements_balance'])
+```
+
+**Command Line**:
+```bash
+# Basic usage
+python /sandagent/.claude/lib/bazi_core.py 1990-05-15 10:00 北京
+
+# With JSON output
+python /sandagent/.claude/lib/bazi_core.py 1990-05-15 10:00 北京 --json
+```
 
 ### Manual Verification
 - Cross-check with online 万年历 (perpetual calendar)
