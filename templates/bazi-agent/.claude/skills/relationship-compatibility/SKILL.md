@@ -7,6 +7,17 @@ description: Analyze BaZi compatibility for romantic relationships (合婚). Exa
 
 This skill analyzes BaZi compatibility between two people for romantic relationships, commonly known as 合婚 (Hé Hūn). It examines how their charts interact, identifies harmonious and challenging aspects, and provides practical relationship advice.
 
+**💑 Modern Relationship Framework**: This is NOT a "destined match" prediction - it's a **relationship dynamics analysis** that:
+- Identifies natural areas of harmony and potential friction
+- Explains different communication and emotional styles
+- Provides strategies for navigating challenges
+- Highlights growth opportunities for both partners
+
+**Remember**: **No compatibility score determines relationship success**. Awareness, communication, and commitment matter most. BaZi simply provides insights into natural dynamics.
+
+> "合婚分析提供洞察，不是宣判。关系的成功靠双方努力。"  
+> *Compatibility analysis provides insights, not verdicts. Relationship success depends on both partners' efforts.*
+
 ## When to Use This Skill
 
 - **Pre-marriage consultation**: Traditional compatibility check

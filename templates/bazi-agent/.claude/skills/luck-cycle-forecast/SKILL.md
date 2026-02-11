@@ -7,6 +7,15 @@ description: Calculate and interpret 10-year luck cycles (大运) and annual for
 
 This skill analyzes the 10-year luck cycles (大运 Dà Yùn) and annual influences (流年 Liú Nián) to provide timing insights, predict favorable and challenging periods, and guide decision-making.
 
+**🎯 Critical Framework**: Luck cycles show **tendencies and opportunities**, NOT fixed fate. They help you:
+- **Identify optimal timing** for major decisions (data-driven strategy)
+- **Prepare for challenges** in advance (risk management)
+- **Leverage favorable periods** maximally (opportunity optimization)
+- **Make informed choices** with awareness of cosmic trends
+
+> "大运显示趋势，不是命运。你的选择决定结果。"  
+> *Luck cycles show trends, not destiny. Your choices determine outcomes.*
+
 ## When to Use This Skill
 
 - **Life planning**: Identifying optimal timing for major decisions
