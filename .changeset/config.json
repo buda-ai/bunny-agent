@@ -17,7 +17,7 @@
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
   "ignore": [
-    "@sandagent/example",
+    "@sandagent/web",
     "@sandagent/quickstart",
     "@sandagent/manager-cli",
     "@sandagent/benchmark"

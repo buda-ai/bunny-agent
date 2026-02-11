@@ -1,5 +1,11 @@
 # @sandagent/runner-cli
 
+## 0.2.11
+
+### Patch Changes
+
+- - Fix: update changeset ignore list (use @sandagent/web instead of removed @sandagent/example)
+
 ## 0.2.10
 
 ### Patch Changes
