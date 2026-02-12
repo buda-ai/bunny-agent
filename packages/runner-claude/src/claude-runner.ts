@@ -21,7 +21,6 @@ import type {
   SDKUserMessage,
 } from "@anthropic-ai/claude-agent-sdk";
 import {
-  AISDKStreamConverter,
   convertUsageToAISDK,
   formatDataStream,
   generateId,
@@ -366,7 +365,6 @@ async function* runWithTextOutput(
   sdk: ClaudeAgentSDKModule,
   options: ClaudeRunnerOptions,
   userInput: string | AsyncIterable<SDKUserMessage>,
-  signal?: AbortSignal,
 ): AsyncIterable<string> {
   const sdkOptions = createSDKOptions(options);
   const queryIterator = sdk.query({ prompt: userInput, options: sdkOptions });
@@ -402,12 +400,13 @@ async function* runWithJSONOutput(
   sdk: ClaudeAgentSDKModule,
   options: ClaudeRunnerOptions,
   userInput: string | AsyncIterable<SDKUserMessage>,
-  signal?: AbortSignal,
 ): AsyncIterable<string> {
   const sdkOptions = createSDKOptions(options);
   const queryIterator = sdk.query({ prompt: userInput, options: sdkOptions });
-  const cleanup = setupAbortHandler(queryIterator, signal);
-
+  const cleanup = setupAbortHandler(
+    queryIterator,
+    options.abortController?.signal,
+  );
   try {
     let resultMessage: SDKMessage | null = null;
     for await (const message of queryIterator) {
@@ -433,11 +432,13 @@ async function* runWithStreamJSONOutput(
   sdk: ClaudeAgentSDKModule,
   options: ClaudeRunnerOptions,
   userInput: string | AsyncIterable<SDKUserMessage>,
-  signal?: AbortSignal,
 ): AsyncIterable<string> {
   const sdkOptions = createSDKOptions(options);
   const queryIterator = sdk.query({ prompt: userInput, options: sdkOptions });
-  const cleanup = setupAbortHandler(queryIterator, signal);
+  const cleanup = setupAbortHandler(
+    queryIterator,
+    options.abortController?.signal,
+  );
 
   try {
     for await (const message of queryIterator) {
@@ -469,7 +470,7 @@ async function* runWithAISDKUIOutput(
   );
 
   try {
-    yield* streamSDKMessagesToAISDKUI(queryIterator, { cwd: options.cwd });
+    yield* streamSDKMessagesToAISDKUI(queryIterator);
   } finally {
     cleanup();
   }

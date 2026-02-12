@@ -182,6 +182,19 @@ export class SandockSandbox implements SandboxAdapter {
         this.env,
         volumeMounts,
       );
+
+      // Verify workdir exists (volumes may have changed since sandbox was created)
+      const check = await handle.runCommand(
+        `test -d ${this.workdir} && echo OK`,
+      );
+      if (check.stdout.trim() !== "OK") {
+        console.warn(
+          `[Sandock] Workdir ${this.workdir} not found in sandbox ${id}, creating new sandbox`,
+        );
+        this._sandboxId = null;
+        return null;
+      }
+
       this.currentHandle = handle;
       console.log(`[Sandock] Attached to existing sandbox: ${id}`);
       return handle;

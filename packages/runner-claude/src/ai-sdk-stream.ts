@@ -9,7 +9,7 @@
  * @see https://ai-sdk.dev/docs/ai-sdk-ui/stream-protocol
  */
 
-import { writeFile } from "node:fs/promises";
+import { appendFileSync, existsSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import type {
   SDKAssistantMessage,
@@ -117,6 +117,29 @@ export interface StreamToAISDKUIOptions {
   signal?: AbortSignal;
   /** Working directory for debug files (default: process.cwd()) */
   cwd?: string;
+}
+
+// ============================================================================
+// Debug Trace
+// ============================================================================
+
+/**
+ * Simple debug trace — appends a JSON line to the debug file.
+ * Call with `reset=true` to clear the file (on session init).
+ */
+function trace(data: unknown, reset = false): void {
+  if (process.env.DEBUG !== "true") return;
+  try {
+    const file = join(process.cwd(), "claude-message-stream-debug.json");
+    if (reset && existsSync(file)) unlinkSync(file);
+    const entry = {
+      _t: new Date().toISOString(),
+      ...(typeof data === "object" && data !== null
+        ? (data as Record<string, unknown>)
+        : { value: data }),
+    };
+    appendFileSync(file, JSON.stringify(entry, null, 2) + ",\n");
+  } catch {}
 }
 
 // ============================================================================
@@ -280,13 +303,6 @@ interface ToolUse {
   input: unknown;
 }
 
-interface ToolResult {
-  id: string;
-  name?: string;
-  result: unknown;
-  isError: boolean;
-}
-
 function extractToolUses(content: unknown): ToolUse[] {
   if (!Array.isArray(content)) return [];
 
@@ -325,10 +341,6 @@ function extractToolUses(content: unknown): ToolUse[] {
 export class AISDKStreamConverter {
   private systemMessage: SDKSystemMessage | undefined;
   private hasEmittedStart = false;
-  private accumulatedText = "";
-  private textPartId: string | undefined;
-  private streamedTextLength = 0; // Track text already emitted via stream_events
-  private hasReceivedStreamEvents = false;
   private sessionId: string | undefined;
 
   private readonly partIdMap = new Map<string, string>();
@@ -433,20 +445,17 @@ export class AISDKStreamConverter {
    */
   async *stream(
     messageIterator: AsyncIterable<SDKMessage>,
-    options?: StreamToAISDKUIOptions,
   ): AsyncGenerator<string> {
-    // Collect messages for debugging
-    const debugMessages: unknown[] = [];
-
     try {
       for await (const message of messageIterator) {
-        // Collect message for debug file
-        debugMessages.push(message);
         // Handle system init message
         if (message.type === "system" && message.subtype === "init") {
+          trace(null, true); // reset debug file
           this.systemMessage = message as SDKSystemMessage;
           this.sessionId = this.systemMessage.session_id;
         }
+
+        trace(message);
 
         // Handle streaming events (token-by-token via includePartialMessages)
         if (message.type === "stream_event") {
@@ -495,23 +504,6 @@ export class AISDKStreamConverter {
         // Process assistant messages
         if (message.type === "assistant") {
           const assistantMsg = message as SDKAssistantMessage;
-
-          // Handle errors
-          // if (assistantMsg.error) {
-          //   const errorDetail =
-          //     assistantMsg.message?.content
-          //       ?.map((c: { type: string; text?: string }) => c.text ?? "")
-          //       .filter(Boolean)
-          //       .join("\n") ?? "";
-          //   yield this.emit({
-          //     type: "error",
-          //     errorText: errorDetail
-          //       ? `${assistantMsg.error}: ${errorDetail}`
-          //       : assistantMsg.error,
-          //   });
-          //   continue;
-          // }
-
           const content = assistantMsg.message?.content;
           if (!content) continue;
 
@@ -549,12 +541,19 @@ export class AISDKStreamConverter {
 
         if (message.type === "result") {
           const resultMsg = message as SDKResultMessage;
-          const finishTime = new Date().toISOString();
-          console.error(
-            `[AISDKStream] Processing result message at ${finishTime}`,
-          );
-          // Emit finish immediately - this should be sent to frontend right away
-          const finishEvent = this.emit({
+
+          if (resultMsg.is_error) {
+            const errorText =
+              (resultMsg as unknown as { result?: string }).result ||
+              "Unknown error";
+            yield this.emit({
+              type: "error",
+              errorText,
+            });
+          }
+
+          // Emit finish
+          yield this.emit({
             type: "finish",
             finishReason: mapFinishReason(
               resultMsg.subtype,
@@ -565,15 +564,6 @@ export class AISDKStreamConverter {
               sessionId: this.sessionId,
             },
           });
-          console.error(
-            `[AISDKStream] Emitting finish event at ${new Date().toISOString()}`,
-          );
-          yield finishEvent;
-          // Emit [DONE] immediately after finish to signal stream completion
-          // This ensures the frontend knows the stream is done without waiting
-          console.error(
-            `[AISDKStream] Emitted [DONE] at ${new Date().toISOString()}`,
-          );
         }
 
         // // Process result message
@@ -623,54 +613,24 @@ export class AISDKStreamConverter {
       //   yield this.emit({ type: "text-end", id: this.textPartId });
       // }
     } catch (error) {
-      debugMessages.push(error);
-      // Handle truncation
-      // if (isClaudeCodeTruncationError(error, this.accumulatedText)) {
-      //   console.warn(
-      //     `[AISDKStream] Detected truncated response, returning ${this.accumulatedText.length} chars`,
-      //   );
-      //   if (this.textPartId) {
-      //     yield this.emit({ type: "text-end", id: this.textPartId });
-      //   }
-      //   yield this.emit({
-      //     type: "finish",
-      //     finishReason: { unified: "length", raw: "truncation" },
-      //     usage: convertUsageToAISDK(undefined),
-      //     messageMetadata: { truncated: true },
-      //   });
-      // } else if (isAbortError(error)) {
-      //   console.error("[AISDKStream] Operation aborted");
-      //   if (this.textPartId) {
-      //     yield this.emit({ type: "text-end", id: this.textPartId });
-      //   }
-      // } else {
-      //   const errorMessage =
-      //     error instanceof Error ? error.message : "Unknown error";
-      //   console.error("[AISDKStream] Error:", errorMessage);
-      //   yield this.emit({ type: "error", errorText: errorMessage });
-      //   yield this.emit({
-      //     type: "finish",
-      //     finishReason: mapFinishReason("error_during_execution", true),
-      //     usage: convertUsageToAISDK(undefined),
-      //   });
-      // }
-    } finally {
-      // Write debug messages to file asynchronously (don't block stream completion)
-      if (debugMessages.length > 0 && process.env.DEBUG === "true") {
-        const debugDir = options?.cwd ?? process.cwd();
-        const debugFile = join(debugDir, `claude-message-stream-debug.json`);
-        // Don't await - let it write in background
-        writeFile(
-          debugFile,
-          JSON.stringify(debugMessages, null, 2),
-          "utf-8",
-        ).catch((writeError) => {
-          console.error(
-            `[AISDKStream] Failed to write debug file:`,
-            writeError,
-          );
+      trace({ error: String(error) });
+      if (isAbortError(error)) {
+        console.error("[AISDKStream] Operation aborted");
+      } else {
+        const errorMessage =
+          error instanceof Error ? error.message : "Unknown error";
+        console.error("[AISDKStream] Error:", errorMessage);
+        yield this.emit({ type: "error", errorText: errorMessage });
+        yield this.emit({
+          type: "finish",
+          finishReason: mapFinishReason("error_during_execution", true),
+          messageMetadata: {
+            usage: convertUsageToAISDK({}),
+            sessionId: this.sessionId,
+          },
         });
       }
+    } finally {
       yield `data: [DONE]\n\n`;
     }
   }
@@ -686,7 +646,6 @@ export class AISDKStreamConverter {
  */
 export function streamSDKMessagesToAISDKUI(
   messageIterator: AsyncIterable<SDKMessage>,
-  options?: StreamToAISDKUIOptions,
 ): AsyncGenerator<string> {
-  return new AISDKStreamConverter().stream(messageIterator, options);
+  return new AISDKStreamConverter().stream(messageIterator);
 }
