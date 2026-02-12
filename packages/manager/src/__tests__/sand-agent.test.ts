@@ -27,6 +27,8 @@ function createAsyncIterable<T>(data: T[]): AsyncIterable<T> {
 function createMockSandbox(): SandboxAdapter & { handle: SandboxHandle } {
   const handle: SandboxHandle = {
     getWorkdir: vi.fn().mockReturnValue("/workspace"),
+    getSandboxId: vi.fn().mockReturnValue(null),
+    getVolumes: vi.fn().mockReturnValue(null),
     exec: vi
       .fn()
       .mockReturnValue(
@@ -40,8 +42,6 @@ function createMockSandbox(): SandboxAdapter & { handle: SandboxHandle } {
   const adapter: SandboxAdapter & { handle: SandboxHandle } = {
     attach: vi.fn().mockResolvedValue(handle),
     getHandle: vi.fn().mockReturnValue(handle),
-    getSandboxId: vi.fn().mockResolvedValue(null),
-    getVolumes: vi.fn().mockResolvedValue(null),
     handle,
   };
 

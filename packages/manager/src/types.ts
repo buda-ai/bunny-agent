@@ -27,6 +27,18 @@ export interface ExecOptions {
  */
 export interface SandboxHandle {
   /**
+   * Get the sandbox instance ID (available after attach).
+   * Returns null for local sandboxes that don't have a remote ID.
+   */
+  getSandboxId(): string | null;
+
+  /**
+   * Get the volume mounts for this sandbox (available after attach).
+   * Returns null for sandboxes that don't support volumes.
+   */
+  getVolumes(): Volume[] | null;
+
+  /**
    * Get the working directory for this sandbox handle
    * @returns The working directory path
    */
@@ -105,16 +117,6 @@ export interface SandboxAdapter {
    * Returns the command array (e.g., ["sandagent", "run"] or ["node", "/path/to/bundle.mjs", "run"])
    */
   getRunnerCommand?(): string[];
-
-  /**
-   * Get sandbox instance ID. Attaches first if not attached, then returns the id (null if none).
-   */
-  getSandboxId(): Promise<string | null>;
-
-  /**
-   * Get volume mounts. Attaches first if not attached, then returns volumes (null if none).
-   */
-  getVolumes(): Promise<Volume[] | null>;
 }
 
 /**
