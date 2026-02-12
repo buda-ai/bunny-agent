@@ -1,5 +1,11 @@
 # @sandagent/manager
 
+## 0.2.12
+
+### Patch Changes
+
+- refactor: unify sandboxId and volumes on SandboxHandle interface; add getSandboxId() and getVolumes() to all sandbox adapters (sandock, daytona, e2b, local); support attaching to existing sandbox by id in SandockSandbox; add Volume type to manager; add extraBody option to useAskUserQuestion; change runner-cli install from @beta to @latest
+
 ## 0.2.11
 
 ### Patch Changes
