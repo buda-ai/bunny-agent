@@ -38,6 +38,9 @@ const sandbox = new SandockSandbox({
 | `skipBootstrap` | boolean | false | If true, skip runner install; image must include runner |
 | `env` | Record<string, string> | `{}` | Environment variables injected into the sandbox |
 | `timeout` | number | 300000 | Operation timeout in milliseconds |
+| `sandboxId` | string | - | Existing sandbox ID to reattach to; falls back to creating new on failure |
+| `name` | string | - | Sandbox display name (e.g. for Sandock dashboard) |
+| `keep` | boolean | true | Keep sandbox running after execution |
 
 ## Usage Patterns
 
@@ -66,6 +69,25 @@ new SandockSandbox({
   ],
 });
 ```
+
+### 3. Reuse Existing Sandbox
+
+Pass `sandboxId` to reattach to a previously created sandbox. If the sandbox no longer exists, `attach()` falls back to creating a new one.
+
+```ts
+const sandbox = new SandockSandbox({
+  apiKey: process.env.SANDOCK_API_KEY,
+  image: "vikadata/sandagent:latest",
+  skipBootstrap: true,
+  workdir: "/workspace",
+  sandboxId: "cached-sandbox-id", // from your cache
+});
+
+const handle = await sandbox.attach();
+// Store handle.getSandboxId() for next request
+```
+
+For web apps, cache the sandboxId server-side (e.g. in-memory Map with 30-min TTL) so subsequent requests reuse the same sandbox without client-side state.
 
 ## With @sandagent/sdk
 

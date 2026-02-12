@@ -5,11 +5,11 @@ description: Reuse and persistence strategies across sandbox providers
 
 ## Quick Summary
 
-| Provider | Reuse Mechanism | Persistence | Best For |
-|----------|----------------|-------------|----------|
-| E2B | Name-based lookup | Platform-managed FS | Production, short tasks |
-| Sandock | In-process cache | No cross-process persistence | Local dev |
-| Daytona | Name + volume | Volume-backed | Long-lived projects |
+| Provider | Reuse Mechanism | Persistence |
+|----------|----------------|-------------|
+| E2B | Name-based lookup | Platform-managed FS |
+| Sandock | `sandboxId` option | Volume-backed |
+| Daytona | Name + volume | Volume-backed |
 
 ## E2B
 
@@ -25,16 +25,26 @@ const handle = await sandbox.attach();
 
 ## Sandock
 
-Uses an in-memory cache per process. Reuse works only within the same Node.js process.
+Pass a `sandboxId` to reuse an existing sandbox. `attach()` tries to reconnect first; on failure it creates a new one.
 
 ```typescript
+// Basic usage — new sandbox each time
 const sandbox = new SandockSandbox({ image: "sandockai/sandock-code:latest" });
 const handle = await sandbox.attach();
 ```
 
-- Cache size: 50 instances
-- TTL: 30 minutes
-- Not shared across processes
+```typescript
+// Reuse via sandboxId — attach to existing sandbox
+const sandbox = new SandockSandbox({
+  image: "sandockai/sandock-code:latest",
+  sandboxId: previousSandboxId, // obtained from handle.getSandboxId()
+});
+const handle = await sandbox.attach();
+```
+
+- `sandboxId` enables cross-request reuse; callers are responsible for storing and passing it
+- If the sandbox expired or was deleted, `attach()` falls back to creating a new one
+- Volumes are resolved on both new creation and reattach
 
 ## Daytona
 
@@ -62,6 +72,6 @@ Pick a stable name tied to your use case:
 
 ## Recommendations
 
-- Production, short tasks → E2B with a stable `name`
-- Long-lived projects → Daytona with `volumeName`
-- Local dev → Sandock cache
+- E2B: set a stable `name`, platform handles the rest
+- Sandock: store `sandboxId` from `handle.getSandboxId()` and pass it on next request
+- Daytona: set a stable `name` + `volumeName` for filesystem persistence across restarts
