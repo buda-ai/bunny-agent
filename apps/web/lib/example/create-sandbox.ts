@@ -25,8 +25,27 @@ export interface CreateSandboxParams {
   localWorkdir?: string;
 }
 
-export function evictSandbox(_params: CreateSandboxParams): void {
-  // No-op; no cache.
+// --- Server-side sandbox ID cache (30 min TTL) ------------------------------
+const SANDBOX_ID_TTL_MS = 30 * 60 * 1000;
+const sandboxIdCache = new Map<string, { id: string; expiresAt: number }>();
+
+function getCachedSandboxId(key: string): string | undefined {
+  const entry = sandboxIdCache.get(key);
+  if (!entry) return undefined;
+  if (Date.now() > entry.expiresAt) {
+    sandboxIdCache.delete(key);
+    return undefined;
+  }
+  return entry.id;
+}
+
+function setCachedSandboxId(key: string, id: string): void {
+  sandboxIdCache.set(key, { id, expiresAt: Date.now() + SANDBOX_ID_TTL_MS });
+}
+
+export function evictSandbox(params: CreateSandboxParams): void {
+  const key = `sandagent-${params.template ?? "default"}`;
+  sandboxIdCache.delete(key);
 }
 
 /** Build sandbox and attach. */
@@ -35,6 +54,14 @@ export async function getOrCreateSandbox(
 ): Promise<SandboxAdapter> {
   const sandbox = await buildSandbox(params);
   await sandbox.attach();
+
+  // Cache the sandboxId after successful attach
+  const sandboxId = sandbox.getHandle?.()?.getSandboxId?.();
+  if (sandboxId) {
+    const key = `sandagent-${params.template ?? "default"}`;
+    setCachedSandboxId(key, sandboxId);
+  }
+
   return sandbox;
 }
 
@@ -78,6 +105,8 @@ async function buildSandbox(
   }
 
   if (SANDBOX_PROVIDER === "sandock" && SANDOCK_API_KEY) {
+    const cacheKey = sandboxName;
+    const cachedId = getCachedSandboxId(cacheKey);
     return new SandockSandbox({
       apiKey: SANDOCK_API_KEY,
       image: params.SANDBOX_IMAGE ?? SANDBOX_IMAGE,
@@ -93,6 +122,7 @@ async function buildSandbox(
       env: baseEnv,
       workdir: "/workspace",
       name: sandboxName,
+      sandboxId: cachedId,
     });
   }
 
