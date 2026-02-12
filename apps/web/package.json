@@ -12,24 +12,26 @@
     "format": "biome format --write"
   },
   "dependencies": {
-    "fumadocs-core": "16.5.4",
-    "fumadocs-mdx": "14.2.7",
-    "fumadocs-ui": "16.5.4",
-    "lucide-react": "^0.563.0",
-    "next": "16.1.6",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4",
-    "tailwind-merge": "^3.4.0",
     "@ai-sdk/react": "^3.0.3",
-    "@sandagent/sdk": "workspace:*",
+    "@next/third-parties": "^16.1.6",
     "@sandagent/sandbox-daytona": "workspace:*",
     "@sandagent/sandbox-e2b": "workspace:*",
     "@sandagent/sandbox-sandock": "workspace:*",
+    "@sandagent/sdk": "workspace:*",
     "ai": "^6.0.19",
+    "fumadocs-core": "16.5.4",
+    "fumadocs-mdx": "14.2.7",
+    "fumadocs-ui": "16.5.4",
     "kui": "workspace:*",
-    "next-themes": "^0.4.6"
+    "lucide-react": "^0.563.0",
+    "next": "16.1.6",
+    "next-themes": "^0.4.6",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "tailwind-merge": "^3.4.0"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.3.14",
     "@tailwindcss/postcss": "^4.1.18",
     "@types/mdx": "^2.0.13",
     "@types/node": "^25.2.1",
@@ -37,7 +39,6 @@
     "@types/react-dom": "^19.2.3",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.18",
-    "typescript": "^5.9.3",
-    "@biomejs/biome": "^2.3.14"
+    "typescript": "^5.9.3"
   }
 }
