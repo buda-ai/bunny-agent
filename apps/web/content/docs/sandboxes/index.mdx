@@ -34,6 +34,8 @@ Best for: Electron/Tauri desktop apps, local development, debugging.
 
 [Sandock](https://sandock.ai) provides Docker-based cloud sandboxes with persistent volumes and fast startup.
 
+> **Why Sandock?** Coding Agents (Claude Code, Codex CLI, etc.) rely heavily on filesystem `append` operations and other POSIX semantics during execution. Sandock is currently the only cloud sandbox provider that offers **100% POSIX-compatible filesystems**, ensuring Coding Agents run without filesystem-related failures. Additionally, Sandock volumes are **persistent and shareable** — multiple sandboxes can mount the same named volume, enabling cross-session and cross-sandbox data reuse.
+
 ### Install
 
 ```bash
@@ -65,7 +67,7 @@ const sandagent = createSandAgent({ sandbox, cwd: sandbox.getWorkdir() });
 
 ### Persistent Volumes
 
-Keep workspace and session data across sandbox restarts:
+Volumes persist across sandbox restarts and can be **shared across multiple sandboxes**. This means different agent sessions can access the same workspace data, and Claude's session history (stored in `/root/.claude`) survives sandbox recreation.
 
 ```typescript
 const sandbox = new SandockSandbox({
@@ -152,9 +154,13 @@ const sandbox = new DaytonaSandbox({
 
 ## Comparison
 
-| Provider | Best For | Persistent Volumes | Pre-built Images | Network Limits | Volume Public Access |
-|----------|----------|--------------------|-----------------|----------------|----------------------|
-| **LocalSandbox** | Desktop apps, debugging | N/A (local FS) | N/A | None | N/A |
-| **Sandock** | Cloud production | ✅ | ✅ | None | ✅ |
-| **E2B** | Cloud production | ❌ | ✅ | None | ❌ |
-| **Daytona** | Cloud production | ✅ | ✅ | [Tier 1 & 2](https://www.daytona.io/docs/en/network-limits/) | ❌ |
+| Provider | Best For | POSIX FS | Pre-built Images | Network Limits | Volume Reuse Across Sandboxes | Volume Public Access |
+|----------|----------|----------|-----------------|----------------|-------------------------------|----------------------|
+| **LocalSandbox** | Desktop apps, debugging | ✅ (native) | N/A | None | N/A | N/A |
+| **Sandock** | Cloud production | ✅ Full POSIX | ✅ | None | ✅ | ✅ |
+| **E2B** | Cloud production | ✅ | ✅ | None | ❌ | ❌ |
+| **Daytona** | Cloud production | ❌ | ✅ | [Tier 1 & 2](https://www.daytona.io/docs/en/network-limits/) | ✅ | ❌ |
+| **Sandock** | Cloud production | ✅ Full POSIX | ✅ Cross-sandbox | ✅ |
+| **E2B** | Cloud production | ⚠️ Partial | ❌ | ✅ |
+| **Daytona** | Enterprise workspaces | ⚠️ Partial | ❌ | ✅ |
+>>>>>>> af04389 (Update documentation)
