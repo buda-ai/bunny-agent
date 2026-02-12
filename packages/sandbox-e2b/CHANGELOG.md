@@ -1,5 +1,13 @@
 # @sandagent/sandbox-e2b
 
+## 0.2.13
+
+### Patch Changes
+
+- Fix sandbox reattach volumes, stream auth errors to frontend, add sandbox ID caching with 30-min TTL, update reuse docs.
+- Updated dependencies
+  - @sandagent/manager@0.2.13
+
 ## 0.2.12
 
 ### Patch Changes
