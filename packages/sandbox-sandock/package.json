@@ -1,6 +1,6 @@
 {
   "name": "@sandagent/sandbox-sandock",
-  "version": "0.2.14",
+  "version": "0.2.15",
   "description": "Sandock sandbox adapter for SandAgent",
   "type": "module",
   "main": "./dist/index.js",

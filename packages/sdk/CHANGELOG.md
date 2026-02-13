@@ -1,5 +1,13 @@
 # @sandagent/sdk
 
+## 0.2.15
+
+### Patch Changes
+
+- fix: only attach to RUNNING sandboxes in tryAttachExisting, skip start call
+- Updated dependencies
+  - @sandagent/manager@0.2.15
+
 ## 0.2.14
 
 ### Patch Changes

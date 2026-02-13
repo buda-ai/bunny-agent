@@ -1,5 +1,11 @@
 # @sandagent/runner-cli
 
+## 0.2.15
+
+### Patch Changes
+
+- fix: only attach to RUNNING sandboxes in tryAttachExisting, skip start call
+
 ## 0.2.14
 
 ### Patch Changes
