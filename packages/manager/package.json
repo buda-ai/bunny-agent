@@ -1,6 +1,6 @@
 {
   "name": "@sandagent/manager",
-  "version": "0.2.13",
+  "version": "0.2.14",
   "description": "SandAgent Manager - Manages sandbox and runner lifecycle, defines core interfaces",
   "type": "module",
   "main": "./dist/index.js",

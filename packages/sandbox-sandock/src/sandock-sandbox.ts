@@ -66,6 +66,12 @@ export interface SandockSandboxOptions {
    * These will be available to all commands executed in the sandbox.
    */
   env?: Record<string, string>;
+
+  /**
+   * Maximum lifetime of the sandbox in seconds.
+   * After this duration, the sandbox will be automatically terminated.
+   */
+  maxLifetimeSeconds?: number;
 }
 
 /**
@@ -87,6 +93,7 @@ export class SandockSandbox implements SandboxAdapter {
   private readonly skipBootstrap: boolean;
   private readonly env: Record<string, string>;
   private readonly name?: string;
+  private readonly maxLifetimeSeconds?: number;
 
   /** Current handle for the sandbox instance; also holds optional existing sandbox id to attach to (before attach) */
   private currentHandle: SandboxHandle | null = null;
@@ -119,6 +126,7 @@ export class SandockSandbox implements SandboxAdapter {
     this.env = options.env ?? {};
     this.name = options.name;
     this._sandboxId = options.sandboxId ?? null;
+    this.maxLifetimeSeconds = options.maxLifetimeSeconds;
   }
 
   /**
@@ -182,18 +190,6 @@ export class SandockSandbox implements SandboxAdapter {
         this.env,
         volumeMounts,
       );
-
-      // Verify workdir exists (volumes may have changed since sandbox was created)
-      const check = await handle.runCommand(
-        `test -d ${this.workdir} && echo OK`,
-      );
-      if (check.stdout.trim() !== "OK") {
-        console.warn(
-          `[Sandock] Workdir ${this.workdir} not found in sandbox ${id}, creating new sandbox`,
-        );
-        this._sandboxId = null;
-        return null;
-      }
 
       this.currentHandle = handle;
       console.log(`[Sandock] Attached to existing sandbox: ${id}`);
@@ -286,11 +282,13 @@ export class SandockSandbox implements SandboxAdapter {
       cpu?: number;
       volumes?: Array<{ volumeId: string; mountPath: string }>;
       title?: string;
+      activeDeadlineSeconds?: number;
     } = {
       image: this.image,
       memory: this.memoryLimitMb,
       cpu: this.cpuShares,
       title: this.name,
+      activeDeadlineSeconds: this.maxLifetimeSeconds,
     };
     if (volumeMounts.length > 0) {
       createOptions.volumes = volumeMounts.map((v) => ({
