@@ -177,8 +177,14 @@ export class SandockSandbox implements SandboxAdapter {
     const id = this._sandboxId;
     if (!id) return null;
     try {
-      await this.client.sandbox.get(id);
-      await this.client.sandbox.start(id);
+      const { data } = await this.client.sandbox.get(id);
+      if (data.status !== "RUNNING") {
+        console.warn(
+          `[Sandock] Sandbox ${id} is not running (status: ${data.status}), creating new`,
+        );
+        this._sandboxId = null;
+        return null;
+      }
       const volumeMounts = await this.resolveVolumeMounts();
       const handle = new SandockHandle(
         this.client,
