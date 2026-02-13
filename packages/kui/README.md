@@ -15,7 +15,7 @@ Prereqs: Node.js >= 20, `pnpm`, and a Tailwind CSS app.
 pnpm install
 ```
 
-Add the dependency to your app (e.g. `apps/sandagent-example`) via workspace:
+Add the dependency to your app (e.g. `apps/web`) via workspace:
 
 ```json
 {
