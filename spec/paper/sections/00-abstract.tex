@@ -1,0 +1,15 @@
+\begin{abstract}
+
+Building AI agents is hard. Memory systems, tool integrations, prompt engineering, sandbox infrastructure---each demands weeks of engineering, and the tax is paid \textit{per agent}. Meanwhile, coding agents---Claude Code, Codex CLI, GitHub Copilot---have already solved all of these problems. They manage context. They execute code. They read and write files. They search the web. They connect to external tools via MCP. They run in sandboxes.
+
+We argue these agents are not merely coding tools. They are \textbf{meta-agents}: general-purpose runtimes whose capabilities---Compute, Storage, Network, Extension, Reasoning---form a \textit{capability superset} that subsumes virtually all domain-specific AI agents. A data analyst agent? It's a coding agent with a different prompt. A research agent? Same. An SEO agent? Same.
+
+We propose \textbf{Agent Redirection}: instead of \textit{building} agents from scratch, \textit{redirect} an existing coding agent to any domain with a Markdown template. No SDK. No framework. No memory system. Just a \texttt{CLAUDE.md} file.
+
+We present \textbf{SandAgent}, an open-source system implementing this paradigm with pluggable runtimes (Claude, Codex, Copilot) and sandboxes (E2B, Docker, Local). On the GAIA benchmark, template-redirected agents achieve competitive performance. In case studies across four domains, Agent Redirection reduces development effort by $\sim$300$\times$ compared to SDK-based construction.
+
+The industry agrees. GitHub Agent HQ (February 2026) now runs Claude, Codex, and Copilot as interchangeable runtimes in the same interface. The convergence has begun.
+
+\medskip
+\noindent\textit{Don't build agents. Redirect them.}
+\end{abstract}

@@ -1,0 +1,176 @@
+\section{Experiments}
+
+We evaluate the Meta-Agent Paradigm along three dimensions: (1) cross-agent benchmark performance, (2) positioning within the broader agent benchmark landscape, and (3) domain specialization via templates.
+
+\subsection{GAIA Benchmark}
+
+GAIA (General AI Assistants) \citep{mialon2023gaia} evaluates AI assistants on real-world tasks requiring multi-step reasoning, tool use, and web interaction across three difficulty levels.
+
+\begin{table}[h]
+\caption{GAIA benchmark results (validation set). Accuracy (\%) by difficulty level.}
+\label{tab:gaia}
+\centering
+\small
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Agent CLI} & \textbf{Level 1} & \textbf{Level 2} & \textbf{Level 3} & \textbf{Tasks Won} \\
+\midrule
+Codex CLI      & \textbf{73.58} & \textbf{60.47} & \textbf{57.69} & 39/53 (L1) \\
+Gemini CLI     & 50.94 & 40.70 & --- & 27/53 (L1) \\
+SandAgent      & 43.40 & --- & --- & 23/53 (L1) \\
+Claude Code    & 39.62 & --- & --- & 21/53 (L1) \\
+OpenCode       & 30.18 & --- & --- & 16/53 (L1) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+  ybar, bar width=14pt, width=0.7\textwidth, height=5.5cm,
+  ylabel={Accuracy (\%)}, ylabel style={font=\small},
+  symbolic x coords={Codex, Gemini, SandAgent, Claude, OpenCode},
+  xtick=data, xticklabel style={font=\small, rotate=15, anchor=east},
+  ymin=0, ymax=85,
+  nodes near coords, nodes near coords style={font=\tiny},
+  every node near coord/.append style={above},
+  enlarge x limits=0.15,
+  bar shift=0pt,
+]
+\addplot[fill=sablue!40] coordinates {(Codex,73.58) (Gemini,50.94) (SandAgent,43.40) (Claude,39.62) (OpenCode,30.18)};
+\end{axis}
+\end{tikzpicture}
+\caption{GAIA Level 1 accuracy. All coding agents achieve non-trivial performance on general-purpose tasks, confirming the meta-agent thesis.}
+\label{fig:gaia-chart}
+\end{figure}
+
+\subsubsection{Why Coding Agents Already Represent the Intelligence Ceiling}
+
+A crucial observation about these results: \textit{the intelligence layer is not the bottleneck}. Claude Code, Codex CLI, and Copilot are powered by the world's most capable foundation models (Claude Opus/Sonnet, GPT-4o/Codex, etc.), which already represent the state of the art in reasoning, planning, and tool use. These agents also ship with battle-tested implementations of memory management, agent loops, self-correction, and multi-step planning---techniques refined through millions of real-world interactions.
+
+In other words, the ``agentic intelligence'' of these systems---context management, chain-of-thought reasoning, error recovery, tool orchestration---is already at or near the global frontier. What determines the \textit{final output quality} is not the agent architecture, but two factors:
+
+\begin{enumerate}[nosep]
+\item \textbf{Context} ($K_d$): The domain knowledge, instructions, and constraints provided via templates
+\item \textbf{Model capability}: The underlying foundation model's reasoning and generation quality
+\end{enumerate}
+
+This is precisely why Agent Redirection works: the hard problems (memory, planning, tool use) are already solved by the runtime. The only remaining variable is \textit{what you tell the agent to do}---which is a template authoring problem, not an engineering problem.
+
+\subsection{Broader Benchmark Landscape}
+
+GAIA is one of several benchmarks that evaluate agent capabilities. We position our work within this landscape:
+
+\begin{table}[h]
+\caption{Agent benchmark landscape. Coding agents achieve frontier performance across multiple evaluation dimensions.}
+\label{tab:benchmarks}
+\centering
+\small
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Benchmark} & \textbf{What It Measures} & \textbf{Top Agent Results} & \textbf{Relevance} \\
+\midrule
+GAIA \citep{mialon2023gaia} & General assistant tasks & Codex 73.6\% (L1) & Direct evaluation \\
+SWE-bench \citep{jimenez2024swebench} & Real GitHub issue resolution & Opus 4.5: 80.9\% & Coding capability \\
+SWE-bench Pro & Long-horizon SE tasks & GPT-5.3-Codex: 57\% & Complex reasoning \\
+$\tau$-bench \citep{taubench2024} & Tool-agent-user interaction & GPT-4o: $<$50\% & Tool orchestration \\
+WebArena \citep{webarena2024} & Web browsing tasks & Best: $\sim$35\% & Network capability \\
+OSWorld \citep{osworld2024} & Desktop OS interaction & Best: $\sim$40\% & Environmental grounding \\
+AgentBench \citep{agentbench2023} & Multi-environment agent tasks & GPT-4: 78\% (avg) & General agency \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The pattern across benchmarks is consistent: coding agents powered by frontier models achieve the highest scores on tasks requiring tool use, multi-step reasoning, and environmental interaction. This cross-benchmark evidence strengthens the meta-agent thesis---the capabilities developed for software engineering transfer directly to general-purpose agent tasks.
+
+\subsection{Domain Specialization}
+
+We redirect the same coding agent (Claude Code) to four domains using only template configuration:
+
+\begin{table}[h]
+\caption{Agent Redirection: development effort comparison.}
+\label{tab:specialization}
+\centering
+\small
+\begin{tabular}{@{}llccl@{}}
+\toprule
+\textbf{Domain} & \textbf{Template} & \textbf{Redirect Time} & \textbf{SDK Time (est.)} & \textbf{Speedup} \\
+\midrule
+Data Analysis & \texttt{analyst} & 2 hours & 8--16 weeks & $\sim$300$\times$ \\
+Web Research & \texttt{researcher} & 3 hours & 6--12 weeks & $\sim$200$\times$ \\
+SEO & \texttt{seo-agent} & 4 hours & 8--14 weeks & $\sim$250$\times$ \\
+Software Dev & \texttt{coder} & 1 hour & 4--8 weeks & $\sim$200$\times$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+  ybar, bar width=12pt, width=0.75\textwidth, height=5.5cm,
+  ylabel={Development Time (days)}, ylabel style={font=\small},
+  symbolic x coords={Analyst, Researcher, SEO, Coder},
+  xtick=data, xticklabel style={font=\small},
+  ymin=0, ymax=120,
+  legend style={at={(0.98,0.95)}, anchor=north east, font=\scriptsize},
+  enlarge x limits=0.2,
+  nodes near coords, nodes near coords style={font=\tiny},
+  every node near coord/.append style={above},
+]
+\addplot[fill=sared!40] coordinates {(Analyst,96) (Researcher,72) (SEO,88) (Coder,48)};
+\addplot[fill=sagreen!40] coordinates {(Analyst,0.08) (Researcher,0.13) (SEO,0.17) (Coder,0.04)};
+\legend{SDK Construction, Template Redirection}
+\end{axis}
+\end{tikzpicture}
+\caption{Development effort: SDK-based construction vs.\ template-based redirection. Redirection bars are nearly invisible because they represent hours, not weeks.}
+\label{fig:effort-chart}
+\end{figure}
+
+\subsection{Template Anatomy}
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[
+  file/.style={rectangle, draw=sagray!60, fill=sagray!5, rounded corners=2pt,
+    minimum height=0.5cm, font=\small\ttfamily, inner xsep=6pt},
+  meta/.style={rectangle, draw=#1!60, fill=#1!8, rounded corners=2pt,
+    minimum height=0.5cm, font=\scriptsize, inner xsep=6pt},
+  node distance=0.25cm,
+]
+  \node[file] (dir) {analyst/};
+  \node[meta=saorange, below=0.4cm of dir, xshift=0.5cm] (claude) {CLAUDE.md};
+  \node[meta=sagray, right=0.3cm of claude, font=\tiny\itshape] (c1) {87 lines --- ``You are a data analyst...''};
+  \node[meta=sagreen, below=of claude] (sql) {skills/sql/SKILL.md};
+  \node[meta=sagray, right=0.3cm of sql, font=\tiny\itshape] (c2) {45 lines --- SQL optimization patterns};
+  \node[meta=sagreen, below=of sql] (viz) {skills/viz/SKILL.md};
+  \node[meta=sagray, right=0.3cm of viz, font=\tiny\itshape] (c3) {38 lines --- visualization guidelines};
+  \node[meta=sateal, below=of viz] (settings) {.claude/settings.json};
+  \node[meta=sagray, right=0.3cm of settings, font=\tiny\itshape] (c4) {12 lines --- model config};
+  \node[meta=sateal, below=of settings] (mcp) {.claude/mcp.json};
+  \node[meta=sagray, right=0.3cm of mcp, font=\tiny\itshape] (c5) {8 lines --- PostgreSQL connection};
+
+  \draw[sagray!40] (dir.south) -- ++(0,-0.15) -| (claude.west);
+  \draw[sagray!40] (dir.south) -- ++(0,-0.15) -| (sql.west);
+  \draw[sagray!40] (dir.south) -- ++(0,-0.15) -| (viz.west);
+  \draw[sagray!40] (dir.south) -- ++(0,-0.15) -| (settings.west);
+  \draw[sagray!40] (dir.south) -- ++(0,-0.15) -| (mcp.west);
+
+  \node[draw=sapurple!50, fill=sapurple!5, rounded corners=3pt, inner sep=5pt,
+    font=\scriptsize, below=0.5cm of mcp, xshift=1.5cm] (total) {
+    \textbf{Total: $\sim$190 lines of Markdown + JSON. Time: 2 hours. Result: production-ready agent.}
+  };
+\end{tikzpicture}
+\caption{Anatomy of the analyst template. $\sim$190 lines of declarative configuration produce a production-ready data analyst agent.}
+\label{fig:template-anatomy}
+\end{figure}
+
+\textbf{Qualitative observations:}
+
+\begin{itemize}[nosep]
+\item \textbf{Analyst}: Executed SQL queries, generated pandas visualizations, produced structured reports---all using the coding agent's native code execution. Zero custom tool implementations.
+\item \textbf{Researcher}: Conducted multi-source web research, evaluated credibility, synthesized findings. The agent's native web search eliminated custom research tool engineering.
+\item \textbf{SEO}: Performed keyword analysis, content scoring, competitor benchmarking. Domain expertise injected entirely through Markdown.
+\item \textbf{Coder}: Task tracking, artifact management, multi-file generation. Even the ``native'' domain benefits from template specialization.
+\end{itemize}

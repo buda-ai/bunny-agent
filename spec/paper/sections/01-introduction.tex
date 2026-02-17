@@ -1,0 +1,26 @@
+\section{Coding Agents Are Eating the World}
+
+In 2011, Marc Andreessen declared that ``software is eating the world'' \citep{andreessen2011software}. Fifteen years later, we observe the next phase: \textit{coding agents are eating the world of AI agents}.
+
+What began as tools for code completion has quietly evolved into the most capable, general-purpose agent runtime available today. Claude Code can run SQL queries. Codex CLI can scrape websites. GitHub Copilot can generate data visualizations. None of these are ``coding'' tasks. Yet coding agents handle them effortlessly---because the capabilities required to write software are a \textit{superset} of the capabilities required for almost everything else.
+
+This paper makes one central claim:
+
+\begin{center}
+\large
+\textit{Coding agents are not coding tools.\\They are meta-agents---universal runtimes for all AI agents.}
+\end{center}
+
+The implications are profound. If coding agents are meta-agents, then:
+
+\begin{itemize}[nosep]
+\item You don't need LangChain to build a data analyst agent. You need a \texttt{CLAUDE.md} file.
+\item You don't need CrewAI to build a research agent. You need a \texttt{CLAUDE.md} file.
+\item You don't need months of engineering. You need an afternoon.
+\end{itemize}
+
+We call this \textbf{Agent Redirection}: the practice of specializing a general-purpose coding agent for any domain using only declarative templates---system prompts, skill modules, and MCP configurations---with zero SDK integration.
+
+The industry is already converging on this insight. On February 4, 2026, GitHub launched Agent HQ \citep{github2026agenthq}, a unified platform where Claude Code, Codex, and Copilot run as \textit{interchangeable runtimes} in the same repository. VS Code's January 2026 release treats different coding agents as swappable backends \citep{vscode2026multiagent}. The world's largest development platforms now treat coding agents exactly as our thesis predicts: as general-purpose infrastructure, not specialized tools.
+
+\textbf{Contributions.} We (1) formalize the Meta-Agent Paradigm and Agent Redirection; (2) define a five-primitive capability taxonomy showing coding agents subsume domain-specific requirements; (3) present SandAgent, an open-source implementation with pluggable runtimes and sandboxes; (4) evaluate on GAIA and four domain case studies; and (5) propose the AGI-Runtime Hypothesis---that the path to general intelligence runs through agent runtimes, not just better models.

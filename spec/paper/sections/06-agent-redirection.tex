@@ -1,0 +1,73 @@
+\section{Agent Redirection}
+
+\textbf{Definition 2 (Agent Redirection).} Given a meta-agent $A_m$ and a target domain $d$, Agent Redirection is:
+$$\text{Redirect}(A_m, K_d, T_d) \rightarrow A_d'$$
+where $A_d'$ is a domain-specialized agent constructed by injecting domain knowledge $K_d$ and tool configurations $T_d$ into the meta-agent, \textit{without modifying the agent's core runtime}.
+
+\subsection{The Redirection Stack}
+
+In practice, Agent Redirection is achieved through a three-layer declarative stack:
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[
+  layer/.style={rectangle, draw=#1!70, fill=#1!8, rounded corners=4pt,
+    minimum width=10cm, minimum height=0.9cm, font=\small, align=center},
+  note/.style={font=\scriptsize\itshape, #1},
+  node distance=0.3cm,
+]
+  \node[layer=saorange] (identity) {\textbf{Identity Layer}: \texttt{CLAUDE.md} --- persona, workflow, constraints};
+  \node[layer=sagreen, below=of identity] (skill) {\textbf{Skill Layer}: \texttt{skills/*.md} --- domain expertise modules};
+  \node[layer=sateal, below=of skill] (tool) {\textbf{Tool Layer}: \texttt{mcp.json} --- database, API, service connections};
+  \node[layer=sablue, below=0.5cm of tool] (runtime) {\textbf{Agent Runtime}: Claude Code / Codex CLI / Copilot Agent};
+  \node[layer=sagray, below=of runtime] (model) {\textbf{Foundation Model}: Claude / GPT / Gemini};
+
+  \draw[-{Stealth[length=2.5mm]}, thick, sagray!50] (identity) -- (skill);
+  \draw[-{Stealth[length=2.5mm]}, thick, sagray!50] (skill) -- (tool);
+  \draw[-{Stealth[length=2.5mm]}, thick, sagray!50] (tool) -- (runtime);
+  \draw[-{Stealth[length=2.5mm]}, thick, sagray!50] (runtime) -- (model);
+
+  % Braces
+  \draw[decorate, decoration={brace, amplitude=5pt}, thick, sagreen!70]
+    ([xshift=5.3cm]identity.north east) -- ([xshift=5.3cm]tool.south east)
+    node[midway, right=8pt, note=sagreen!80!black, text width=2cm, align=left] {User writes (Markdown + JSON)};
+  \draw[decorate, decoration={brace, amplitude=5pt}, thick, sagray!60]
+    ([xshift=5.3cm]runtime.north east) -- ([xshift=5.3cm]model.south east)
+    node[midway, right=8pt, note=sagray, text width=2cm, align=left] {Provided by existing platforms};
+\end{tikzpicture}
+\caption{The Redirection Stack. Users define only the top three layers. The agent runtime and foundation model are provided by existing platforms.}
+\label{fig:redirection-stack}
+\end{figure}
+
+\subsection{Agent Redirection vs.\ Agent Construction}
+
+\begin{table}[h]
+\caption{Two paradigms for building AI agents.}
+\label{tab:paradigm-comparison}
+\centering
+\small
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Dimension} & \textbf{Construction} & \textbf{Redirection} \\
+\midrule
+Development effort & 14--33 weeks & 1--3 days \\
+Artifacts produced & Code (SDK integrations) & Markdown + JSON \\
+Memory system & Must implement & Inherited \\
+Tool integration & Must implement per tool & MCP config \\
+Sandbox isolation & Must implement & Inherited \\
+Runtime upgrades & Manual migration & Automatic \\
+Vendor lock-in & Framework-specific & Runtime-agnostic \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Template Portability}
+
+A crucial property: SandAgent templates are \textit{directly compatible with Claude Code}. A user can navigate to a template directory and run:
+
+\begin{lstlisting}[style=templatefile]
+cd templates/analyst
+claude "Analyze Q4 revenue trends from the database"
+\end{lstlisting}
+
+No wrapper. No SandAgent installation. Claude Code automatically discovers \texttt{CLAUDE.md}, \texttt{skills/}, and \texttt{.claude/mcp.json}. The template \textit{is} the agent. This demonstrates that Agent Redirection is not tied to any specific system---it is a general property of the Meta-Agent Paradigm.

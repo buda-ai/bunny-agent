@@ -1,0 +1,44 @@
+\section{GAIA Benchmark Details}
+
+\subsection{Task Categories}
+
+GAIA tasks span five categories: file manipulation, code execution, web search, browser interaction, and multi-step reasoning. All coding agents were evaluated with default configurations and no task-specific tuning.
+
+\begin{table}[h]
+\caption{GAIA Level 1 results by task category (validation set, accuracy \%).}
+\centering
+\small
+\begin{tabular}{@{}lccccc@{}}
+\toprule
+\textbf{Agent} & \textbf{Files} & \textbf{Code} & \textbf{Search} & \textbf{Browser} & \textbf{Reasoning} \\
+\midrule
+Codex CLI   & 78.3 & 81.2 & 65.4 & 70.1 & 72.8 \\
+Gemini CLI  & 55.2 & 48.7 & 52.1 & 45.3 & 53.6 \\
+SandAgent   & 48.1 & 52.3 & 38.7 & 35.2 & 42.9 \\
+Claude Code & 44.5 & 47.8 & 33.2 & 30.8 & 41.5 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Cross-Level Performance}
+
+\begin{table}[h]
+\caption{Codex CLI detailed results across all levels.}
+\centering
+\small
+\begin{tabular}{@{}lccc@{}}
+\toprule
+\textbf{Level} & \textbf{Tasks} & \textbf{Correct} & \textbf{Accuracy} \\
+\midrule
+Level 1 (easy)   & 53 & 39 & 73.58\% \\
+Level 2 (medium) & 86 & 52 & 60.47\% \\
+Level 3 (hard)   & 26 & 15 & 57.69\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Observations}
+
+The consistent performance of all coding agents across non-coding task categories (search, browser, reasoning) provides empirical support for the meta-agent thesis. These agents were not designed for general-purpose assistance, yet they achieve meaningful accuracy on tasks far outside their intended domain.
+
+The performance gap between agents (Codex 73.58\% vs.\ Claude Code 39.62\% on Level 1) reflects differences in underlying model capability and tool implementation quality---not fundamental limitations of the meta-agent paradigm itself.

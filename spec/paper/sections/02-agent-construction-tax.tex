@@ -1,0 +1,72 @@
+\section{The Agent Construction Tax}
+
+Building a production AI agent with traditional SDK approaches is painful. We call this the \textbf{Agent Construction Tax}.
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[
+  row/.style={rectangle, draw=#1!60, fill=#1!8, rounded corners=3pt,
+    minimum width=4.5cm, minimum height=0.55cm, font=\scriptsize, align=center},
+  time/.style={rectangle, draw=sared!50, fill=sared!6, rounded corners=3pt,
+    minimum width=1.8cm, minimum height=0.55cm, font=\scriptsize\bfseries, align=center},
+  node distance=0.25cm,
+]
+  \node[row=sablue] (mem) {Memory: history, context, summarization};
+  \node[time, right=0.4cm of mem] (t1) {2--4 weeks};
+  \node[row=sablue, below=of mem] (tool) {Tools: definitions, state, error handling};
+  \node[time, right=0.4cm of tool] (t2) {3--6 weeks};
+  \node[row=sablue, below=of tool] (mcp) {MCP: config, connections, retry logic};
+  \node[time, right=0.4cm of mcp] (t3) {1--3 weeks};
+  \node[row=sablue, below=of mcp] (prompt) {Prompts: system prompts, edge cases};
+  \node[time, right=0.4cm of prompt] (t4) {2--8 weeks};
+  \node[row=sablue, below=of prompt] (sandbox) {Sandbox: isolation, FS, persistence};
+  \node[time, right=0.4cm of sandbox] (t5) {4--8 weeks};
+  \node[row=sablue, below=of sandbox] (stream) {Streaming: real-time, backpressure};
+  \node[time, right=0.4cm of stream] (t6) {2--4 weeks};
+
+  \node[rectangle, draw=sared!80, fill=sared!12, rounded corners=4pt,
+    minimum width=6.9cm, minimum height=0.65cm, font=\small\bfseries,
+    below=0.4cm of stream, xshift=0.55cm] (total) {Total: 14--33 weeks per agent};
+
+  \draw[decorate, decoration={brace, amplitude=5pt, mirror}, thick, sagray]
+    ([xshift=-0.3cm]mem.north west) -- ([xshift=-0.3cm]stream.south west)
+    node[midway, left=8pt, font=\scriptsize\itshape, sagray, rotate=90, anchor=south] {paid per agent};
+\end{tikzpicture}
+\caption{The Agent Construction Tax. Each component must be built from scratch, and the tax is paid \textit{per agent}.}
+\label{fig:construction-tax}
+\end{figure}
+
+This tax is paid \textit{per agent}. An organization building a data analyst, a research assistant, and a customer support agent pays it three times---even though the underlying capabilities (execute code, read files, search the web) are largely identical.
+
+\subsection{The Framework Explosion}
+
+The market's response has been an explosion of agent frameworks: LangChain \citep{langchain2023}, CrewAI \citep{crewai2024}, AutoGen \citep{wu2023autogen}, MetaGPT \citep{hong2023metagpt}, and dozens more. Each reduces the tax somewhat, but none eliminates it.
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[
+  box/.style={rectangle, draw=#1!60, fill=#1!8, rounded corners=3pt,
+    text width=4.8cm, inner sep=6pt, font=\scriptsize, align=left},
+]
+  \node[box=sared] (sdk) {
+    \textbf{\color{sared}SDK Approach (14--33 weeks)}\\[3pt]
+    \textbullet~Framework-specific code\\
+    \textbullet~Tool definition boilerplate\\
+    \textbullet~Memory strategy selection\\
+    \textbullet~Custom prompt engineering\\
+    \textbullet~Deployment infrastructure
+  };
+  \node[box=sagreen, right=0.5cm of sdk] (redirect) {
+    \textbf{\color{sagreen}Agent Redirection (1--3 days)}\\[3pt]
+    \textbullet~Write \texttt{CLAUDE.md}\\
+    \textbullet~Add skill modules\\
+    \textbullet~Configure MCP servers\\
+    \textbullet~Done.\\[3pt]
+    {\itshape No code. No framework.}
+  };
+\end{tikzpicture}
+\caption{SDK-based Agent Construction vs.\ Template-based Agent Redirection.}
+\label{fig:sdk-vs-redirect}
+\end{figure}
+
+What if you could skip the tax entirely?

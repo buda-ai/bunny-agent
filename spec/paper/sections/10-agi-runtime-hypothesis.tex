@@ -1,0 +1,124 @@
+\section{The AGI-Runtime Hypothesis}
+
+Our findings lead to a provocative hypothesis about the nature of artificial general intelligence.
+
+\subsection{AGI is Not a Model}
+
+The dominant narrative: AGI will arrive when we train a model that is ``smart enough.'' We propose a complementary view:
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[
+  box/.style={rectangle, draw=#1!60, fill=#1!6, rounded corners=4pt,
+    text width=10cm, inner sep=8pt, font=\small},
+]
+  \node[box=sared] (model) {
+    \textbf{\color{sared}Model-Centric View (dominant narrative)}\\[3pt]
+    {\scriptsize AGI = sufficiently powerful model. Scale parameters. Improve data. Refine architecture.}\\
+    {\scriptsize\itshape ``Intelligence lives in the weights.''}
+  };
+  \node[box=sagreen, below=0.4cm of model] (runtime) {
+    \textbf{\color{sagreen}Runtime-Centric View (our hypothesis)}\\[3pt]
+    {\scriptsize AGI = capable model + agent runtime + environmental grounding.}\\
+    {\scriptsize\itshape ``Intelligence emerges from the system, not just the model.''}
+  };
+  \node[draw=sapurple!60, fill=sapurple!6, rounded corners=3pt,
+    inner sep=6pt, font=\small\itshape, below=0.4cm of runtime, text width=10cm, align=center] {
+    AGI is not a model. AGI is an engineering paradigm: \textbf{Model + Runtime + Environment.}
+  };
+\end{tikzpicture}
+\caption{Two views of AGI. We argue the runtime is not scaffolding---it is half the intelligence.}
+\label{fig:agi-views}
+\end{figure}
+
+\subsection{What Coding Agents Add to Models}
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[
+  capbox/.style={rectangle, draw=#1!60, fill=#1!8, rounded corners=3pt,
+    minimum height=0.5cm, font=\scriptsize, inner xsep=6pt},
+  node distance=0.25cm,
+]
+  % Model alone
+  \node[font=\scriptsize\bfseries, sagray] (l1) {Model alone:};
+  \node[capbox=sagray, right=0.5cm of l1] (m1) {reason};
+  \node[capbox=sagray, right=of m1] (m2) {generate};
+  \node[font=\scriptsize\itshape, sagray, right=0.3cm of m2] {stateless, no actions, no tools};
+
+  % Model + Runtime
+  \node[font=\scriptsize\bfseries, sagreen, below=0.6cm of l1] (l2) {Model + Runtime:};
+  \node[capbox=sagray, right=0.5cm of l2] (r1) {reason};
+  \node[capbox=sagray, right=of r1] (r2) {generate};
+  \node[capbox=sagreen, right=of r2] (r3) {execute};
+  \node[capbox=sagreen, right=of r3] (r4) {persist};
+  \node[capbox=sagreen, right=of r4] (r5) {tools};
+  \node[capbox=sagreen, right=of r5] (r6) {verify};
+
+  \draw[decorate, decoration={brace, amplitude=4pt}, thick, sagreen!70]
+    ([yshift=-3pt]r3.south west) -- ([yshift=-3pt]r6.south east)
+    node[midway, below=5pt, font=\tiny\itshape, sagreen!80!black] {added by agent runtime};
+\end{tikzpicture}
+\caption{The agent runtime adds execution, persistence, tool use, and verification---capabilities that close the gap between language models and general intelligence.}
+\label{fig:model-vs-runtime}
+\end{figure}
+
+\subsection{The Trajectory}
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[
+  era/.style={rectangle, draw=#1!60, fill=#1!8, rounded corners=4pt,
+    text width=9cm, inner sep=6pt, font=\small, align=left},
+  node distance=0.3cm,
+]
+  \node[era=sagray] (e1) {
+    {\scriptsize\bfseries\color{sagray}2023:} Model + chat interface. \textit{Can reason, cannot act.}
+  };
+  \node[era=sablue, below=of e1] (e2) {
+    {\scriptsize\bfseries\color{sablue}2024:} Model + code execution. \textit{Can act, limited tools.}
+  };
+  \node[era=sagreen, below=of e2] (e3) {
+    {\scriptsize\bfseries\color{sagreen}2025:} Model + agent runtime + MCP + sandbox. \textit{Can act, use tools, persist.}
+  };
+  \node[era=sapurple, below=of e3] (e4) {
+    {\scriptsize\bfseries\color{sapurple}2026:} Model + multi-agent runtime + persistent memory. \textit{Can delegate, remember.}
+  };
+  \node[era=saorange, below=of e4] (e5) {
+    {\scriptsize\bfseries\color{saorange}Future:} Model + full environmental grounding. \textit{General intelligence?}
+  };
+
+  \draw[-{Stealth[length=2.5mm]}, thick, sagray!40] (e1) -- (e2);
+  \draw[-{Stealth[length=2.5mm]}, thick, sagray!40] (e2) -- (e3);
+  \draw[-{Stealth[length=2.5mm]}, thick, sagray!40] (e3) -- (e4);
+  \draw[-{Stealth[length=2.5mm]}, thick, sagray!40] (e4) -- (e5);
+
+  \node[font=\tiny\itshape, sagray, right=0.3cm of e3.east] {$\leftarrow$ we are here};
+\end{tikzpicture}
+\caption{The AGI trajectory. Each step adds runtime capability, not just model capability.}
+\label{fig:agi-trajectory}
+\end{figure}
+
+The Meta-Agent Paradigm is the architectural pattern that enables this trajectory. Each generation of coding agent adds more environmental grounding. The model gets smarter, yes---but the runtime gets more capable too. AGI, if it arrives, will be a \textit{system}, not a model.
+
+\subsection{Implications}
+
+\begin{enumerate}[nosep]
+\item \textbf{Agent runtimes are as important as models.} Equal attention should be paid to runtime design: tool ecosystems, sandbox architectures, persistence mechanisms.
+
+\item \textbf{Template marketplaces will emerge.} Agent templates will be traded like WordPress themes---domain experts author, developers consume.
+
+\item \textbf{The ``agent engineer'' role shifts.} Building agents becomes less about software engineering and more about domain expertise and prompt design.
+
+\item \textbf{Agent frameworks may become unnecessary.} If coding agents can be redirected via Markdown, SDK-based frameworks lose their value proposition for the majority of use cases.
+\end{enumerate}
+
+\subsection{Limitations}
+
+\begin{itemize}[nosep]
+\item \textbf{Physical-world tasks}: Robotic manipulation, real-time sensory input---these require hardware, not templates.
+\item \textbf{Real-time constraints}: Sub-second response requirements exceed current agent latencies.
+\item \textbf{Regulatory compliance}: Healthcare, finance may require more controlled environments.
+\item \textbf{Template quality ceiling}: Agent Redirection is bounded by template quality. But a bad template costs hours to fix; a bad SDK integration costs weeks.
+\item \textbf{Runtime dependency}: If the underlying agent cannot perform an action, no template can add it (though MCP partially addresses this).
+\end{itemize}

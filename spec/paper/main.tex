@@ -1,0 +1,91 @@
+\documentclass{article}
+
+% Use NeurIPS style (same as "Attention Is All You Need")
+\usepackage[final]{nips_2017}
+
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta, positioning, shapes.geometric, calc, fit, decorations.pathreplacing}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usepackage[ruled,vlined,linesnumbered]{algorithm2e}
+\usepackage{subcaption}
+
+% Color scheme
+\definecolor{sablue}{HTML}{2563EB}
+\definecolor{sagreen}{HTML}{16A34A}
+\definecolor{sared}{HTML}{DC2626}
+\definecolor{saorange}{HTML}{EA580C}
+\definecolor{sagray}{HTML}{6B7280}
+\definecolor{sapurple}{HTML}{7C3AED}
+\definecolor{sateal}{HTML}{0D9488}
+
+\usepackage{hyperref}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=sablue,
+  citecolor=sablue!80!black,
+  urlcolor=sapurple,
+}
+
+% Better table row spacing
+\renewcommand{\arraystretch}{1.15}
+
+\lstset{basicstyle=\ttfamily\footnotesize,breaklines=true,frame=single,xleftmargin=1em,
+  keywordstyle=\color{sablue},commentstyle=\color{sagray},stringstyle=\color{sagreen}}
+
+% Template file style
+\lstdefinestyle{templatefile}{
+  basicstyle=\ttfamily\footnotesize,
+  breaklines=true,
+  frame=single,
+  xleftmargin=1em,
+  keywordstyle=\color{sablue},
+  commentstyle=\color{sagray}\itshape,
+  stringstyle=\color{sagreen!80!black},
+}
+
+\title{Coding Agent is All You Need:\\Unifying General-Purpose and Domain-Specific AI\\Through the Meta-Agent Paradigm}
+
+\author{
+  Kelly Peilin Chan\\
+  \texttt{kelly@vikadata.com}
+}
+
+\begin{document}
+\maketitle
+\thispagestyle{empty}
+\renewcommand{\thefootnote}{\fnsymbol{footnote}}
+\footnotetext[0]{Preprint. February 2026. Work in progress.}
+\renewcommand{\thefootnote}{\arabic{footnote}}
+
+\input{sections/00-abstract}
+
+\input{sections/01-introduction}
+\input{sections/02-agent-construction-tax}
+\input{sections/03-three-generations}
+\input{sections/03b-agent-arsenal}
+\input{sections/04-meta-agent-thesis}
+\input{sections/05-capability-taxonomy}
+\input{sections/06-agent-redirection}
+\input{sections/07-sandagent-system}
+\input{sections/08-passthrough-streaming}
+\input{sections/09-experiments}
+\input{sections/10-agi-runtime-hypothesis}
+\input{sections/11-related-work}
+\input{sections/12-conclusion}
+
+\appendix
+\input{sections/A-domain-coverage}
+\input{sections/B-template-examples}
+\input{sections/C-gaia-detailed}
+\input{sections/D-package-architecture}
+
+\input{sections/references}
+
+\end{document}
