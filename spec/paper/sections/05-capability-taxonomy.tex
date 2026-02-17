@@ -1,0 +1,75 @@
+\section{Capability Taxonomy}
+
+We define five capability primitives sufficient to characterize any non-physical AI agent:
+
+\begin{table}[h]
+\caption{Five capability primitives and their coding agent implementations.}
+\label{tab:taxonomy}
+\centering
+\small
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Primitive} & \textbf{What It Does} & \textbf{In Coding Agents} & \textbf{Example Use} \\
+\midrule
+\textsc{Compute}   & Execute arbitrary logic   & Bash, Python, Node.js & Run SQL queries \\
+\textsc{Storage}   & Read/write persistent state & File system operations & Save research notes \\
+\textsc{Network}   & Access external information & Web search, HTTP, APIs & Fetch market data \\
+\textsc{Extension} & Connect to external tools  & MCP servers            & Query databases \\
+\textsc{Reasoning} & Plan, analyze, synthesize  & LLM + chain-of-thought & Write reports \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Claim.} These five primitives are sufficient to implement any domain-specific agent task that does not require specialized hardware (robotic manipulation) or real-time sensory input (autonomous driving).
+
+\subsection{Domain Coverage}
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[
+  tcell/.style={minimum width=1.2cm, minimum height=0.5cm, font=\scriptsize, align=center},
+  yescell/.style={tcell, fill=sagreen!15, text=sagreen!80!black, font=\scriptsize\bfseries},
+  mcpcell/.style={tcell, fill=sateal!15, text=sateal!80!black, font=\scriptsize\bfseries},
+  hdrcell/.style={tcell, font=\scriptsize\bfseries, fill=sablue!10},
+  domcell/.style={tcell, font=\scriptsize, text=sagray!90!black, minimum width=2.8cm, align=left},
+]
+  % Header
+  \node[hdrcell] at (0,0) {Domain};
+  \node[hdrcell] at (2.2,0) {\textsc{Comp}};
+  \node[hdrcell] at (3.4,0) {\textsc{Stor}};
+  \node[hdrcell] at (4.6,0) {\textsc{Net}};
+  \node[hdrcell] at (5.8,0) {\textsc{Ext}};
+  \node[hdrcell] at (7.0,0) {\textsc{Reas}};
+
+  % Rows
+  \foreach \y/\name in {-0.6/Data Analyst, -1.2/Researcher, -1.8/SEO Optimizer, -2.4/Content Creator, -3.0/Business Analyst, -3.6/DevOps Engineer} {
+    \node[domcell] at (0,\y) {\name};
+    \node[yescell] at (2.2,\y) {\checkmark};
+    \node[yescell] at (3.4,\y) {\checkmark};
+    \node[yescell] at (4.6,\y) {\checkmark};
+    \node[mcpcell] at (5.8,\y) {MCP};
+    \node[yescell] at (7.0,\y) {\checkmark};
+  }
+
+  % Separator line
+  \draw[sagray!30] (-1.2,-0.25) -- (7.7,-0.25);
+
+  % Legend
+  \node[font=\tiny, sagreen!80!black] at (3.5,-4.3) {\checkmark\ = natively available};
+  \node[font=\tiny, sateal!80!black] at (6.0,-4.3) {MCP = via extension};
+\end{tikzpicture}
+\caption{Domain coverage matrix. Every cell is covered. No gaps. The \textsc{Extension} primitive (MCP) transforms any domain-specific tool requirement into a JSON configuration.}
+\label{fig:domain-coverage}
+\end{figure}
+
+\subsection{What Differentiates Domain Agents?}
+
+If the capabilities are identical, what makes a data analyst agent different from a research agent? Three things:
+
+\begin{enumerate}[nosep]
+\item \textbf{Knowledge} ($K_d$): Domain expertise, best practices, workflows
+\item \textbf{Persona}: Communication style, output format, quality standards
+\item \textbf{Tool configuration}: Which MCP servers are connected
+\end{enumerate}
+
+All three are \textit{declarative}. They can be specified in text files. No code required. This is the foundation of Agent Redirection.

@@ -1,0 +1,48 @@
+\section{The Meta-Agent Thesis}
+
+We now formalize our core claim.
+
+\subsection{Definitions}
+
+A \textbf{domain-specific agent} $A_d$ is characterized by a tuple $(C_d, T_d, K_d)$: required capabilities, tools, and domain knowledge.
+
+A \textbf{coding agent} $A_c$ is characterized by $(C_c, T_c, K_c)$: the capabilities, tools, and knowledge of a modern agentic coding system.
+
+\textbf{Definition 1 (Meta-Agent).} An agent $A_m$ is a \textit{meta-agent} with respect to a set of domain-specific agents $\{A_{d_1}, \ldots, A_{d_n}\}$ if:
+$$\forall i \in \{1, \ldots, n\}: C_{d_i} \subseteq C_m$$
+
+That is, the meta-agent's capability set is a \textit{superset} of every domain-specific agent's requirements.
+
+\textbf{Thesis.} Modern coding agents are meta-agents. Their capability set---forged by the demands of software engineering, the most capability-intensive knowledge work---subsumes the requirements of virtually all non-physical domain-specific agents.
+
+\subsection{Why Software Engineering Produces Meta-Agents}
+
+This is not a coincidence. Three structural reasons:
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[
+  reason/.style={rectangle, draw=sapurple!60, fill=sapurple!6, rounded corners=4pt,
+    text width=10cm, inner sep=7pt, font=\small, align=left},
+  num/.style={circle, draw=sapurple!70, fill=sapurple!15, font=\small\bfseries,
+    minimum size=0.6cm, inner sep=0pt},
+  node distance=0.35cm,
+]
+  \node[num] (n1) {1};
+  \node[reason, right=0.3cm of n1] (r1) {
+    \textbf{Broadest capability set.} Writing software requires reading files, executing programs, searching docs, managing state, reasoning about complex systems. No other domain demands \textit{all} of these.
+  };
+  \node[num, below=0.5cm of n1] (n2) {2};
+  \node[reason, right=0.3cm of n2] (r2) {
+    \textbf{Largest investment.} Market pressure $\to$ billions in R\&D $\to$ most refined agent capabilities.
+  };
+  \node[num, below=0.5cm of n2] (n3) {3};
+  \node[reason, right=0.3cm of n3] (r3) {
+    \textbf{Code is the universal interface.} Any task can be expressed as a program: SQL query = code, data visualization = code, web scraping = code, API call = code. An agent that writes code can do \textit{anything a computer can do}.
+  };
+\end{tikzpicture}
+\caption{Three structural reasons why coding agents became meta-agents.}
+\label{fig:why-meta}
+\end{figure}
+
+The third point is the deepest. Code is not just one capability among many---it is the \textit{meta-capability}. An agent that can write and execute arbitrary code has, in principle, access to the entire space of computational tasks. Coding agents are meta-agents because code itself is a meta-tool.

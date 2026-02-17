@@ -1,0 +1,15 @@
+\section{Related Work}
+
+\textbf{Agent frameworks.} LangChain \citep{langchain2023}, CrewAI \citep{crewai2024}, AutoGen \citep{wu2023autogen}, and MetaGPT \citep{hong2023metagpt} follow the Agent Construction paradigm. We propose Agent Redirection as a complementary paradigm that eliminates most engineering effort by reusing existing coding agent runtimes.
+
+\textbf{Code generation agents.} Recent surveys \citep{codeagentsurvey2025, agenticprogramming2025} document the evolution from code completion to autonomous software engineering. Our contribution is recognizing that this evolution produced agents whose capabilities extend far beyond code---making them meta-agents.
+
+\textbf{Agent sandboxing.} E2B \citep{e2b2024}, AgentBay \citep{agentbay2025}, and Kubernetes-based agent sandboxes \citep{agentsandbox2025} address safe agent execution. SandAgent contributes a pluggable sandbox architecture abstracting over multiple backends.
+
+\textbf{Benchmarks.} GAIA \citep{mialon2023gaia} evaluates general AI assistants; SWE-bench \citep{jimenez2024swebench} focuses on software engineering. We provide the first systematic cross-agent CLI comparison on GAIA.
+
+\textbf{Multi-agent systems.} Work on multi-agent architectures \citep{multiagentcomm2025} explores agent collaboration. Our approach is orthogonal: a single meta-agent redirected to multiple domains, reducing architectural complexity.
+
+\textbf{Agent-native development.} The emerging agent-first paradigm \citep{agentnative2026} envisions AI agents as primary actors in software systems. Our Meta-Agent Paradigm provides a theoretical foundation: if coding agents are meta-agents, agent-native development is the natural consequence.
+
+\textbf{Industry convergence.} GitHub Agent HQ \citep{github2026agenthq} and VS Code's multi-agent support \citep{vscode2026multiagent} treat coding agents as interchangeable runtimes---precisely the architecture our thesis predicts.

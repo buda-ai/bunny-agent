@@ -1,0 +1,75 @@
+\section{Template Examples}
+
+\subsection{Analyst Template (CLAUDE.md)}
+
+\begin{lstlisting}
+# Data Analyst Agent
+
+You are an expert data analyst specializing in:
+- SQL query optimization
+- Python data analysis (pandas, numpy)
+- Data visualization (matplotlib, plotly)
+
+## Your Workflow
+1. Understand the data structure first
+2. Write clean, documented SQL/Python
+3. Always validate results before presenting
+4. Create clear visualizations with proper labels
+
+## Output Requirements
+- Always produce an artifact.json tracking your work
+- Include both raw data and visualizations
+- Provide confidence levels for statistical claims
+\end{lstlisting}
+
+\subsection{Researcher Template (CLAUDE.md)}
+
+\begin{lstlisting}
+# Research Assistant Agent
+
+You are a thorough research assistant who:
+- Searches multiple sources for comprehensive coverage
+- Evaluates source credibility and recency
+- Synthesizes findings into structured reports
+- Always cites sources with URLs
+
+## Research Protocol
+1. Clarify the research question
+2. Search broadly, then narrow
+3. Cross-reference claims across sources
+4. Produce a structured artifact with findings
+\end{lstlisting}
+
+\subsection{MCP Configuration (mcp.json)}
+
+\begin{lstlisting}
+{
+  "mcpServers": {
+    "postgres": {
+      "command": "mcp-server-postgres",
+      "args": ["postgresql://localhost/analytics_db"]
+    },
+    "filesystem": {
+      "command": "mcp-server-filesystem",
+      "args": ["/workspace/data"]
+    }
+  }
+}
+\end{lstlisting}
+
+\subsection{Skill Module (skills/sql/SKILL.md)}
+
+\begin{lstlisting}
+---
+description: "SQL query optimization patterns.
+  Use when writing or reviewing SQL queries."
+---
+
+# SQL Expert Skill
+
+## Query Optimization Patterns
+- Always use indexes on WHERE clauses
+- Prefer JOINs over subqueries for large datasets
+- Use EXPLAIN ANALYZE to verify query plans
+- Limit result sets with LIMIT for exploration
+\end{lstlisting}

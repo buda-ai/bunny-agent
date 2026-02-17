@@ -1,0 +1,65 @@
+\section{The Coding Agent Arsenal: Built-In Superpowers}
+\label{sec:arsenal}
+
+A key premise of the Meta-Agent Paradigm is that coding agents \textit{already} ship with powerful, general-purpose capabilities. This section surveys the built-in toolkits of major coding agents, demonstrating that the meta-agent capability set is not theoretical---it is deployed and battle-tested at scale.
+
+\subsection{Capability Survey}
+
+\begin{table}[h]
+\caption{Built-in capabilities of major coding agents. \checkmark\ = native, $\oplus$ = via MCP, --- = not available.}
+\label{tab:agent-arsenal}
+\centering
+\small
+\begin{tabular}{@{}lcccccc@{}}
+\toprule
+\textbf{Capability} & \textbf{Claude} & \textbf{Codex} & \textbf{Gemini} & \textbf{Copilot} & \textbf{Kimi} \\
+ & \textbf{Code} & \textbf{CLI} & \textbf{CLI} & \textbf{CLI} & \textbf{CLI} \\
+\midrule
+Shell execution       & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark \\
+File read/write/edit  & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark \\
+Glob/grep search      & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark \\
+Web search            & \checkmark & \checkmark & \checkmark & --- & \checkmark \\
+Web page fetch        & \checkmark & \checkmark & \checkmark & --- & \checkmark \\
+Multi-step planning   & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark \\
+Sub-agent delegation  & \checkmark & --- & --- & \checkmark & \checkmark \\
+Task/TODO management  & \checkmark & --- & --- & --- & --- \\
+MCP support           & \checkmark & $\oplus$ & \checkmark & \checkmark & \checkmark \\
+Multimodal input      & \checkmark & \checkmark & \checkmark & \checkmark & --- \\
+Sandbox isolation     & $\oplus$ & \checkmark & \checkmark & \checkmark & --- \\
+Session persistence   & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Agent Profiles}
+
+\paragraph{Claude Code} (Anthropic) is the most tool-rich agent in our survey. Its native toolkit includes: \texttt{Bash} (shell execution), \texttt{Read/Write/Edit/MultiEdit} (file operations), \texttt{Ls/Grep/Glob} (filesystem search), \texttt{WebSearch/WebFetch} (internet access), \texttt{TodoRead/TodoWrite} (task management), and sub-agent spawning for parallel task delegation. Claude Code also supports \texttt{CLAUDE.md} project instructions, auto-discoverable \texttt{skills/}, and a rich MCP ecosystem---making it the most natural host for Agent Redirection.
+
+\paragraph{Codex CLI} (OpenAI) runs entirely locally with a security sandbox that isolates all code execution. It supports multimodal input (screenshots, diagrams, text), automatic dependency management, and configurable approval levels (\texttt{suggest}, \texttt{auto-edit}, \texttt{full-auto}). Codex achieves the highest GAIA scores in our evaluation (73.58\% L1), reflecting the strength of its underlying o4-mini reasoning model.
+
+\paragraph{Gemini CLI} (Google) brings Google's infrastructure advantages: built-in Google Search grounding, Imagen/Veo/Lyria for media generation, and 1M+ token context windows. It supports shell execution, file operations, and MCP, with macOS Seatbelt or Docker/Podman sandboxing. Its 60 requests/minute free tier makes it the most accessible agent for experimentation.
+
+\paragraph{Copilot CLI} (GitHub) integrates deeply with the GitHub ecosystem: repository context, pull request workflows, Actions log analysis, and the \texttt{/delegate} command for spawning background coding agents. Through Agent HQ, it can orchestrate Claude and Codex as alternative runtimes, making it a meta-agent \textit{orchestrator} in addition to being a meta-agent itself.
+
+\paragraph{Kimi CLI} (Moonshot AI) features a unique dual-mode design: press \texttt{Ctrl+K} to switch between standard shell mode and AI agent mode. It supports shell execution, file operations, web fetching, and sub-agent delegation via the Agent Client Protocol. Its integration with the Zed editor demonstrates the agent-as-runtime pattern extending beyond the terminal.
+
+\subsection{The Key Insight}
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[
+  box/.style={rectangle, draw=sapurple!60, fill=sapurple!6, rounded corners=4pt,
+    text width=10cm, inner sep=8pt, font=\small, align=center},
+]
+  \node[box] {
+    Every major coding agent \textit{already} ships with:\\[4pt]
+    {\bfseries Shell execution $\cdot$ File I/O $\cdot$ Web search $\cdot$ Multi-step planning $\cdot$ MCP}\\[6pt]
+    {\scriptsize These are not features you need to build. They are features you \textit{inherit} through Agent Redirection.}\\
+    {\scriptsize The only thing missing is domain knowledge---which is a \texttt{CLAUDE.md} file.}
+  };
+\end{tikzpicture}
+\caption{The built-in capabilities of coding agents eliminate the need to implement tools, memory, or planning from scratch. Agent Redirection inherits all of them for free.}
+\label{fig:key-insight}
+\end{figure}
+
+This is why Agent Redirection achieves $\sim$300$\times$ speedup over SDK-based construction: the hardest engineering problems---tool orchestration, context management, error recovery, multi-step planning---have already been solved by teams of hundreds of engineers over years of development. A template author inherits all of this work with zero effort.

@@ -1,0 +1,119 @@
+\section{SandAgent: System Design}
+
+We present \textbf{SandAgent}, an open-source implementation of the Meta-Agent Paradigm.
+
+\subsection{Architecture}
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[
+  box/.style={rectangle, draw=#1!70, fill=#1!8, rounded corners=4pt,
+    minimum width=9cm, minimum height=0.85cm, font=\small, align=center},
+  arr/.style={-{Stealth[length=2.5mm]}, thick, sagray!50},
+  note/.style={font=\tiny\itshape, sagray},
+  node distance=0.35cm,
+]
+  \node[box=saorange] (template) {\textbf{Template}: \texttt{CLAUDE.md} + \texttt{skills/} + \texttt{mcp.json}};
+  \node[box=sablue, below=of template] (runner) {\textbf{Runner}: Claude Agent SDK / Codex / Copilot};
+  \node[box=sapurple, below=of runner] (manager) {\textbf{Manager}: lifecycle orchestration, session state};
+  \node[box=sagreen, below=of manager] (sandbox) {\textbf{Sandbox}: E2B / Sandock / Local / Daytona};
+  \node[box=sagray, below=of sandbox] (app) {\textbf{Application}: Web UI / CLI / API (AI SDK streaming)};
+
+  \draw[arr] (template) -- (runner);
+  \draw[arr] (runner) -- (manager);
+  \draw[arr] (manager) -- (sandbox);
+  \draw[arr] (sandbox) -- (app);
+
+  \node[note, right=0.3cm of manager.east] {defines Runner + SandboxAdapter interfaces};
+  \node[note, right=0.3cm of manager.east, yshift=-0.3cm] {zero dependencies --- only contracts};
+\end{tikzpicture}
+\caption{SandAgent layered architecture. The manager defines interfaces; implementations are pluggable.}
+\label{fig:architecture}
+\end{figure}
+
+\subsection{Interface-Driven Design}
+
+The core innovation is \textit{interface-driven, zero-dependency} design. The manager defines two interfaces:
+
+\begin{lstlisting}[style=templatefile]
+interface Runner {
+  run(input: string, options?: RunOptions):
+    AsyncIterable<RunnerOutput>;
+}
+
+interface SandboxAdapter {
+  attach(id: string): Promise<SandboxHandle>;
+}
+\end{lstlisting}
+
+Any runner works with any sandbox. This enables mix-and-match deployment:
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[
+  runner/.style={rectangle, draw=sablue!60, fill=sablue!8, rounded corners=3pt,
+    minimum width=2.2cm, minimum height=0.55cm, font=\scriptsize},
+  sandbox/.style={rectangle, draw=sagreen!60, fill=sagreen!8, rounded corners=3pt,
+    minimum width=2.2cm, minimum height=0.55cm, font=\scriptsize},
+  result/.style={rectangle, draw=sapurple!50, fill=sapurple!6, rounded corners=3pt,
+    minimum width=3cm, minimum height=0.55cm, font=\scriptsize\itshape},
+  plus/.style={font=\small\bfseries, sagray},
+  eq/.style={font=\small\bfseries, sapurple},
+  node distance=0.3cm and 0.3cm,
+]
+  \node[runner] (r1) {ClaudeRunner};
+  \node[plus, right=of r1] {+};
+  \node[sandbox, right=0.5cm of r1] (s1) {E2BSandbox};
+  \node[eq, right=of s1] {=};
+  \node[result, right=0.5cm of s1] (res1) {Production cloud};
+
+  \node[runner, below=0.4cm of r1] (r2) {ClaudeRunner};
+  \node[plus, right=of r2] {+};
+  \node[sandbox, right=0.5cm of r2] (s2) {LocalSandbox};
+  \node[eq, right=of s2] {=};
+  \node[result, right=0.5cm of s2] (res2) {Local development};
+
+  \node[runner, below=0.4cm of r2] (r3) {CodexRunner};
+  \node[plus, right=of r3] {+};
+  \node[sandbox, right=0.5cm of r3] (s3) {SandockSandbox};
+  \node[eq, right=of s3] {=};
+  \node[result, right=0.5cm of s3] (res3) {Self-hosted Docker};
+
+  \node[runner, below=0.4cm of r3] (r4) {CopilotRunner};
+  \node[plus, right=of r4] {+};
+  \node[sandbox, right=0.5cm of r4] (s4) {DaytonaSandbox};
+  \node[eq, right=of s4] {=};
+  \node[result, right=0.5cm of s4] (res4) {Enterprise workspace};
+\end{tikzpicture}
+\caption{Mix-and-match: any runner with any sandbox. One line change.}
+\label{fig:mix-match}
+\end{figure}
+
+\subsection{Pluggable Sandbox Backends}
+
+\begin{table}[h]
+\caption{Sandbox backend comparison.}
+\label{tab:sandboxes}
+\centering
+\small
+\begin{tabular}{@{}llllll@{}}
+\toprule
+\textbf{Backend} & \textbf{Isolation} & \textbf{POSIX} & \textbf{Cold Start} & \textbf{Cost} & \textbf{Best For} \\
+\midrule
+Sandock   & Container & 100\% & $\sim$3s & \$0.005/hr & Production \\
+E2B Cloud & Micro-VM & Partial & $\sim$30s & \$150+/mo & Cloud-native \\
+Daytona   & Workspace & Partial & $\sim$3s & Variable & Enterprise \\
+Local FS  & None & Native & Instant & Free & Development \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{Why POSIX Compatibility Matters}
+
+Coding agents like Claude Code and Codex CLI were designed to operate on real developer machines with full POSIX filesystem semantics: symbolic links, file permissions, \texttt{/tmp} access, \texttt{pip install}, \texttt{apt-get}, and unrestricted shell execution. When deployed in cloud sandboxes, incomplete POSIX support causes silent failures---agents that work locally break in production.
+
+\textbf{Sandock} \citep{sandock2025} addresses this by using Docker containers with persistent volumes that provide 100\% POSIX-compatible filesystems, at 1/10th the cost of VM-based alternatives like E2B. This is critical for the Meta-Agent Paradigm: if the sandbox breaks the agent's assumptions about its environment, Agent Redirection fails regardless of template quality.
+
+\subsubsection{Local Execution Mode}
+
+SandAgent also supports a \textbf{Local} mode via the \texttt{runner-cli}, which runs agents directly on the user's local filesystem with no sandbox overhead. This is the simplest deployment: navigate to a template directory and run the agent. No cloud account, no Docker, no configuration. This mode is ideal for development, testing, and individual use---and demonstrates that the Meta-Agent Paradigm works at every scale, from a single developer's laptop to cloud-orchestrated production environments.

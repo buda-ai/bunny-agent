@@ -1,0 +1,52 @@
+\section{Package Architecture}
+
+SandAgent is a TypeScript monorepo with strict dependency boundaries:
+
+\begin{verbatim}
+  sandagent/
+  +-- apps/
+  |   +-- sandagent-example/    Next.js web app with AI chat UI
+  |   +-- manager-cli/          sandagent-manager command
+  |   +-- runner-cli/           sandagent command (choose runner)
+  +-- packages/
+  |   +-- manager/              Core interfaces (zero deps)
+  |   +-- ai-provider/          AI SDK v3 provider
+  |   +-- runner-claude/        Claude Agent SDK runtime
+  |   +-- sandbox-local/        Local filesystem adapter
+  |   +-- sandbox-e2b/          E2B cloud adapter
+  |   +-- sandbox-sandock/      Docker adapter
+  |   +-- sandbox-daytona/      Daytona adapter
+  |   +-- sdk/                  Unified SDK + React hooks
+  |   +-- benchmark/            GAIA benchmark harness
+  +-- templates/
+      +-- default/              General-purpose
+      +-- coder/                Software development
+      +-- analyst/              Data analysis
+      +-- researcher/           Web research
+      +-- seo-agent/            SEO optimization
+      +-- (8 more...)           Domain-specific templates
+\end{verbatim}
+
+\begin{verbatim}
+  Dependency Flow (no circular dependencies)
+  ==========================================
+
+  Applications:
+    ai-provider  --> manager + runner-* + sandbox-*
+    manager-cli  --> manager + runner-* + sandbox-*
+    runner-cli   --> runner-* ONLY (no manager, no sandbox)
+
+  Core:
+    manager      --> nothing (interface-only)
+
+  Runners (used directly OR via manager):
+    runner-claude  --> @anthropic-ai/claude-agent-sdk
+    runner-codex   --> (planned)
+    runner-copilot --> (planned)
+
+  Sandboxes (used via manager only):
+    sandbox-local   --> node.js stdlib
+    sandbox-e2b     --> e2b SDK
+    sandbox-sandock --> sandock SDK
+    sandbox-daytona --> @daytonaio/sdk
+\end{verbatim}

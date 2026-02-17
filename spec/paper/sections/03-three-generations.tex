@@ -1,0 +1,73 @@
+\section{Three Generations of Coding Agents}
+
+Coding agents did not start as meta-agents. They evolved into them.
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[
+  gen/.style={rectangle, draw=#1!70, fill=#1!8, rounded corners=4pt,
+    text width=10cm, inner sep=8pt, font=\small, align=left},
+  node distance=0.4cm,
+]
+  \node[gen=sagray] (g1) {
+    \textbf{Generation 1: Code Completion (2021--2023)}\\[2pt]
+    {\scriptsize Copilot, Tabnine. Stateless. Single-turn. Current file only. \textit{Not agents.}}
+  };
+  \node[gen=sablue, below=of g1] (g2) {
+    \textbf{Generation 2: Chat Assistants (2023--2024)}\\[2pt]
+    {\scriptsize ChatGPT, Claude, Gemini. Multi-turn reasoning about code. Could \textit{advise} but not \textit{act}.}
+  };
+  \node[gen=sagreen, below=of g2] (g3) {
+    \textbf{Generation 3: Agentic Coding (2025--present)}\\[2pt]
+    {\scriptsize Claude Code, Codex CLI, Copilot Agent Mode. Execute $\cdot$ Manipulate $\cdot$ Search $\cdot$ Extend $\cdot$ Persist $\cdot$ Reason}
+  };
+  \draw[-{Stealth[length=3mm]}, thick, sagray!60] (g1) -- (g2);
+  \draw[-{Stealth[length=3mm]}, thick, sablue!60] (g2) -- (g3);
+  \node[right=0.3cm of g3.east, font=\scriptsize\itshape, sagreen!80!black, text width=2cm, align=left] {$\leftarrow$ meta-agents};
+\end{tikzpicture}
+\caption{Three generations of coding agents. Generation 3 capabilities are general-purpose by nature.}
+\label{fig:three-generations}
+\end{figure}
+
+Here is the critical observation: \textit{none of Generation 3's capabilities are specific to software engineering.}
+
+A bash shell can run SQL queries as easily as it compiles code. A file system can store research notes as easily as source files. Web search retrieves market data as easily as API documentation. MCP connects to PostgreSQL as easily as to Git.
+
+The capabilities were \textit{developed} for coding. But they are \textit{general-purpose} by nature. This accident of history---that the most invested-in AI agents happen to have the most general capabilities---is the foundation of our thesis.
+
+\subsection{The MCP Multiplier}
+
+The Model Context Protocol (MCP) \citep{anthropic2024mcp} deserves special attention. MCP transforms coding agents from closed systems into \textit{extensible platforms}:
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[
+  capbox/.style={rectangle, draw=sablue!60, fill=sablue!8, rounded corners=3pt,
+    minimum height=0.55cm, font=\scriptsize, inner xsep=8pt},
+  mcpbox/.style={rectangle, draw=sagreen!60, fill=sagreen!8, rounded corners=3pt,
+    minimum height=0.55cm, font=\scriptsize, inner xsep=8pt},
+  plus/.style={font=\small\bfseries, sagray},
+  node distance=0.3cm and 0.3cm,
+]
+  \node[font=\scriptsize\bfseries, sablue] (label1) {Without MCP:};
+  \node[capbox, right=0.3cm of label1] (bash) {bash};
+  \node[capbox, right=of bash] (files) {files};
+  \node[capbox, right=of files] (web) {web};
+
+  \node[font=\scriptsize\bfseries, sagreen, below=0.6cm of label1] (label2) {With MCP:};
+  \node[capbox, right=0.3cm of label2] (bash2) {bash};
+  \node[capbox, right=of bash2] (files2) {files};
+  \node[capbox, right=of files2] (web2) {web};
+  \node[plus, right=of web2] {+};
+  \node[mcpbox, right=0.5cm of web2] (pg) {postgres};
+  \node[mcpbox, right=of pg] (slack) {slack};
+  \node[mcpbox, right=of slack] (jira) {jira};
+  \node[plus, right=of jira] {+ \ldots};
+
+  \draw[decorate, decoration={brace, amplitude=4pt}, thick, sagreen!70]
+    ([yshift=3pt]pg.north west) -- ([yshift=3pt]jira.north east)
+    node[midway, above=5pt, font=\tiny\itshape, sagreen!80!black] {open-ended via config};
+\end{tikzpicture}
+\caption{MCP makes the capability set open-ended. Any tool becomes a JSON configuration, not an engineering project.}
+\label{fig:mcp-multiplier}
+\end{figure}

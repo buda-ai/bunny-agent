@@ -1,0 +1,75 @@
+\section{Passthrough Streaming}
+
+A critical design decision in SandAgent deserves its own section: the \textbf{passthrough streaming protocol}.
+
+\subsection{The Problem with Translation Layers}
+
+Traditional agent systems parse agent output, translate it into an internal format, then re-serialize it for the client. Each translation is a source of bugs, latency, and information loss.
+
+\begin{figure}[ht]
+\centering
+\begin{subfigure}[t]{\textwidth}
+\centering
+\begin{tikzpicture}[
+  node distance=0.5cm and 0.5cm,
+  box/.style={rectangle, draw=sared!70, fill=sared!8, rounded corners=3pt,
+    minimum width=1.8cm, minimum height=0.6cm, font=\scriptsize, align=center},
+  arr/.style={-{Stealth[length=2mm]}, thick, sared!60},
+]
+  \node[box] (agent) {Agent};
+  \node[box, right=of agent] (parse) {Parse};
+  \node[box, right=of parse] (internal) {Internal\\Format};
+  \node[box, right=of internal] (serialize) {Serialize};
+  \node[box, right=of serialize] (client) {Client};
+  \draw[arr] (agent) -- (parse);
+  \draw[arr] (parse) -- (internal);
+  \draw[arr] (internal) -- (serialize);
+  \draw[arr] (serialize) -- (client);
+  \node[font=\tiny\itshape, sared!70, below=0.15cm of parse] {bugs};
+  \node[font=\tiny\itshape, sared!70, below=0.15cm of internal] {latency};
+  \node[font=\tiny\itshape, sared!70, below=0.15cm of serialize] {info loss};
+\end{tikzpicture}
+\caption{Traditional: multiple translation layers introduce bugs, latency, and information loss.}
+\end{subfigure}
+
+\vspace{0.5cm}
+
+\begin{subfigure}[t]{\textwidth}
+\centering
+\begin{tikzpicture}[
+  node distance=0.5cm and 1.5cm,
+  box/.style={rectangle, draw=sagreen!70, fill=sagreen!8, rounded corners=3pt,
+    minimum width=2cm, minimum height=0.6cm, font=\scriptsize, align=center},
+  arr/.style={-{Stealth[length=2mm]}, thick, sagreen!60},
+]
+  \node[box] (agent) {Agent\\stdout};
+  \node[box, right=of agent] (pipe) {Zero-copy\\forward};
+  \node[box, right=of pipe] (client) {Client\\AI SDK};
+  \draw[arr] (agent) -- (pipe);
+  \draw[arr] (pipe) -- (client);
+  \node[font=\scriptsize, sagreen!80!black, below=0.3cm of pipe] {No parsing. No modification. Bytes flow directly.};
+\end{tikzpicture}
+\caption{SandAgent passthrough: agent stdout \textit{is} the protocol. Zero translation.}
+\end{subfigure}
+\caption{Traditional agent streaming vs.\ SandAgent passthrough streaming.}
+\label{fig:streaming-comparison}
+\end{figure}
+
+\subsection{The Contract}
+
+\begin{itemize}[nosep]
+\item \texttt{stdout} MUST contain only valid AI SDK UI stream data
+\item \texttt{stderr} is reserved for diagnostics only
+\item The server NEVER parses or modifies the stream
+\end{itemize}
+
+\subsection{Why This Matters}
+
+\begin{enumerate}[nosep]
+\item \textbf{Zero translation bugs}: No parsing means no parsing errors.
+\item \textbf{Minimal latency}: No intermediate processing. Bytes flow directly.
+\item \textbf{Automatic upgrades}: When the agent improves its output format, the improvement propagates to the client with zero code changes.
+\item \textbf{Simplicity}: The server is a pipe, not a processor. Dramatically less code to maintain.
+\end{enumerate}
+
+This design treats AI SDK UI messages as the \textit{execution protocol itself}---not as an output format that needs translation. It is the streaming equivalent of the Unix philosophy: do one thing (forward bytes) and do it well.
