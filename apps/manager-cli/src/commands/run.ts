@@ -67,7 +67,9 @@ export async function runCommand(args: string[]): Promise<void> {
     console.error("Examples:");
     console.error("  export ANTHROPIC_API_KEY=your_api_key");
     console.error("  export ANTHROPIC_AUTH_TOKEN=your_key   # Bedrock proxy");
-    console.error("  export ANTHROPIC_BEDROCK_BASE_URL=https://llm.bika.ltd/bedrock");
+    console.error(
+      "  export ANTHROPIC_BEDROCK_BASE_URL=https://llm.bika.ltd/bedrock",
+    );
     console.error("  export CLAUDE_CODE_USE_BEDROCK=1");
     process.exit(1);
   }

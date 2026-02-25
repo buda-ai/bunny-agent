@@ -87,9 +87,13 @@ This command displays your SandAgent configuration and environment status.
 
   if (!hasClaudeAuthSet) {
     console.log("⚠️  Warning: Claude auth is required to run agents.");
-    console.log("   Set one of: ANTHROPIC_API_KEY, ANTHROPIC_AUTH_TOKEN, LITELLM_MASTER_KEY, or Bedrock proxy env.");
+    console.log(
+      "   Set one of: ANTHROPIC_API_KEY, ANTHROPIC_AUTH_TOKEN, LITELLM_MASTER_KEY, or Bedrock proxy env.",
+    );
     console.log("   Example: export ANTHROPIC_API_KEY=your_api_key");
-    console.log("   Bedrock proxy: ANTHROPIC_AUTH_TOKEN + ANTHROPIC_BEDROCK_BASE_URL + CLAUDE_CODE_USE_BEDROCK=1");
+    console.log(
+      "   Bedrock proxy: ANTHROPIC_AUTH_TOKEN + ANTHROPIC_BEDROCK_BASE_URL + CLAUDE_CODE_USE_BEDROCK=1",
+    );
     console.log("");
   }
 
