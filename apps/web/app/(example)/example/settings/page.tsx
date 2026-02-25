@@ -33,7 +33,7 @@ const ENV_CONFIGS: EnvConfig[] = [
     name: "Anthropic Base URL",
     key: "ANTHROPIC_BASE_URL",
     description:
-      "Optional. Custom base URL for Anthropic API (e.g., for proxy or alternative endpoints)",
+      "Optional. Custom base URL. For LiteLLM unified endpoint (recommended): set to e.g. https://litellm-server:4000 and use ANTHROPIC_AUTH_TOKEN. See code.claude.com/docs/en/llm-gateway",
     required: false,
     category: "api",
     placeholder: "https://api.anthropic.com",
@@ -47,6 +47,53 @@ const ENV_CONFIGS: EnvConfig[] = [
     category: "api",
     placeholder: "Bearer token for AWS Bedrock",
     isSecret: true,
+  },
+  {
+    name: "Anthropic Auth Token (LiteLLM / gateway)",
+    key: "ANTHROPIC_AUTH_TOKEN",
+    description:
+      "Optional. API key for LiteLLM/gateway. Unified: ANTHROPIC_BASE_URL + this. Bedrock: ANTHROPIC_BEDROCK_BASE_URL + CLAUDE_CODE_USE_BEDROCK=1 + this. Sent as Authorization header. See code.claude.com/docs/en/llm-gateway",
+    required: false,
+    category: "api",
+    placeholder: "sk-litellm-...",
+    isSecret: true,
+  },
+  {
+    name: "LiteLLM Master Key",
+    key: "LITELLM_MASTER_KEY",
+    description:
+      "Optional. Same as API key for LiteLLM. Use with ANTHROPIC_BEDROCK_BASE_URL or ANTHROPIC_BASE_URL when using proxy",
+    required: false,
+    category: "api",
+    placeholder: "Your API Key",
+    isSecret: true,
+  },
+  {
+    name: "Anthropic Bedrock Base URL (LiteLLM Bedrock pass-through)",
+    key: "ANTHROPIC_BEDROCK_BASE_URL",
+    description:
+      "Optional. For Bedrock via LiteLLM: set to e.g. https://litellm-server:4000/bedrock, CLAUDE_CODE_USE_BEDROCK=1, CLAUDE_CODE_SKIP_BEDROCK_AUTH=1, and ANTHROPIC_AUTH_TOKEN. See code.claude.com/docs/en/llm-gateway",
+    required: false,
+    category: "api",
+    placeholder: "https://llm.bika.ltd/bedrock",
+  },
+  {
+    name: "Use Bedrock",
+    key: "CLAUDE_CODE_USE_BEDROCK",
+    description:
+      "Optional. Set to 1 for Bedrock pass-through (required when using ANTHROPIC_BEDROCK_BASE_URL)",
+    required: false,
+    category: "api",
+    placeholder: "1",
+  },
+  {
+    name: "Skip Bedrock Auth",
+    key: "CLAUDE_CODE_SKIP_BEDROCK_AUTH",
+    description:
+      "Optional. Set to 1 to use API key instead of AWS auth when using Bedrock via LiteLLM",
+    required: false,
+    category: "api",
+    placeholder: "1",
   },
   {
     name: "E2B API Key",

@@ -21,3 +21,7 @@ export type {
 // Default sandbox adapter (built-in)
 export { LocalSandbox } from "./local-sandbox.js";
 export type { LocalSandboxOptions } from "./local-sandbox.js";
+
+// Env helpers
+export { buildRunnerEnv } from "./env.js";
+export type { RunnerEnvParams } from "./env.js";

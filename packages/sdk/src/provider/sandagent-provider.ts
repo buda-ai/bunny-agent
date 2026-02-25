@@ -108,6 +108,7 @@ export function createSandAgent(
       kind: runnerKind,
       model: resolvedModelId,
       outputFormat: "stream",
+      maxTurns: options.maxTurns ?? defaultOptions.maxTurns,
     };
 
     const mergedOptions = {

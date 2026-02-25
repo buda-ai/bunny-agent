@@ -33,6 +33,8 @@ This command displays your SandAgent configuration and environment status.
     return;
   }
 
+  const { hasClaudeAuth } = await import("@sandagent/runner-claude");
+  const hasClaudeAuthSet = hasClaudeAuth();
   const hasAnthropicKey = !!process.env.ANTHROPIC_API_KEY;
   const hasE2BKey = !!process.env.E2B_API_KEY;
   const dockerHost = process.env.DOCKER_HOST || "unix:///var/run/docker.sock";
@@ -44,12 +46,30 @@ This command displays your SandAgent configuration and environment status.
   console.log(`  Platform:          ${process.platform} ${process.arch}`);
   console.log(`  Working Directory: ${process.cwd()}`);
   console.log("");
-  console.log("API Keys:");
+  console.log("API Keys / Claude auth:");
   console.log(
-    `  ANTHROPIC_API_KEY: ${hasAnthropicKey ? "✅ Set" : "❌ Not set (required)"}`,
+    `  ANTHROPIC_API_KEY:           ${hasAnthropicKey ? "✅ Set" : "❌ Not set"}`,
   );
   console.log(
-    `  E2B_API_KEY:       ${hasE2BKey ? "✅ Set" : "⚠️  Not set (required for E2B sandbox)"}`,
+    `  ANTHROPIC_AUTH_TOKEN:         ${process.env.ANTHROPIC_AUTH_TOKEN ? "✅ Set" : "❌ Not set"} (Bedrock proxy)`,
+  );
+  console.log(
+    `  LITELLM_MASTER_KEY:          ${process.env.LITELLM_MASTER_KEY ? "✅ Set" : "❌ Not set"} (Bedrock proxy)`,
+  );
+  console.log(
+    `  AWS_BEARER_TOKEN_BEDROCK:    ${process.env.AWS_BEARER_TOKEN_BEDROCK ? "✅ Set" : "❌ Not set"}`,
+  );
+  console.log(
+    `  ANTHROPIC_BEDROCK_BASE_URL:  ${process.env.ANTHROPIC_BEDROCK_BASE_URL || "❌ Not set"}`,
+  );
+  console.log(
+    `  CLAUDE_CODE_USE_BEDROCK:     ${process.env.CLAUDE_CODE_USE_BEDROCK || "❌ Not set"}`,
+  );
+  console.log(
+    `  Claude auth (any of above):  ${hasClaudeAuthSet ? "✅ Ready" : "❌ Not set (required)"}`,
+  );
+  console.log(
+    `  E2B_API_KEY:                 ${hasE2BKey ? "✅ Set" : "⚠️  Not set (required for E2B sandbox)"}`,
   );
   console.log("");
   console.log("Sandbox Configuration:");
@@ -65,10 +85,15 @@ This command displays your SandAgent configuration and environment status.
   console.log(`  Templates Dir:     ${findTemplatesDir() || "Not found"}`);
   console.log("");
 
-  if (!hasAnthropicKey) {
-    console.log("⚠️  Warning: ANTHROPIC_API_KEY is required to run agents.");
-    console.log("   Get your API key from https://console.anthropic.com/");
-    console.log("   Set it with: export ANTHROPIC_API_KEY=your_api_key");
+  if (!hasClaudeAuthSet) {
+    console.log("⚠️  Warning: Claude auth is required to run agents.");
+    console.log(
+      "   Set one of: ANTHROPIC_API_KEY, ANTHROPIC_AUTH_TOKEN, LITELLM_MASTER_KEY, or Bedrock proxy env.",
+    );
+    console.log("   Example: export ANTHROPIC_API_KEY=your_api_key");
+    console.log(
+      "   Bedrock proxy: ANTHROPIC_AUTH_TOKEN + ANTHROPIC_BEDROCK_BASE_URL + CLAUDE_CODE_USE_BEDROCK=1",
+    );
     console.log("");
   }
 

@@ -1,45 +1,198 @@
-# docs
+# SandAgent Documentation Site
 
-This is a Next.js application generated with
-[Create Fumadocs](https://github.com/fuma-nama/fumadocs).
+Official documentation website for SandAgent, built with [Fumadocs](https://fumadocs.dev) and Next.js.
 
-Run development server:
+Visit the live site at: **https://sandagent.dev/**
+
+---
+
+## Development
+
+### Prerequisites
+
+- Node.js >= 20.0.0
+- pnpm 9.0.0+
+
+### Installation
 
 ```bash
-npm run dev
-# or
-pnpm dev
-# or
-yarn dev
+# From monorepo root
+pnpm install
 ```
 
-Open http://localhost:3000 with your browser to see the result.
+### Running Locally
 
-## Explore
+```bash
+cd apps/web
+pnpm dev
+```
 
-In the project, you can see:
+Open http://localhost:3000
 
-- `lib/source.ts`: Code for content source adapter, [`loader()`](https://fumadocs.dev/docs/headless/source-api) provides the interface to access your content.
-- `lib/layout.shared.tsx`: Shared options for layouts, optional but preferred to keep.
+### Build
 
-| Route                     | Description                                            |
-| ------------------------- | ------------------------------------------------------ |
-| `app/(home)`              | The route group for your landing page and other pages. |
-| `app/docs`                | The documentation layout and pages.                    |
-| `app/api/search/route.ts` | The Route Handler for search.                          |
+```bash
+pnpm build
+```
 
-### Fumadocs MDX
+---
 
-A `source.config.ts` config file has been included, you can customise different options like frontmatter schema.
+## Documentation Structure
 
-Read the [Introduction](https://fumadocs.dev/docs/mdx) for further details.
+The documentation site is organized as follows:
+
+```
+apps/web/
+├── app/
+│   ├── (home)/           # Landing page
+│   ├── docs/               # Documentation pages (generated from MDX)
+│   │   └── [[...slug]]/  # Dynamic routing for docs
+│   ├── api/                # API routes
+│   │   └── search/        # Search endpoint
+│   ├── global.css          # Global styles
+│   └── layout.tsx          # Root layout with metadata
+├── content/               # MDX content source files
+├── lib/
+│   ├── source.ts          # Content source adapter
+│   ├── layout.shared.tsx  # Shared layout options
+│   └── ...
+└── source.config.ts       # Fumadocs configuration
+```
+
+### Key Directories
+
+- **`app/(home)`** - Landing page and marketing pages
+- **`app/docs`** - Documentation pages (auto-generated from MDX)
+- **`app/api/search`** - Full-text search endpoint
+- **`content/`** - MDX source files for documentation
+- **`lib/source.ts`** - Content source adapter configuration
+- **`source.config.ts`** - Navigation and page structure configuration
+
+---
+
+## Adding Documentation
+
+### Creating a New Page
+
+1. Create a new MDX file in `content/` directory:
+
+```mdx
+---
+title: Your Page Title
+description: Page description for SEO
+---
+
+# Your Page Title
+
+Your content here...
+```
+
+2. Add the page to navigation in `source.config.ts`:
+
+```typescript
+export default createSourceAPI({
+  docs: {
+    ...,
+    pages: {
+      ...,
+      "your-page": {
+        title: "Your Page Title",
+        pages: {
+          _: {
+            title: "Your Page Title",
+          },
+        },
+      },
+    },
+  },
+});
+```
+
+### Frontmatter Options
+
+Each MDX file supports frontmatter for metadata:
+
+```yaml
+---
+title: Page Title
+description: SEO description
+order: 1
+---
+```
+
+---
+
+## Styling & Theme
+
+The site uses:
+- **Fumadocs UI** - Documentation components
+- **Tailwind CSS 4** - Styling
+- **Next Themes** - Dark mode support
+- **Kui** - Custom UI component library
+
+### Customizing Styles
+
+Edit `app/global.css` for global styles.
+
+### Theme Configuration
+
+Theme is configured in `source.config.ts` and uses `next-themes` for dark mode.
+
+---
+
+## Search
+
+Full-text search is powered by Fumadocs and is available at the `/search` route.
+
+Search configuration can be modified in `source.config.ts`.
+
+---
+
+## Deployment
+
+### Vercel
+
+The site is configured for Vercel deployment via `vercel.json`.
+
+Deploy to Vercel:
+1. Connect your GitHub repository
+2. Import the project
+3. Vercel will automatically deploy on push to main/develop
+
+### Environment Variables
+
+The documentation site may require environment variables for certain features (e.g., analytics):
+
+```bash
+# Google Analytics (already configured)
+NEXT_PUBLIC_GA_ID=G-B1FLZ40NXT
+```
+
+---
+
+## Monitoring & Analytics
+
+- **Google Analytics**: Configured via `@next/third-parties/google`
+- Track user visits and page views
+- GA ID: `G-B1FLZ40NXT`
+
+---
+
+## Scripts
+
+| Script | Description |
+|---------|-------------|
+| `dev` | Start development server |
+| `build` | Build for production |
+| `start` | Start production server |
+| `lint` | Run Biome linter |
+| `format` | Format code with Biome |
+| `types:check` | Type check with TypeScript |
+
+---
 
 ## Learn More
 
-To learn more about Next.js and Fumadocs, take a look at the following
-resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js
-  features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-- [Fumadocs](https://fumadocs.dev) - learn about Fumadocs
+- [Fumadocs Documentation](https://fumadocs.dev)
+- [Next.js Documentation](https://nextjs.org/docs)
+- [Tailwind CSS](https://tailwindcss.com)

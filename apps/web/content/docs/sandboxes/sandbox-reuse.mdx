@@ -25,7 +25,7 @@ const handle = await sandbox.attach();
 
 ## Sandock
 
-Pass a `sandboxId` to reuse an existing sandbox. `attach()` tries to reconnect first; on failure it creates a new one.
+Pass a `sandboxId` to reuse an existing sandbox. `attach()` checks the sandbox status and only reattaches if it is currently `RUNNING`. Otherwise it creates a new one.
 
 ```typescript
 // Basic usage — new sandbox each time
@@ -43,7 +43,8 @@ const handle = await sandbox.attach();
 ```
 
 - `sandboxId` enables cross-request reuse; callers are responsible for storing and passing it
-- If the sandbox expired or was deleted, `attach()` falls back to creating a new one
+- Only sandboxes in `RUNNING` state are reused; stopped or paused sandboxes are not restarted
+- If the sandbox is not running, expired, or was deleted, `attach()` falls back to creating a new one
 - Volumes are resolved on both new creation and reattach
 
 ## Daytona

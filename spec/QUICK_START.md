@@ -32,8 +32,8 @@ git clone https://github.com/vikadata/sandagent.git
 cd sandagent
 pnpm install && pnpm build
 
-# Start the example app
-cd apps/sandagent-example
+# Start the documentation site
+cd apps/web
 pnpm dev
 ```
 

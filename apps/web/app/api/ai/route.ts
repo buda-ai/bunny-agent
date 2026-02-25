@@ -33,6 +33,11 @@ export async function POST(request: Request) {
     ANTHROPIC_API_KEY,
     ANTHROPIC_BASE_URL,
     AWS_BEARER_TOKEN_BEDROCK,
+    ANTHROPIC_AUTH_TOKEN,
+    LITELLM_MASTER_KEY,
+    ANTHROPIC_BEDROCK_BASE_URL,
+    CLAUDE_CODE_USE_BEDROCK,
+    CLAUDE_CODE_SKIP_BEDROCK_AUTH,
     E2B_API_KEY,
     SANDOCK_API_KEY,
     DAYTONA_API_KEY,
@@ -41,12 +46,20 @@ export async function POST(request: Request) {
 
   const signal = request.signal;
 
+  // Same logic as @sandagent/runner-claude hasClaudeAuth (supports Bedrock proxy)
+  const hasClaudeAuth =
+    !!ANTHROPIC_API_KEY ||
+    !!AWS_BEARER_TOKEN_BEDROCK ||
+    !!ANTHROPIC_AUTH_TOKEN ||
+    !!LITELLM_MASTER_KEY ||
+    (CLAUDE_CODE_USE_BEDROCK === "1" && !!ANTHROPIC_BEDROCK_BASE_URL);
+
   // --- Validation -----------------------------------------------------------
-  if (!ANTHROPIC_API_KEY && !AWS_BEARER_TOKEN_BEDROCK) {
+  if (!hasClaudeAuth) {
     return new Response(
       JSON.stringify({
         error:
-          "Either ANTHROPIC_API_KEY or AWS_BEARER_TOKEN_BEDROCK is required. Please configure one in Settings.",
+          "Claude auth is required. Set one of: ANTHROPIC_API_KEY, AWS_BEARER_TOKEN_BEDROCK, ANTHROPIC_AUTH_TOKEN, LITELLM_MASTER_KEY, or Bedrock proxy (CLAUDE_CODE_USE_BEDROCK=1 + ANTHROPIC_BEDROCK_BASE_URL). Configure in Settings.",
       }),
       { status: 400, headers: { "Content-Type": "application/json" } },
     );
@@ -121,6 +134,12 @@ export async function POST(request: Request) {
     DAYTONA_API_KEY,
     ANTHROPIC_API_KEY,
     ANTHROPIC_BASE_URL,
+    AWS_BEARER_TOKEN_BEDROCK,
+    ANTHROPIC_AUTH_TOKEN,
+    LITELLM_MASTER_KEY,
+    ANTHROPIC_BEDROCK_BASE_URL,
+    CLAUDE_CODE_USE_BEDROCK,
+    CLAUDE_CODE_SKIP_BEDROCK_AUTH,
     template,
   };
 
@@ -134,7 +153,7 @@ export async function POST(request: Request) {
   // --- Model ----------------------------------------------------------------
   const model = ANTHROPIC_API_KEY
     ? "glm-4.7"
-    : "us.anthropic.claude-sonnet-4-20250514-v1:0";
+    : "global.anthropic.claude-opus-4-6-v1";
 
   // --- Stream ---------------------------------------------------------------
   const stream = createUIMessageStream({

@@ -52,4 +52,8 @@ export type {
 export { LocalSandbox } from "@sandagent/manager";
 export type { LocalSandboxOptions } from "@sandagent/manager";
 
+// Re-export env helpers
+export { buildRunnerEnv } from "@sandagent/manager";
+export type { RunnerEnvParams } from "@sandagent/manager";
+
 export const VERSION = "0.1.0";

@@ -72,7 +72,7 @@ new SandockSandbox({
 
 ### 3. Reuse Existing Sandbox
 
-Pass `sandboxId` to reattach to a previously created sandbox. If the sandbox no longer exists, `attach()` falls back to creating a new one.
+Pass `sandboxId` to reattach to a previously created sandbox. The adapter will only reattach if the sandbox is currently in `RUNNING` state. If the sandbox is stopped, paused, or no longer exists, `attach()` falls back to creating a new one automatically.
 
 ```ts
 const sandbox = new SandockSandbox({
@@ -87,7 +87,9 @@ const handle = await sandbox.attach();
 // Store handle.getSandboxId() for next request
 ```
 
-For web apps, cache the sandboxId server-side (e.g. in-memory Map with 30-min TTL) so subsequent requests reuse the same sandbox without client-side state.
+> **Note:** The adapter does not attempt to start a stopped sandbox. Only `RUNNING` sandboxes are reused. This avoids unexpected cold-start delays and ensures a consistent attach experience.
+
+For web apps, cache the sandboxId server-side (e.g. in-memory Map with 30-min TTL) so subsequent requests reuse the same sandbox without client-side state. Use `keep: true` (the default) to keep sandboxes running between requests.
 
 ## With @sandagent/sdk
 
