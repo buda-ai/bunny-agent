@@ -151,8 +151,14 @@ function HomeContent() {
       const saved = localStorage.getItem(STORAGE_KEY);
       const config = saved ? JSON.parse(saved) : {};
       setClientConfig(config);
-      const hasApiKey =
-        !!config.ANTHROPIC_API_KEY || !!config.AWS_BEARER_TOKEN_BEDROCK;
+      const hasClaudeAuth =
+        !!config.ANTHROPIC_API_KEY ||
+        !!config.AWS_BEARER_TOKEN_BEDROCK ||
+        !!config.ANTHROPIC_AUTH_TOKEN ||
+        !!config.LITELLM_MASTER_KEY ||
+        (config.CLAUDE_CODE_USE_BEDROCK === "1" &&
+          !!config.ANTHROPIC_BEDROCK_BASE_URL);
+      const hasApiKey = hasClaudeAuth;
       const allRequiredSet =
         REQUIRED_KEYS.every((key) => !!config[key]) && hasApiKey;
       setConfigReady(allRequiredSet);

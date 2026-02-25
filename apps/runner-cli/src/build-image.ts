@@ -164,4 +164,13 @@ export async function buildImage(opts: BuildImageOptions): Promise<void> {
   console.log("🚀 Pushing image...");
   run(`docker push ${localImage}`);
   console.log(`\n✅ Image pushed: ${localImage}`);
+
+  // Also push the latest tag
+  const latestImage = `${opts.name}:latest`;
+  if (localImage !== latestImage) {
+    console.log("🏷️ Tagging and pushing latest...");
+    run(`docker tag ${localImage} ${latestImage}`);
+    run(`docker push ${latestImage}`);
+    console.log(`✅ Image pushed: ${latestImage}`);
+  }
 }

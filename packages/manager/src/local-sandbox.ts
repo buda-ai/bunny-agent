@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
+import { buildRunnerEnv } from "./env.js";
 import type { ExecOptions, SandboxAdapter, SandboxHandle } from "./types.js";
 
 /**
@@ -70,6 +71,8 @@ export class LocalSandbox implements SandboxAdapter {
     this.defaultTimeout = options.defaultTimeout ?? 300000; // 5 min for agent runs
     this.env = options.env ?? {};
     this.runnerCommand = options.runnerCommand ?? ["sandagent", "run"];
+
+    console.log("LocalSandbox constructor", this.env);
   }
 
   getHandle(): SandboxHandle | null {
@@ -231,7 +234,9 @@ class LocalSandboxHandle implements SandboxHandle {
 
     const cwd = opts.cwd ? path.resolve(this.workDir, opts.cwd) : this.workDir;
     const timeout = opts.timeout ?? this.defaultTimeout;
-    const env = { ...process.env, ...this.env, ...opts.env };
+    const env = buildRunnerEnv({
+      inherit: { ...process.env, ...this.env, ...opts.env },
+    });
 
     console.log(`[LocalSandbox] Executing command: ${command.join(" ")}`);
     console.log(`[LocalSandbox] Working directory: ${cwd}`);

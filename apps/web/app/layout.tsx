@@ -15,6 +15,10 @@ export const metadata: Metadata = {
   },
   description:
     "Turn powerful Coding Agents into your product's superpower. AI SDK compatible.",
+  icons: {
+    icon: "/favicon.svg",
+    apple: "/favicon.svg",
+  },
 };
 
 export default function Layout({ children }: LayoutProps<"/">) {

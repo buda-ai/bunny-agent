@@ -57,14 +57,20 @@ export async function runCommand(args: string[]): Promise<void> {
     process.exit(1);
   }
 
-  // Check for API key
-  if (!process.env.ANTHROPIC_API_KEY) {
+  // Check for Claude auth (API key or Bedrock proxy)
+  const { hasClaudeAuth } = await import("@sandagent/runner-claude");
+  if (!hasClaudeAuth()) {
     console.error(
-      "❌ Error: ANTHROPIC_API_KEY environment variable is required",
+      "❌ Error: Claude auth is required. Set one of: ANTHROPIC_API_KEY, AWS_BEARER_TOKEN_BEDROCK, ANTHROPIC_AUTH_TOKEN, LITELLM_MASTER_KEY, or Bedrock proxy (CLAUDE_CODE_USE_BEDROCK=1 + ANTHROPIC_BEDROCK_BASE_URL)",
     );
     console.error("");
-    console.error("Set it with:");
+    console.error("Examples:");
     console.error("  export ANTHROPIC_API_KEY=your_api_key");
+    console.error("  export ANTHROPIC_AUTH_TOKEN=your_key   # Bedrock proxy");
+    console.error(
+      "  export ANTHROPIC_BEDROCK_BASE_URL=https://llm.bika.ltd/bedrock",
+    );
+    console.error("  export CLAUDE_CODE_USE_BEDROCK=1");
     process.exit(1);
   }
 

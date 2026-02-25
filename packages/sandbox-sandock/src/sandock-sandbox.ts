@@ -66,6 +66,12 @@ export interface SandockSandboxOptions {
    * These will be available to all commands executed in the sandbox.
    */
   env?: Record<string, string>;
+
+  /**
+   * Maximum lifetime of the sandbox in seconds.
+   * After this duration, the sandbox will be automatically terminated.
+   */
+  maxLifetimeSeconds?: number;
 }
 
 /**
@@ -87,6 +93,7 @@ export class SandockSandbox implements SandboxAdapter {
   private readonly skipBootstrap: boolean;
   private readonly env: Record<string, string>;
   private readonly name?: string;
+  private readonly maxLifetimeSeconds?: number;
 
   /** Current handle for the sandbox instance; also holds optional existing sandbox id to attach to (before attach) */
   private currentHandle: SandboxHandle | null = null;
@@ -119,6 +126,7 @@ export class SandockSandbox implements SandboxAdapter {
     this.env = options.env ?? {};
     this.name = options.name;
     this._sandboxId = options.sandboxId ?? null;
+    this.maxLifetimeSeconds = options.maxLifetimeSeconds;
   }
 
   /**
@@ -169,8 +177,14 @@ export class SandockSandbox implements SandboxAdapter {
     const id = this._sandboxId;
     if (!id) return null;
     try {
-      await this.client.sandbox.get(id);
-      await this.client.sandbox.start(id);
+      const { data } = await this.client.sandbox.get(id);
+      if (data.status !== "RUNNING") {
+        console.warn(
+          `[Sandock] Sandbox ${id} is not running (status: ${data.status}), creating new`,
+        );
+        this._sandboxId = null;
+        return null;
+      }
       const volumeMounts = await this.resolveVolumeMounts();
       const handle = new SandockHandle(
         this.client,
@@ -182,6 +196,7 @@ export class SandockSandbox implements SandboxAdapter {
         this.env,
         volumeMounts,
       );
+
       this.currentHandle = handle;
       console.log(`[Sandock] Attached to existing sandbox: ${id}`);
       return handle;
@@ -273,11 +288,13 @@ export class SandockSandbox implements SandboxAdapter {
       cpu?: number;
       volumes?: Array<{ volumeId: string; mountPath: string }>;
       title?: string;
+      activeDeadlineSeconds?: number;
     } = {
       image: this.image,
       memory: this.memoryLimitMb,
       cpu: this.cpuShares,
       title: this.name,
+      activeDeadlineSeconds: this.maxLifetimeSeconds,
     };
     if (volumeMounts.length > 0) {
       createOptions.volumes = volumeMounts.map((v) => ({
@@ -475,6 +492,14 @@ class SandockHandle implements SandboxHandle {
       "[Sandock] ANTHROPIC_API_KEY present:",
       !!envWithNodePath.ANTHROPIC_API_KEY,
     );
+    console.log(
+      "[Sandock] AWS_BEARER_TOKEN_BEDROCK present:",
+      !!envWithNodePath.AWS_BEARER_TOKEN_BEDROCK,
+    );
+    console.log(
+      "[Sandock] CLAUDE_CODE_USE_BEDROCK:",
+      envWithNodePath.CLAUDE_CODE_USE_BEDROCK || "NOT SET",
+    );
     if (envWithNodePath.ANTHROPIC_API_KEY) {
       console.log(
         "[Sandock] ANTHROPIC_API_KEY prefix:",
@@ -572,6 +597,9 @@ class SandockHandle implements SandboxHandle {
           console.log("[Sandock] No signal provided");
         }
 
+        // Track if we've received any output (indicates proper stream completion)
+        let hasReceivedOutput = false;
+
         // Start shell command with streaming callbacks
         const shellPromise = self.client.sandbox.shell(
           self.sandboxId,
@@ -580,16 +608,25 @@ class SandockHandle implements SandboxHandle {
             onStdout: (chunk: string) => {
               // Stop producing stdout chunks if signal is aborted
               if (signal?.aborted) return;
+              hasReceivedOutput = true;
               queue.push(new TextEncoder().encode(chunk));
               resolveWait?.();
             },
             onStderr: (chunk: string) => {
+              hasReceivedOutput = true;
               queue.push(new TextEncoder().encode(chunk));
               resolveWait?.();
             },
             onError: (err: unknown) => {
               console.log("SHELL ERROR:", err);
-              error = err instanceof Error ? err : new Error(String(err));
+              // Only set error if:
+              // 1. We haven't received any output (process failed before communicating)
+              // 2. The stream isn't already done
+              // If we received output, the process communicated its error properly
+              // and we shouldn't override it with a generic "process exited" error
+              if (!hasReceivedOutput && !done) {
+                error = err instanceof Error ? err : new Error(String(err));
+              }
               resolveWait?.();
             },
           },
@@ -626,9 +663,13 @@ class SandockHandle implements SandboxHandle {
             },
           )
           .catch((err: unknown) => {
-            error = err instanceof Error ? err : new Error(String(err));
+            // Only set error if we haven't received any output
+            // If we received output, the process communicated its error properly
+            if (!hasReceivedOutput) {
+              error = err instanceof Error ? err : new Error(String(err));
+            }
             // Log AbortError appropriately
-            if (error.name === "AbortError") {
+            if (err instanceof Error && err.name === "AbortError") {
               console.log("[Sandock] Command execution aborted by user");
             } else {
               console.error("[Sandock] Shell promise rejected:", err);

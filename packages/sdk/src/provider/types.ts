@@ -81,6 +81,8 @@ export interface SandAgentProviderSettings
   logger?: Logger | false;
   /** Artifact processors for handling artifact events. */
   artifactProcessors?: ArtifactProcessor[];
+  /** Limit the number of back-and-forth iterations */
+  maxTurns?: number;
 }
 
 /**

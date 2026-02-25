@@ -465,26 +465,31 @@ describe("Query Natural Completion", () => {
     expect(finishIndex).toBeLessThan(doneIndex);
   });
 
-  it("should ensure finally block executes and sends [DONE] in all scenarios", async () => {
-    delete process.env.ANTHROPIC_API_KEY;
+  it(
+    "should ensure finally block executes and sends [DONE] in all scenarios",
+    { timeout: 15000 },
+    async () => {
+      delete process.env.ANTHROPIC_API_KEY;
 
-    // Test multiple runs to ensure finally block always executes
-    for (let i = 0; i < 5; i++) {
-      const runner = createClaudeRunner({
-        model: "claude-sonnet-4-20250514",
-      });
+      // Test multiple runs to ensure finally block always executes
+      // (mock yields ~1 word per 20ms so 5 runs can exceed default 5s timeout)
+      for (let i = 0; i < 5; i++) {
+        const runner = createClaudeRunner({
+          model: "claude-sonnet-4-20250514",
+        });
 
-      const chunks: string[] = [];
-      for await (const chunk of runner.run(`Test run ${i}`)) {
-        chunks.push(chunk);
+        const chunks: string[] = [];
+        for await (const chunk of runner.run(`Test run ${i}`)) {
+          chunks.push(chunk);
+        }
+
+        // Every run should end with [DONE]
+        expect(chunks[chunks.length - 1]).toBe("data: [DONE]\n\n");
+
+        // Every run should have exactly one [DONE]
+        const doneCount = chunks.filter((c) => c === "data: [DONE]\n\n").length;
+        expect(doneCount).toBe(1);
       }
-
-      // Every run should end with [DONE]
-      expect(chunks[chunks.length - 1]).toBe("data: [DONE]\n\n");
-
-      // Every run should have exactly one [DONE]
-      const doneCount = chunks.filter((c) => c === "data: [DONE]\n\n").length;
-      expect(doneCount).toBe(1);
-    }
-  });
+    },
+  );
 });

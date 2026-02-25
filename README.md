@@ -144,32 +144,21 @@ JSONL transcript recording for debugging and replay
 
 | App | What it is | Best for |
 |-----|------------|----------|
-| **sandagent-example** | Complete Next.js web app with AI chat UI | First-time users, web integration |
+| **web** | Official documentation website built with Fumadocs | Learning, documentation |
 | **manager-cli** | Command-line sandbox management (`sandagent-manager`) | DevOps, server-side orchestration |
 | **runner-cli** | Terminal-based agent runner (`sandagent`) - choose Claude, Codex, or Copilot | Local development, CLI enthusiasts |
 
-### Option A: Web UI (Recommended)
+### Option A: Documentation Site
 
-**sandagent-example** is a complete Next.js application with:
-- 💬 Full AI chat interface with real-time streaming
-- 🎨 Template selector (default, coder, analyst, researcher)
-- ⚙️ In-browser settings page to configure API keys
-- 🚀 Deployable to Vercel with one click
+**apps/web** is the official documentation website:
 
 ```bash
-# Clone and setup
-git clone https://github.com/vikadata/sandagent.git
-cd sandagent
-pnpm install && pnpm build
-
-# Start the example app
-cd apps/sandagent-example
+# Start the documentation site
+cd apps/web
 pnpm dev
 ```
 
-Open http://localhost:3000 → Click **Settings** → Enter your API keys → Start chatting!
-
-> **Note:** API keys are configured in the browser settings page, not environment variables. This makes it easy to test without server configuration.
+Open http://localhost:3000
 
 ### Option B: Manager CLI
 
@@ -380,7 +369,7 @@ export class E2BSandbox {
 Applications combine runners and sandboxes through the manager:
 
 ```typescript
-// In ai-provider, manager-cli, or your own app
+// In manager-cli, or your own app
 import { SandAgentManager } from '@sandagent/manager';
 import { ClaudeRunner } from '@sandagent/runner-claude';
 import { E2BSandbox } from '@sandagent/sandbox-e2b';
@@ -450,12 +439,12 @@ const manager = new SandAgentManager({
 ```
 sandagent/
 ├─ apps/
-│  ├─ sandagent-example/   # Complete Next.js app with AI chat UI
+│  ├─ web/                # Official documentation website
 │  ├─ manager-cli/         # sandagent-manager command - manage sandboxes
 │  └─ runner-cli/          # sandagent command - universal terminal agent runner (choose claude/codex/copilot)
 ├─ packages/
 │  ├─ manager/             # Core orchestration & interface definitions
-│  ├─ ai-provider/         # AI SDK provider integration
+│  ├─ sdk/                # SDK for product integration
 │  ├─ runner-claude/       # Claude Agent SDK runtime
 │  ├─ sandbox-local/       # Local filesystem sandbox adapter
 │  ├─ sandbox-e2b/         # E2B cloud sandbox adapter
@@ -481,16 +470,15 @@ SandAgent follows a **clean, pluggable architecture** where components are loose
 ├─────────────────────────────────────────────────────────────┤
 │                                                               │
 │  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐  │
-│  │ ai-provider  │    │ manager-cli  │    │  runner-cli  │  │
-│  │              │    │              │    │  (sandagent) │  │
+│  │ web         │    │ manager-cli  │    │  runner-cli  │  │
+│  │ (docs)      │    │              │    │  (sandagent) │  │
 │  │              │    │              │    │  Choose:     │  │
 │  │              │    │              │    │  -r claude   │  │
-│  └──────┬───────┘    └──────┬───────┘    │  -r codex    │  │
-│         │                   │             │  -r copilot  │  │
-│         │ use manager       │ use manager └──────┬───────┘  │
-│         │                   │                    │           │
-│         └───────────────────┤                    │ direct    │
-└─────────────────────────────┼────────────────────┼───────────┘
+│  └─────────────┘    └──────┬───────┘    │  -r codex    │  │
+│                              use manager    │  -r copilot  │  │
+│                                            └──────┬───────┘  │
+│                                                   │ direct    │
+└───────────────────────────────────────────────────────────┼───────────┘
                               │                    │
                               │ uses               │ uses
                               ↓                    │
@@ -534,9 +522,6 @@ SandAgent follows a **clean, pluggable architecture** where components are loose
 
 ```
 Applications (different use cases):
-├─ ai-provider      → manager + runner-* + sandbox-*
-│                     (needs sandbox for isolated execution)
-│
 ├─ manager-cli      → manager + runner-* + sandbox-*
 │                     (manages sandbox sessions)
 │
@@ -567,9 +552,9 @@ Sandbox Implementations (only used via manager):
 1. **Interface-Driven**: `manager` defines `Runner` and `SandboxAdapter` interfaces
 2. **Zero Circular Dependencies**: Implementations don't depend on `manager`
 3. **Pluggable**: Any runner can work with any sandbox (via manager) OR standalone
-4. **Flexible Usage**: 
+4. **Flexible Usage**:
    - Runners can be used **directly** (runner-cli) for local development
-   - Or via **manager** (ai-provider, manager-cli) for sandboxed execution
+   - Or via **manager** (manager-cli) for sandboxed execution
 5. **Type-Safe**: TypeScript structural typing ensures compatibility
 
 **Example Usage:**

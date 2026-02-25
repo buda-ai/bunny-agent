@@ -21,7 +21,6 @@ import type {
   SDKUserMessage,
 } from "@anthropic-ai/claude-agent-sdk";
 import {
-  AISDKStreamConverter,
   convertUsageToAISDK,
   formatDataStream,
   generateId,
@@ -208,20 +207,42 @@ const OPTIONAL_MODULES: Record<string, string> = {
 };
 
 /**
+ * True when we have some form of Claude auth so we should not use mock.
+ * Supports:
+ * - ANTHROPIC_API_KEY (direct Anthropic)
+ * - AWS_BEARER_TOKEN_BEDROCK (Bedrock)
+ * - ANTHROPIC_AUTH_TOKEN (Bedrock proxy API key)
+ * - LITELLM_MASTER_KEY (Bedrock proxy API key)
+ * - CLAUDE_CODE_USE_BEDROCK=1 + ANTHROPIC_BEDROCK_BASE_URL (Bedrock proxy; key in ANTHROPIC_AUTH_TOKEN or LITELLM_MASTER_KEY)
+ */
+export function hasClaudeAuth(): boolean {
+  if (process.env.ANTHROPIC_API_KEY) return true;
+  if (process.env.AWS_BEARER_TOKEN_BEDROCK) return true;
+  if (process.env.ANTHROPIC_AUTH_TOKEN) return true;
+  if (process.env.LITELLM_MASTER_KEY) return true;
+  if (
+    process.env.CLAUDE_CODE_USE_BEDROCK === "1" &&
+    process.env.ANTHROPIC_BEDROCK_BASE_URL
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/**
  * Create a Claude runner using the official Claude Agent SDK
  */
 export function createClaudeRunner(options: ClaudeRunnerOptions): ClaudeRunner {
   return {
     async *run(userInput: string): AsyncIterable<string> {
-      // Check for API key
-      const apiKey =
-        process.env.ANTHROPIC_API_KEY || process.env.AWS_BEARER_TOKEN_BEDROCK;
-      if (!apiKey) {
+      // Check for API key or Bedrock proxy config
+      if (!hasClaudeAuth()) {
         console.error(
-          "[SandAgent] Warning: ANTHROPIC_API_KEY or AWS_BEARER_TOKEN_BEDROCK not set. Using mock response.\n" +
-            "To use the real Claude Agent SDK:\n" +
-            "1. Set ANTHROPIC_API_KEY or AWS_BEARER_TOKEN_BEDROCK environment variable\n" +
-            "2. Install the SDK: npm install @anthropic-ai/claude-agent-sdk",
+          "[SandAgent] Warning: No Claude auth configured. Using mock response.\n" +
+            "To use the real Claude Agent SDK, set one of:\n" +
+            "  ANTHROPIC_API_KEY, AWS_BEARER_TOKEN_BEDROCK, ANTHROPIC_AUTH_TOKEN, or LITELLM_MASTER_KEY\n" +
+            "  Or for Bedrock proxy: CLAUDE_CODE_USE_BEDROCK=1 and ANTHROPIC_BEDROCK_BASE_URL (and ANTHROPIC_AUTH_TOKEN or LITELLM_MASTER_KEY)\n" +
+            "Then install the SDK: npm install @anthropic-ai/claude-agent-sdk",
         );
 
         yield* runMockAgent(
@@ -366,7 +387,6 @@ async function* runWithTextOutput(
   sdk: ClaudeAgentSDKModule,
   options: ClaudeRunnerOptions,
   userInput: string | AsyncIterable<SDKUserMessage>,
-  signal?: AbortSignal,
 ): AsyncIterable<string> {
   const sdkOptions = createSDKOptions(options);
   const queryIterator = sdk.query({ prompt: userInput, options: sdkOptions });
@@ -402,12 +422,13 @@ async function* runWithJSONOutput(
   sdk: ClaudeAgentSDKModule,
   options: ClaudeRunnerOptions,
   userInput: string | AsyncIterable<SDKUserMessage>,
-  signal?: AbortSignal,
 ): AsyncIterable<string> {
   const sdkOptions = createSDKOptions(options);
   const queryIterator = sdk.query({ prompt: userInput, options: sdkOptions });
-  const cleanup = setupAbortHandler(queryIterator, signal);
-
+  const cleanup = setupAbortHandler(
+    queryIterator,
+    options.abortController?.signal,
+  );
   try {
     let resultMessage: SDKMessage | null = null;
     for await (const message of queryIterator) {
@@ -433,11 +454,13 @@ async function* runWithStreamJSONOutput(
   sdk: ClaudeAgentSDKModule,
   options: ClaudeRunnerOptions,
   userInput: string | AsyncIterable<SDKUserMessage>,
-  signal?: AbortSignal,
 ): AsyncIterable<string> {
   const sdkOptions = createSDKOptions(options);
   const queryIterator = sdk.query({ prompt: userInput, options: sdkOptions });
-  const cleanup = setupAbortHandler(queryIterator, signal);
+  const cleanup = setupAbortHandler(
+    queryIterator,
+    options.abortController?.signal,
+  );
 
   try {
     for await (const message of queryIterator) {
@@ -469,7 +492,7 @@ async function* runWithAISDKUIOutput(
   );
 
   try {
-    yield* streamSDKMessagesToAISDKUI(queryIterator, { cwd: options.cwd });
+    yield* streamSDKMessagesToAISDKUI(queryIterator);
   } finally {
     cleanup();
   }
@@ -505,10 +528,10 @@ async function* runMockAgent(
       `I received your request: "${userInput}"\n\n` +
       `Model: ${options.model}\n\n` +
       `This is a mock response because:\n` +
-      `- ANTHROPIC_API_KEY is not set, OR\n` +
+      `- No Claude auth (ANTHROPIC_API_KEY, ANTHROPIC_AUTH_TOKEN, AWS_BEARER_TOKEN_BEDROCK, or Bedrock proxy env) is set, OR\n` +
       `- @anthropic-ai/claude-agent-sdk is not installed\n\n` +
       `To use the real Claude Agent SDK:\n` +
-      `1. Set ANTHROPIC_API_KEY environment variable\n` +
+      `1. Set ANTHROPIC_API_KEY, or for Bedrock proxy: ANTHROPIC_AUTH_TOKEN/LITELLM_MASTER_KEY and ANTHROPIC_BEDROCK_BASE_URL, CLAUDE_CODE_USE_BEDROCK=1\n` +
       `2. Install the SDK: npm install @anthropic-ai/claude-agent-sdk\n\n` +
       `Documentation: https://platform.claude.com/docs/en/agent-sdk/typescript-v2-preview`;
 
