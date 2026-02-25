@@ -492,6 +492,14 @@ class SandockHandle implements SandboxHandle {
       "[Sandock] ANTHROPIC_API_KEY present:",
       !!envWithNodePath.ANTHROPIC_API_KEY,
     );
+    console.log(
+      "[Sandock] AWS_BEARER_TOKEN_BEDROCK present:",
+      !!envWithNodePath.AWS_BEARER_TOKEN_BEDROCK,
+    );
+    console.log(
+      "[Sandock] CLAUDE_CODE_USE_BEDROCK:",
+      envWithNodePath.CLAUDE_CODE_USE_BEDROCK || "NOT SET",
+    );
     if (envWithNodePath.ANTHROPIC_API_KEY) {
       console.log(
         "[Sandock] ANTHROPIC_API_KEY prefix:",
@@ -589,6 +597,9 @@ class SandockHandle implements SandboxHandle {
           console.log("[Sandock] No signal provided");
         }
 
+        // Track if we've received any output (indicates proper stream completion)
+        let hasReceivedOutput = false;
+
         // Start shell command with streaming callbacks
         const shellPromise = self.client.sandbox.shell(
           self.sandboxId,
@@ -597,16 +608,25 @@ class SandockHandle implements SandboxHandle {
             onStdout: (chunk: string) => {
               // Stop producing stdout chunks if signal is aborted
               if (signal?.aborted) return;
+              hasReceivedOutput = true;
               queue.push(new TextEncoder().encode(chunk));
               resolveWait?.();
             },
             onStderr: (chunk: string) => {
+              hasReceivedOutput = true;
               queue.push(new TextEncoder().encode(chunk));
               resolveWait?.();
             },
             onError: (err: unknown) => {
               console.log("SHELL ERROR:", err);
-              error = err instanceof Error ? err : new Error(String(err));
+              // Only set error if:
+              // 1. We haven't received any output (process failed before communicating)
+              // 2. The stream isn't already done
+              // If we received output, the process communicated its error properly
+              // and we shouldn't override it with a generic "process exited" error
+              if (!hasReceivedOutput && !done) {
+                error = err instanceof Error ? err : new Error(String(err));
+              }
               resolveWait?.();
             },
           },
@@ -643,9 +663,13 @@ class SandockHandle implements SandboxHandle {
             },
           )
           .catch((err: unknown) => {
-            error = err instanceof Error ? err : new Error(String(err));
+            // Only set error if we haven't received any output
+            // If we received output, the process communicated its error properly
+            if (!hasReceivedOutput) {
+              error = err instanceof Error ? err : new Error(String(err));
+            }
             // Log AbortError appropriately
-            if (error.name === "AbortError") {
+            if (err instanceof Error && err.name === "AbortError") {
               console.log("[Sandock] Command execution aborted by user");
             } else {
               console.error("[Sandock] Shell promise rejected:", err);

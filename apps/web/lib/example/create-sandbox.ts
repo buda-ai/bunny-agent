@@ -2,7 +2,7 @@ import path from "node:path";
 import type { DaytonaSandboxOptions } from "@sandagent/sandbox-daytona";
 import { E2BSandbox } from "@sandagent/sandbox-e2b";
 import { SandockSandbox } from "@sandagent/sandbox-sandock";
-import { LocalSandbox, type SandboxAdapter } from "@sandagent/sdk";
+import { LocalSandbox, type SandboxAdapter, buildRunnerEnv } from "@sandagent/sdk";
 
 const MONOREPO_ROOT = path.resolve(process.cwd(), "../..");
 const TEMPLATES_PATH = path.join(MONOREPO_ROOT, "templates");
@@ -10,7 +10,7 @@ const RUNNER_BUNDLE_PATH = path.join(
   MONOREPO_ROOT,
   "apps/runner-cli/dist/bundle.mjs",
 );
-const SANDBOX_IMAGE = process.env.SANDBOX_IMAGE ?? "vikadata/sandagent:0.1.4";
+const SANDBOX_IMAGE = process.env.SANDBOX_IMAGE ?? "vikadata/sandagent:0.2.15";
 
 export interface CreateSandboxParams {
   SANDBOX_PROVIDER?: string;
@@ -19,6 +19,14 @@ export interface CreateSandboxParams {
   DAYTONA_API_KEY?: string;
   ANTHROPIC_API_KEY?: string;
   ANTHROPIC_BASE_URL?: string;
+  AWS_BEARER_TOKEN_BEDROCK?: string;
+  /** Bedrock proxy: API key (same as LITELLM_MASTER_KEY) */
+  ANTHROPIC_AUTH_TOKEN?: string;
+  LITELLM_MASTER_KEY?: string;
+  ANTHROPIC_BEDROCK_BASE_URL?: string;
+  CLAUDE_CODE_USE_BEDROCK?: string;
+  CLAUDE_CODE_SKIP_BEDROCK_AUTH?: string;
+  AWS_REGION?: string;
   template?: string;
   SANDBOX_IMAGE?: string;
   env?: Record<string, string>;
@@ -75,17 +83,28 @@ async function buildSandbox(
     DAYTONA_API_KEY,
     ANTHROPIC_API_KEY,
     ANTHROPIC_BASE_URL,
+    AWS_BEARER_TOKEN_BEDROCK,
+    ANTHROPIC_AUTH_TOKEN,
+    LITELLM_MASTER_KEY,
+    ANTHROPIC_BEDROCK_BASE_URL,
+    CLAUDE_CODE_USE_BEDROCK,
+    CLAUDE_CODE_SKIP_BEDROCK_AUTH,
     template = "default",
     env: extraEnv = {},
   } = params;
 
   const sandboxName = `sandagent-${template}`;
-  const baseEnv: Record<string, string> = {
-    DEBUG_STREAM: "true",
-    ...extraEnv,
-  };
-  if (ANTHROPIC_API_KEY) baseEnv.ANTHROPIC_API_KEY = ANTHROPIC_API_KEY;
-  if (ANTHROPIC_BASE_URL) baseEnv.ANTHROPIC_BASE_URL = ANTHROPIC_BASE_URL;
+  const baseEnv = buildRunnerEnv({
+    ANTHROPIC_API_KEY,
+    ANTHROPIC_BASE_URL,
+    AWS_BEARER_TOKEN_BEDROCK,
+    ANTHROPIC_AUTH_TOKEN,
+    LITELLM_MASTER_KEY,
+    ANTHROPIC_BEDROCK_BASE_URL,
+    CLAUDE_CODE_USE_BEDROCK,
+    CLAUDE_CODE_SKIP_BEDROCK_AUTH,
+    inherit: extraEnv,
+  });
 
   if (SANDBOX_PROVIDER === "daytona" && DAYTONA_API_KEY) {
     const { DaytonaSandbox } = await import("@sandagent/sandbox-daytona");
@@ -131,14 +150,7 @@ async function buildSandbox(
       apiKey: E2B_API_KEY,
       templatesPath: path.join(TEMPLATES_PATH, template),
       name: sandboxName,
-      env: {
-        ...baseEnv,
-        DEBUG: "true",
-        API_TIMEOUT_MS: "3000000",
-        ANTHROPIC_DEFAULT_HAIKU_MODEL: "glm-4.5-air",
-        ANTHROPIC_DEFAULT_SONNET_MODEL: "glm-4.7",
-        ANTHROPIC_DEFAULT_OPUS_MODEL: "glm-4.7",
-      },
+      env: baseEnv,
       workdir: "/workspace",
     });
   }
@@ -151,10 +163,7 @@ async function buildSandbox(
     env: {
       ...baseEnv,
       DEBUG: "true",
-      API_TIMEOUT_MS: "3000000",
-      ANTHROPIC_DEFAULT_HAIKU_MODEL: "glm-4.5-air",
-      ANTHROPIC_DEFAULT_SONNET_MODEL: "glm-4.7",
-      ANTHROPIC_DEFAULT_OPUS_MODEL: "glm-4.7",
+      API_TIMEOUT_MS: "3000",
     },
     runnerCommand: ["node", RUNNER_BUNDLE_PATH, "run"],
   });
