@@ -1,5 +1,13 @@
 # @sandagent/sdk
 
+## 0.2.16
+
+### Patch Changes
+
+- Use Claude via LiteLLM proxy (including Bedrock pass-through). Configure LITELLM_MASTER_KEY, ANTHROPIC_BEDROCK_BASE_URL, CLAUDE_CODE_USE_BEDROCK, etc., for self-hosted gateways or Bedrock.
+- Updated dependencies
+  - @sandagent/manager@0.2.16
+
 ## 0.2.15
 
 ### Patch Changes
