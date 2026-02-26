@@ -3,6 +3,8 @@
  */
 export interface Volume {
   volumeId: string;
+  /** Space ID from the backend (e.g. Sandock space id when volume is tied to a space) */
+  spaceId?: string;
   mountPath: string;
   /** Optional display name (e.g. volume name from config) */
   name?: string;
