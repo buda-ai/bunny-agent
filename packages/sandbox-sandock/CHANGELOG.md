@@ -1,5 +1,13 @@
 # @sandagent/sandbox-sandock
 
+## 0.2.17
+
+### Patch Changes
+
+- add space id to Volume
+- Updated dependencies
+  - @sandagent/manager@0.2.17
+
 ## 0.2.16
 
 ### Patch Changes
