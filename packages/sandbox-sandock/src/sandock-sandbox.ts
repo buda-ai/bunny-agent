@@ -249,6 +249,7 @@ export class SandockSandbox implements SandboxAdapter {
 
       volumeMounts.push({
         volumeId: volume.data.id,
+        ...(volume.data.spaceId ? { spaceId: volume.data.spaceId } : {}),
         mountPath,
         name: v.volumeName,
       });

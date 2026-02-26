@@ -1,5 +1,11 @@
 # @sandagent/runner-cli
 
+## 0.2.17
+
+### Patch Changes
+
+- add space id to Volume
+
 ## 0.2.16
 
 ### Patch Changes
