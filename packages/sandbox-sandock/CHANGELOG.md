@@ -1,5 +1,13 @@
 # @sandagent/sandbox-sandock
 
+## 0.2.18
+
+### Patch Changes
+
+- chore: upgrade AI SDK, set turbopack.root, bump SDK provider deps
+- Updated dependencies
+  - @sandagent/manager@0.2.18
+
 ## 0.2.17
 
 ### Patch Changes

@@ -1,5 +1,11 @@
 # @sandagent/runner-cli
 
+## 0.2.18
+
+### Patch Changes
+
+- chore: upgrade AI SDK, set turbopack.root, bump SDK provider deps
+
 ## 0.2.17
 
 ### Patch Changes
