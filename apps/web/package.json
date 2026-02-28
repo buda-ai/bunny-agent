@@ -13,13 +13,13 @@
     "format": "biome format --write"
   },
   "dependencies": {
-    "@ai-sdk/react": "^3.0.3",
+    "@ai-sdk/react": "^3.0.52",
     "@next/third-parties": "^16.1.6",
     "@sandagent/sandbox-daytona": "workspace:*",
     "@sandagent/sandbox-e2b": "workspace:*",
     "@sandagent/sandbox-sandock": "workspace:*",
     "@sandagent/sdk": "workspace:*",
-    "ai": "^6.0.19",
+    "ai": "^6.0.105",
     "fumadocs-core": "16.5.4",
     "fumadocs-mdx": "14.2.7",
     "fumadocs-ui": "16.5.4",
