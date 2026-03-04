@@ -16,6 +16,7 @@ RUN for i in 1 2 3; do \
     apt-get update && apt-get install -y \
     git \
     curl \
+    socat \
     && rm -rf /var/lib/apt/lists/* \
     && break || sleep 5; \
     done
@@ -59,22 +60,19 @@ ENV NODE_PATH=/opt/sandagent/node_modules
 ENV PATH=/usr/local/bin:$PATH
 
 # Create CDP (Chrome DevTools Protocol) startup script
-RUN echo '#!/usr/bin/env node\n\
-try {\n\
-  const { spawn } = require("child_process");\n\
-  const { chromium } = require("playwright");\n\
-  const exe = chromium.executablePath();\n\
-  const p = spawn(exe, [\n\
-    "--headless", "--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage",\n\
-    "--remote-debugging-port=9222", "--remote-debugging-address=0.0.0.0"\n\
-  ], { stdio: "ignore", detached: true });\n\
-  p.on("error", (err) => console.error("CDP spawn error:", err.message));\n\
-  p.unref();\n\
-  console.log("CDP WebSocket available on port 9222");\n\
-} catch (err) {\n\
-  console.error("Failed to start CDP browser:", err.message);\n\
-  process.exitCode = 1;\n\
-}' > /usr/local/bin/start-cdp && \
+# Chromium binds to 127.0.0.1 even with --remote-debugging-address=0.0.0.0
+# in newer versions, so we use socat to proxy 0.0.0.0:9222 → 127.0.0.1:9223
+RUN echo '#!/bin/bash\n\
+set -e\n\
+CHROME_BIN=$(node -e "console.log(require('"'"'playwright'"'"').chromium.executablePath())")\n\
+"$CHROME_BIN" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \\\n\
+  --remote-debugging-port=9223 &\n\
+for i in $(seq 1 30); do\n\
+  if curl -s http://127.0.0.1:9223/json/version > /dev/null 2>&1; then break; fi\n\
+  sleep 0.5\n\
+done\n\
+socat TCP-LISTEN:9222,fork,reuseaddr,bind=0.0.0.0 TCP:127.0.0.1:9223 &\n\
+echo "CDP WebSocket available on 0.0.0.0:9222 (proxied from 127.0.0.1:9223)"' > /usr/local/bin/start-cdp && \
     chmod +x /usr/local/bin/start-cdp
 
 # Template files (optional, added by build script)
