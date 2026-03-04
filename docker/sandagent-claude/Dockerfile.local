@@ -41,8 +41,12 @@ WORKDIR /workspace
 # Install only runtime dep (runner code is in bundle)
 RUN mkdir -p /opt/sandagent/node_modules && \
     cd /opt/sandagent && npm init -y && \
-    npm install --no-audit --no-fund @anthropic-ai/claude-agent-sdk && \
+    npm install --no-audit --no-fund @anthropic-ai/claude-agent-sdk playwright && \
     rm package.json package-lock.json && npm cache clean --force
+
+# Install Playwright Chromium browser and system dependencies
+ENV PLAYWRIGHT_BROWSERS_PATH=/opt/sandagent/pw-browsers
+RUN cd /opt/sandagent && npx playwright install --with-deps chromium
 
 # Copy local-built runner bundle into place
 RUN mkdir -p /opt/sandagent/node_modules/@sandagent/runner-cli/dist
@@ -65,4 +69,19 @@ RUN echo '#!/usr/bin/env node' > /usr/local/bin/sandagent && \
 ENV NODE_PATH=/opt/sandagent/node_modules
 ENV PATH=/usr/local/bin:$PATH
 
-CMD ["sleep", "infinity"]
+# Create CDP (Chrome DevTools Protocol) startup script
+RUN echo '#!/usr/bin/env node\n\
+const { spawn } = require("child_process");\n\
+const { chromium } = require("playwright");\n\
+const p = spawn(chromium.executablePath(), [\n\
+  "--headless", "--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage",\n\
+  "--remote-debugging-port=9222", "--remote-debugging-address=0.0.0.0"\n\
+], { stdio: "ignore", detached: true });\n\
+p.unref();\n\
+console.log("CDP WebSocket available on port 9222");' > /usr/local/bin/start-cdp && \
+    chmod +x /usr/local/bin/start-cdp
+
+# Expose CDP websocket port
+EXPOSE 9222
+
+CMD ["bash", "-c", "start-cdp; sleep infinity"]

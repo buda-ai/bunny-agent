@@ -30,9 +30,14 @@ RUN mkdir -p /opt/sandagent && \
     npm init -y && \
     npm install --no-audit --no-fund \
     @anthropic-ai/claude-agent-sdk \
-    @sandagent/runner-cli@latest && \
+    @sandagent/runner-cli@latest \
+    playwright && \
     rm package.json package-lock.json && \
     npm cache clean --force
+
+# Install Playwright Chromium browser and system dependencies
+ENV PLAYWRIGHT_BROWSERS_PATH=/opt/sandagent/pw-browsers
+RUN cd /opt/sandagent && npx playwright install --with-deps chromium
 
 # Create init script to copy deps to workspace on startup
 RUN echo '#!/bin/bash\n\
@@ -53,7 +58,22 @@ RUN echo '#!/usr/bin/env node' > /usr/local/bin/sandagent && \
 ENV NODE_PATH=/opt/sandagent/node_modules
 ENV PATH=/usr/local/bin:$PATH
 
+# Create CDP (Chrome DevTools Protocol) startup script
+RUN echo '#!/usr/bin/env node\n\
+const { spawn } = require("child_process");\n\
+const { chromium } = require("playwright");\n\
+const p = spawn(chromium.executablePath(), [\n\
+  "--headless", "--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage",\n\
+  "--remote-debugging-port=9222", "--remote-debugging-address=0.0.0.0"\n\
+], { stdio: "ignore", detached: true });\n\
+p.unref();\n\
+console.log("CDP WebSocket available on port 9222");' > /usr/local/bin/start-cdp && \
+    chmod +x /usr/local/bin/start-cdp
+
 # Template files (optional, added by build script)
 
-# Keep container running (for Daytona)
-CMD ["sleep", "infinity"]
+# Expose CDP websocket port
+EXPOSE 9222
+
+# Keep container running (for Daytona), start CDP browser
+CMD ["bash", "-c", "start-cdp; sleep infinity"]
