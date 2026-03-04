@@ -60,14 +60,21 @@ ENV PATH=/usr/local/bin:$PATH
 
 # Create CDP (Chrome DevTools Protocol) startup script
 RUN echo '#!/usr/bin/env node\n\
-const { spawn } = require("child_process");\n\
-const { chromium } = require("playwright");\n\
-const p = spawn(chromium.executablePath(), [\n\
-  "--headless", "--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage",\n\
-  "--remote-debugging-port=9222", "--remote-debugging-address=0.0.0.0"\n\
-], { stdio: "ignore", detached: true });\n\
-p.unref();\n\
-console.log("CDP WebSocket available on port 9222");' > /usr/local/bin/start-cdp && \
+try {\n\
+  const { spawn } = require("child_process");\n\
+  const { chromium } = require("playwright");\n\
+  const exe = chromium.executablePath();\n\
+  const p = spawn(exe, [\n\
+    "--headless", "--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage",\n\
+    "--remote-debugging-port=9222", "--remote-debugging-address=0.0.0.0"\n\
+  ], { stdio: "ignore", detached: true });\n\
+  p.on("error", (err) => console.error("CDP spawn error:", err.message));\n\
+  p.unref();\n\
+  console.log("CDP WebSocket available on port 9222");\n\
+} catch (err) {\n\
+  console.error("Failed to start CDP browser:", err.message);\n\
+  process.exitCode = 1;\n\
+}' > /usr/local/bin/start-cdp && \
     chmod +x /usr/local/bin/start-cdp
 
 # Template files (optional, added by build script)
