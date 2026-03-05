@@ -12,8 +12,8 @@ vi.mock("@sandagent/runner-claude", () => ({
 vi.mock("@sandagent/runner-codex", () => ({
   createCodexRunner: vi.fn().mockReturnValue({
     run: vi.fn().mockImplementation(async function* () {
-      yield "0:\"codex message\"\\n";
-      yield "d:{\"finishReason\":\"stop\"}\\n";
+      yield '0:"codex message"\\n';
+      yield 'd:{"finishReason":"stop"}\\n';
     }),
   }),
 }));
@@ -21,8 +21,8 @@ vi.mock("@sandagent/runner-codex", () => ({
 vi.mock("@sandagent/runner-gemini", () => ({
   createGeminiRunner: vi.fn().mockReturnValue({
     run: vi.fn().mockImplementation(async function* () {
-      yield "0:\"gemini message\"\\n";
-      yield "d:{\"finishReason\":\"stop\"}\\n";
+      yield '0:"gemini message"\\n';
+      yield 'd:{"finishReason":"stop"}\\n';
     }),
   }),
 }));

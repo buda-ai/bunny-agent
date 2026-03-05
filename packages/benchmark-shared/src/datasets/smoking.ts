@@ -1,6 +1,6 @@
 /**
  * Smoking Coding Benchmark
- * 
+ *
  * Quick validation tests for basic coding agent capabilities
  */
 
@@ -20,7 +20,8 @@ export const SMOKING_TESTS: SmokingTask[] = [
   {
     id: "smoke-001",
     name: "Create Hello World",
-    description: "Create a file named hello.txt with content 'Hello, World!' and return ONLY the content of the file",
+    description:
+      "Create a file named hello.txt with content 'Hello, World!' and return ONLY the content of the file",
     expectedOutput: /Hello,?\s*World!?/i,
     category: "file",
     timeoutMs: 90000,
@@ -52,7 +53,8 @@ export const SMOKING_TESTS: SmokingTask[] = [
   {
     id: "smoke-005",
     name: "JSON Parse",
-    description: "Parse this JSON and return ONLY the value of the 'name' field: {\"name\":\"test\",\"value\":42}",
+    description:
+      'Parse this JSON and return ONLY the value of the \'name\' field: {"name":"test","value":42}',
     expectedOutput: /test/,
     category: "reasoning",
     timeoutMs: 30000,
@@ -77,7 +79,7 @@ export function getAllSmokingTests(): SmokingTask[] {
  * Get smoking tests by category
  */
 export function getSmokingTestsByCategory(
-  category: SmokingTask["category"]
+  category: SmokingTask["category"],
 ): SmokingTask[] {
   return SMOKING_TESTS.filter((t) => t.category === category);
 }

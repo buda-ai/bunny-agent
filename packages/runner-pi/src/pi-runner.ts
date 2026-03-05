@@ -15,15 +15,17 @@ export interface PiRunner {
 }
 
 /**
- * Create a Pi agent runner that outputs AI SDK UI messages
+ * Create a Pi agent runner that outputs SSE format (Data Stream Protocol)
  */
 export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
-  const modelStr = options.model || "google:gemini-2.5-flash-lite-preview-06-17";
+  const modelStr =
+    options.model || "google:gemini-2.5-flash-lite-preview-06-17";
   const [provider, modelName] = modelStr.split(":");
   const cwd = options.cwd || process.cwd();
-  
+
+  // biome-ignore lint/suspicious/noExplicitAny: getModel accepts string provider
   const model = getModel(provider as any, modelName);
-  
+
   // Override baseUrl if environment variable is set
   if (provider === "openai" && process.env.OPENAI_BASE_URL) {
     model.baseUrl = process.env.OPENAI_BASE_URL;
@@ -32,13 +34,13 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
   } else if (provider === "anthropic" && process.env.ANTHROPIC_BASE_URL) {
     model.baseUrl = process.env.ANTHROPIC_BASE_URL;
   }
-  
-  // Create coding tools (read, bash, edit, write)
+
   const tools = createCodingTools(cwd);
-  
+
   const agent = new Agent({
     initialState: {
-      systemPrompt: options.systemPrompt || "You are a helpful coding assistant.",
+      systemPrompt:
+        options.systemPrompt || "You are a helpful coding assistant.",
       model,
       tools,
     },
@@ -46,10 +48,9 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
 
   return {
     async *run(userInput: string): AsyncIterable<string> {
-      // Collect events in a queue
       const eventQueue: AgentEvent[] = [];
       let isComplete = false;
-      
+
       const unsubscribe = agent.subscribe((e) => {
         eventQueue.push(e);
         if (e.type === "agent_end") {
@@ -58,56 +59,60 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
       });
 
       try {
-        // Start the agent (non-blocking)
         const promptPromise = agent.prompt(userInput);
 
-        // Stream events as they arrive
+        // Generate unique IDs
+        const messageId = `msg_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+        const textId = `text_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+        let hasStarted = false;
+        let hasTextStarted = false;
+
         while (!isComplete || eventQueue.length > 0) {
           while (eventQueue.length > 0) {
             const event = eventQueue.shift()!;
-            
-            // Convert Pi Agent events to AI SDK UI format
+
+            // Emit start event once
+            if (!hasStarted && event.type === "message_update") {
+              yield `data: ${JSON.stringify({ type: "start", messageId })}\n\n`;
+              hasStarted = true;
+            }
+
             if (event.type === "message_update") {
-              // Stream text content from assistant messages
               const msg = event.message;
               if (msg.role === "assistant") {
                 for (const content of msg.content) {
                   if (content.type === "text" && content.text) {
-                    yield `0:${JSON.stringify(content.text)}\n`;
-                  } else if (content.type === "thinking" && content.thinking) {
-                    // Optionally stream thinking
-                    yield `0:${JSON.stringify(`[Thinking] ${content.thinking}`)}\n`;
+                    if (!hasTextStarted) {
+                      yield `data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`;
+                      hasTextStarted = true;
+                    }
+                    yield `data: ${JSON.stringify({ type: "text-delta", id: textId, delta: content.text })}\n\n`;
                   }
                 }
               }
             } else if (event.type === "tool_execution_start") {
-              yield `9:${JSON.stringify({
-                toolCallId: event.toolCallId,
-                toolName: event.toolName,
-                args: event.args,
-              })}\n`;
+              yield `data: ${JSON.stringify({ type: "tool-input-start", toolCallId: event.toolCallId, toolName: event.toolName })}\n\n`;
+              yield `data: ${JSON.stringify({ type: "tool-input-available", toolCallId: event.toolCallId, toolName: event.toolName, input: event.args })}\n\n`;
             } else if (event.type === "tool_execution_end") {
-              yield `a:${JSON.stringify({
-                toolCallId: event.toolCallId,
-                result: event.result,
-              })}\n`;
+              yield `data: ${JSON.stringify({ type: "tool-output-available", toolCallId: event.toolCallId, output: event.result })}\n\n`;
             } else if (event.type === "agent_end") {
-              yield `d:{"finishReason":"stop"}\n`;
+              if (hasTextStarted) {
+                yield `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`;
+              }
+              yield `data: ${JSON.stringify({ type: "finish", finishReason: "stop" })}\n\n`;
+              yield `data: [DONE]\n\n`;
             }
           }
 
-          // Wait a bit before checking again
           if (!isComplete) {
-            await new Promise(resolve => setTimeout(resolve, 10));
+            await new Promise((resolve) => setTimeout(resolve, 10));
           }
         }
 
-        // Wait for prompt to complete
         await promptPromise;
 
-        // Handle errors
         if (agent.state.error) {
-          yield `3:${JSON.stringify(agent.state.error)}\n`;
+          yield `data: ${JSON.stringify({ type: "error", errorText: agent.state.error })}\n\n`;
         }
       } finally {
         unsubscribe();

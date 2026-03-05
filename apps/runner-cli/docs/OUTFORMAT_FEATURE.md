@@ -1,28 +1,12 @@
-# Output Format Feature Summary
+# Output Format Note
 
-This note documents the addition of `--output-format` (`-o`) to `runner-cli`.
+`runner-cli` no longer accepts `--output-format` (`-o`).
 
-## What Was Added
+## Current Behavior
 
-- CLI option: `--output-format <stream|json>` (short: `-o`)
-- Runner handling for stream vs JSON output
-- SSE-to-JSON parsing to produce a single structured JSON object
+- `sandagent run` always outputs AI SDK data stream (SSE) format.
+- Output format selection via CLI flag is not supported.
 
-## Where to Find Details
+## References
 
-- Full guide: [Output Format](https://sandagent.dev/docs/output-format)
 - CLI reference: `apps/runner-cli/README.md`
-
-## Implementation Touchpoints
-
-- `apps/runner-cli/src/cli.ts` (option parsing and validation)
-- `apps/runner-cli/src/runner.ts` (SSE parsing and output formatting)
-
-## Testing
-
-Type checks and build passed during development:
-
-```bash
-pnpm typecheck
-pnpm build
-```

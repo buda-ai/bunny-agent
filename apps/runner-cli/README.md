@@ -87,14 +87,11 @@ sandagent run --runner claude --system-prompt "You are a coding assistant" -- "B
 | `--max-turns <n>` | `-t` | Maximum conversation turns | - |
 | `--allowed-tools <tools>` | `-a` | Comma-separated list of allowed tools | - |
 | `--resume <session-id>` | `-r` | Resume a previous session | - |
-| `--output-format <format>` | `-o` | Output format: `stream` or `json` | `stream` |
 | `--help` | `-h` | Show help message | - |
 
-## Output Formats
+## Output Format
 
-### Stream Format (Default)
-
-Outputs Server-Sent Events (SSE) using the AI SDK UI Stream Protocol. Ideal for real-time UI streaming.
+`sandagent run` always outputs AI SDK data stream (SSE) format.
 
 ```bash
 sandagent run -- "Calculate 2+2"
@@ -105,16 +102,6 @@ sandagent run -- "Calculate 2+2"
 data: {"type":"start","messageId":"msg_123"}
 data: {"type":"text-delta","id":"text_1","delta":"The answer is 4."}
 data: [DONE]
-```
-
-### JSON Format
-
-Outputs a structured JSON object with complete message content and metadata. Ideal for API integration and automation.
-
-```bash
-sandagent run --output-format json -- "Calculate 2+2"
-# or
-sandagent run -o json -- "Calculate 2+2"
 ```
 
 ## Environment Variables
@@ -135,21 +122,10 @@ sandagent run -o json -- "Calculate 2+2"
 sandagent run --cwd ./my-project -- "Fix the bug in main.ts"
 ```
 
-### JSON Output for Automation
-
-```bash
-# Save result to file
-sandagent run -o json -- "Generate UUID" > result.json
-
-# Parse with jq
-sandagent run -o json -- "What is 2+2?" | jq '.content[0].text'
-```
-
 ### Combined Options
 
 ```bash
 sandagent run \
-  -o json \
   -m claude-sonnet-4-20250514 \
   --system-prompt "You are a helpful coding assistant" \
   --max-turns 10 \
@@ -162,7 +138,7 @@ The CLI is designed to:
 1. Execute in a specific working directory
 2. Load settings from `.claude/settings.json` and `CLAUDE.md` in the project
 3. Stream AI SDK UI messages directly to stdout
-4. Support both SSE stream and JSON output formats
+4. Output AI SDK data stream (SSE) format
 
 ## 🐳 Docker Image Build
 

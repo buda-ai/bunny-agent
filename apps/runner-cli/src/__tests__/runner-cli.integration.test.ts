@@ -68,6 +68,23 @@ describe("runner-cli Integration Tests", () => {
   );
 
   it(
+    "should reject removed --output-format option",
+    async () => {
+      const output = await runCLI([
+        "run",
+        "--output-format",
+        "json",
+        "--",
+        "test task",
+      ]);
+
+      expect(output.stderr).toContain("Unknown option '--output-format'");
+      expect(output.exitCode).toBe(1);
+    },
+    TIMEOUT,
+  );
+
+  it(
     "should accept claude runner option",
     async () => {
       // This will fail without API key, but should parse arguments correctly

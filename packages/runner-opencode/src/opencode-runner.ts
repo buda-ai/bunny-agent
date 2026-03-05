@@ -1,37 +1,37 @@
 /**
- * Gemini CLI Runner using ACP (Agent Client Protocol)
+ * OpenCode Runner using ACP (Agent Client Protocol)
  */
 
 import { spawn } from "node:child_process";
 import type { ChildProcess } from "node:child_process";
 
-export interface GeminiRunnerOptions {
+export interface OpenCodeRunnerOptions {
   model?: string;
   cwd?: string;
 }
 
-export interface GeminiRunner {
+export interface OpenCodeRunner {
   run(userInput: string): AsyncIterable<string>;
   abort(): void;
 }
 
-export function createGeminiRunner(
-  options: GeminiRunnerOptions = {},
-): GeminiRunner {
+export function createOpenCodeRunner(
+  options: OpenCodeRunnerOptions = {},
+): OpenCodeRunner {
   const cwd = options.cwd || process.cwd();
   let currentProcess: ChildProcess | null = null;
 
   return {
     async *run(userInput: string) {
-      const args = ["--experimental-acp"];
+      const args = ["acp"];
       if (options.model) args.push("--model", options.model);
 
-      currentProcess = spawn("gemini", args, {
+      currentProcess = spawn("opencode", args, {
         cwd,
         stdio: ["pipe", "pipe", "pipe"],
       });
       if (!currentProcess.stdin || !currentProcess.stdout)
-        throw new Error("Failed to spawn gemini");
+        throw new Error("Failed to spawn opencode");
 
       let msgId = 1;
       const send = (method: string, params: unknown, id?: number) => {
@@ -44,7 +44,6 @@ export function createGeminiRunner(
         currentProcess!.stdin!.write(msg + "\n");
       };
 
-      // 1. initialize
       send(
         "initialize",
         { protocolVersion: 1, clientCapabilities: {} },
@@ -83,12 +82,10 @@ export function createGeminiRunner(
             continue;
           }
 
-          // Handle initialize response → create session
           if (msg.id === 1 && msg.result) {
             send("session/new", { cwd, mcpServers: [] }, msgId++);
           }
 
-          // Handle session/new response → send prompt
           if (msg.id === 2 && msg.result) {
             const result = msg.result as { sessionId: string };
             sessionId = result.sessionId;
@@ -112,7 +109,6 @@ export function createGeminiRunner(
             return;
           }
 
-          // Handle session/update notifications
           if (msg.method === "session/update" && msg.params?.update) {
             const update = msg.params.update;
 

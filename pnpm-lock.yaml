@@ -79,6 +79,9 @@ importers:
       '@sandagent/runner-gemini':
         specifier: workspace:*
         version: link:../../packages/runner-gemini
+      '@sandagent/runner-opencode':
+        specifier: workspace:*
+        version: link:../../packages/runner-opencode
       '@sandagent/runner-pi':
         specifier: workspace:*
         version: link:../../packages/runner-pi
@@ -512,6 +515,10 @@ importers:
         version: 1.6.1(@types/node@20.19.33)(lightningcss@1.30.2)
 
   packages/runner-gemini:
+    dependencies:
+      '@agentclientprotocol/sdk':
+        specifier: ^0.13.0
+        version: 0.13.1(zod@4.3.6)
     devDependencies:
       '@types/node':
         specifier: ^20.10.0
@@ -519,9 +526,19 @@ importers:
       typescript:
         specifier: ^5.3.0
         version: 5.9.3
-      vitest:
-        specifier: ^1.6.1
-        version: 1.6.1(@types/node@20.19.33)(lightningcss@1.30.2)
+
+  packages/runner-opencode:
+    dependencies:
+      '@agentclientprotocol/sdk':
+        specifier: ^0.13.0
+        version: 0.13.1(zod@4.3.6)
+    devDependencies:
+      '@types/node':
+        specifier: ^20.10.0
+        version: 20.19.33
+      typescript:
+        specifier: ^5.3.0
+        version: 5.9.3
 
   packages/runner-pi:
     dependencies:
@@ -637,6 +654,11 @@ importers:
         version: 1.6.1(@types/node@20.19.33)(lightningcss@1.30.2)
 
 packages:
+
+  '@agentclientprotocol/sdk@0.13.1':
+    resolution: {integrity: sha512-6byvu+F/xc96GBkdAx4hq6/tB3vT63DSBO4i3gYCz8nuyZMerVFna2Gkhm8EHNpZX0J9DjUxzZCW+rnHXUg0FA==}
+    peerDependencies:
+      zod: ^3.25.0 || ^4.0.0
 
   '@ai-sdk/gateway@3.0.59':
     resolution: {integrity: sha512-MbtheWHgEFV/8HL1Z6E3hOAsmP73zZlNFg0F0nJAD0Adnjp4J/plqNK00Y896d+dWTw+r0OXzyov9/2wCFjH0Q==}
@@ -6727,6 +6749,10 @@ packages:
     resolution: {integrity: sha512-bXE4cR/kVZhKZX/RjPEflHaKVhUVl85noU3v6b8apfQEc1x4A+zBxjZ4lN8LqGd6WZ3dl98pY4o717VFmoPp+A==}
 
 snapshots:
+
+  '@agentclientprotocol/sdk@0.13.1(zod@4.3.6)':
+    dependencies:
+      zod: 4.3.6
 
   '@ai-sdk/gateway@3.0.59(zod@4.3.6)':
     dependencies:

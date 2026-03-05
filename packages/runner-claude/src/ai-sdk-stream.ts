@@ -476,6 +476,7 @@ export class AISDKStreamConverter {
               },
             });
           }
+          // biome-ignore lint/suspicious/noExplicitAny: Type mismatch between Beta and non-Beta events
           yield* this.emitTextBlockEvent(event as any);
           yield* this.emitToolCall(streamEvent);
         }

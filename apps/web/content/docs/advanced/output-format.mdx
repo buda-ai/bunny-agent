@@ -1,19 +1,18 @@
 ---
 title: Output Format
-description: Stream and JSON output formats for runner-cli
+description: runner-cli output format behavior
 ---
 
-The runner-cli supports multiple output formats via the `--output-format` option.
+The runner-cli no longer supports `--output-format`.
+`sandagent run` always outputs AI SDK data stream (SSE) format.
 
 ## Usage
 
 ```bash
-sandagent run [options] --output-format <format> -- "<user input>"
-# or short form
-sandagent run -o <format> -- "<user input>"
+sandagent run [options] -- "<user input>"
 ```
 
-## Stream Format (Default)
+## Data Stream Format
 
 Outputs Server-Sent Events using the [AI SDK UI Stream Protocol](https://ai-sdk.dev/docs/ai-sdk-ui/stream-protocol).
 
@@ -28,81 +27,4 @@ data: {"type":"text-delta","id":"text_1","delta":"The answer is 4."}
 data: {"type":"text-end","id":"text_1"}
 data: {"type":"finish","finishReason":"stop"}
 data: [DONE]
-```
-
-## JSON Format
-
-Outputs a single structured JSON object.
-
-```bash
-sandagent run -o json -- "Calculate 2+2"
-```
-
-```json
-{
-  "content": [
-    { "type": "text", "text": "The answer is 4." }
-  ],
-  "metadata": {
-    "messageId": "msg_123",
-    "model": "claude-sonnet-4-20250514",
-    "finishReason": "stop",
-    "usage": { "promptTokens": 10, "completionTokens": 8 }
-  }
-}
-```
-
-### JSON Structure
-
-**content** — array of content blocks:
-
-```typescript
-{
-  content: Array<{
-    type: "text" | "tool-call" | "tool-result";
-    text?: string;
-    toolCall?: { id: string; name: string; input: unknown };
-    toolResult?: { id: string; result: unknown };
-  }>;
-}
-```
-
-**metadata** — execution metadata:
-
-```typescript
-{
-  metadata?: {
-    messageId?: string;
-    model?: string;
-    sessionId?: string;
-    finishReason?: string;
-    usage?: { promptTokens?: number; completionTokens?: number };
-  };
-}
-```
-
-**error** (optional):
-
-```typescript
-{ error?: string; }
-```
-
-## Examples
-
-```bash
-# JSON with specific model
-sandagent run -o json -m claude-sonnet-4-20250514 -- "Analyze data.csv"
-
-# JSON with template
-sandagent run -o json --template coder -- "Build a REST API"
-
-# Save to file
-sandagent run -o json -- "Calculate pi" > result.json
-
-# Parse with jq
-sandagent run -o json -- "What is 2+2?" | jq '.content[0].text'
-
-# Use in scripts
-result=$(sandagent run -o json -- "Generate UUID")
-uuid=$(echo "$result" | jq -r '.content[0].text')
 ```

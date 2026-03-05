@@ -23,7 +23,11 @@ describe("createCodexRunner", () => {
           };
           yield {
             type: "turn.completed",
-            usage: { input_tokens: 1, cached_input_tokens: 0, output_tokens: 2 },
+            usage: {
+              input_tokens: 1,
+              cached_input_tokens: 0,
+              output_tokens: 2,
+            },
           };
         })(),
       }),
@@ -46,7 +50,11 @@ describe("createCodexRunner", () => {
         events: (async function* () {
           yield {
             type: "turn.completed",
-            usage: { input_tokens: 0, cached_input_tokens: 0, output_tokens: 0 },
+            usage: {
+              input_tokens: 0,
+              cached_input_tokens: 0,
+              output_tokens: 0,
+            },
           };
         })(),
       }),
@@ -75,7 +83,11 @@ describe("createCodexRunner", () => {
         events: (async function* () {
           yield {
             type: "turn.completed",
-            usage: { input_tokens: 0, cached_input_tokens: 0, output_tokens: 0 },
+            usage: {
+              input_tokens: 0,
+              cached_input_tokens: 0,
+              output_tokens: 0,
+            },
           };
         })(),
       }),

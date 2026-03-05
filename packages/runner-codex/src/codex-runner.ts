@@ -1,6 +1,6 @@
 import {
-  Codex,
   type ApprovalMode,
+  Codex,
   type ModelReasoningEffort,
   type SandboxMode,
   type ThreadEvent,
@@ -50,7 +50,9 @@ function stringifyUnknown(value: unknown): string {
   }
 }
 
-function toToolStartPayload(event: ThreadEvent): { toolCallId: string; toolName: string; args: unknown } | null {
+function toToolStartPayload(
+  event: ThreadEvent,
+): { toolCallId: string; toolName: string; args: unknown } | null {
   if (event.type !== "item.started") {
     return null;
   }
@@ -84,7 +86,9 @@ function toToolStartPayload(event: ThreadEvent): { toolCallId: string; toolName:
   return null;
 }
 
-function toToolEndPayload(event: ThreadEvent): { toolCallId: string; result: unknown } | null {
+function toToolEndPayload(
+  event: ThreadEvent,
+): { toolCallId: string; result: unknown } | null {
   if (event.type !== "item.completed") {
     return null;
   }
@@ -169,31 +173,35 @@ export function createCodexRunner(options: CodexRunnerOptions): CodexRunner {
       for await (const event of streamedTurn.events) {
         const assistantText = toAssistantText(event);
         if (assistantText) {
-          yield `0:${JSON.stringify(assistantText)}\n`;
+          yield `data: ${JSON.stringify({ type: "text-delta", delta: assistantText })}\n\n`;
         }
 
         const toolStart = toToolStartPayload(event);
         if (toolStart) {
-          yield `9:${JSON.stringify(toolStart)}\n`;
+          yield `data: ${JSON.stringify({ type: "tool-input-start", toolCallId: toolStart.toolCallId, toolName: toolStart.toolName })}\n\n`;
+          yield `data: ${JSON.stringify({ type: "tool-input-available", toolCallId: toolStart.toolCallId, toolName: toolStart.toolName, input: toolStart.args })}\n\n`;
         }
 
         const toolEnd = toToolEndPayload(event);
         if (toolEnd) {
-          yield `a:${JSON.stringify(toolEnd)}\n`;
+          yield `data: ${JSON.stringify({ type: "tool-output-available", toolCallId: toolEnd.toolCallId, output: toolEnd.result })}\n\n`;
         }
 
         if (event.type === "turn.completed") {
-          yield `d:${JSON.stringify({ finishReason: "stop", usage: event.usage })}\n`;
+          yield `data: ${JSON.stringify({ type: "finish", finishReason: "stop", usage: event.usage })}\n\n`;
+          yield `data: [DONE]\n\n`;
         }
 
         if (event.type === "turn.failed") {
-          yield `3:${JSON.stringify(event.error.message)}\n`;
-          yield `d:${JSON.stringify({ finishReason: "error" })}\n`;
+          yield `data: ${JSON.stringify({ type: "error", errorText: event.error.message })}\n\n`;
+          yield `data: ${JSON.stringify({ type: "finish", finishReason: "error" })}\n\n`;
+          yield `data: [DONE]\n\n`;
         }
 
         if (event.type === "error") {
-          yield `3:${JSON.stringify(stringifyUnknown(event.message))}\n`;
-          yield `d:${JSON.stringify({ finishReason: "error" })}\n`;
+          yield `data: ${JSON.stringify({ type: "error", errorText: stringifyUnknown(event.message) })}\n\n`;
+          yield `data: ${JSON.stringify({ type: "finish", finishReason: "error" })}\n\n`;
+          yield `data: [DONE]\n\n`;
         }
       }
     },

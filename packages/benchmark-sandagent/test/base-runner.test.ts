@@ -6,18 +6,14 @@ class TestRunner extends BaseRunner {
   readonly name = "test";
   readonly defaults: RunnerDefaults = {
     command: "sandagent",
-    args: ["run", "--runner", "gemini", "--output-format", "stream-json", "--"],
+    args: ["run", "--runner", "gemini", "--"],
   };
 }
 
 describe("BaseRunner.extractAnswer", () => {
   it("concatenates multiple 0: text chunks", () => {
     const runner = new TestRunner();
-    const output = [
-      '0:"5"',
-      '0:"79"',
-      'd:{"finishReason":"stop"}',
-    ].join("\n");
+    const output = ['0:"5"', '0:"79"', 'd:{"finishReason":"stop"}'].join("\n");
 
     expect(runner.extractAnswer(output)).toBe("579");
   });

@@ -11,7 +11,7 @@ class PiRunner extends BaseRunner {
   readonly name = "pi";
   readonly defaults = {
     command: "sandagent",
-    args: ["run", "--runner", "pi", "--output-format", "stream-json", "--"],
+    args: ["run", "--runner", "pi", "--"],
     timeout: 300000, // 5 minutes
   };
 

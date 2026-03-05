@@ -5,7 +5,7 @@
  * - "stream-json": Realtime streaming JSON (NDJSON)
  * - "stream": SSE-based AI SDK UI Data Stream format
  */
-export type OutputFormat = "text" | "json" | "stream-json" | "stream";
+export type OutputFormat = "data-stream";
 
 /**
  * Base runner configuration options shared between CLI and runner

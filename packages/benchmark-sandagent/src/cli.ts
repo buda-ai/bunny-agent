@@ -2,14 +2,14 @@
 
 /**
  * SandAgent Benchmark CLI
- * 
+ *
  * Tests sandagent CLI with different --runner options
  */
 
-import { Command } from "commander";
 import { downloadGaiaDataset } from "@sandagent/benchmark-shared";
-import { runBenchmark } from "./runner.js";
+import { Command } from "commander";
 import { compareResults } from "./compare.js";
+import { runBenchmark } from "./runner.js";
 import type { SandAgentRunner } from "./types.js";
 
 const program = new Command();

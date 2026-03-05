@@ -1,6 +1,6 @@
 /**
  * SWE-bench Lite Dataset
- * 
+ *
  * Lightweight version of SWE-bench for testing code editing capabilities
  * https://www.swebench.com/
  */
@@ -22,13 +22,15 @@ export interface SWEBenchTask {
 
 /**
  * Download SWE-bench Lite dataset
- * 
+ *
  * TODO: Implement download from Hugging Face
  * Dataset: princeton-nlp/SWE-bench_Lite
  */
 export async function downloadSWEBenchLite(): Promise<void> {
   console.log("SWE-bench Lite download not yet implemented");
-  console.log("Dataset: https://huggingface.co/datasets/princeton-nlp/SWE-bench_Lite");
+  console.log(
+    "Dataset: https://huggingface.co/datasets/princeton-nlp/SWE-bench_Lite",
+  );
   throw new Error("Not implemented");
 }
 

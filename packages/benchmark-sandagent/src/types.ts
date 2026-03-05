@@ -1,10 +1,10 @@
 /**
  * SandAgent Runner Types
- * 
+ *
  * Runners that test sandagent CLI with different --runner options
  */
 
-export type SandAgentRunner = "claude" | "pi" | "codex" | "gemini";
+export type SandAgentRunner = "claude" | "pi" | "codex" | "gemini" | "opencode";
 
 /**
  * Task for smoking benchmark

@@ -1,7 +1,7 @@
 /**
  * SandAgent Runner
  *
- * Handles SandAgent CLI with stream-json output format
+ * Handles SandAgent CLI data stream output format
  */
 
 import type { BenchmarkResult } from "../types.js";
@@ -11,7 +11,7 @@ class SandAgentRunner extends BaseRunner {
   readonly name = "sandagent";
   readonly defaults = {
     command: "sandagent",
-    args: ["run", "--output-format", "stream-json", "--"],
+    args: ["run", "--"],
     timeout: 300000, // 5 minutes
   };
 

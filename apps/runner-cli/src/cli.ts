@@ -8,9 +8,9 @@
  *   sandagent image build [options]                     Build (and optionally push) a Docker image
  */
 
+import { resolve } from "node:path";
 // Load environment variables from .env file
 import { config } from "dotenv";
-import { resolve } from "node:path";
 
 // Try loading .env from current directory and project root
 config({ path: resolve(process.cwd(), ".env") });
@@ -18,7 +18,6 @@ config({ path: resolve(process.cwd(), "../.env") });
 config({ path: resolve(process.cwd(), "../../.env") });
 
 import { parseArgs } from "node:util";
-import type { OutputFormat } from "@sandagent/runner-claude";
 import { buildImage } from "./build-image.js";
 import { runAgent } from "./runner.js";
 
@@ -74,7 +73,6 @@ interface ParsedRunArgs {
   maxTurns?: number;
   allowedTools?: string[];
   resume?: string;
-  outputFormat?: OutputFormat;
   userInput: string;
 }
 
@@ -97,7 +95,6 @@ function parseRunArgs(): ParsedRunArgs {
       "max-turns": { type: "string", short: "t" },
       "allowed-tools": { type: "string", short: "a" },
       resume: { type: "string" },
-      "output-format": { type: "string", short: "o" },
       help: { type: "boolean", short: "h" },
     },
     allowPositionals: true,
@@ -124,20 +121,11 @@ function parseRunArgs(): ParsedRunArgs {
   }
 
   const runner = values.runner!;
-  if (!["claude", "codex", "gemini", "copilot", "pi"].includes(runner)) {
-    console.error(
-      'Error: --runner must be one of: "claude", "codex", "gemini", "copilot", "pi"',
-    );
-    process.exit(1);
-  }
-
-  const outputFormat = values["output-format"] as OutputFormat | undefined;
   if (
-    outputFormat &&
-    !["text", "json", "stream-json", "stream"].includes(outputFormat)
+    !["claude", "codex", "gemini", "opencode", "copilot", "pi"].includes(runner)
   ) {
     console.error(
-      'Error: --output-format must be one of: "text", "json", "stream-json", "stream"',
+      'Error: --runner must be one of: "claude", "codex", "gemini", "opencode", "copilot", "pi"',
     );
     process.exit(1);
   }
@@ -152,7 +140,6 @@ function parseRunArgs(): ParsedRunArgs {
       : undefined,
     allowedTools: values["allowed-tools"]?.split(",").map((t) => t.trim()),
     resume: values.resume,
-    outputFormat: (outputFormat as OutputFormat) ?? "stream",
     userInput,
   };
 }
@@ -222,7 +209,6 @@ Options:
   -t, --max-turns <n>          Max conversation turns
   -a, --allowed-tools <tools>  Comma-separated allowed tools
       --resume <session-id>    Resume a previous session
-  -o, --output-format <fmt>    text | json | stream-json | stream (default: stream)
   -h, --help                   Show this help
 
 Environment:
@@ -315,7 +301,6 @@ async function main(): Promise<void> {
         maxTurns: args.maxTurns,
         allowedTools: args.allowedTools,
         resume: args.resume,
-        outputFormat: args.outputFormat,
       });
       break;
     }

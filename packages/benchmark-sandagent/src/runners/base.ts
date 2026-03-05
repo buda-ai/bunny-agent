@@ -2,6 +2,7 @@
  * Base Runner for SandAgent Benchmark
  */
 
+import { validateSSEFormat } from "@sandagent/benchmark-shared";
 import type { BenchmarkResult, SmokingTask } from "../types.js";
 import type { RunnerCommand, RunnerDefaults, RunnerHandler } from "./types.js";
 
@@ -40,37 +41,30 @@ export abstract class BaseRunner implements RunnerHandler {
    * Build command for smoking test
    */
   buildCommand(task: SmokingTask): RunnerCommand {
-    return this.finalizeCommand(this.defaults.command, this.defaults.args, task);
+    return this.finalizeCommand(
+      this.defaults.command,
+      this.defaults.args,
+      task,
+    );
   }
 
   /**
-   * Extract answer from output
+   * Extract answer from Data Stream Protocol (SSE format)
+   * Validates format and extracts text from text-delta events
    */
   extractAnswer(rawOutput: Required<BenchmarkResult["rawOutput"]>): string {
     if (typeof rawOutput === "string") {
-      // Parse AI SDK UI format (NDJSON)
-      const lines = rawOutput.split('\n');
+      // Validate SSE format
+      const validation = validateSSEFormat(rawOutput);
+      if (!validation.valid) {
+        console.warn("[SSE Validation] Format errors:", validation.errors);
+      }
+
+      // Extract text from text-delta events
       const textChunks: string[] = [];
-      
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed) continue;
-        
-        // Skip logs
-        if (trimmed.includes('[dotenv@')) continue;
-        if (trimmed.includes('[Runner]')) continue;
-        
-        // Extract text from 0:<json-string> format and accumulate all chunks.
-        if (trimmed.startsWith("0:")) {
-          const payload = trimmed.slice(2);
-          try {
-            const chunk = JSON.parse(payload);
-            if (typeof chunk === "string") {
-              textChunks.push(chunk);
-            }
-          } catch {
-            // Ignore malformed chunks and continue.
-          }
+      for (const event of validation.events) {
+        if (event.type === "text-delta" && event.delta) {
+          textChunks.push(event.delta as string);
         }
       }
 
@@ -78,20 +72,21 @@ export abstract class BaseRunner implements RunnerHandler {
       if (textChunks.length === 0) {
         return rawOutput.trim();
       }
-      
+
       return textChunks.join("").trim();
     }
-    
+
     if (Array.isArray(rawOutput)) {
       return rawOutput.map(String).join("").trim();
     }
-    
+
     return String(rawOutput).trim();
   }
 
   /**
    * Extract from common JSON fields
    */
+  // biome-ignore lint/suspicious/noExplicitAny: Generic JSON field extraction
   protected extractFromJsonFields(obj: any): string | null {
     const fields = ["answer", "result", "output", "response", "text"];
     for (const field of fields) {
