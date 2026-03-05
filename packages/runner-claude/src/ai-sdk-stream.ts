@@ -476,7 +476,8 @@ export class AISDKStreamConverter {
               },
             });
           }
-          yield* this.emitTextBlockEvent(event);
+          // biome-ignore lint/suspicious/noExplicitAny: Type mismatch between Beta and non-Beta events
+          yield* this.emitTextBlockEvent(event as any);
           yield* this.emitToolCall(streamEvent);
         }
 
@@ -527,7 +528,7 @@ export class AISDKStreamConverter {
           const userMsg = message as SDKUserMessage;
           const content = userMsg.message?.content;
           for (const part of content) {
-            if (part.type === "tool_result") {
+            if (typeof part !== "string" && part.type === "tool_result") {
               yield this.emit({
                 type: "tool-output-available",
                 toolCallId: part.tool_use_id,

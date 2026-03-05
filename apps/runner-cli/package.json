@@ -22,7 +22,7 @@
   "scripts": {
     "build": "tsc && pnpm bundle",
     "build:bundle": "tsc && pnpm bundle",
-    "bundle": "esbuild src/cli.ts --bundle --platform=node --format=esm --outfile=dist/bundle.mjs",
+    "bundle": "esbuild src/cli.ts --bundle --platform=node --format=esm --external:dotenv --external:@anthropic-ai/claude-agent-sdk --external:@openai/codex-sdk --external:@mariozechner/pi-agent-core --external:@mariozechner/pi-ai --external:@mariozechner/pi-coding-agent --outfile=dist/bundle.mjs",
     "dev": "tsc --watch",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit",
@@ -51,10 +51,19 @@
     "anthropic"
   ],
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": ">=0.1.70"
+    "@anthropic-ai/claude-agent-sdk": "0.2.41",
+    "@openai/codex-sdk": "^0.110.0",
+    "@mariozechner/pi-agent-core": "^0.56.1",
+    "@mariozechner/pi-ai": "^0.56.1",
+    "@mariozechner/pi-coding-agent": "^0.56.1",
+    "@sandagent/runner-claude": "workspace:*",
+    "@sandagent/runner-codex": "workspace:*",
+    "@sandagent/runner-gemini": "workspace:*",
+    "@sandagent/runner-opencode": "workspace:*",
+    "@sandagent/runner-pi": "workspace:*",
+    "dotenv": "^17.3.1"
   },
   "devDependencies": {
-    "@sandagent/runner-claude": "workspace:*",
     "@types/node": "^20.10.0",
     "esbuild": "^0.27.2",
     "typescript": "^5.3.0",

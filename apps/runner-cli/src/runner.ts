@@ -1,15 +1,22 @@
+import type { BaseRunnerOptions } from "@sandagent/runner-claude";
 import {
-  type BaseRunnerOptions,
   type ClaudeRunnerOptions,
   createClaudeRunner,
 } from "@sandagent/runner-claude";
+import {
+  type CodexRunnerOptions,
+  createCodexRunner,
+} from "@sandagent/runner-codex";
+import { createGeminiRunner } from "@sandagent/runner-gemini";
+import { createOpenCodeRunner } from "@sandagent/runner-opencode";
+import { type PiRunnerOptions, createPiRunner } from "@sandagent/runner-pi";
 
 /**
  * Options for running the agent
  * Extends BaseRunnerOptions with CLI-specific fields
  */
 export interface RunAgentOptions extends BaseRunnerOptions {
-  /** Which runner to use: claude, codex, copilot */
+  /** Which runner to use: claude, codex, gemini, copilot */
   runner: string;
   /** User input/task */
   userInput: string;
@@ -54,32 +61,55 @@ export async function runAgent(options: RunAgentOptions): Promise<void> {
 
     switch (options.runner) {
       case "claude": {
-        // Build runner options - cwd is already set by cli.ts via process.chdir()
-        const runnerOptions: ClaudeRunnerOptions = {
+        runner = createClaudeRunner({
           model: options.model,
           systemPrompt: options.systemPrompt,
           maxTurns: options.maxTurns,
           allowedTools: options.allowedTools,
           resume: options.resume,
-          outputFormat: options.outputFormat,
           abortController: abortController,
-        };
-        runner = createClaudeRunner(runnerOptions);
+        });
         break;
       }
-      case "codex":
-        // TODO: Implement Codex runner
-        throw new Error(
-          "Codex runner not yet implemented. Use --runner=claude for now.",
-        );
+      case "codex": {
+        runner = createCodexRunner({
+          model: options.model,
+          systemPrompt: options.systemPrompt,
+          maxTurns: options.maxTurns,
+          allowedTools: options.allowedTools,
+          resume: options.resume,
+          cwd: process.cwd(),
+          abortController: abortController,
+        });
+        break;
+      }
       case "copilot":
-        // TODO: Implement Copilot runner
         throw new Error(
           "Copilot runner not yet implemented. Use --runner=claude for now.",
         );
+      case "gemini": {
+        runner = createGeminiRunner({
+          model: options.model,
+          cwd: process.cwd(),
+        });
+        break;
+      }
+      case "pi": {
+        runner = createPiRunner({
+          model: options.model,
+          systemPrompt: options.systemPrompt,
+          cwd: process.cwd(),
+          abortController: abortController,
+        });
+        break;
+      }
+      case "opencode": {
+        runner = createOpenCodeRunner({ cwd: process.cwd() });
+        break;
+      }
       default:
         throw new Error(
-          `Unknown runner: ${options.runner}. Supported runners: claude, codex, copilot`,
+          `Unknown runner: ${options.runner}. Supported runners: claude, codex, gemini, opencode, copilot, pi`,
         );
     }
 
