@@ -77,3 +77,18 @@
   - Output file: `benchmark-results/sandagent/smoking/sandagent-gemini-gemini-2.5-flash-2026-03-05-22-47-17.json`.
 - Observation:
   - Tool permission issues were reduced (file/shell tools became available), but current answer extraction logic still produced false negatives on chunk-split outputs (e.g., `Hello`/`, World!`, `5`/`79`).
+
+### 22:51
+- Fixed benchmark answer extraction for AI SDK stream chunks:
+  - Updated `packages/benchmark-sandagent/src/runners/base.ts` to accumulate all `0:` text chunks via JSON parsing instead of keeping only the last chunk.
+  - This resolves false negatives caused by chunked streaming outputs.
+- Added test coverage:
+  - New file `packages/benchmark-sandagent/test/base-runner.test.ts`.
+  - Verified multi-chunk extraction (`5` + `79` => `579`) and escaped chunk handling.
+- Verification:
+  - `pnpm --filter @sandagent/benchmark-sandagent exec vitest run test/base-runner.test.ts` passed.
+  - `pnpm --filter @sandagent/benchmark-sandagent build` passed.
+  - Reran benchmark with YOLO wrapper:
+    - `GEMINI_CLI_PATH=/tmp/gemini-yolo ./run-benchmark.sh --runner gemini --model gemini-2.5-flash --runs 1`
+    - Result improved to `4/5`.
+    - Output file: `benchmark-results/sandagent/smoking/sandagent-gemini-gemini-2.5-flash-2026-03-05-22-51-04.json`.
