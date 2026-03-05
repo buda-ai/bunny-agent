@@ -16,7 +16,6 @@ RUN for i in 1 2 3; do \
     apt-get update && apt-get install -y \
     git \
     curl \
-    socat \
     && rm -rf /var/lib/apt/lists/* \
     && break || sleep 5; \
     done
@@ -60,8 +59,25 @@ ENV NODE_PATH=/opt/sandagent/node_modules
 ENV PATH=/usr/local/bin:$PATH
 
 # Create CDP (Chrome DevTools Protocol) startup script
-# Chromium binds to 127.0.0.1 even with --remote-debugging-address=0.0.0.0
-# in newer versions, so we use socat to proxy 0.0.0.0:9222 → 127.0.0.1:9223
+# Use nginx to proxy and rewrite Host header to localhost,
+# bypassing Chromium's Host header security check
+RUN for i in 1 2 3; do \
+    apt-get update && apt-get install -y nginx && \
+    rm -rf /var/lib/apt/lists/* && break || sleep 5; \
+    done
+
+RUN echo 'server {\n\
+    listen 9222;\n\
+    location / {\n\
+        proxy_pass http://127.0.0.1:9223;\n\
+        proxy_set_header Host localhost;\n\
+        proxy_http_version 1.1;\n\
+        proxy_set_header Upgrade $http_upgrade;\n\
+        proxy_set_header Connection "upgrade";\n\
+    }\n\
+}' > /etc/nginx/conf.d/cdp-proxy.conf && \
+    rm -f /etc/nginx/sites-enabled/default
+
 RUN echo '#!/bin/bash\n\
 set -e\n\
 CHROME_BIN=$(node -e "console.log(require('"'"'playwright'"'"').chromium.executablePath())")\n\
@@ -71,8 +87,8 @@ for i in $(seq 1 30); do\n\
   if curl -s http://127.0.0.1:9223/json/version > /dev/null 2>&1; then break; fi\n\
   sleep 0.5\n\
 done\n\
-socat TCP-LISTEN:9222,fork,reuseaddr,bind=0.0.0.0 TCP:127.0.0.1:9223 &\n\
-echo "CDP WebSocket available on 0.0.0.0:9222 (proxied from 127.0.0.1:9223)"' > /usr/local/bin/start-cdp && \
+nginx\n\
+echo "CDP available on 0.0.0.0:9222 (nginx proxy rewriting Host to localhost)"' > /usr/local/bin/start-cdp && \
     chmod +x /usr/local/bin/start-cdp
 
 # Template files (optional, added by build script)
