@@ -58,6 +58,9 @@ RUN echo '#!/usr/bin/env node' > /usr/local/bin/sandagent && \
 ENV NODE_PATH=/opt/sandagent/node_modules
 ENV PATH=/usr/local/bin:$PATH
 
+# Suppress D-Bus errors in headless Chromium (no bus in containers)
+ENV DBUS_SESSION_BUS_ADDRESS=/dev/null
+
 # Create CDP (Chrome DevTools Protocol) startup script
 # Use nginx to proxy and rewrite Host header to localhost,
 # bypassing Chromium's Host header security check
@@ -81,8 +84,8 @@ RUN echo 'server {\n\
 RUN echo '#!/bin/bash\n\
 set -e\n\
 CHROME_BIN=$(node -e "console.log(require('"'"'playwright'"'"').chromium.executablePath())")\n\
-"$CHROME_BIN" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage \\\n\
-  --remote-debugging-port=9223 --remote-allow-origins=* &\n\
+"$CHROME_BIN" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage --disable-software-rasterizer \\\n\
+  --remote-debugging-port=9223 --remote-allow-origins=* 2>/dev/null &\n\
 for i in $(seq 1 30); do\n\
   if curl -s http://127.0.0.1:9223/json/version > /dev/null 2>&1; then break; fi\n\
   sleep 0.5\n\
