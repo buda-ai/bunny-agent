@@ -76,8 +76,9 @@ try {\n\
   const { chromium } = require("playwright");\n\
   const exe = chromium.executablePath();\n\
   const p = spawn(exe, [\n\
-    "--headless", "--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage",\n\
-    "--remote-debugging-port=9222", "--remote-debugging-address=0.0.0.0"\n\
+    "--headless=new", "--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage",\n\
+    "--remote-debugging-port=9222", "--remote-debugging-address=0.0.0.0",\n\
+    "--remote-debugging-allow-origins=*"\n\
   ], { stdio: "ignore", detached: true });\n\
   p.on("error", (err) => console.error("CDP spawn error:", err.message));\n\
   p.unref();\n\
