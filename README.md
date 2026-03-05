@@ -332,7 +332,8 @@ Runners execute the actual agent logic. Each runner is **independent** and imple
 | Package | What It Runs | Status |
 |---------|--------------|--------|
 | `@sandagent/runner-claude` | Claude Agent SDK | ✅ Production |
-| `@sandagent/runner-codex` | Codex CLI | 🚧 Planned |
+| `@sandagent/runner-codex` | Codex CLI | ✅ Production |
+| `@sandagent/runner-gemini` | Gemini CLI | ✅ Production |
 | `@sandagent/runner-copilot` | GitHub Copilot | 🚧 Planned |
 
 ```typescript
@@ -399,7 +400,8 @@ sandagent run -- "Create a hello world script"
 
 # Explicitly select runner
 sandagent run --runner claude -- "Build an API"
-sandagent run --runner codex -- "Build an API"    # (planned)
+sandagent run --runner codex -- "Build an API"
+sandagent run --runner gemini -- "Build an API"
 sandagent run --runner copilot -- "Build an API"  # (planned)
 ```
 
@@ -509,9 +511,10 @@ SandAgent follows a **clean, pluggable architecture** where components are loose
 │   Sandbox Adapters     │  │   Runner Adapters          │
 ├────────────────────────┤  ├────────────────────────────┤
 │ • sandbox-local        │  │ • runner-claude   ✅       │
-│ • sandbox-e2b          │  │ • runner-codex    🚧       │
-│ • sandbox-sandock      │  │ • runner-copilot  🚧       │
-│ • sandbox-daytona      │  │                            │
+│ • sandbox-e2b          │  │ • runner-codex    ✅       │
+│ • sandbox-sandock      │  │ • runner-gemini   ✅       │
+│ • sandbox-daytona      │  │ • runner-copilot  🚧       │
+│                        │  │                            │
 └────────────────────────┘  └────────────────────────────┘
          ↑                            ↑
          └──── Implement interfaces ──┘
@@ -529,7 +532,8 @@ Applications (different use cases):
                       Runs directly on local filesystem
                       Choose via --runner flag:
                       • runner-claude ✅
-                      • runner-codex 🚧
+                      • runner-codex ✅
+                      • runner-gemini ✅
                       • runner-copilot 🚧
 
 Core (defines contracts for apps that need sandboxes):
@@ -537,7 +541,8 @@ Core (defines contracts for apps that need sandboxes):
 
 Runner Implementations (can be used directly OR via manager):
 ├─ runner-claude    → @anthropic-ai/claude-agent-sdk
-├─ runner-codex     → (TODO) codex SDK
+├─ runner-codex     → @openai/codex-sdk
+├─ runner-gemini    → gemini CLI (headless stream-json)
 └─ runner-copilot   → (TODO) copilot SDK
 
 Sandbox Implementations (only used via manager):

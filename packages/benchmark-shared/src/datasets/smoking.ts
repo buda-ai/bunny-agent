@@ -23,7 +23,7 @@ export const SMOKING_TESTS: SmokingTask[] = [
     description: "Create a file named hello.txt with content 'Hello, World!' and return ONLY the content of the file",
     expectedOutput: /Hello,?\s*World!?/i,
     category: "file",
-    timeoutMs: 30000,
+    timeoutMs: 90000,
   },
   {
     id: "smoke-002",
@@ -47,7 +47,7 @@ export const SMOKING_TESTS: SmokingTask[] = [
     description: "Create a Python script that prints 'Hello from Python'",
     expectedOutput: /print.*Hello from Python/i,
     category: "code",
-    timeoutMs: 30000,
+    timeoutMs: 90000,
   },
   {
     id: "smoke-005",

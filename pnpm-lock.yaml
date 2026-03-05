@@ -63,6 +63,9 @@ importers:
       '@mariozechner/pi-coding-agent':
         specifier: ^0.56.1
         version: 0.56.1(ws@8.19.0)(zod@3.25.76)
+      '@openai/codex-sdk':
+        specifier: ^0.110.0
+        version: 0.110.0
       dotenv:
         specifier: ^17.3.1
         version: 17.3.1
@@ -70,6 +73,12 @@ importers:
       '@sandagent/runner-claude':
         specifier: workspace:*
         version: link:../../packages/runner-claude
+      '@sandagent/runner-codex':
+        specifier: workspace:*
+        version: link:../../packages/runner-codex
+      '@sandagent/runner-gemini':
+        specifier: workspace:*
+        version: link:../../packages/runner-gemini
       '@sandagent/runner-pi':
         specifier: workspace:*
         version: link:../../packages/runner-pi
@@ -475,6 +484,34 @@ importers:
       '@anthropic-ai/claude-agent-sdk':
         specifier: 0.2.41
         version: 0.2.41(zod@4.3.6)
+    devDependencies:
+      '@types/node':
+        specifier: ^20.10.0
+        version: 20.19.33
+      typescript:
+        specifier: ^5.3.0
+        version: 5.9.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.33)(lightningcss@1.30.2)
+
+  packages/runner-codex:
+    dependencies:
+      '@openai/codex-sdk':
+        specifier: ^0.110.0
+        version: 0.110.0
+    devDependencies:
+      '@types/node':
+        specifier: ^20.10.0
+        version: 20.19.33
+      typescript:
+        specifier: ^5.3.0
+        version: 5.9.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.33)(lightningcss@1.30.2)
+
+  packages/runner-gemini:
     devDependencies:
       '@types/node':
         specifier: ^20.10.0
@@ -1949,6 +1986,51 @@ packages:
   '@nodelib/fs.walk@1.2.8':
     resolution: {integrity: sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg==}
     engines: {node: '>= 8'}
+
+  '@openai/codex-sdk@0.110.0':
+    resolution: {integrity: sha512-UT8OaFAOWBP6uXdpJkpKO1vPO/AqUqaCJMrIbazOuRC92zrMqhdX2DlyJJ+lN6ewHXLgNZBQ6yh/WUaoPXj/2w==}
+    engines: {node: '>=18'}
+
+  '@openai/codex@0.110.0':
+    resolution: {integrity: sha512-BhhiFkLAWwFZ4vo2WK7rlV5PoicndbIjONamPsHyp6xz5bvLQC5l2IgB4FgGpkuRywLxc5MnNlrziyhABNblcg==}
+    engines: {node: '>=16'}
+    hasBin: true
+
+  '@openai/codex@0.110.0-darwin-arm64':
+    resolution: {integrity: sha512-yCrO3HLpohNM5zqqEzJhqtBBAH4r9nHb+h7F0+2/T0qbCJwxzL6XtgjQonvKW9Ol6qc3kqlW7uQVFEX+z13Ydg==}
+    engines: {node: '>=16'}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@openai/codex@0.110.0-darwin-x64':
+    resolution: {integrity: sha512-UgDkVR+9Ffky60Paygc48NjGjMpEi8HBl/GtVFuhYprvcFep0qodjcL6/K3NmmIpDOBoF4PtkjUFB/sATklfvw==}
+    engines: {node: '>=16'}
+    cpu: [x64]
+    os: [darwin]
+
+  '@openai/codex@0.110.0-linux-arm64':
+    resolution: {integrity: sha512-Mswcq2dmt1S+d2DeaxLUOu9AfVjs0O5b4M8fqvNzSeWozY6dw905JnU+nOKPlqP4xN4K6OK+H+zjSDFJXsmS6w==}
+    engines: {node: '>=16'}
+    cpu: [arm64]
+    os: [linux]
+
+  '@openai/codex@0.110.0-linux-x64':
+    resolution: {integrity: sha512-o9xIcgU9U5mpljQx2b6v763qz3dU3eugxWCZMid6YU8hc1VZvR9hkWMFL0kaboYOKFkpZPLGg1bUFSWfsmZN+A==}
+    engines: {node: '>=16'}
+    cpu: [x64]
+    os: [linux]
+
+  '@openai/codex@0.110.0-win32-arm64':
+    resolution: {integrity: sha512-eFJtx66V+ohXbHPGz2aRdhYMfIFOL1dLwLvdGcBELBQu5CfNzsJNq+r1YKntHV2BwdwkUHcJYe+8B9/bzGXDXg==}
+    engines: {node: '>=16'}
+    cpu: [arm64]
+    os: [win32]
+
+  '@openai/codex@0.110.0-win32-x64':
+    resolution: {integrity: sha512-kPdxMh6xDhn7kgknHzC6X0nOr5y5gE9HP/d5GcI95yN1jEGmY2maMGuB2iT2ZyWrD/8xknkaAXY+S9NMVKWbdQ==}
+    engines: {node: '>=16'}
+    cpu: [x64]
+    os: [win32]
 
   '@opentelemetry/api@1.9.0':
     resolution: {integrity: sha512-3giAOQvZiH5F9bMlMiv8+GSPMeqg0dbaeo58/0SlA9sxSqZhnUtxzX9/2FzyhS9sWQf5S0GJE0AKBrFqjpeYcg==}
@@ -8602,6 +8684,37 @@ snapshots:
     dependencies:
       '@nodelib/fs.scandir': 2.1.5
       fastq: 1.20.1
+
+  '@openai/codex-sdk@0.110.0':
+    dependencies:
+      '@openai/codex': 0.110.0
+
+  '@openai/codex@0.110.0':
+    optionalDependencies:
+      '@openai/codex-darwin-arm64': '@openai/codex@0.110.0-darwin-arm64'
+      '@openai/codex-darwin-x64': '@openai/codex@0.110.0-darwin-x64'
+      '@openai/codex-linux-arm64': '@openai/codex@0.110.0-linux-arm64'
+      '@openai/codex-linux-x64': '@openai/codex@0.110.0-linux-x64'
+      '@openai/codex-win32-arm64': '@openai/codex@0.110.0-win32-arm64'
+      '@openai/codex-win32-x64': '@openai/codex@0.110.0-win32-x64'
+
+  '@openai/codex@0.110.0-darwin-arm64':
+    optional: true
+
+  '@openai/codex@0.110.0-darwin-x64':
+    optional: true
+
+  '@openai/codex@0.110.0-linux-arm64':
+    optional: true
+
+  '@openai/codex@0.110.0-linux-x64':
+    optional: true
+
+  '@openai/codex@0.110.0-win32-arm64':
+    optional: true
+
+  '@openai/codex@0.110.0-win32-x64':
+    optional: true
 
   '@opentelemetry/api@1.9.0': {}
 

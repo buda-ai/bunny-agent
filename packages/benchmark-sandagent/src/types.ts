@@ -4,7 +4,7 @@
  * Runners that test sandagent CLI with different --runner options
  */
 
-export type SandAgentRunner = "claude" | "pi" | "codex" | "copilot";
+export type SandAgentRunner = "claude" | "pi" | "codex" | "gemini";
 
 /**
  * Task for smoking benchmark

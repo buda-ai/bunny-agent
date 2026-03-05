@@ -124,9 +124,9 @@ function parseRunArgs(): ParsedRunArgs {
   }
 
   const runner = values.runner!;
-  if (!["claude", "codex", "copilot", "pi"].includes(runner)) {
+  if (!["claude", "codex", "gemini", "copilot", "pi"].includes(runner)) {
     console.error(
-      'Error: --runner must be one of: "claude", "codex", "copilot", "pi"',
+      'Error: --runner must be one of: "claude", "codex", "gemini", "copilot", "pi"',
     );
     process.exit(1);
   }
@@ -215,7 +215,7 @@ Usage:
   sandagent run [options] -- "<user input>"
 
 Options:
-  -r, --runner <runner>        Runner: claude, codex, copilot (default: claude)
+  -r, --runner <runner>        Runner: claude, codex, gemini, copilot, pi (default: claude)
   -m, --model <model>          Model (default: claude-sonnet-4-20250514)
   -c, --cwd <path>             Working directory (default: cwd)
   -s, --system-prompt <prompt> Custom system prompt
@@ -226,7 +226,10 @@ Options:
   -h, --help                   Show this help
 
 Environment:
-  ANTHROPIC_API_KEY            Anthropic API key (required)
+  ANTHROPIC_API_KEY            Anthropic API key (for claude runner)
+  OPENAI_API_KEY               OpenAI API key (for codex runner)
+  CODEX_API_KEY                OpenAI API key alias (for codex runner)
+  GEMINI_API_KEY               Gemini API key (for gemini runner)
   SANDAGENT_WORKSPACE          Default workspace path
 `);
 }

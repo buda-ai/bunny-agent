@@ -3,6 +3,14 @@ import {
   type ClaudeRunnerOptions,
   createClaudeRunner,
 } from "@sandagent/runner-claude";
+import {
+  createCodexRunner,
+  type CodexRunnerOptions,
+} from "@sandagent/runner-codex";
+import {
+  createGeminiRunner,
+  type GeminiRunnerOptions,
+} from "@sandagent/runner-gemini";
 import { createPiRunner, type PiRunnerOptions } from "@sandagent/runner-pi";
 
 /**
@@ -10,7 +18,7 @@ import { createPiRunner, type PiRunnerOptions } from "@sandagent/runner-pi";
  * Extends BaseRunnerOptions with CLI-specific fields
  */
 export interface RunAgentOptions extends BaseRunnerOptions {
-  /** Which runner to use: claude, codex, copilot */
+  /** Which runner to use: claude, codex, gemini, copilot */
   runner: string;
   /** User input/task */
   userInput: string;
@@ -69,15 +77,39 @@ export async function runAgent(options: RunAgentOptions): Promise<void> {
         break;
       }
       case "codex":
-        // TODO: Implement Codex runner
-        throw new Error(
-          "Codex runner not yet implemented. Use --runner=claude for now.",
-        );
+        {
+          const codexOptions: CodexRunnerOptions = {
+            model: options.model,
+            systemPrompt: options.systemPrompt,
+            maxTurns: options.maxTurns,
+            allowedTools: options.allowedTools,
+            resume: options.resume,
+            outputFormat: options.outputFormat,
+            cwd: process.cwd(),
+            abortController: abortController,
+          };
+          runner = createCodexRunner(codexOptions);
+        }
+        break;
       case "copilot":
         // TODO: Implement Copilot runner
         throw new Error(
           "Copilot runner not yet implemented. Use --runner=claude for now.",
         );
+      case "gemini": {
+        const geminiOptions: GeminiRunnerOptions = {
+          model: options.model,
+          systemPrompt: options.systemPrompt,
+          maxTurns: options.maxTurns,
+          allowedTools: options.allowedTools,
+          resume: options.resume,
+          outputFormat: options.outputFormat,
+          cwd: process.cwd(),
+          abortController: abortController,
+        };
+        runner = createGeminiRunner(geminiOptions);
+        break;
+      }
       case "pi": {
         // Build Pi runner options
         const piOptions: PiRunnerOptions = {
@@ -91,7 +123,7 @@ export async function runAgent(options: RunAgentOptions): Promise<void> {
       }
       default:
         throw new Error(
-          `Unknown runner: ${options.runner}. Supported runners: claude, codex, copilot, pi`,
+          `Unknown runner: ${options.runner}. Supported runners: claude, codex, gemini, copilot, pi`,
         );
     }
 

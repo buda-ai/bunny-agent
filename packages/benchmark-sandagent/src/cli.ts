@@ -30,7 +30,7 @@ program
 program
   .command("run")
   .description("Run smoking benchmark with sandagent --runner <name>")
-  .requiredOption("--runner <name>", "Runner: claude, pi, codex, copilot")
+  .requiredOption("--runner <name>", "Runner: claude, pi, codex, gemini")
   .option("--verbose", "Verbose output")
   .action(async (options) => {
     await runBenchmark({

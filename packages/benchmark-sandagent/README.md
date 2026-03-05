@@ -8,7 +8,7 @@ Tests the performance of sandagent's runner implementations:
 - `sandagent run --runner claude`
 - `sandagent run --runner pi`
 - `sandagent run --runner codex`
-- `sandagent run --runner copilot`
+- `sandagent run --runner gemini`
 
 ## Comparison with @sandagent/benchmark
 
@@ -47,6 +47,8 @@ pnpm benchmark:compare
 │       ├── types.ts        # Runner interfaces
 │       ├── claude.ts       # sandagent --runner claude
 │       ├── pi.ts           # sandagent --runner pi
+│       ├── codex.ts        # sandagent --runner codex
+│       ├── gemini.ts       # sandagent --runner gemini
 │       └── index.ts        # Runner registry
 └── package.json
 
