@@ -34,6 +34,7 @@ const RUNNER_COLUMNS: Record<AgentRunner, number> = {
   "gemini-cli": 3,
   "codex-cli": 4,
   opencode: 5,
+  pi: 6,
 };
 
 /**

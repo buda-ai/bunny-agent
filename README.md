@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="spec/logo.svg" alt="SandAgent Logo" width="200" height="200">
+  <img src="docs/logo.svg" alt="SandAgent Logo" width="200" height="200">
   
   # SandAgent
   
@@ -457,7 +457,7 @@ sandagent/
 │  ├─ coder/               # Software development focused
 │  ├─ analyst/             # Data analysis optimized
 │  └─ researcher/          # Web research capabilities
-└─ spec/                   # Documentation and specifications
+└─ docs/                   # Documentation and specifications
 ```
 
 ### 🏗️ Package Architecture & Dependencies
@@ -727,7 +727,7 @@ sandbox: new SandockSandbox({
 | **E2B** | Production, cloud | `E2B_API_KEY` env var |
 | **Sandock** | Development, self-hosted | `SANDOCK_API_KEY` env var |
 
-📖 **[Sandbox Adapters Guide →](./spec/SANDBOX_ADAPTERS.md)**
+📖 **[Sandbox Adapters Guide →](./docs/SANDBOX_ADAPTERS.md)**
 
 ---
 
@@ -811,17 +811,17 @@ When PRs are merged to `main` or `develop`:
 ### 📖 Guides
 - **[SDK Quick Start](https://sandagent.dev/docs/quick-start)** - 5-minute SDK integration
 - **[Artifacts Feature Guide](https://sandagent.dev/docs/artifacts)** - Display AI-generated content (reports, charts, files)
-- **[Persistence Guide](./spec/PERSISTENCE_GUIDE.md)** - Managing state across runs
-- **[Sandbox Adapters](./spec/SANDBOX_ADAPTERS.md)** - E2B & Sandock configuration
-- **[Debugging Guide](./spec/DEBUGGING_GUIDE.md)** - Transcript recording
+- **[Persistence Guide](./docs/PERSISTENCE_GUIDE.md)** - Managing state across runs
+- **[Sandbox Adapters](./docs/SANDBOX_ADAPTERS.md)** - E2B & Sandock configuration
+- **[Debugging Guide](./docs/DEBUGGING_GUIDE.md)** - Transcript recording
 - **[Templates Guide](./templates/README.md)** - Creating custom templates
 
 </td>
 <td width="50%">
 
 ### 🔧 Reference
-- **[API Reference](./spec/API_REFERENCE.md)** - Complete API documentation
-- **[Technical Spec](./spec/TECHNICAL_SPEC.md)** - Full architecture details
+- **[API Reference](./docs/API_REFERENCE.md)** - Complete API documentation
+- **[Technical Spec](./docs/TECHNICAL_SPEC.md)** - Full architecture details
 - **[TODO](./TODO.md)** - Feature roadmap
 
 </td>

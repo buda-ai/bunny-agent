@@ -9,6 +9,7 @@ import { claudecodeRunner } from "./claudecode.js";
 import { codexCliRunner } from "./codex-cli.js";
 import { geminiCliRunner } from "./gemini-cli.js";
 import { opencodeRunner } from "./opencode.js";
+import { piRunner } from "./pi.js";
 import { sandagentRunner } from "./sandagent.js";
 import type { RunnerHandler } from "./types.js";
 
@@ -24,6 +25,7 @@ export const runners: Record<AgentRunner, RunnerHandler> = {
   claudecode: claudecodeRunner,
   "codex-cli": codexCliRunner,
   opencode: opencodeRunner,
+  pi: piRunner,
 };
 
 /**

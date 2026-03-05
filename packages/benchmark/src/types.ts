@@ -27,7 +27,8 @@ export type AgentRunner =
   | "gemini-cli"
   | "claudecode"
   | "codex-cli"
-  | "opencode";
+  | "opencode"
+  | "pi";
 
 /**
  * File attachment for a GAIA task

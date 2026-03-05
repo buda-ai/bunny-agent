@@ -274,7 +274,7 @@ async function main(): Promise<void> {
       if (!values.runner) {
         console.error("❌ Error: --runner is required for run command");
         console.error(
-          "   Available runners: sandagent, gemini-cli, claudecode, codex-cli, opencode",
+          "   Available runners: sandagent, gemini-cli, claudecode, codex-cli, opencode, pi",
         );
         process.exit(1);
       }
