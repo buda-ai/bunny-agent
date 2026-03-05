@@ -9,7 +9,27 @@ vi.mock("@sandagent/runner-claude", () => ({
   }),
 }));
 
+vi.mock("@sandagent/runner-codex", () => ({
+  createCodexRunner: vi.fn().mockReturnValue({
+    run: vi.fn().mockImplementation(async function* () {
+      yield '0:"codex message"\\n';
+      yield 'd:{"finishReason":"stop"}\\n';
+    }),
+  }),
+}));
+
+vi.mock("@sandagent/runner-gemini", () => ({
+  createGeminiRunner: vi.fn().mockReturnValue({
+    run: vi.fn().mockImplementation(async function* () {
+      yield '0:"gemini message"\\n';
+      yield 'd:{"finishReason":"stop"}\\n';
+    }),
+  }),
+}));
+
 import { createClaudeRunner } from "@sandagent/runner-claude";
+import { createCodexRunner } from "@sandagent/runner-codex";
+import { createGeminiRunner } from "@sandagent/runner-gemini";
 import { runAgent } from "../runner.js";
 
 describe("runAgent", () => {
@@ -96,5 +116,33 @@ describe("runAgent", () => {
     });
 
     expect(mockRunner.run).toHaveBeenCalledWith("Create a file");
+  });
+
+  it("should create Codex runner when --runner codex is selected", async () => {
+    await runAgent({
+      runner: "codex",
+      model: "gpt-5-codex",
+      userInput: "Implement feature X",
+    });
+
+    expect(createCodexRunner).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: "gpt-5-codex",
+      }),
+    );
+  });
+
+  it("should create Gemini runner when --runner gemini is selected", async () => {
+    await runAgent({
+      runner: "gemini",
+      model: "gemini-2.5-pro",
+      userInput: "Implement feature Y",
+    });
+
+    expect(createGeminiRunner).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: "gemini-2.5-pro",
+      }),
+    );
   });
 });

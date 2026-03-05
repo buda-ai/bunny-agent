@@ -30,7 +30,7 @@
   },
   "license": "Apache-2.0",
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": ">=0.1.70"
+    "@anthropic-ai/claude-agent-sdk": "0.2.41"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
