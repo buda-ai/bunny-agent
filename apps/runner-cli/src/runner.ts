@@ -3,6 +3,7 @@ import {
   type ClaudeRunnerOptions,
   createClaudeRunner,
 } from "@sandagent/runner-claude";
+import { createPiRunner, type PiRunnerOptions } from "@sandagent/runner-pi";
 
 /**
  * Options for running the agent
@@ -77,9 +78,20 @@ export async function runAgent(options: RunAgentOptions): Promise<void> {
         throw new Error(
           "Copilot runner not yet implemented. Use --runner=claude for now.",
         );
+      case "pi": {
+        // Build Pi runner options
+        const piOptions: PiRunnerOptions = {
+          model: options.model,
+          systemPrompt: options.systemPrompt,
+          cwd: process.cwd(),
+          abortController: abortController,
+        };
+        runner = createPiRunner(piOptions);
+        break;
+      }
       default:
         throw new Error(
-          `Unknown runner: ${options.runner}. Supported runners: claude, codex, copilot`,
+          `Unknown runner: ${options.runner}. Supported runners: claude, codex, copilot, pi`,
         );
     }
 

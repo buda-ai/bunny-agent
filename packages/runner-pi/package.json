@@ -1,0 +1,38 @@
+{
+  "name": "@sandagent/runner-pi",
+  "version": "0.1.0",
+  "description": "Pi agent runtime for SandAgent",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@mariozechner/pi-agent-core": "^0.56.1",
+    "@mariozechner/pi-ai": "^0.56.1",
+    "@mariozechner/pi-coding-agent": "^0.56.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  },
+  "keywords": [
+    "sandagent",
+    "pi",
+    "agent",
+    "runner"
+  ],
+  "author": "SandAgent",
+  "license": "Apache-2.0"
+}

@@ -8,6 +8,15 @@
  *   sandagent image build [options]                     Build (and optionally push) a Docker image
  */
 
+// Load environment variables from .env file
+import { config } from "dotenv";
+import { resolve } from "node:path";
+
+// Try loading .env from current directory and project root
+config({ path: resolve(process.cwd(), ".env") });
+config({ path: resolve(process.cwd(), "../.env") });
+config({ path: resolve(process.cwd(), "../../.env") });
+
 import { parseArgs } from "node:util";
 import type { OutputFormat } from "@sandagent/runner-claude";
 import { buildImage } from "./build-image.js";
@@ -115,9 +124,9 @@ function parseRunArgs(): ParsedRunArgs {
   }
 
   const runner = values.runner!;
-  if (!["claude", "codex", "copilot"].includes(runner)) {
+  if (!["claude", "codex", "copilot", "pi"].includes(runner)) {
     console.error(
-      'Error: --runner must be one of: "claude", "codex", "copilot"',
+      'Error: --runner must be one of: "claude", "codex", "copilot", "pi"',
     );
     process.exit(1);
   }
