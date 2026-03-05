@@ -92,3 +92,19 @@
     - `GEMINI_CLI_PATH=/tmp/gemini-yolo ./run-benchmark.sh --runner gemini --model gemini-2.5-flash --runs 1`
     - Result improved to `4/5`.
     - Output file: `benchmark-results/sandagent/smoking/sandagent-gemini-gemini-2.5-flash-2026-03-05-22-51-04.json`.
+
+### 22:59
+- Ran package tests for extraction fix:
+  - `pnpm --filter @sandagent/benchmark-sandagent exec vitest run` passed.
+- Rebuilt benchmark package:
+  - `pnpm --filter @sandagent/benchmark-sandagent build` passed.
+- Ran full sandagent smoking benchmark across runners (`pi + claude + codex + gemini`):
+  - Command: `GEMINI_CLI_PATH=/tmp/gemini-yolo ./run-benchmark.sh --runner both --runs 1`
+  - Pi (`openai:gpt-5.2`): `5/5`
+    - `benchmark-results/sandagent/smoking/sandagent-pi-openai-gpt-5.2-2026-03-05-22-54-08.json`
+  - Claude (`bedrock-claude-sonnet-4-6`): `4/5` (timeout on smoke-003)
+    - `benchmark-results/sandagent/smoking/sandagent-claude-bedrock-claude-sonnet-4-6-2026-03-05-22-56-55.json`
+  - Codex (`gpt-5.2`): `5/5` (with repeated WS 403 fallback warnings, still successful)
+    - `benchmark-results/sandagent/smoking/sandagent-codex-gpt-5.2-2026-03-05-22-58-20.json`
+  - Gemini (`gemini-2.5-flash`, YOLO wrapper): `4/5` (failed smoke-001 due to response format/task-following)
+    - `benchmark-results/sandagent/smoking/sandagent-gemini-gemini-2.5-flash-2026-03-05-22-59-37.json`
