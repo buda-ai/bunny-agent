@@ -16,6 +16,7 @@ RUN for i in 1 2 3; do \
     apt-get update && apt-get install -y \
     git \
     curl \
+    socat \
     && rm -rf /var/lib/apt/lists/* \
     && break || sleep 5; \
     done
@@ -66,8 +67,7 @@ try {\n\
   const exe = chromium.executablePath();\n\
   const p = spawn(exe, [\n\
     "--headless=new", "--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage",\n\
-    "--remote-debugging-port=9222", "--remote-debugging-address=0.0.0.0",\n\
-    "--remote-debugging-allow-origins=*"\n\
+    "--remote-debugging-port=19222"\n\
   ], { stdio: "ignore", detached: true });\n\
   p.on("error", (err) => console.error("CDP spawn error:", err.message));\n\
   p.unref();\n\
@@ -85,4 +85,4 @@ try {\n\
 EXPOSE 9222
 
 # Keep container running (for Daytona), start CDP browser
-CMD ["bash", "-c", "start-cdp; sleep infinity"]
+CMD ["bash", "-c", "start-cdp && socat TCP-LISTEN:9222,fork,reuseaddr TCP:127.0.0.1:19222 & sleep infinity"]
