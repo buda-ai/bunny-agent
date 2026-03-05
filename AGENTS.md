@@ -92,14 +92,26 @@ Use GAIA benchmark to test runners:
 
 ```bash
 # Download dataset
-pnpm --filter @sandagent/benchmark benchmark:download
+pnpm --filter @sandagent/benchmark-cli benchmark:download
 
-# Run benchmark
-pnpm --filter @sandagent/benchmark benchmark:run -- --runner pi --level 1 --limit 1
+# Run unified benchmark script (from project root)
+./run-benchmark.sh --help
 
-# Compare results
-pnpm --filter @sandagent/benchmark benchmark:compare
+# Examples:
+./run-benchmark.sh --runner pi --runs 3
+./run-benchmark.sh --runner claude --model "global.anthropic.claude-sonnet-4-5-20250929-v1:0"
+./run-benchmark.sh --runs 3  # Test both runners
+
+# Results saved to: benchmark-results/sandagent/smoking/
 ```
+
+**Benchmark script options:**
+- `--runner <name>` - Runner to test: pi, claude, both (default: both)
+- `--model <name>` - Model to use (overrides default)
+- `--runs <n>` - Number of runs per config (default: 1)
+- `--dataset <name>` - Dataset: smoking, gaia (default: smoking)
+
+**Working directory:** Tests run in `/tmp/sandagent-benchmark` to avoid creating files in project directory.
 
 ## Code Style
 

@@ -140,7 +140,222 @@ stdout
 - GAIA Benchmark: https://huggingface.co/gaia-benchmark
 - AI SDK: https://sdk.vercel.ai/
 
+## Benchmark Architecture Refactor
+
+### Package Rename
+- **packages/benchmark** → **packages/benchmark-cli**
+  - Clarifies purpose: tests native coding agent CLIs
+  - Examples: `claude`, `gemini`, `codex` CLIs
+
+### New Structure
+Split benchmark into 3 packages for clarity:
+
+1. **@sandagent/benchmark-shared** - Core logic + Multiple datasets
+   - **GAIA Benchmark** - General AI Assistant (existing)
+   - **SWE-bench Lite** - Software Engineering tasks (TODO)
+   - **Smoking Coding Benchmark** - 5 quick validation tests (NEW)
+   - Answer evaluation
+   - Answer extraction
+   - Shared types
+
+2. **@sandagent/benchmark-cli** - Native CLI testing
+   - Tests: `claude`, `gemini`, `codex` CLIs directly
+   - Purpose: Compare original agent CLIs
+
+3. **@sandagent/benchmark-sandagent** - SandAgent runner testing
+   - Tests: `sandagent --runner claude`, `sandagent --runner pi`, etc.
+   - Purpose: Test sandagent's runner implementations
+   - Measures sandagent overhead
+
+### Smoking Coding Benchmark
+
+Quick validation tests for fast feedback:
+
+| Test | Category | Description | Timeout |
+|------|----------|-------------|---------|
+| smoke-001 | file | Create hello.txt | 30s |
+| smoke-002 | reasoning | Calculate 123 + 456 | 30s |
+| smoke-003 | bash | List .txt files | 30s |
+| smoke-004 | code | Write Python script | 30s |
+| smoke-005 | reasoning | Parse JSON | 30s |
+
+**Total runtime: ~30 seconds**
+
+Perfect for:
+- ✅ Quick validation after changes
+- ✅ CI/CD smoke tests
+- ✅ Runner compatibility checks
+- ✅ Fast feedback loop
+
+### Smoking Benchmark Implementation
+
+Created `@sandagent/benchmark-sandagent` package to run smoking tests:
+
+```bash
+cd packages/benchmark-sandagent
+
+# Run smoking benchmark
+AI_MODEL="openai:gpt-4o-mini" \
+OPENAI_API_KEY=xxx \
+OPENAI_BASE_URL=https://llm.bika.ltd \
+node dist/cli.js run --runner pi
+
+# Output:
+🏖️  Running Smoking Benchmark with sandagent --runner pi
+📊 Total tests: 5
+
+🧪 [smoke-001] Create Hello World (file)
+   ✅ PASS (5.2s)
+
+🧪 [smoke-002] Simple Math (reasoning)
+   ✅ PASS (3.1s)
+
+...
+
+📈 Summary:
+   ✅ Passed: 5/5
+   ❌ Failed: 0/5
+   ⏱️  Total time: 28.3s
+   📊 Success rate: 100.0%
+```
+
+**Features:**
+- ✅ Runs 5 quick tests
+- ✅ Tests file, bash, code, reasoning
+- ✅ Passes env vars to sandagent
+- ✅ Pretty output with emojis
+- ✅ Summary statistics
+
+### Benefits
+- ✅ Clear separation: native CLIs vs sandagent runners
+- ✅ Shared core logic (no duplication)
+- ✅ Multiple benchmark datasets
+- ✅ Fast smoking tests for quick validation
+- ✅ Can compare native vs sandagent performance
+- ✅ Independent versioning
+
+### Package Structure
+```
+packages/
+├── benchmark-shared/       # Core logic + datasets (GAIA, SWE-bench, Smoking)
+├── benchmark-cli/          # Native CLI benchmark (claude, gemini, codex)
+└── benchmark-sandagent/    # SandAgent runner benchmark (--runner X)
+```
+
 ## Contributors
 - Implementation: 2026-03-05
 - Testing: OpenAI gpt-4.1-mini via LiteLLM proxy
 - Environment: Linux, Node.js v24.12.0, pnpm v10.11.0
+
+
+## Benchmark Results Organization
+
+Results are now organized by benchmark type for clarity:
+
+```
+benchmark-results/
+├── cli/                    # Native agent CLI results
+│   └── smoking/
+│       └── cli-{agent}-{model}-{date}-{time}.json
+│
+└── sandagent/              # sandagent runner results
+    └── smoking/
+        └── sandagent-{runner}-{model}-{date}-{time}.json
+```
+
+**Filename format:**
+- CLI: `cli-claudecode-claude-sonnet-4-2026-03-05-14-30-45.json`
+- SandAgent: `sandagent-pi-openai-gpt-4.1-mini-2026-03-05-20-41-14.json`
+
+**Result structure:**
+```json
+{
+  "benchmarkType": "sandagent",
+  "runner": "pi",
+  "model": "openai:gpt-4.1-mini",
+  "timestamp": "2026-03-05T12:41:14.726Z",
+  "summary": {
+    "total": 5,
+    "passed": 2,
+    "successRate": 40,
+    "totalTimeMs": 14300
+  },
+  "results": [...]
+}
+```
+
+**Example results:**
+- sandagent-pi-openai-gpt-4.1-mini-2026-03-05-20-41-14.json: 2/5 passed (40%)
+- Runtime: ~14 seconds
+
+## Environment Configuration
+
+All packages now use the root `.env` file. Removed redundant `.env.example` files from:
+- ❌ `docker/sandagent-claude/.env.example` (deleted)
+- ❌ `packages/benchmark-cli/.env.example` (deleted)
+- ✅ `.env.example` (root - single source of truth)
+
+
+## Answer Extraction Fix
+
+Fixed answer extraction in benchmark results to show clean text instead of raw shell output.
+
+**Before:**
+```json
+{
+  "answer": "[dotenv@17.3.1] injecting env...\n0:\"123 + 456 = 579\"\nd:{\"finishReason\":\"stop\"}"
+}
+```
+
+**After:**
+```json
+{
+  "answer": "The result of 123 + 456 is 579."
+}
+```
+
+**Changes:**
+- Fixed `pi.ts` runner to parse AI SDK UI format (`0:"text"` lines)
+- Skip dotenv and runner logs
+- Extract final text chunk from streaming output
+- Unescape JSON strings properly
+
+**Result quality:**
+- ✅ Clean, human-readable answers
+- ✅ No shell output noise
+- ✅ Proper text extraction from streaming format
+
+
+## Unified Benchmark Script
+
+Created `run-benchmark.sh` in project root as the single entry point for all benchmarks.
+
+**Features:**
+- ✅ Loads `.env` automatically (with error check)
+- ✅ Configurable default models at top of script
+- ✅ Runs in `/tmp/sandagent-benchmark` (no project pollution)
+- ✅ Supports both pi and claude runners
+- ✅ Multiple runs support
+- ✅ Full output display
+
+**Usage:**
+```bash
+# Edit default models in run-benchmark.sh:
+DEFAULT_PI_MODEL="openai:gpt-5.2"
+DEFAULT_CLAUDE_MODEL="global.anthropic.claude-sonnet-4-5-20250929-v1:0"
+
+# Run benchmarks
+./run-benchmark.sh --runner pi --runs 3
+./run-benchmark.sh --runner claude --runs 3
+./run-benchmark.sh --runs 2  # Both runners
+```
+
+**Fixes:**
+- Fixed working directory to `/tmp/sandagent-benchmark`
+- Fixed result save path using `PROJECT_ROOT` env var
+- Removed old scattered benchmark scripts
+- Updated AGENTS.md with unified script documentation
+
+**Model name format:**
+- Pi runner: `openai:gpt-5.2` (provider:model)
+- Claude runner: `global.anthropic.claude-sonnet-4-5-20250929-v1:0`

@@ -1,10 +1,22 @@
-# @sandagent/benchmark
+# @sandagent/benchmark-cli
 
-GAIA benchmark runner for comparing agent CLI performance.
+Benchmark for testing **native coding agent CLIs** (Claude Code, Gemini CLI, Codex CLI, etc.)
 
-Download the GAIA dataset, run benchmarks across multiple agent CLIs, and generate comparable reports.
+Tests the performance of original agent CLIs directly:
+- `claude -p "task"` (Claude Code)
+- `gemini -p "task"` (Gemini CLI)
+- `codex -p "task"` (Codex CLI)
+- `opencode -p "task"` (OpenCode)
 
 > Note: this is a monorepo internal tool (`"private": true`) and is not published to npm. Use it via pnpm workspace scripts.
+
+## Comparison with Other Benchmark Packages
+
+| Package | Tests | Purpose |
+|---------|-------|---------|
+| `@sandagent/benchmark-cli` | Native CLIs (claude, gemini, codex) | Compare original agent CLIs |
+| `@sandagent/benchmark-sandagent` | sandagent --runner X | Test sandagent's runner implementations |
+| `@sandagent/benchmark-shared` | Core logic | Shared datasets and evaluation logic |
 
 ## Quick start (beginner-friendly)
 

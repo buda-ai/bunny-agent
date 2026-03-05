@@ -126,8 +126,8 @@ E2B cloud or Sandock (Docker) — switch with one line
 ### 🌐 Web + CLI
 Complete Next.js app and terminal-based runners
 
-### 🎯 GAIA Benchmark
-Compare performance across different agent CLIs
+### 🎯 Smoking Benchmark
+Quick validation tests for agent performance
 
 ### 📝 Debug Tools
 JSONL transcript recording for debugging and replay
@@ -731,26 +731,75 @@ sandbox: new SandockSandbox({
 
 ---
 
-## 🎯 GAIA Benchmark
+## 🎯 Benchmarking
 
-Compare agent performance across CLIs:
+SandAgent includes a smoking test benchmark to quickly validate agent performance across different runners and models.
+
+### Quick Start
 
 ```bash
-# Download GAIA dataset
-sandagent-benchmark download
+# Run smoking tests with default models
+./run-benchmark.sh --runs 3
 
-# Run benchmarks
-sandagent-benchmark run --runner sandagent --level 1
-sandagent-benchmark run --runner claudecode --level 1
-sandagent-benchmark run --runner gemini-cli --level 1
+# Test specific runner
+./run-benchmark.sh --runner pi --runs 3
+./run-benchmark.sh --runner claude --runs 3
 
-# Compare results
-sandagent-benchmark compare
+# Test specific model
+./run-benchmark.sh --runner pi --model "openai:gpt-5.3" --runs 3
+./run-benchmark.sh --runner claude --model "gemini-3-pro" --runs 3
 ```
 
-Supported runners: `sandagent`, `gemini-cli`, `claudecode`, `codex-cli`
+### Prompt for Coding Agents
 
-📖 **[Benchmark Guide →](./packages/benchmark/README.md)**
+Copy this prompt to run the full benchmark suite:
+
+```
+Run benchmark with smoking dataset using these commands:
+
+1. sandagent + pi + gemini-3-pro:
+./run-benchmark.sh --runner pi --model "gemini-3-pro" --runs 1
+
+2. sandagent + pi + openai:gpt-5.3:
+./run-benchmark.sh --runner pi --model "openai:gpt-5.3" --runs 1
+
+3. sandagent + claude agent sdk + bedrock-claude-sonnet-4-6:
+./run-benchmark.sh --runner claude --model "bedrock-claude-sonnet-4-6" --runs 1
+
+4. sandagent + claude agent sdk + gemini-3-pro:
+./run-benchmark.sh --runner claude --model "gemini-3-pro" --runs 1
+
+Run all 4 tests and show me the results summary (pass/fail rates and timing).
+```
+
+### Recommended Test Matrix
+
+Test different runner + model combinations:
+
+```bash
+# Pi runner with different models
+./run-benchmark.sh --runner pi --model "gemini-3-pro" --runs 3
+./run-benchmark.sh --runner pi --model "openai:gpt-5.3" --runs 3
+
+# Claude Agent SDK with different models
+./run-benchmark.sh --runner claude --model "bedrock-claude-sonnet-4-6" --runs 3
+./run-benchmark.sh --runner claude --model "gemini-3-pro" --runs 3
+```
+
+### Results
+
+Results are saved to `benchmark-results/sandagent/smoking/` with format:
+```
+sandagent-{runner}-{model}-{date}-{time}.json
+```
+
+Each result includes:
+- Test outcomes (pass/fail)
+- Execution times
+- Raw outputs
+- Model usage statistics
+
+📖 **[Benchmark Architecture →](./docs/BENCHMARK_ARCHITECTURE.md)** | **[Datasets Guide →](./docs/BENCHMARK_DATASETS.md)**
 
 ---
 
