@@ -1,5 +1,28 @@
 # @sandagent/sdk
 
+## 0.2.21
+
+### Patch Changes
+
+- - fix: thinking part convert
+- Updated dependencies
+  - @sandagent/manager@0.2.21
+
+## 0.2.20
+
+### Patch Changes
+
+- - fix: Claude CLI rejects `--dangerously-skip-permissions` when running as root (uid 0) in containers, causing silent `exit code 1`. Now auto-detects root and falls back to `permissionMode: "default"` with `canUseTool` callback for tool approval.
+- Updated dependencies
+  - @sandagent/manager@0.2.20
+
+## 0.2.19
+
+### Patch Changes
+
+- In the container, sandagent run --model gemini-3.1-pro ... failed with [AISDKStream] Error: Claude Code process exited with code 1. The stream only showed this generic message and
+  - @sandagent/manager@0.2.19
+
 ## 0.2.18
 
 ### Patch Changes

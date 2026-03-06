@@ -1,6 +1,6 @@
 /**
  * SSE Format Validator
- * Validates AI SDK Data Stream Protocol format
+ * Validates AI SDK Data Stream Protocol format. Only handles `data:` lines.
  */
 
 export interface SSEValidationResult {

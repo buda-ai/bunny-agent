@@ -49,18 +49,18 @@ export abstract class BaseRunner implements RunnerHandler {
   }
 
   /**
-   * Extract answer from Data Stream Protocol (SSE format)
-   * Validates format and extracts text from text-delta events
+   * Extract answer from Data Stream Protocol.
+   * Primary format is AI SDK UI stream: `data:` lines (validateSSEFormat only handles `data:` lines).
+   * Fallback: 0:/d: line format for alternate streams.
    */
   extractAnswer(rawOutput: Required<BenchmarkResult["rawOutput"]>): string {
     if (typeof rawOutput === "string") {
-      // Validate SSE format
+      // Parse SSE format (data: ...)
       const validation = validateSSEFormat(rawOutput);
       if (!validation.valid) {
         console.warn("[SSE Validation] Format errors:", validation.errors);
       }
 
-      // Extract text from text-delta events
       const textChunks: string[] = [];
       for (const event of validation.events) {
         if (event.type === "text-delta" && event.delta) {
@@ -68,12 +68,17 @@ export abstract class BaseRunner implements RunnerHandler {
         }
       }
 
-      // If no text found, return raw output (fallback)
-      if (textChunks.length === 0) {
-        return rawOutput.trim();
+      if (textChunks.length > 0) {
+        return textChunks.join("").trim();
       }
 
-      return textChunks.join("").trim();
+      // Fallback: 0:/d: line format (non-data: streams)
+      const fromAISDKUI = this.extractAnswerFromAISDKUI(rawOutput);
+      if (fromAISDKUI !== null) {
+        return fromAISDKUI;
+      }
+
+      return rawOutput.trim();
     }
 
     if (Array.isArray(rawOutput)) {
@@ -81,6 +86,28 @@ export abstract class BaseRunner implements RunnerHandler {
     }
 
     return String(rawOutput).trim();
+  }
+
+  /**
+   * Parse 0:/d: line format and return concatenated text from 0: lines.
+   */
+  private extractAnswerFromAISDKUI(output: string): string | null {
+    const textChunks: string[] = [];
+    for (const line of output.split("\n")) {
+      const trimmed = line.trim();
+      if (!trimmed.startsWith("0:")) continue;
+      const jsonStr = trimmed.slice(2).trim();
+      try {
+        const value = JSON.parse(jsonStr);
+        if (typeof value === "string") {
+          textChunks.push(value);
+        }
+      } catch {
+        // ignore malformed lines
+      }
+    }
+    if (textChunks.length === 0) return null;
+    return textChunks.join("").trim();
   }
 
   /**

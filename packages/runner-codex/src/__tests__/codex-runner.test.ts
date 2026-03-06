@@ -40,8 +40,8 @@ describe("createCodexRunner", () => {
       chunks.push(chunk);
     }
 
-    expect(chunks).toContain(`0:${JSON.stringify("Hello from Codex")}\n`);
-    expect(chunks.some((chunk) => chunk.startsWith("d:"))).toBe(true);
+    expect(chunks.some((c) => c.includes("Hello from Codex"))).toBe(true);
+    expect(chunks.some((chunk) => chunk.includes("[DONE]"))).toBe(true);
   });
 
   it("uses resume thread when resume id is provided", async () => {
@@ -74,7 +74,7 @@ describe("createCodexRunner", () => {
       "thread-123",
       expect.objectContaining({ model: "gpt-5-codex" }),
     );
-    expect(chunks.some((chunk) => chunk.startsWith("d:"))).toBe(true);
+    expect(chunks.some((chunk) => chunk.includes("[DONE]"))).toBe(true);
   });
 
   it("normalizes openai-prefixed model names for Codex", async () => {
