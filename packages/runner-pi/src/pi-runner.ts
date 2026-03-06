@@ -15,8 +15,10 @@ export interface PiRunnerOptions {
   env?: Record<string, string>;
   abortController?: AbortController;
   /**
-   * Session file path to resume (from previous run's message-metadata.sessionFile).
-   * When set, SessionManager.open(resume) is used; otherwise SessionManager.continueRecent(cwd).
+   * Session ID to resume (from previous run's message-metadata.sessionId).
+   * When set, the runner resolves it to a session file via SessionManager.list(cwd) and opens it;
+   * if the value contains '/', it is treated as a session file path and opened directly.
+   * Otherwise SessionManager.continueRecent(cwd) is used.
    * Sessions use Pi's default directory (~/.pi/agent/sessions/...) so workspace is not used.
    */
   sessionId?: string;
@@ -164,10 +166,22 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
 
   return {
     async *run(userInput: string): AsyncIterable<string> {
-      const sessionManager =
-        options.sessionId != null && options.sessionId !== ""
-          ? SessionManager.open(options.sessionId)
-          : SessionManager.continueRecent(cwd);
+      const resume = options.sessionId?.trim();
+      const sessionManager = await (async (): Promise<
+        ReturnType<typeof SessionManager.continueRecent>
+      > => {
+        if (resume !== undefined && resume !== "") {
+          if (resume.includes("/")) {
+            return SessionManager.open(resume);
+          }
+          const sessions = await SessionManager.list(cwd);
+          const found = sessions.find((s) => s.id === resume);
+          return found
+            ? SessionManager.open(found.path)
+            : SessionManager.continueRecent(cwd);
+        }
+        return SessionManager.continueRecent(cwd);
+      })();
 
       const { session } = await createAgentSession({
         cwd,
@@ -228,16 +242,9 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
         const ensureStartEvent = async function* () {
           if (!hasStarted) {
             yield `data: ${JSON.stringify({ type: "start", messageId })}\n\n`;
-            const metadata: Record<string, string> = {
-              sessionId: session.sessionId,
-            };
-            const sessionFile = session.sessionFile;
-            if (sessionFile != null) {
-              metadata.sessionFile = sessionFile;
-            }
             yield `data: ${JSON.stringify({
               type: "message-metadata",
-              messageMetadata: metadata,
+              messageMetadata: { sessionId: session.sessionId },
             })}\n\n`;
             hasStarted = true;
           }
@@ -288,10 +295,10 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
                 }
               }
             } else if (event.type === "tool_execution_start") {
-              yield `data: ${JSON.stringify({ type: "tool-input-start", toolCallId: event.toolCallId, toolName: event.toolName })}\n\n`;
-              yield `data: ${JSON.stringify({ type: "tool-input-available", toolCallId: event.toolCallId, toolName: event.toolName, input: event.args })}\n\n`;
+              yield `data: ${JSON.stringify({ type: "tool-input-start", toolCallId: event.toolCallId, toolName: event.toolName, dynamic: true })}\n\n`;
+              yield `data: ${JSON.stringify({ type: "tool-input-available", toolCallId: event.toolCallId, toolName: event.toolName, input: event.args, dynamic: true })}\n\n`;
             } else if (event.type === "tool_execution_end") {
-              yield `data: ${JSON.stringify({ type: "tool-output-available", toolCallId: event.toolCallId, output: event.result })}\n\n`;
+              yield `data: ${JSON.stringify({ type: "tool-output-available", toolCallId: event.toolCallId, output: event.result, dynamic: true })}\n\n`;
             } else if (event.type === "agent_end") {
               if (aborted) {
                 yield* finishError("Run aborted by signal.");
