@@ -307,8 +307,7 @@ async function* runWithClaudeAgentSDK(
 function createSDKOptions(options: ClaudeRunnerOptions): Options {
   // Claude CLI rejects --dangerously-skip-permissions under root/sudo.
   // Fall back to "default" permission mode and let canUseTool handle approvals.
-  const isRoot =
-    typeof process.getuid === "function" && process.getuid() === 0;
+  const isRoot = typeof process.getuid === "function" && process.getuid() === 0;
 
   return {
     model: options.model,
