@@ -30,9 +30,14 @@ RUN mkdir -p /opt/sandagent && \
     npm init -y && \
     npm install --no-audit --no-fund \
     @anthropic-ai/claude-agent-sdk \
-    @sandagent/runner-cli@latest && \
+    @sandagent/runner-cli@latest \
+    playwright && \
     rm package.json package-lock.json && \
     npm cache clean --force
+
+# Install Playwright Chromium browser and system dependencies
+ENV PLAYWRIGHT_BROWSERS_PATH=/opt/sandagent/pw-browsers
+RUN cd /opt/sandagent && npx playwright install --with-deps chromium
 
 # Create init script to copy deps to workspace on startup
 RUN echo '#!/bin/bash\n\
@@ -53,8 +58,47 @@ RUN echo '#!/usr/bin/env node' > /usr/local/bin/sandagent && \
 ENV NODE_PATH=/opt/sandagent/node_modules
 ENV PATH=/usr/local/bin:$PATH
 
+# Suppress D-Bus errors in headless Chromium (no bus in containers)
+ENV DBUS_SESSION_BUS_ADDRESS=/dev/null
+
+# Create CDP (Chrome DevTools Protocol) startup script
+# Use nginx to proxy and rewrite Host header to localhost,
+# bypassing Chromium's Host header security check
+RUN for i in 1 2 3; do \
+    apt-get update && apt-get install -y nginx && \
+    rm -rf /var/lib/apt/lists/* && break || sleep 5; \
+    done
+
+RUN echo 'server {\n\
+    listen 9222;\n\
+    location / {\n\
+        proxy_pass http://127.0.0.1:9223;\n\
+        proxy_set_header Host localhost;\n\
+        proxy_http_version 1.1;\n\
+        proxy_set_header Upgrade $http_upgrade;\n\
+        proxy_set_header Connection "upgrade";\n\
+    }\n\
+}' > /etc/nginx/conf.d/cdp-proxy.conf && \
+    rm -f /etc/nginx/sites-enabled/default
+
+RUN echo '#!/bin/bash\n\
+set -e\n\
+CHROME_BIN=$(node -e "console.log(require('"'"'playwright'"'"').chromium.executablePath())")\n\
+"$CHROME_BIN" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage --disable-software-rasterizer \\\n\
+  --remote-debugging-port=9223 --remote-allow-origins=* 2>/dev/null &\n\
+for i in $(seq 1 30); do\n\
+  if curl -s http://127.0.0.1:9223/json/version > /dev/null 2>&1; then break; fi\n\
+  sleep 0.5\n\
+done\n\
+nginx\n\
+echo "CDP available on 0.0.0.0:9222 (nginx proxy rewriting Host to localhost)"' > /usr/local/bin/start-cdp && \
+    chmod +x /usr/local/bin/start-cdp
+
 # Template files (optional, added by build script)
 {{TEMPLATE_FILES}}
 
-# Keep container running (for Daytona)
-CMD ["sleep", "infinity"]
+# Expose CDP websocket port
+EXPOSE 9222
+
+# Keep container running (for Daytona), start CDP browser
+CMD ["bash", "-c", "start-cdp; sleep infinity"]

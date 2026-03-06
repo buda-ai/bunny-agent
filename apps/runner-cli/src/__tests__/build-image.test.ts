@@ -79,7 +79,9 @@ describe("buildImage", () => {
     const content = readFileSync(dockerfilePath, "utf8");
     expect(content).toContain("FROM node:20-slim");
     expect(content).toContain("@sandagent/runner-cli");
-    expect(content).toContain('CMD ["sleep", "infinity"]');
+    expect(content).toContain(
+      'CMD ["bash", "-c", "start-cdp; sleep infinity"]',
+    );
   });
 
   it("uses --image override when provided", async () => {
