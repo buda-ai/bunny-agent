@@ -57,6 +57,15 @@ type RawMessageStreamContentBlockStart =
       type: "content_block_start";
       index: number;
       content_block: {
+        type: "thinking";
+        thinking?: string;
+        signature?: string;
+      };
+    }
+  | {
+      type: "content_block_start";
+      index: number;
+      content_block: {
         type: "tool_use";
         id: string;
         name: string;
@@ -71,6 +80,22 @@ type RawMessageStreamContentBlockDelta =
       delta: {
         type: "text_delta";
         text: string;
+      };
+    }
+  | {
+      type: "content_block_delta";
+      index: number;
+      delta: {
+        type: "thinking_delta";
+        thinking: string;
+      };
+    }
+  | {
+      type: "content_block_delta";
+      index: number;
+      delta: {
+        type: "signature_delta";
+        signature: string;
       };
     }
   | {
@@ -342,6 +367,8 @@ export class AISDKStreamConverter {
   private systemMessage: SDKSystemMessage | undefined;
   private hasEmittedStart = false;
   private sessionId: string | undefined;
+  /** True after we emitted an error from a result message (e.g. API 400). Avoids emitting a second generic "exited with code 1" that would hide the real error. */
+  private errorEmitted = false;
 
   private readonly partIdMap = new Map<string, string>();
 
@@ -373,6 +400,13 @@ export class AISDKStreamConverter {
       return this.partIdMap.get(partIdKey) ?? "";
     }
     throw new Error("Part ID not found");
+  }
+
+  /** Returns part ID for index or undefined if not tracked (e.g. content_block_stop without a prior start). */
+  private tryGetPartId(index: number): string | undefined {
+    if (!this.sessionId) return undefined;
+    const partIdKey = `${this.sessionId}-${index}`;
+    return this.partIdMap.get(partIdKey);
   }
 
   /**
@@ -409,6 +443,7 @@ export class AISDKStreamConverter {
   }
 
   private *emitTextBlockEvent(event: RawMessageStreamEvent): Generator<string> {
+    // --- text block ---
     if (
       event.type === "content_block_start" &&
       event.content_block.type === "text"
@@ -420,7 +455,6 @@ export class AISDKStreamConverter {
         id: partId,
       });
     }
-    // Handle text_delta events
     if (
       event.type === "content_block_delta" &&
       event.delta?.type === "text_delta"
@@ -432,11 +466,32 @@ export class AISDKStreamConverter {
       });
     }
 
+    // --- thinking block (reasoning): map to AI SDK "reasoning" so content_block_stop does not hit text path ---
+    if (
+      event.type === "content_block_start" &&
+      event.content_block.type === "thinking"
+    ) {
+      const partId = `reasoning_${generateId()}`;
+      this.setPartId(event.index, partId);
+      // No reasoning-start in stream protocol; deltas carry the content.
+    }
+    if (
+      event.type === "content_block_delta" &&
+      event.delta?.type === "thinking_delta"
+    ) {
+      if (event.delta.thinking) {
+        yield this.emit({ type: "reasoning", text: event.delta.thinking });
+      }
+    }
+    // signature_delta is ignored (verification only).
+
+    // --- content_block_stop: only close text parts; reasoning has no end event ---
     if (event.type === "content_block_stop") {
-      const partId = this.getPartId(event.index);
-      if (partId.startsWith("text_")) {
+      const partId = this.tryGetPartId(event.index);
+      if (partId?.startsWith("text_")) {
         yield this.emit({ type: "text-end", id: partId });
       }
+      // reasoning_ part: no-op. Other/missing part: skip.
     }
   }
 
@@ -543,6 +598,7 @@ export class AISDKStreamConverter {
           const resultMsg = message as SDKResultMessage;
 
           if (resultMsg.is_error) {
+            this.errorEmitted = true;
             const errorText =
               (resultMsg as unknown as { result?: string }).result ||
               "Unknown error";
@@ -613,22 +669,67 @@ export class AISDKStreamConverter {
       //   yield this.emit({ type: "text-end", id: this.textPartId });
       // }
     } catch (error) {
-      trace({ error: String(error) });
+      if (process.env.DEBUG === "true") {
+        const errPayload: Record<string, unknown> = {
+          error: error instanceof Error ? error.message : String(error),
+        };
+        if (error instanceof Error) {
+          if (error.stack) errPayload.stack = error.stack;
+          if (error.cause !== undefined) {
+            errPayload.cause =
+              error.cause instanceof Error
+                ? {
+                    message: error.cause.message,
+                    stack: error.cause.stack,
+                  }
+                : String(error.cause);
+          }
+        }
+        trace(errPayload);
+      } else {
+        trace({ error: String(error) });
+      }
       if (isAbortError(error)) {
         console.error("[AISDKStream] Operation aborted");
       } else {
         const errorMessage =
           error instanceof Error ? error.message : "Unknown error";
         console.error("[AISDKStream] Error:", errorMessage);
-        yield this.emit({ type: "error", errorText: errorMessage });
-        yield this.emit({
-          type: "finish",
-          finishReason: mapFinishReason("error_during_execution", true),
-          messageMetadata: {
-            usage: convertUsageToAISDK({}),
-            sessionId: this.sessionId,
-          },
-        });
+        if (process.env.DEBUG === "true") {
+          if (error instanceof Error && error.stack) {
+            console.error("[AISDKStream] Stack:", error.stack);
+          }
+          if (error instanceof Error && error.cause) {
+            console.error("[AISDKStream] Cause:", error.cause);
+          }
+        }
+        if (
+          (errorMessage.includes("exited with code") ||
+            errorMessage.includes("process exited")) &&
+          this.errorEmitted
+        ) {
+          console.error(
+            "[AISDKStream] (Skipping duplicate error — already sent API/result error above. Check the first error in the stream.)",
+          );
+        } else if (
+          errorMessage.includes("exited with code") ||
+          errorMessage.includes("process exited")
+        ) {
+          console.error(
+            "[AISDKStream] Hint: Verify ANTHROPIC_API_KEY, --model (proxy must support it), and network.",
+          );
+        }
+        if (!this.errorEmitted) {
+          yield this.emit({ type: "error", errorText: errorMessage });
+          yield this.emit({
+            type: "finish",
+            finishReason: mapFinishReason("error_during_execution", true),
+            messageMetadata: {
+              usage: convertUsageToAISDK({}),
+              sessionId: this.sessionId,
+            },
+          });
+        }
       }
     } finally {
       yield `data: [DONE]\n\n`;

@@ -1,10 +1,30 @@
 # @sandagent/runner-cli
 
+## 0.2.21
+
+### Patch Changes
+
+- - fix: thinking part convert
+
+## 0.2.20
+
+### Patch Changes
+
+- - fix: Claude CLI rejects `--dangerously-skip-permissions` when running as root (uid 0) in containers, causing silent `exit code 1`. Now auto-detects root and falls back to `permissionMode: "default"` with `canUseTool` callback for tool approval.
+
+## 0.2.19
+
+### Patch Changes
+
+- In the container, sandagent run --model gemini-3.1-pro ... failed with [AISDKStream] Error: Claude Code process exited with code 1. The stream only showed this generic message and
+
 ## 0.2.18
 
 ### Patch Changes
 
 - chore: upgrade AI SDK, set turbopack.root, bump SDK provider deps
+- docs: add Troubleshooting for "Claude Code process exited with code 1" in container (DEBUG, API/model, network); add hint in runner-claude stream when process exits
+- fix: improve error handling in runner-claude — log stack/cause when DEBUG=true, avoid masking API errors (e.g. invalid model name) with generic exit message
 
 ## 0.2.17
 

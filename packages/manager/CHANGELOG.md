@@ -1,5 +1,19 @@
 # @sandagent/manager
 
+## 0.2.21
+
+### Patch Changes
+
+- - fix: thinking part convert
+
+## 0.2.20
+
+### Patch Changes
+
+- - fix: Claude CLI rejects `--dangerously-skip-permissions` when running as root (uid 0) in containers, causing silent `exit code 1`. Now auto-detects root and falls back to `permissionMode: "default"` with `canUseTool` callback for tool approval.
+
+## 0.2.19
+
 ## 0.2.18
 
 ### Patch Changes

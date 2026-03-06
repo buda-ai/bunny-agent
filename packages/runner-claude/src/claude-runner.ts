@@ -320,6 +320,11 @@ async function* runWithClaudeAgentSDK(
  * Create SDK options for query
  */
 function createSDKOptions(options: ClaudeRunnerOptions): Options {
+  // Claude CLI rejects --dangerously-skip-permissions under root/sudo.
+  // Fall back to "default" permission mode and let canUseTool handle approvals.
+  const isRoot =
+    typeof process.getuid === "function" && process.getuid() === 0;
+
   return {
     model: options.model,
     systemPrompt: options.systemPrompt,
@@ -335,10 +340,8 @@ function createSDKOptions(options: ClaudeRunnerOptions): Options {
     resume: options.resume,
     settingSources: ["project", "user"],
     canUseTool: createCanUseToolCallback(options),
-    // Bypass all permission checks for automated execution
-    permissionMode: "bypassPermissions",
-    allowDangerouslySkipPermissions: true,
-    // Enable partial messages for streaming
+    permissionMode: isRoot ? "default" : "bypassPermissions",
+    allowDangerouslySkipPermissions: !isRoot,
     includePartialMessages: options.includePartialMessages,
   };
 }
