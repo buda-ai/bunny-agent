@@ -112,6 +112,26 @@ function getUsageFromAgentEndMessages(
 }
 
 /**
+ * Extract error message from agent_end messages (e.g. 401 auth errors, model errors).
+ * Pi agent sets stopReason:"error" and errorMessage on the assistant message.
+ */
+function getErrorFromAgentEndMessages(
+  messages: Array<{
+    role: string;
+    stopReason?: string;
+    errorMessage?: string;
+  }>,
+): string | undefined {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (m.role === "assistant" && m.errorMessage) {
+      return m.errorMessage;
+    }
+  }
+  return undefined;
+}
+
+/**
  * Debug trace: append raw Pi agent events to a JSON-lines file when DEBUG=true.
  * Same idea as runner-claude's claude-message-stream-debug.json.
  */
@@ -302,8 +322,13 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
               if (aborted) {
                 yield* finishError("Run aborted by signal.");
               } else {
-                const usage = getUsageFromAgentEndMessages(event.messages);
-                yield* finishSuccess(usage);
+                const errorMsg = getErrorFromAgentEndMessages(event.messages);
+                if (errorMsg) {
+                  yield* finishError(errorMsg);
+                } else {
+                  const usage = getUsageFromAgentEndMessages(event.messages);
+                  yield* finishSuccess(usage);
+                }
               }
             }
           }
