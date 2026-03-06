@@ -184,5 +184,6 @@ sandagent image build --name vikadata/sandagent --tag 0.1.0
 
 ## Related Documentation
 
+- [Skills](docs/SKILLS.md) — Where skills live and how they are loaded (local and Docker)
 - [Claude Agent SDK](https://platform.claude.com/docs/agent-sdk/typescript)
 - [AI SDK UI Stream Protocol](https://ai-sdk.dev/docs/ai-sdk-ui/stream-protocol)

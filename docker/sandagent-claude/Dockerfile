@@ -49,11 +49,23 @@ RUN echo '#!/usr/bin/env node' > /usr/local/bin/sandagent && \
     echo 'import("/opt/sandagent/node_modules/@sandagent/runner-cli/dist/bundle.mjs")' >> /usr/local/bin/sandagent && \
     chmod +x /usr/local/bin/sandagent
 
+# Entrypoint: copy /skills into ~/.claude/skills (real dirs so SDK loads them; symlinks may not be followed)
+RUN printf '%s\n' \
+    '#!/bin/bash' \
+    'mkdir -p "$HOME/.claude/skills"' \
+    'if [ -d /skills ] && [ -n "$(ls -A /skills 2>/dev/null)" ]; then' \
+    '  cp -r /skills/. "$HOME/.claude/skills/"' \
+    '  echo "Copied /skills to $HOME/.claude/skills"' \
+    'fi' \
+    'exec "$@"' > /usr/local/bin/sandagent-entrypoint && \
+    chmod +x /usr/local/bin/sandagent-entrypoint
+
 # Set environment variables
 ENV NODE_PATH=/opt/sandagent/node_modules
 ENV PATH=/usr/local/bin:$PATH
 
 # Template files (optional, added by build script)
 
-# Keep container running (for Daytona)
+# Copy /skills into ~/.claude/skills at startup, then keep container running (for Daytona)
+ENTRYPOINT ["/usr/local/bin/sandagent-entrypoint"]
 CMD ["sleep", "infinity"]
