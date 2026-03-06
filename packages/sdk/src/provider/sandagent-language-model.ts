@@ -19,7 +19,6 @@ import type {
   SandAgentModelId,
   SandAgentProviderSettings,
 } from "./types";
-import { resolveModelId } from "./types";
 
 /**
  * Options for creating a SandAgent language model instance.
@@ -27,6 +26,20 @@ import { resolveModelId } from "./types";
 export interface SandAgentLanguageModelOptions {
   id: SandAgentModelId;
   options: SandAgentProviderSettings & { runner: RunnerSpec };
+}
+
+/** Format error so message and cause chain are visible (e.g. includes "Fatal error: ..." from runner). */
+function formatErrorForLog(error: unknown): string {
+  if (error instanceof Error) {
+    const parts = [error.message];
+    let cause: unknown = error.cause;
+    while (cause instanceof Error) {
+      parts.push(cause.message);
+      cause = cause.cause;
+    }
+    return parts.join(" | cause: ");
+  }
+  return String(error);
 }
 
 function getLogger(settings: SandAgentProviderSettings): Logger {
@@ -86,7 +99,7 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
   private toolNameMap: Map<string, string> = new Map();
 
   constructor(modelOptions: SandAgentLanguageModelOptions) {
-    this.modelId = resolveModelId(modelOptions.id);
+    this.modelId = modelOptions.id;
     this.options = modelOptions.options;
     this.logger = getLogger(modelOptions.options);
   }
@@ -298,7 +311,9 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
             if (error instanceof Error && error.name === "AbortError") {
               self.logger.info("[sandagent] Stream aborted by user");
             } else {
-              self.logger.error(`[sandagent] Stream error: ${error}`);
+              self.logger.error(
+                `[sandagent] Stream error: ${formatErrorForLog(error)}`,
+              );
             }
             controller.error(error);
           }
@@ -376,7 +391,7 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
           providerMetadata: {
             sandagent: {
               sessionId: this.sessionId,
-            },
+            } as unknown as SharedV3ProviderMetadata,
           },
         });
         break;
@@ -468,9 +483,10 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
           finishReason = this.mapFinishReason(rawFinishReason as string);
         }
 
-        const { usage: rawUsage } = parsed.messageMetadata as {
-          usage: Record<string, unknown>;
-        };
+        const messageMetadata = parsed.messageMetadata as
+          | { usage?: Record<string, unknown> }
+          | undefined;
+        const rawUsage = messageMetadata?.usage;
         const usage = this.convertUsage(rawUsage);
 
         parts.push({
@@ -478,8 +494,11 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
           finishReason,
           usage,
           providerMetadata: {
-            sandagent: parsed.messageMetadata,
-          } as SharedV3ProviderMetadata,
+            sandagent: {
+              ...((parsed.messageMetadata as Record<string, unknown>) ?? {}),
+              sessionId: this.sessionId,
+            } as unknown as SharedV3ProviderMetadata,
+          },
         });
         break;
       }

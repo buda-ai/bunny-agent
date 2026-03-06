@@ -1,6 +1,6 @@
 {
   "name": "@sandagent/sandbox-daytona",
-  "version": "0.2.22",
+  "version": "0.5.1",
   "description": "Daytona sandbox adapter for SandAgent",
   "type": "module",
   "main": "./dist/index.js",
@@ -29,6 +29,9 @@
     "directory": "packages/sandbox-daytona"
   },
   "license": "Apache-2.0",
+  "publishConfig": {
+    "access": "public"
+  },
   "dependencies": {
     "@sandagent/manager": "workspace:*",
     "@daytonaio/sdk": "^0.130.0"

@@ -71,8 +71,6 @@ export class LocalSandbox implements SandboxAdapter {
     this.defaultTimeout = options.defaultTimeout ?? 300000; // 5 min for agent runs
     this.env = options.env ?? {};
     this.runnerCommand = options.runnerCommand ?? ["sandagent", "run"];
-
-    console.log("LocalSandbox constructor", this.env);
   }
 
   getHandle(): SandboxHandle | null {
@@ -304,6 +302,12 @@ class LocalSandboxHandle implements SandboxHandle {
       throw spawnError;
     }
 
+    // Buffer stderr from the start so we have it when process exits with non-zero
+    const stderrChunks: Buffer[] = [];
+    child.stderr.on("data", (chunk: Buffer) => {
+      stderrChunks.push(chunk);
+    });
+
     try {
       // Yield stdout chunks
       for await (const chunk of child.stdout) {
@@ -329,14 +333,33 @@ class LocalSandboxHandle implements SandboxHandle {
       }
 
       if (exitCode !== 0) {
-        // Collect stderr for error message
-        let stderr = "";
-        for await (const chunk of child.stderr) {
-          stderr += chunk.toString();
+        const stderr = stderrChunks.length
+          ? Buffer.concat(stderrChunks).toString("utf-8").trim()
+          : "";
+        if (stderr) {
+          console.error(
+            `[LocalSandbox] Command failed (exit ${exitCode}) stderr:\n${stderr}`,
+          );
+        } else {
+          console.error(
+            `[LocalSandbox] Command failed with exit ${exitCode} (no stderr). Run manually to see output: ${command.join(" ")}`,
+          );
         }
-        throw new Error(
-          `Command exited with code ${exitCode}${stderr ? `\nstderr: ${stderr}` : ""}`,
-        );
+        // User-facing message: show the actual error from stderr (where it failed)
+        const lines = stderr
+          .split(/\n/)
+          .map((l) => l.trim())
+          .filter(Boolean);
+        const lastLine = lines.length > 0 ? lines[lines.length - 1] : "";
+        const hasErrorLike = (s: string) =>
+          /error|Error|Fatal|TypeError|SyntaxError|Exception/i.test(s);
+        const errorLine = lines.filter(hasErrorLike).pop() ?? lastLine;
+        const userMessage = errorLine
+          ? errorLine.replace(/\s+/g, " ").slice(0, 500)
+          : stderr
+            ? `Command failed (exit ${exitCode}). See server logs for stderr.`
+            : `Command failed with exit ${exitCode}.`;
+        throw new Error(userMessage);
       }
     } catch (error) {
       if (timeoutId) {

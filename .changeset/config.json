@@ -19,6 +19,8 @@
   "ignore": [
     "@sandagent/web",
     "@sandagent/manager-cli",
-    "@sandagent/benchmark"
+    "@sandagent/benchmark-cli",
+    "@sandagent/benchmark-sandagent",
+    "@sandagent/benchmark-shared"
   ]
 }

@@ -66,6 +66,13 @@ importers:
       '@openai/codex-sdk':
         specifier: ^0.110.0
         version: 0.110.0
+      dotenv:
+        specifier: ^17.3.1
+        version: 17.3.1
+      zod:
+        specifier: ^4.0.0
+        version: 4.3.6
+    devDependencies:
       '@sandagent/runner-claude':
         specifier: workspace:*
         version: link:../../packages/runner-claude
@@ -81,13 +88,6 @@ importers:
       '@sandagent/runner-pi':
         specifier: workspace:*
         version: link:../../packages/runner-pi
-      dotenv:
-        specifier: ^17.3.1
-        version: 17.3.1
-      zod:
-        specifier: ^4.0.0
-        version: 4.3.6
-    devDependencies:
       '@types/node':
         specifier: ^20.10.0
         version: 20.19.33

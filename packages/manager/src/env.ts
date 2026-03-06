@@ -1,15 +1,23 @@
 /**
- * Build a sanitised env record for spawning a runner (Claude Agent SDK) child process.
+ * Build a sanitised env record for spawning a runner child process.
  *
  * Responsibilities:
- * 1. Map credential params into the env vars the SDK actually reads.
- * 2. Derive AWS_BEARER_TOKEN_BEDROCK when using a Bedrock proxy with only
- *    ANTHROPIC_AUTH_TOKEN / LITELLM_MASTER_KEY.
- * 3. Strip host-only vars (e.g. CLAUDE_CODE_SSE_PORT) that would make the SDK
- *    connect to the parent IDE's Claude Code instead of calling the API directly.
+ * 1. Differentiate env by runner type (Claude vs Pi vs others).
+ * 2. Claude: map Anthropic/Bedrock/LiteLLM credentials.
+ * 3. Pi: map OpenAI/Gemini/Anthropic credentials and base URLs.
+ * 4. Strip host-only vars (e.g. CLAUDE_CODE_SSE_PORT) that would make the SDK
+ *    connect to the parent Claude Code instead of calling the API directly.
  */
 
+export type RunnerType = "claude" | "pi" | "codex" | "gemini" | "opencode";
+
 export interface RunnerEnvParams {
+  /**
+   * Runner type so env applies only the vars that runner needs.
+   * Defaults to "claude" when omitted for backward compatibility.
+   */
+  runnerType?: RunnerType;
+  /** Claude / Anthropic */
   ANTHROPIC_API_KEY?: string;
   ANTHROPIC_BASE_URL?: string;
   AWS_BEARER_TOKEN_BEDROCK?: string;
@@ -18,6 +26,11 @@ export interface RunnerEnvParams {
   ANTHROPIC_BEDROCK_BASE_URL?: string;
   CLAUDE_CODE_USE_BEDROCK?: string;
   CLAUDE_CODE_SKIP_BEDROCK_AUTH?: string;
+  /** Pi / Codex: OpenAI and Google */
+  OPENAI_API_KEY?: string;
+  OPENAI_BASE_URL?: string;
+  GEMINI_API_KEY?: string;
+  GEMINI_BASE_URL?: string;
   /**
    * Base env to merge in (lowest priority).
    * Typically `process.env` for local sandbox, or extra vars from the request.
@@ -29,27 +42,30 @@ export interface RunnerEnvParams {
 
 /**
  * Env vars that must NOT be forwarded to the runner child process.
- * CLAUDE_CODE_SSE_PORT / SESSION_ID are set by a parent Claude Code process
- * and would make the child SDK connect back to the host via SSE instead of
- * performing its own independent API calls.
  */
 const STRIP_FROM_CHILD = new Set([
   "CLAUDE_CODE_SSE_PORT",
   "CLAUDE_CODE_SSE_SESSION_ID",
 ]);
 
+function applyInherit(
+  inherit: Record<string, string | undefined | null>,
+  env: Record<string, string>,
+): void {
+  for (const [key, val] of Object.entries(inherit)) {
+    if (val == null) continue;
+    if (STRIP_FROM_CHILD.has(key)) continue;
+    env[key] = String(val);
+  }
+}
+
 /**
- * Build the env record that should be passed to a runner child process.
- *
- * Merges `inherit` (stripped & stringified) as base, then layers credential
- * vars on top. The result is ready to pass directly to `spawn()`.
- *
- * @param params - Credential / proxy configuration coming from the request body.
- * @returns A plain `Record<string, string>` safe for child process env.
+ * Env vars for Claude runner (Anthropic Agent SDK, Bedrock, LiteLLM).
  */
-export function buildRunnerEnv(
+function applyClaudeRunnerEnv(
   params: RunnerEnvParams,
-): Record<string, string> {
+  env: Record<string, string>,
+): void {
   const {
     ANTHROPIC_API_KEY,
     ANTHROPIC_BASE_URL,
@@ -59,16 +75,7 @@ export function buildRunnerEnv(
     ANTHROPIC_BEDROCK_BASE_URL,
     CLAUDE_CODE_USE_BEDROCK,
     CLAUDE_CODE_SKIP_BEDROCK_AUTH,
-    inherit = {},
   } = params;
-
-  const env: Record<string, string> = {};
-
-  for (const [key, val] of Object.entries(inherit)) {
-    if (val == null) continue;
-    if (STRIP_FROM_CHILD.has(key)) continue;
-    env[key] = String(val);
-  }
 
   if (ANTHROPIC_API_KEY) env.ANTHROPIC_API_KEY = ANTHROPIC_API_KEY;
   if (ANTHROPIC_BASE_URL) env.ANTHROPIC_BASE_URL = ANTHROPIC_BASE_URL;
@@ -90,6 +97,68 @@ export function buildRunnerEnv(
       const proxyKey = ANTHROPIC_AUTH_TOKEN || LITELLM_MASTER_KEY;
       if (proxyKey) env.AWS_BEARER_TOKEN_BEDROCK = proxyKey;
     }
+  }
+}
+
+/**
+ * Env vars for Pi runner (OpenAI, Gemini, Anthropic providers; base URLs).
+ */
+function applyPiRunnerEnv(
+  params: RunnerEnvParams,
+  env: Record<string, string>,
+): void {
+  const {
+    ANTHROPIC_API_KEY,
+    ANTHROPIC_BASE_URL,
+    ANTHROPIC_AUTH_TOKEN,
+    LITELLM_MASTER_KEY,
+    ANTHROPIC_BEDROCK_BASE_URL,
+    OPENAI_API_KEY,
+    OPENAI_BASE_URL,
+    GEMINI_API_KEY,
+    GEMINI_BASE_URL,
+  } = params;
+
+  if (OPENAI_API_KEY) env.OPENAI_API_KEY = OPENAI_API_KEY;
+  if (OPENAI_BASE_URL) env.OPENAI_BASE_URL = OPENAI_BASE_URL;
+  if (GEMINI_API_KEY) env.GEMINI_API_KEY = GEMINI_API_KEY;
+  if (GEMINI_BASE_URL) env.GEMINI_BASE_URL = GEMINI_BASE_URL;
+
+  if (ANTHROPIC_API_KEY) env.ANTHROPIC_API_KEY = ANTHROPIC_API_KEY;
+  if (ANTHROPIC_BASE_URL) env.ANTHROPIC_BASE_URL = ANTHROPIC_BASE_URL;
+
+  if (!env.ANTHROPIC_API_KEY && (ANTHROPIC_AUTH_TOKEN || LITELLM_MASTER_KEY)) {
+    env.ANTHROPIC_API_KEY = ANTHROPIC_AUTH_TOKEN || LITELLM_MASTER_KEY || "";
+  }
+  if (ANTHROPIC_BEDROCK_BASE_URL && !env.ANTHROPIC_BASE_URL) {
+    env.ANTHROPIC_BASE_URL = ANTHROPIC_BEDROCK_BASE_URL;
+  }
+}
+
+/**
+ * Build the env record that should be passed to a runner child process.
+ *
+ * Applies inherit (stripped) first, then runner-specific credential vars.
+ * Unknown runner types default to Claude for backward compatibility.
+ *
+ * @param params - Credential / proxy configuration and runner type.
+ * @returns A plain `Record<string, string>` safe for child process env.
+ */
+export function buildRunnerEnv(
+  params: RunnerEnvParams,
+): Record<string, string> {
+  const { runnerType = "claude", inherit = {} } = params;
+  const env: Record<string, string> = {};
+
+  applyInherit(inherit, env);
+
+  switch (runnerType) {
+    case "pi":
+      applyPiRunnerEnv(params, env);
+      break;
+    default:
+      applyClaudeRunnerEnv(params, env);
+      break;
   }
 
   return env;

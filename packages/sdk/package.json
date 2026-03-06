@@ -1,6 +1,6 @@
 {
   "name": "@sandagent/sdk",
-  "version": "0.2.22",
+  "version": "0.5.1",
   "description": "SandAgent SDK - AI Provider and React hooks for building AI agents",
   "type": "module",
   "sideEffects": false,
@@ -18,6 +18,7 @@
     }
   },
   "publishConfig": {
+    "access": "public",
     "main": "./dist/index.js",
     "module": "./dist/index.js",
     "types": "./dist/index.d.ts",

@@ -47,6 +47,10 @@ export class SandAgent {
       "run",
     ];
 
+    // Add --runner when runnerType is set (so CLI uses pi/codex/gemini/opencode instead of default claude)
+    const runnerType = this.runner.runnerType ?? "claude";
+    cmd.push("--runner", runnerType);
+
     // Add model
     cmd.push("--model", this.runner.model);
 
@@ -74,10 +78,7 @@ export class SandAgent {
       cmd.push("--resume", input.resume);
     }
 
-    // Add output format
-    if (this.runner.outputFormat) {
-      cmd.push("--output-format", this.runner.outputFormat);
-    }
+    // runner-cli always outputs AI SDK stream; --output-format is no longer accepted
 
     // Add separator and user input
     cmd.push("--");
