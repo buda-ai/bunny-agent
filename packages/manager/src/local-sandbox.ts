@@ -353,8 +353,7 @@ class LocalSandboxHandle implements SandboxHandle {
         const lastLine = lines.length > 0 ? lines[lines.length - 1] : "";
         const hasErrorLike = (s: string) =>
           /error|Error|Fatal|TypeError|SyntaxError|Exception/i.test(s);
-        const errorLine =
-          lines.filter(hasErrorLike).pop() ?? lastLine;
+        const errorLine = lines.filter(hasErrorLike).pop() ?? lastLine;
         const userMessage = errorLine
           ? errorLine.replace(/\s+/g, " ").slice(0, 500)
           : stderr

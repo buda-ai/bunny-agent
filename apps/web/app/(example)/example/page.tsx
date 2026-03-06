@@ -1,5 +1,6 @@
 "use client";
 
+import { DEFAULT_RUNNER } from "@/lib/runner";
 import { useSandAgentChat } from "@sandagent/sdk/react";
 import type { DynamicToolUIPart, UIMessage } from "ai";
 import {
@@ -25,7 +26,6 @@ import {
   Settings,
   UserIcon,
 } from "lucide-react";
-import { DEFAULT_RUNNER } from "@/lib/runner";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";

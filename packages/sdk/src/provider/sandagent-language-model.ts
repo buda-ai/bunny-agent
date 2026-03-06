@@ -495,7 +495,7 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
           usage,
           providerMetadata: {
             sandagent: {
-              ...(parsed.messageMetadata as Record<string, unknown> ?? {}),
+              ...((parsed.messageMetadata as Record<string, unknown>) ?? {}),
               sessionId: this.sessionId,
             } as unknown as SharedV3ProviderMetadata,
           },

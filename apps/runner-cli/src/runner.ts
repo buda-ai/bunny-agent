@@ -1,7 +1,5 @@
 import type { BaseRunnerOptions } from "@sandagent/runner-claude";
-import {
-  createClaudeRunner,
-} from "@sandagent/runner-claude";
+import { createClaudeRunner } from "@sandagent/runner-claude";
 import { createCodexRunner } from "@sandagent/runner-codex";
 import { createGeminiRunner } from "@sandagent/runner-gemini";
 import { createOpenCodeRunner } from "@sandagent/runner-opencode";

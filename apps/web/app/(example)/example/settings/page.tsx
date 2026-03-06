@@ -1,7 +1,16 @@
 "use client";
 
-import { RUNNER_OPTIONS, DEFAULT_RUNNER } from "@/lib/runner";
-import { ArrowLeft, Box, Bug, Check, Info, Key, Bot as BotIcon, X } from "lucide-react";
+import { DEFAULT_RUNNER, RUNNER_OPTIONS } from "@/lib/runner";
+import {
+  ArrowLeft,
+  Bot as BotIcon,
+  Box,
+  Bug,
+  Check,
+  Info,
+  Key,
+  X,
+} from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -404,7 +413,10 @@ export default function SettingsPage() {
 
                       {envConfig.options ? (
                         <select
-                          value={config[envConfig.key] || (envConfig.key === "RUNNER" ? DEFAULT_RUNNER : "")}
+                          value={
+                            config[envConfig.key] ||
+                            (envConfig.key === "RUNNER" ? DEFAULT_RUNNER : "")
+                          }
                           onChange={(e) =>
                             handleChange(envConfig.key, e.target.value)
                           }
@@ -412,7 +424,8 @@ export default function SettingsPage() {
                         >
                           {envConfig.key === "RUNNER" ? null : (
                             <option value="">
-                              {envConfig.placeholder || `Select ${envConfig.name}`}
+                              {envConfig.placeholder ||
+                                `Select ${envConfig.name}`}
                             </option>
                           )}
                           {envConfig.options.map((opt) => (

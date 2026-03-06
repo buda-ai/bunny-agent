@@ -8,10 +8,7 @@ import { NoSuchModelError } from "@ai-sdk/provider";
 import type { RunnerSpec } from "@sandagent/manager";
 import { SandAgentLanguageModel } from "./sandagent-language-model";
 import type { Logger, SandAgentModelId } from "./types";
-import {
-  type SandAgentProviderSettings,
-  getRunnerKindForModel,
-} from "./types";
+import { type SandAgentProviderSettings, getRunnerKindForModel } from "./types";
 
 export type { SandAgentProviderSettings } from "./types";
 

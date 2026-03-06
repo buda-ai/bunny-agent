@@ -9,12 +9,7 @@
  *    connect to the parent Claude Code instead of calling the API directly.
  */
 
-export type RunnerType =
-  | "claude"
-  | "pi"
-  | "codex"
-  | "gemini"
-  | "opencode";
+export type RunnerType = "claude" | "pi" | "codex" | "gemini" | "opencode";
 
 export interface RunnerEnvParams {
   /**

@@ -60,7 +60,8 @@ export async function POST(request: Request) {
     !!ANTHROPIC_AUTH_TOKEN ||
     !!LITELLM_MASTER_KEY ||
     (CLAUDE_CODE_USE_BEDROCK === "1" && !!ANTHROPIC_BEDROCK_BASE_URL);
-  const runnerType = ((RUNNER ?? DEFAULT_RUNNER).toLowerCase() || DEFAULT_RUNNER) as RunnerType;
+  const runnerType = ((RUNNER ?? DEFAULT_RUNNER).toLowerCase() ||
+    DEFAULT_RUNNER) as RunnerType;
   // Pi supports multiple providers: OpenAI, Gemini, or Anthropic (same as Claude)
   const hasPiAuth = !!OPENAI_API_KEY || !!GEMINI_API_KEY || hasClaudeAuth;
 
@@ -193,7 +194,9 @@ export async function POST(request: Request) {
       // No slash/colon: infer provider from model name so "gpt-5.4" -> openai, "claude-*" -> anthropic
       const lower = model.toLowerCase();
       const provider =
-        lower.startsWith("gpt-") || lower.startsWith("o1-") || lower.startsWith("o3-")
+        lower.startsWith("gpt-") ||
+        lower.startsWith("o1-") ||
+        lower.startsWith("o3-")
           ? "openai"
           : lower.startsWith("claude-")
             ? "anthropic"

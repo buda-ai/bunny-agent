@@ -1,11 +1,11 @@
 import { appendFileSync, existsSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import type { AgentEvent } from "@mariozechner/pi-agent-core";
-import { getModel, type Usage } from "@mariozechner/pi-ai";
+import { type Usage, getModel } from "@mariozechner/pi-ai";
 import {
-  createAgentSession,
-  SessionManager,
   type AgentSessionEvent,
+  SessionManager,
+  createAgentSession,
 } from "@mariozechner/pi-coding-agent";
 
 export interface PiRunnerOptions {
@@ -115,21 +115,20 @@ function getUsageFromAgentEndMessages(
  * Debug trace: append raw Pi agent events to a JSON-lines file when DEBUG=true.
  * Same idea as runner-claude's claude-message-stream-debug.json.
  */
-function traceRawMessage(
-  debugCwd: string,
-  data: unknown,
-  reset = false,
-): void {
-  const enabled =
-    process.env.DEBUG === "true" || process.env.DEBUG === "1";
+function traceRawMessage(debugCwd: string, data: unknown, reset = false): void {
+  const enabled = process.env.DEBUG === "true" || process.env.DEBUG === "1";
   if (!enabled) return;
   try {
     const file = join(debugCwd, "pi-message-stream-debug.json");
     if (reset && existsSync(file)) unlinkSync(file);
-    const type = data !== null && typeof data === "object" ? (data as { type?: string }).type : undefined;
+    const type =
+      data !== null && typeof data === "object"
+        ? (data as { type?: string }).type
+        : undefined;
     let payload: unknown = data;
     try {
-      payload = data !== undefined ? JSON.parse(JSON.stringify(data)) : undefined;
+      payload =
+        data !== undefined ? JSON.parse(JSON.stringify(data)) : undefined;
     } catch {
       payload = "[non-serializable]";
     }
