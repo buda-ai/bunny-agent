@@ -68,18 +68,43 @@ describe("runner-cli Integration Tests", () => {
   );
 
   it(
+    "should reject removed --output-format option",
+    async () => {
+      const output = await runCLI([
+        "run",
+        "--output-format",
+        "json",
+        "--",
+        "test task",
+      ]);
+
+      expect(output.stderr).toContain("Unknown option '--output-format'");
+      expect(output.exitCode).toBe(1);
+    },
+    TIMEOUT,
+  );
+
+  it(
     "should accept claude runner option",
     async () => {
-      // This will fail without API key, but should parse arguments correctly
+      // Force unauthenticated path so this remains deterministic in CI.
       const output = await runCLI(
         ["run", "--runner", "claude", "--", "echo hello"],
         {
-          env: { ...process.env, ANTHROPIC_API_KEY: "" },
+          env: {
+            ...process.env,
+            ANTHROPIC_API_KEY: "",
+            AWS_BEARER_TOKEN_BEDROCK: "",
+            ANTHROPIC_AUTH_TOKEN: "",
+            LITELLM_MASTER_KEY: "",
+            CLAUDE_CODE_USE_BEDROCK: "",
+            ANTHROPIC_BEDROCK_BASE_URL: "",
+          },
         },
       );
 
-      // Should fail due to missing API key, not argument parsing
-      expect(output.stderr).toContain("ANTHROPIC_API_KEY");
+      expect(output.exitCode).toBe(0);
+      expect(output.stdout).toContain("data:");
     },
     TIMEOUT,
   );

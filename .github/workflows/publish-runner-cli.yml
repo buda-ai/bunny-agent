@@ -38,7 +38,13 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build dependencies
-        run: pnpm --filter @sandagent/runner-claude build
+        run: |
+          pnpm --filter @sandagent/runner-claude build
+          pnpm --filter @sandagent/runner-codex build
+          pnpm --filter @sandagent/runner-gemini build
+          pnpm --filter @sandagent/runner-opencode build
+          pnpm --filter @sandagent/runner-pi build
+          pnpm --filter @sandagent/runner-cli build
 
       - name: Run tests
         run: |

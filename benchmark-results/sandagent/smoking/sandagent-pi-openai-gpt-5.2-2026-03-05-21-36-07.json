@@ -1,0 +1,46 @@
+{
+  "benchmarkType": "sandagent",
+  "runner": "pi",
+  "model": "openai:gpt-5.2",
+  "timestamp": "2026-03-05T13:36:07.066Z",
+  "summary": {
+    "total": 5,
+    "passed": 5,
+    "failed": 0,
+    "successRate": 100,
+    "totalTimeMs": 17425,
+    "totalTimeSec": 17.425
+  },
+  "results": [
+    {
+      "taskId": "smoke-001",
+      "success": true,
+      "durationMs": 4140,
+      "answer": "Hello, World!"
+    },
+    {
+      "taskId": "smoke-002",
+      "success": true,
+      "durationMs": 2567,
+      "answer": "579"
+    },
+    {
+      "taskId": "smoke-003",
+      "success": true,
+      "durationMs": 5793,
+      "answer": "hello.txt"
+    },
+    {
+      "taskId": "smoke-004",
+      "success": true,
+      "durationMs": 2538,
+      "answer": "```python\n# hello.py\nprint(\"Hello from Python\")\n```"
+    },
+    {
+      "taskId": "smoke-005",
+      "success": true,
+      "durationMs": 2387,
+      "answer": "test"
+    }
+  ]
+}

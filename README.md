@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="spec/logo.svg" alt="SandAgent Logo" width="200" height="200">
+  <img src="docs/logo.svg" alt="SandAgent Logo" width="200" height="200">
   
   # SandAgent
   
@@ -126,8 +126,8 @@ E2B cloud or Sandock (Docker) — switch with one line
 ### 🌐 Web + CLI
 Complete Next.js app and terminal-based runners
 
-### 🎯 GAIA Benchmark
-Compare performance across different agent CLIs
+### 🎯 Smoking Benchmark
+Quick validation tests for agent performance
 
 ### 📝 Debug Tools
 JSONL transcript recording for debugging and replay
@@ -332,7 +332,8 @@ Runners execute the actual agent logic. Each runner is **independent** and imple
 | Package | What It Runs | Status |
 |---------|--------------|--------|
 | `@sandagent/runner-claude` | Claude Agent SDK | ✅ Production |
-| `@sandagent/runner-codex` | Codex CLI | 🚧 Planned |
+| `@sandagent/runner-codex` | Codex CLI | ✅ Production |
+| `@sandagent/runner-gemini` | Gemini CLI | ✅ Production |
 | `@sandagent/runner-copilot` | GitHub Copilot | 🚧 Planned |
 
 ```typescript
@@ -399,7 +400,8 @@ sandagent run -- "Create a hello world script"
 
 # Explicitly select runner
 sandagent run --runner claude -- "Build an API"
-sandagent run --runner codex -- "Build an API"    # (planned)
+sandagent run --runner codex -- "Build an API"
+sandagent run --runner gemini -- "Build an API"
 sandagent run --runner copilot -- "Build an API"  # (planned)
 ```
 
@@ -457,7 +459,7 @@ sandagent/
 │  ├─ coder/               # Software development focused
 │  ├─ analyst/             # Data analysis optimized
 │  └─ researcher/          # Web research capabilities
-└─ spec/                   # Documentation and specifications
+└─ docs/                   # Documentation and specifications
 ```
 
 ### 🏗️ Package Architecture & Dependencies
@@ -509,9 +511,10 @@ SandAgent follows a **clean, pluggable architecture** where components are loose
 │   Sandbox Adapters     │  │   Runner Adapters          │
 ├────────────────────────┤  ├────────────────────────────┤
 │ • sandbox-local        │  │ • runner-claude   ✅       │
-│ • sandbox-e2b          │  │ • runner-codex    🚧       │
-│ • sandbox-sandock      │  │ • runner-copilot  🚧       │
-│ • sandbox-daytona      │  │                            │
+│ • sandbox-e2b          │  │ • runner-codex    ✅       │
+│ • sandbox-sandock      │  │ • runner-gemini   ✅       │
+│ • sandbox-daytona      │  │ • runner-copilot  🚧       │
+│                        │  │                            │
 └────────────────────────┘  └────────────────────────────┘
          ↑                            ↑
          └──── Implement interfaces ──┘
@@ -529,7 +532,8 @@ Applications (different use cases):
                       Runs directly on local filesystem
                       Choose via --runner flag:
                       • runner-claude ✅
-                      • runner-codex 🚧
+                      • runner-codex ✅
+                      • runner-gemini ✅
                       • runner-copilot 🚧
 
 Core (defines contracts for apps that need sandboxes):
@@ -537,7 +541,8 @@ Core (defines contracts for apps that need sandboxes):
 
 Runner Implementations (can be used directly OR via manager):
 ├─ runner-claude    → @anthropic-ai/claude-agent-sdk
-├─ runner-codex     → (TODO) codex SDK
+├─ runner-codex     → @openai/codex-sdk
+├─ runner-gemini    → gemini CLI (headless stream-json)
 └─ runner-copilot   → (TODO) copilot SDK
 
 Sandbox Implementations (only used via manager):
@@ -727,30 +732,79 @@ sandbox: new SandockSandbox({
 | **E2B** | Production, cloud | `E2B_API_KEY` env var |
 | **Sandock** | Development, self-hosted | `SANDOCK_API_KEY` env var |
 
-📖 **[Sandbox Adapters Guide →](./spec/SANDBOX_ADAPTERS.md)**
+📖 **[Sandbox Adapters Guide →](./docs/SANDBOX_ADAPTERS.md)**
 
 ---
 
-## 🎯 GAIA Benchmark
+## 🎯 Benchmarking
 
-Compare agent performance across CLIs:
+SandAgent includes a smoking test benchmark to quickly validate agent performance across different runners and models.
+
+### Quick Start
 
 ```bash
-# Download GAIA dataset
-sandagent-benchmark download
+# Run smoking tests with default models
+./run-benchmark.sh --runs 3
 
-# Run benchmarks
-sandagent-benchmark run --runner sandagent --level 1
-sandagent-benchmark run --runner claudecode --level 1
-sandagent-benchmark run --runner gemini-cli --level 1
+# Test specific runner
+./run-benchmark.sh --runner pi --runs 3
+./run-benchmark.sh --runner claude --runs 3
 
-# Compare results
-sandagent-benchmark compare
+# Test specific model
+./run-benchmark.sh --runner pi --model "openai:gpt-5.3" --runs 3
+./run-benchmark.sh --runner claude --model "gemini-3-pro" --runs 3
 ```
 
-Supported runners: `sandagent`, `gemini-cli`, `claudecode`, `codex-cli`
+### Prompt for Coding Agents
 
-📖 **[Benchmark Guide →](./packages/benchmark/README.md)**
+Copy this prompt to run the full benchmark suite:
+
+```
+Run benchmark with smoking dataset using these commands:
+
+1. sandagent + pi + gemini-3-pro:
+./run-benchmark.sh --runner pi --model "gemini-3-pro" --runs 1
+
+2. sandagent + pi + openai:gpt-5.3:
+./run-benchmark.sh --runner pi --model "openai:gpt-5.3" --runs 1
+
+3. sandagent + claude agent sdk + bedrock-claude-sonnet-4-6:
+./run-benchmark.sh --runner claude --model "bedrock-claude-sonnet-4-6" --runs 1
+
+4. sandagent + claude agent sdk + gemini-3-pro:
+./run-benchmark.sh --runner claude --model "gemini-3-pro" --runs 1
+
+Run all 4 tests and show me the results summary (pass/fail rates and timing).
+```
+
+### Recommended Test Matrix
+
+Test different runner + model combinations:
+
+```bash
+# Pi runner with different models
+./run-benchmark.sh --runner pi --model "gemini-3-pro" --runs 3
+./run-benchmark.sh --runner pi --model "openai:gpt-5.3" --runs 3
+
+# Claude Agent SDK with different models
+./run-benchmark.sh --runner claude --model "bedrock-claude-sonnet-4-6" --runs 3
+./run-benchmark.sh --runner claude --model "gemini-3-pro" --runs 3
+```
+
+### Results
+
+Results are saved to `benchmark-results/sandagent/smoking/` with format:
+```
+sandagent-{runner}-{model}-{date}-{time}.json
+```
+
+Each result includes:
+- Test outcomes (pass/fail)
+- Execution times
+- Raw outputs
+- Model usage statistics
+
+📖 **[Benchmark Architecture →](./docs/BENCHMARK_ARCHITECTURE.md)** | **[Datasets Guide →](./docs/BENCHMARK_DATASETS.md)**
 
 ---
 
@@ -811,17 +865,17 @@ When PRs are merged to `main` or `develop`:
 ### 📖 Guides
 - **[SDK Quick Start](https://sandagent.dev/docs/quick-start)** - 5-minute SDK integration
 - **[Artifacts Feature Guide](https://sandagent.dev/docs/artifacts)** - Display AI-generated content (reports, charts, files)
-- **[Persistence Guide](./spec/PERSISTENCE_GUIDE.md)** - Managing state across runs
-- **[Sandbox Adapters](./spec/SANDBOX_ADAPTERS.md)** - E2B & Sandock configuration
-- **[Debugging Guide](./spec/DEBUGGING_GUIDE.md)** - Transcript recording
+- **[Persistence Guide](./docs/PERSISTENCE_GUIDE.md)** - Managing state across runs
+- **[Sandbox Adapters](./docs/SANDBOX_ADAPTERS.md)** - E2B & Sandock configuration
+- **[Debugging Guide](./docs/DEBUGGING_GUIDE.md)** - Transcript recording
 - **[Templates Guide](./templates/README.md)** - Creating custom templates
 
 </td>
 <td width="50%">
 
 ### 🔧 Reference
-- **[API Reference](./spec/API_REFERENCE.md)** - Complete API documentation
-- **[Technical Spec](./spec/TECHNICAL_SPEC.md)** - Full architecture details
+- **[API Reference](./docs/API_REFERENCE.md)** - Complete API documentation
+- **[Technical Spec](./docs/TECHNICAL_SPEC.md)** - Full architecture details
 - **[TODO](./TODO.md)** - Feature roadmap
 
 </td>

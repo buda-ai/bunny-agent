@@ -290,30 +290,15 @@ async function loadClaudeAgentSDK(): Promise<ClaudeAgentSDKModule | null> {
 
 /**
  * Run with real Claude Agent SDK
- * Dispatches to different output format handlers based on options.outputFormat
+ * Always outputs Data Stream Protocol (SSE format)
  */
 async function* runWithClaudeAgentSDK(
   sdk: ClaudeAgentSDKModule,
   options: ClaudeRunnerOptions,
   userInput: string | AsyncIterable<SDKUserMessage>,
 ): AsyncIterable<string> {
-  const outputFormat = options.outputFormat || "stream-json";
-
-  switch (outputFormat) {
-    case "text":
-      yield* runWithTextOutput(sdk, options, userInput);
-      break;
-    case "json":
-      yield* runWithJSONOutput(sdk, options, userInput);
-      break;
-    case "stream-json":
-      yield* runWithStreamJSONOutput(sdk, options, userInput);
-      break;
-    // case "stream":
-    default:
-      yield* runWithAISDKUIOutput(sdk, options, userInput);
-      break;
-  }
+  // Always use Data Stream Protocol (SSE)
+  yield* runWithAISDKUIOutput(sdk, options, userInput);
 }
 
 /**

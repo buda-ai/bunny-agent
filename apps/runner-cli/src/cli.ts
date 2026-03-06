@@ -8,8 +8,16 @@
  *   sandagent image build [options]                     Build (and optionally push) a Docker image
  */
 
+import { resolve } from "node:path";
+// Load environment variables from .env file
+import { config } from "dotenv";
+
+// Try loading .env from current directory and project root
+config({ path: resolve(process.cwd(), ".env") });
+config({ path: resolve(process.cwd(), "../.env") });
+config({ path: resolve(process.cwd(), "../../.env") });
+
 import { parseArgs } from "node:util";
-import type { OutputFormat } from "@sandagent/runner-claude";
 import { buildImage } from "./build-image.js";
 import { runAgent } from "./runner.js";
 
@@ -65,7 +73,6 @@ interface ParsedRunArgs {
   maxTurns?: number;
   allowedTools?: string[];
   resume?: string;
-  outputFormat?: OutputFormat;
   userInput: string;
 }
 
@@ -88,7 +95,6 @@ function parseRunArgs(): ParsedRunArgs {
       "max-turns": { type: "string", short: "t" },
       "allowed-tools": { type: "string", short: "a" },
       resume: { type: "string" },
-      "output-format": { type: "string", short: "o" },
       help: { type: "boolean", short: "h" },
     },
     allowPositionals: true,
@@ -115,20 +121,11 @@ function parseRunArgs(): ParsedRunArgs {
   }
 
   const runner = values.runner!;
-  if (!["claude", "codex", "copilot"].includes(runner)) {
-    console.error(
-      'Error: --runner must be one of: "claude", "codex", "copilot"',
-    );
-    process.exit(1);
-  }
-
-  const outputFormat = values["output-format"] as OutputFormat | undefined;
   if (
-    outputFormat &&
-    !["text", "json", "stream-json", "stream"].includes(outputFormat)
+    !["claude", "codex", "gemini", "opencode", "copilot", "pi"].includes(runner)
   ) {
     console.error(
-      'Error: --output-format must be one of: "text", "json", "stream-json", "stream"',
+      'Error: --runner must be one of: "claude", "codex", "gemini", "opencode", "copilot", "pi"',
     );
     process.exit(1);
   }
@@ -143,7 +140,6 @@ function parseRunArgs(): ParsedRunArgs {
       : undefined,
     allowedTools: values["allowed-tools"]?.split(",").map((t) => t.trim()),
     resume: values.resume,
-    outputFormat: (outputFormat as OutputFormat) ?? "stream",
     userInput,
   };
 }
@@ -206,18 +202,20 @@ Usage:
   sandagent run [options] -- "<user input>"
 
 Options:
-  -r, --runner <runner>        Runner: claude, codex, copilot (default: claude)
+  -r, --runner <runner>        Runner: claude, codex, gemini, opencode, copilot, pi (default: claude)
   -m, --model <model>          Model (default: claude-sonnet-4-20250514)
   -c, --cwd <path>             Working directory (default: cwd)
   -s, --system-prompt <prompt> Custom system prompt
   -t, --max-turns <n>          Max conversation turns
   -a, --allowed-tools <tools>  Comma-separated allowed tools
       --resume <session-id>    Resume a previous session
-  -o, --output-format <fmt>    text | json | stream-json | stream (default: stream)
   -h, --help                   Show this help
 
 Environment:
-  ANTHROPIC_API_KEY            Anthropic API key (required)
+  ANTHROPIC_API_KEY            Anthropic API key (for claude runner)
+  OPENAI_API_KEY               OpenAI API key (for codex runner)
+  CODEX_API_KEY                OpenAI API key alias (for codex runner)
+  GEMINI_API_KEY               Gemini API key (for gemini runner)
   SANDAGENT_WORKSPACE          Default workspace path
 `);
 }
@@ -303,7 +301,6 @@ async function main(): Promise<void> {
         maxTurns: args.maxTurns,
         allowedTools: args.allowedTools,
         resume: args.resume,
-        outputFormat: args.outputFormat,
       });
       break;
     }
