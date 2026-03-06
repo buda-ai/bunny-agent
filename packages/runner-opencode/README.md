@@ -21,7 +21,8 @@ import { createOpenCodeRunner } from '@sandagent/runner-opencode';
 const runner = createOpenCodeRunner({
   model: 'claude-sonnet-4',
   cwd: '/path/to/workspace',
-  sessionKey: 'my-session',
+  env: { OPENAI_API_KEY: process.env.OPENAI_API_KEY ?? "" },
+  abortController: new AbortController(),
 });
 
 for await (const chunk of runner.run('Create a hello world script')) {
@@ -33,7 +34,8 @@ for await (const chunk of runner.run('Create a hello world script')) {
 
 - `model` - Model to use (optional, uses OpenCode default)
 - `cwd` - Working directory (default: `process.cwd()`)
-- `sessionKey` - Session key for persistence (optional)
+- `env` - Environment overrides passed to the OpenCode process
+- `abortController` - Optional signal-based cancellation
 
 ## How it works
 

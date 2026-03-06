@@ -80,7 +80,7 @@ sandagent run --runner claude --system-prompt "You are a coding assistant" -- "B
 
 | Option | Short | Description | Default |
 |--------|-------|-------------|---------|
-| `--runner <runner>` | `-r` | Runner to use: `claude`, `codex`, `gemini`, `copilot`, `pi` | `claude` |
+| `--runner <runner>` | `-r` | Runner to use: `claude`, `codex`, `gemini`, `opencode`, `copilot`, `pi` | `claude` |
 | `--model <model>` | `-m` | Model to use | `claude-sonnet-4-20250514` |
 | `--cwd <path>` | `-c` | Working directory | Current directory |
 | `--system-prompt <prompt>` | `-s` | Custom system prompt | - |
