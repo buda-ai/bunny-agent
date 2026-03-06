@@ -2,6 +2,7 @@ import path from "node:path";
 import type { DaytonaSandboxOptions } from "@sandagent/sandbox-daytona";
 import { E2BSandbox } from "@sandagent/sandbox-e2b";
 import { SandockSandbox } from "@sandagent/sandbox-sandock";
+import type { RunnerType } from "@/lib/runner";
 import {
   LocalSandbox,
   type SandboxAdapter,
@@ -18,6 +19,8 @@ const SANDBOX_IMAGE = process.env.SANDBOX_IMAGE ?? "vikadata/sandagent:0.2.15";
 
 export interface CreateSandboxParams {
   SANDBOX_PROVIDER?: string;
+  /** Runner type for buildRunnerEnv (e.g. pi needs ANTHROPIC_API_KEY / ANTHROPIC_BASE_URL mapping). */
+  runnerType?: RunnerType;
   E2B_API_KEY?: string;
   SANDOCK_API_KEY?: string;
   DAYTONA_API_KEY?: string;
@@ -30,6 +33,9 @@ export interface CreateSandboxParams {
   ANTHROPIC_BEDROCK_BASE_URL?: string;
   CLAUDE_CODE_USE_BEDROCK?: string;
   CLAUDE_CODE_SKIP_BEDROCK_AUTH?: string;
+  OPENAI_API_KEY?: string;
+  OPENAI_BASE_URL?: string;
+  GEMINI_BASE_URL?: string;
   AWS_REGION?: string;
   template?: string;
   SANDBOX_IMAGE?: string;
@@ -67,7 +73,6 @@ export async function getOrCreateSandbox(
   const sandbox = await buildSandbox(params);
   await sandbox.attach();
 
-  // Cache the sandboxId after successful attach
   const sandboxId = sandbox.getHandle?.()?.getSandboxId?.();
   if (sandboxId) {
     const key = `sandagent-${params.template ?? "default"}`;
@@ -82,6 +87,7 @@ async function buildSandbox(
 ): Promise<SandboxAdapter> {
   const {
     SANDBOX_PROVIDER = "e2b",
+    runnerType,
     E2B_API_KEY,
     SANDOCK_API_KEY,
     DAYTONA_API_KEY,
@@ -93,12 +99,17 @@ async function buildSandbox(
     ANTHROPIC_BEDROCK_BASE_URL,
     CLAUDE_CODE_USE_BEDROCK,
     CLAUDE_CODE_SKIP_BEDROCK_AUTH,
+    OPENAI_API_KEY,
+    OPENAI_BASE_URL,
+    GEMINI_BASE_URL,
     template = "default",
     env: extraEnv = {},
   } = params;
 
   const sandboxName = `sandagent-${template}`;
+  const cacheKey = `sandagent-${template}`;
   const baseEnv = buildRunnerEnv({
+    runnerType,
     ANTHROPIC_API_KEY,
     ANTHROPIC_BASE_URL,
     AWS_BEARER_TOKEN_BEDROCK,
@@ -107,6 +118,9 @@ async function buildSandbox(
     ANTHROPIC_BEDROCK_BASE_URL,
     CLAUDE_CODE_USE_BEDROCK,
     CLAUDE_CODE_SKIP_BEDROCK_AUTH,
+    OPENAI_API_KEY,
+    OPENAI_BASE_URL,
+    GEMINI_BASE_URL,
     inherit: extraEnv,
   });
 
@@ -128,7 +142,6 @@ async function buildSandbox(
   }
 
   if (SANDBOX_PROVIDER === "sandock" && SANDOCK_API_KEY) {
-    const cacheKey = sandboxName;
     const cachedId = getCachedSandboxId(cacheKey);
     return new SandockSandbox({
       apiKey: SANDOCK_API_KEY,

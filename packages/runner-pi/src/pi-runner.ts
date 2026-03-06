@@ -1,5 +1,8 @@
+import { randomUUID } from "node:crypto";
+import { appendFileSync, existsSync, unlinkSync } from "node:fs";
+import { join } from "node:path";
 import { Agent, type AgentEvent } from "@mariozechner/pi-agent-core";
-import { getModel } from "@mariozechner/pi-ai";
+import { getModel, type Usage } from "@mariozechner/pi-ai";
 import { createCodingTools } from "@mariozechner/pi-coding-agent";
 
 export interface PiRunnerOptions {
@@ -8,6 +11,13 @@ export interface PiRunnerOptions {
   cwd?: string;
   env?: Record<string, string>;
   abortController?: AbortController;
+  /**
+   * Session ID for provider caching (see pi-agent-core Agent options).
+   * Optional; when set, the agent passes it to the LLM provider.
+   * Note: Full session persistence (JSONL tree, resume, branch like the Pi CLI)
+   * is not implemented in this runner.
+   */
+  sessionId?: string;
 }
 
 export interface PiRunner {
@@ -46,6 +56,8 @@ function applyModelOverrides(
   provider: string,
   optionsEnv?: Record<string, string>,
 ): void {
+  if (model == null) return;
+
   const openAiBaseUrl = getEnvValue(optionsEnv, "OPENAI_BASE_URL");
   const geminiBaseUrl = getEnvValue(optionsEnv, "GEMINI_BASE_URL");
   const anthropicBaseUrl = getEnvValue(optionsEnv, "ANTHROPIC_BASE_URL");
@@ -68,6 +80,63 @@ function emitStreamError(errorText: string): string[] {
 }
 
 /**
+ * Map pi-ai Usage to the shape expected by the SDK (messageMetadata.usage).
+ * SDK convertUsage accepts input_tokens, output_tokens, cache_read_input_tokens, cache_creation_input_tokens.
+ */
+function usageToMessageMetadata(usage: Usage): Record<string, number> {
+  return {
+    input_tokens: usage.input,
+    output_tokens: usage.output,
+    cache_read_input_tokens: usage.cacheRead,
+    cache_creation_input_tokens: usage.cacheWrite,
+  };
+}
+
+/**
+ * Get usage from the last assistant message in agent_end.messages.
+ */
+function getUsageFromAgentEndMessages(
+  messages: Array<{ role: string; usage?: Usage }>,
+): Usage | undefined {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (m.role === "assistant" && m.usage != null) {
+      return m.usage;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Debug trace: append raw Pi agent events to a JSON-lines file when DEBUG=true.
+ * Same idea as runner-claude's claude-message-stream-debug.json.
+ */
+function traceRawMessage(
+  debugCwd: string,
+  data: unknown,
+  reset = false,
+): void {
+  const enabled =
+    process.env.DEBUG === "true" || process.env.DEBUG === "1";
+  if (!enabled) return;
+  try {
+    const file = join(debugCwd, "pi-message-stream-debug.json");
+    if (reset && existsSync(file)) unlinkSync(file);
+    const type = data !== null && typeof data === "object" ? (data as { type?: string }).type : undefined;
+    let payload: unknown = data;
+    try {
+      payload = data !== undefined ? JSON.parse(JSON.stringify(data)) : undefined;
+    } catch {
+      payload = "[non-serializable]";
+    }
+    const entry = { _t: new Date().toISOString(), type, payload };
+    appendFileSync(file, JSON.stringify(entry, null, 2) + ",\n");
+  } catch {
+    // ignore
+  }
+}
+
+/**
  * Create a Pi agent runner that outputs SSE format (Data Stream Protocol)
  */
 export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
@@ -78,6 +147,11 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
 
   // biome-ignore lint/suspicious/noExplicitAny: getModel accepts provider string unions.
   const model = getModel(provider as any, modelName);
+  if (model == null) {
+    throw new Error(
+      `Pi runner: unsupported model "${modelSpec}". getModel("${provider}", "${modelName}") returned undefined. Use a model from the pi-ai catalog; supported providers are typically: google, openai.`,
+    );
+  }
   applyModelOverrides(model, provider, options.env);
 
   const agent = new Agent({
@@ -87,6 +161,9 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
       model,
       tools: createCodingTools(cwd),
     },
+    ...(options.sessionId !== undefined && options.sessionId !== ""
+      ? { sessionId: options.sessionId }
+      : {}),
   });
 
   return {
@@ -125,9 +202,23 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
       }
 
       try {
+        traceRawMessage(cwd, null, true);
+
+        const agentSessionId = (agent as { sessionId?: string }).sessionId;
+        const effectiveSessionId =
+          (agentSessionId !== undefined && agentSessionId !== "") ||
+          (options.sessionId !== undefined && options.sessionId !== "")
+            ? (agentSessionId ?? options.sessionId)!
+            : randomUUID();
+        if (
+          (agentSessionId === undefined || agentSessionId === "") &&
+          effectiveSessionId
+        ) {
+          (agent as { sessionId?: string }).sessionId = effectiveSessionId;
+        }
+
         const promptPromise = agent.prompt(userInput);
 
-        // Generate unique IDs
         const messageId = `msg_${Date.now()}_${Math.random().toString(36).slice(2)}`;
         const textId = `text_${Date.now()}_${Math.random().toString(36).slice(2)}`;
         let hasStarted = false;
@@ -137,15 +228,29 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
         const ensureStartEvent = async function* () {
           if (!hasStarted) {
             yield `data: ${JSON.stringify({ type: "start", messageId })}\n\n`;
+            yield `data: ${JSON.stringify({
+              type: "message-metadata",
+              messageMetadata: { sessionId: effectiveSessionId },
+            })}\n\n`;
             hasStarted = true;
           }
         };
 
-        const finishSuccess = async function* () {
+        const finishSuccess = async function* (usage?: Usage) {
           if (hasTextStarted) {
             yield `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`;
           }
-          yield `data: ${JSON.stringify({ type: "finish", finishReason: "stop" })}\n\n`;
+          const finishPayload: {
+            type: "finish";
+            finishReason: string;
+            messageMetadata?: { usage: Record<string, number> };
+          } = { type: "finish", finishReason: "stop" };
+          if (usage != null) {
+            finishPayload.messageMetadata = {
+              usage: usageToMessageMetadata(usage),
+            };
+          }
+          yield `data: ${JSON.stringify(finishPayload)}\n\n`;
           yield "data: [DONE]\n\n";
           hasFinished = true;
         };
@@ -160,6 +265,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
         while (!isComplete || eventQueue.length > 0) {
           while (eventQueue.length > 0) {
             const event = eventQueue.shift()!;
+            traceRawMessage(cwd, event);
 
             yield* ensureStartEvent();
 
@@ -183,7 +289,8 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
               if (aborted) {
                 yield* finishError("Run aborted by signal.");
               } else {
-                yield* finishSuccess();
+                const usage = getUsageFromAgentEndMessages(event.messages);
+                yield* finishSuccess(usage);
               }
             }
           }

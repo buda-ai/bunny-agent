@@ -1,6 +1,7 @@
 "use client";
 
-import { ArrowLeft, Box, Bug, Check, Info, Key, X } from "lucide-react";
+import { RUNNER_OPTIONS, DEFAULT_RUNNER } from "@/lib/runner";
+import { ArrowLeft, Box, Bug, Check, Info, Key, Bot as BotIcon, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -13,9 +14,11 @@ interface EnvConfig {
   key: string;
   description: string;
   required: boolean;
-  category: "api" | "sandbox" | "debug";
+  category: "api" | "sandbox" | "debug" | "runner";
   placeholder?: string;
   isSecret?: boolean;
+  /** If set, render a select instead of text input */
+  options?: { value: string; label: string }[];
 }
 
 const ENV_CONFIGS: EnvConfig[] = [
@@ -133,12 +136,50 @@ const ENV_CONFIGS: EnvConfig[] = [
     placeholder: "e2b",
   },
   {
+    name: "Runner",
+    key: "RUNNER",
+    description:
+      "Agent runner: Claude (default), Pi, Codex, Gemini, or OpenCode. Pi uses OpenAI-compatible API (set OPENAI_API_KEY in API Keys).",
+    required: false,
+    category: "runner",
+    placeholder: DEFAULT_RUNNER,
+    options: RUNNER_OPTIONS,
+  },
+  {
+    name: "Model ID",
+    key: "MODEL_ID",
+    description:
+      "Optional. Override the default model (e.g. Claude: global.anthropic.claude-sonnet-4-20250514, Pi: glm-4.7). Leave empty to use default.",
+    required: false,
+    category: "runner",
+    placeholder: "e.g. global.anthropic.claude-sonnet-4-20250514",
+  },
+  {
     name: "Debug Mode",
     key: "DEBUG",
     description: "Enable debug logging (set to 'true' or '1')",
     required: false,
     category: "debug",
     placeholder: "true",
+  },
+  {
+    name: "OpenAI API Key (for Pi / Codex runner)",
+    key: "OPENAI_API_KEY",
+    description:
+      "Optional. For Pi or Codex runner. Get one at https://platform.openai.com/api-keys",
+    required: false,
+    category: "api",
+    placeholder: "sk-...",
+    isSecret: true,
+  },
+  {
+    name: "OpenAI Base URL",
+    key: "OPENAI_BASE_URL",
+    description:
+      "Optional. Custom base URL for OpenAI-compatible API (Pi/Codex runner). Use with OPENAI_API_KEY for proxy or LiteLLM.",
+    required: false,
+    category: "api",
+    placeholder: "https://api.openai.com/v1",
   },
   {
     name: "Google API Key",
@@ -149,6 +190,15 @@ const ENV_CONFIGS: EnvConfig[] = [
     category: "api",
     placeholder: "AIza...",
     isSecret: true,
+  },
+  {
+    name: "Gemini Base URL",
+    key: "GEMINI_BASE_URL",
+    description:
+      "Optional. Custom base URL for Google Gemini API (Pi runner). Use for proxy or custom endpoint.",
+    required: false,
+    category: "api",
+    placeholder: "https://generativelanguage.googleapis.com",
   },
   {
     name: "Google Search Engine ID",
@@ -215,6 +265,11 @@ export default function SettingsPage() {
   const missingRequired = requiredConfigs.filter((c) => !config[c.key]);
 
   const categories = {
+    runner: {
+      title: "Runner",
+      icon: <BotIcon className="size-5" />,
+      configs: ENV_CONFIGS.filter((c) => c.category === "runner"),
+    },
     api: {
       title: "API Keys",
       icon: <Key className="size-5" />,
@@ -347,17 +402,38 @@ export default function SettingsPage() {
                         </div>
                       </div>
 
-                      <input
-                        type={envConfig.isSecret ? "password" : "text"}
-                        placeholder={
-                          envConfig.placeholder || `Enter ${envConfig.name}`
-                        }
-                        value={config[envConfig.key] || ""}
-                        onChange={(e) =>
-                          handleChange(envConfig.key, e.target.value)
-                        }
-                        className="w-full px-3 py-2 rounded-md border border-border bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                      />
+                      {envConfig.options ? (
+                        <select
+                          value={config[envConfig.key] || (envConfig.key === "RUNNER" ? DEFAULT_RUNNER : "")}
+                          onChange={(e) =>
+                            handleChange(envConfig.key, e.target.value)
+                          }
+                          className="w-full px-3 py-2 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                        >
+                          {envConfig.key === "RUNNER" ? null : (
+                            <option value="">
+                              {envConfig.placeholder || `Select ${envConfig.name}`}
+                            </option>
+                          )}
+                          {envConfig.options.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type={envConfig.isSecret ? "password" : "text"}
+                          placeholder={
+                            envConfig.placeholder || `Enter ${envConfig.name}`
+                          }
+                          value={config[envConfig.key] || ""}
+                          onChange={(e) =>
+                            handleChange(envConfig.key, e.target.value)
+                          }
+                          className="w-full px-3 py-2 rounded-md border border-border bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                        />
+                      )}
                     </div>
                   );
                 })}
@@ -366,23 +442,8 @@ export default function SettingsPage() {
           ),
         )}
 
-        {/* Action Buttons */}
-        <div className="flex items-center gap-4 mb-8">
-          <button
-            type="button"
-            onClick={handleSave}
-            className="px-4 py-2 rounded-md bg-primary text-primary-foreground font-medium hover:bg-primary/90"
-          >
-            {saved ? "✓ Saved!" : "Save Configuration"}
-          </button>
-          <button
-            type="button"
-            onClick={handleClear}
-            className="px-4 py-2 rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted"
-          >
-            Clear All
-          </button>
-        </div>
+        {/* Spacer for floating button (avoid content hidden behind it) */}
+        <div className="h-20" aria-hidden="true" />
 
         {/* Links */}
         <div className="border-t border-border pt-8">
@@ -430,6 +491,24 @@ export default function SettingsPage() {
             </li>
           </ul>
         </div>
+      </div>
+
+      {/* Floating Save Configuration bar */}
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-full border border-border bg-card/95 backdrop-blur-sm px-4 py-2 shadow-lg">
+        <button
+          type="button"
+          onClick={handleSave}
+          className="px-4 py-2 rounded-full bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors"
+        >
+          {saved ? "✓ Saved!" : "Save Configuration"}
+        </button>
+        <button
+          type="button"
+          onClick={handleClear}
+          className="px-4 py-2 rounded-full border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+        >
+          Clear All
+        </button>
       </div>
     </main>
   );

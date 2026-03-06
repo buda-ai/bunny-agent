@@ -67,10 +67,25 @@ export interface Logger {
 }
 
 /**
+ * CLI runner type passed to `sandagent run --runner <runnerType>`.
+ */
+export type SandAgentRunnerType =
+  | "claude"
+  | "pi"
+  | "codex"
+  | "gemini"
+  | "opencode";
+
+/**
  * AI Provider specific settings that extend SandAgentOptions.
  */
 export interface SandAgentProviderSettings
   extends Omit<SandAgentOptions, "runner" | "sandboxId"> {
+  /**
+   * Which runner implementation to use: claude (default), pi, codex, gemini, opencode.
+   * Maps to `sandagent run --runner <runnerType>`.
+   */
+  runnerType?: SandAgentRunnerType;
   /** Working directory for CLI operations inside the sandbox. */
   cwd?: string;
   /** Resume session ID for multi-turn conversation. */
@@ -86,57 +101,15 @@ export interface SandAgentProviderSettings
 }
 
 /**
- * Supported model identifiers for SandAgent.
+ * Model identifier: user passes whatever the runner expects (e.g. Claude model id, Pi model id).
  */
-export type SandAgentModelId =
-  | "claude-sonnet-4-20250514"
-  | "claude-opus-4-20250514"
-  | "claude-sonnet-4.5-20250514"
-  | "claude-opus-4.5-20250514"
-  | "claude-4-5-sonnet-20250514"
-  | "claude-4-5-opus-20250514"
-  | "claude-3-7-sonnet-20250219"
-  | "claude-3-5-sonnet-20241022"
-  | "claude-3-5-haiku-20241022"
-  | "claude-3-opus-20240229"
-  | "claude-3-sonnet-20240229"
-  | "claude-3-haiku-20240307"
-  | "sonnet"
-  | "opus"
-  | "haiku"
-  | (string & {});
+export type SandAgentModelId = string;
 
 /**
- * Maps model aliases to full model IDs
- */
-export function resolveModelId(modelId: SandAgentModelId): string {
-  switch (modelId) {
-    case "sonnet":
-      return "claude-sonnet-4-20250514";
-    case "opus":
-      return "claude-opus-4-20250514";
-    case "haiku":
-      return "claude-3-5-haiku-20241022";
-    default:
-      return modelId;
-  }
-}
-
-/**
- * Determine the runner kind based on model ID
+ * Determine the runner kind based on model ID (for future multi-runner support).
  */
 export function getRunnerKindForModel(
-  modelId: SandAgentModelId,
+  _modelId: SandAgentModelId,
 ): "claude-agent-sdk" {
-  const resolvedId = resolveModelId(modelId);
-
-  if (
-    resolvedId.startsWith("claude") ||
-    resolvedId.includes("anthropic") ||
-    resolvedId.startsWith("us.anthropic")
-  ) {
-    return "claude-agent-sdk";
-  }
-
   return "claude-agent-sdk";
 }

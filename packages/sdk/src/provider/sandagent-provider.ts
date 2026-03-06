@@ -11,7 +11,6 @@ import type { Logger, SandAgentModelId } from "./types";
 import {
   type SandAgentProviderSettings,
   getRunnerKindForModel,
-  resolveModelId,
 } from "./types";
 
 export type { SandAgentProviderSettings } from "./types";
@@ -102,11 +101,11 @@ export function createSandAgent(
     options: Partial<SandAgentProviderSettings> = {},
   ): LanguageModelV3 => {
     const runnerKind = getRunnerKindForModel(modelId);
-    const resolvedModelId = resolveModelId(modelId);
 
     const runner: RunnerSpec = {
       kind: runnerKind,
-      model: resolvedModelId,
+      model: modelId,
+      runnerType: options.runnerType ?? defaultOptions.runnerType,
       outputFormat: "stream",
       maxTurns: options.maxTurns ?? defaultOptions.maxTurns,
     };
@@ -126,7 +125,7 @@ export function createSandAgent(
     } as SandAgentProviderSettings & { runner: RunnerSpec };
 
     logger.debug(
-      `[sandagent] Creating model: ${modelId} with runner: ${runner.kind}`,
+      `[sandagent] Creating model: ${modelId} with runner: ${runner.kind}${runner.runnerType ? ` (runnerType: ${runner.runnerType})` : ""}`,
     );
 
     return new SandAgentLanguageModel({

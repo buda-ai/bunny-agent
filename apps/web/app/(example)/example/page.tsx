@@ -25,6 +25,7 @@ import {
   Settings,
   UserIcon,
 } from "lucide-react";
+import { DEFAULT_RUNNER } from "@/lib/runner";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
@@ -158,7 +159,9 @@ function HomeContent() {
         !!config.LITELLM_MASTER_KEY ||
         (config.CLAUDE_CODE_USE_BEDROCK === "1" &&
           !!config.ANTHROPIC_BEDROCK_BASE_URL);
-      const hasApiKey = hasClaudeAuth;
+      const runner = (config.RUNNER ?? DEFAULT_RUNNER).toLowerCase();
+      const hasPiAuth = runner === "pi" && !!config.OPENAI_API_KEY;
+      const hasApiKey = hasClaudeAuth || hasPiAuth;
       const allRequiredSet =
         REQUIRED_KEYS.every((key) => !!config[key]) && hasApiKey;
       setConfigReady(allRequiredSet);

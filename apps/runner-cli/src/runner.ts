@@ -1,22 +1,18 @@
 import type { BaseRunnerOptions } from "@sandagent/runner-claude";
 import {
-  type ClaudeRunnerOptions,
   createClaudeRunner,
 } from "@sandagent/runner-claude";
-import {
-  type CodexRunnerOptions,
-  createCodexRunner,
-} from "@sandagent/runner-codex";
+import { createCodexRunner } from "@sandagent/runner-codex";
 import { createGeminiRunner } from "@sandagent/runner-gemini";
 import { createOpenCodeRunner } from "@sandagent/runner-opencode";
-import { type PiRunnerOptions, createPiRunner } from "@sandagent/runner-pi";
+import { createPiRunner } from "@sandagent/runner-pi";
 
 /**
  * Options for running the agent
  * Extends BaseRunnerOptions with CLI-specific fields
  */
 export interface RunAgentOptions extends BaseRunnerOptions {
-  /** Which runner to use: claude, codex, gemini, copilot */
+  /** Which runner to use: claude, codex, gemini, opencode, copilot, pi */
   runner: string;
   /** User input/task */
   userInput: string;
@@ -68,7 +64,7 @@ export async function runAgent(options: RunAgentOptions): Promise<void> {
           allowedTools: options.allowedTools,
           resume: options.resume,
           env: process.env as Record<string, string>,
-          abortController: abortController,
+          abortController,
         });
         break;
       }
@@ -81,7 +77,7 @@ export async function runAgent(options: RunAgentOptions): Promise<void> {
           resume: options.resume,
           cwd: process.cwd(),
           env: process.env as Record<string, string>,
-          abortController: abortController,
+          abortController,
         });
         break;
       }
@@ -94,7 +90,7 @@ export async function runAgent(options: RunAgentOptions): Promise<void> {
           model: options.model,
           cwd: process.cwd(),
           env: process.env as Record<string, string>,
-          abortController: abortController,
+          abortController,
         });
         break;
       }
@@ -104,7 +100,8 @@ export async function runAgent(options: RunAgentOptions): Promise<void> {
           systemPrompt: options.systemPrompt,
           cwd: process.cwd(),
           env: process.env as Record<string, string>,
-          abortController: abortController,
+          abortController,
+          sessionId: options.resume,
         });
         break;
       }
@@ -113,7 +110,7 @@ export async function runAgent(options: RunAgentOptions): Promise<void> {
           model: options.model,
           cwd: process.cwd(),
           env: process.env as Record<string, string>,
-          abortController: abortController,
+          abortController,
         });
         break;
       }

@@ -4,6 +4,7 @@ import {
   evictSandbox,
   getOrCreateSandbox,
 } from "@/lib/example/create-sandbox";
+import { DEFAULT_RUNNER, type RunnerType } from "@/lib/runner";
 import {
   type SandAgentProviderSettings,
   createSandAgent,
@@ -30,6 +31,8 @@ export async function POST(request: Request) {
     messages,
     template = "default",
     resume,
+    RUNNER,
+    MODEL_ID,
     ANTHROPIC_API_KEY,
     ANTHROPIC_BASE_URL,
     AWS_BEARER_TOKEN_BEDROCK,
@@ -38,6 +41,10 @@ export async function POST(request: Request) {
     ANTHROPIC_BEDROCK_BASE_URL,
     CLAUDE_CODE_USE_BEDROCK,
     CLAUDE_CODE_SKIP_BEDROCK_AUTH,
+    OPENAI_API_KEY,
+    OPENAI_BASE_URL,
+    GEMINI_API_KEY,
+    GEMINI_BASE_URL,
     E2B_API_KEY,
     SANDOCK_API_KEY,
     DAYTONA_API_KEY,
@@ -53,9 +60,22 @@ export async function POST(request: Request) {
     !!ANTHROPIC_AUTH_TOKEN ||
     !!LITELLM_MASTER_KEY ||
     (CLAUDE_CODE_USE_BEDROCK === "1" && !!ANTHROPIC_BEDROCK_BASE_URL);
+  const runnerType = ((RUNNER ?? DEFAULT_RUNNER).toLowerCase() || DEFAULT_RUNNER) as RunnerType;
+  // Pi supports multiple providers: OpenAI, Gemini, or Anthropic (same as Claude)
+  const hasPiAuth = !!OPENAI_API_KEY || !!GEMINI_API_KEY || hasClaudeAuth;
 
   // --- Validation -----------------------------------------------------------
-  if (!hasClaudeAuth) {
+  if (runnerType === "pi") {
+    if (!hasPiAuth) {
+      return new Response(
+        JSON.stringify({
+          error:
+            "Pi runner requires at least one provider key: OPENAI_API_KEY, GEMINI_API_KEY, or Claude/Bedrock auth. Configure in Settings.",
+        }),
+        { status: 400, headers: { "Content-Type": "application/json" } },
+      );
+    }
+  } else if (!hasClaudeAuth) {
     return new Response(
       JSON.stringify({
         error:
@@ -129,6 +149,7 @@ export async function POST(request: Request) {
   // --- Sandbox (cached per chat) --------------------------------------------
   const sandboxParams: CreateSandboxParams = {
     SANDBOX_PROVIDER,
+    runnerType,
     E2B_API_KEY,
     SANDOCK_API_KEY,
     DAYTONA_API_KEY,
@@ -140,6 +161,9 @@ export async function POST(request: Request) {
     ANTHROPIC_BEDROCK_BASE_URL,
     CLAUDE_CODE_USE_BEDROCK,
     CLAUDE_CODE_SKIP_BEDROCK_AUTH,
+    OPENAI_API_KEY,
+    OPENAI_BASE_URL,
+    GEMINI_BASE_URL,
     template,
   };
 
@@ -151,9 +175,34 @@ export async function POST(request: Request) {
   });
 
   // --- Model ----------------------------------------------------------------
-  const model = ANTHROPIC_API_KEY
+  const defaultModel = ANTHROPIC_API_KEY
     ? "glm-4.7"
     : "global.anthropic.claude-opus-4-6-v1";
+  let model = MODEL_ID || defaultModel;
+  // Pi expects "<provider>:<model>" (e.g. openai:gpt-5.4, anthropic:claude-opus-4-6-v1)
+  if (runnerType === "pi") {
+    if (model.includes(":")) {
+      // Already in provider:model form
+    } else if (model.startsWith("global.anthropic.")) {
+      model = `anthropic:${model.slice("global.anthropic.".length)}`;
+    } else if (model.includes("/")) {
+      // e.g. "openai/gpt-5.4" -> "openai:gpt-5.4"
+      const [provider, ...rest] = model.split("/");
+      model = `${provider}:${rest.join("/")}`;
+    } else {
+      // No slash/colon: infer provider from model name so "gpt-5.4" -> openai, "claude-*" -> anthropic
+      const lower = model.toLowerCase();
+      const provider =
+        lower.startsWith("gpt-") || lower.startsWith("o1-") || lower.startsWith("o3-")
+          ? "openai"
+          : lower.startsWith("claude-")
+            ? "anthropic"
+            : lower.startsWith("gemini-")
+              ? "google"
+              : "openai";
+      model = `${provider}:${model}`;
+    }
+  }
 
   // --- Stream ---------------------------------------------------------------
   const stream = createUIMessageStream({
@@ -167,6 +216,7 @@ export async function POST(request: Request) {
       const sandagentOptions: SandAgentProviderSettings = {
         sandbox,
         cwd: sandbox.getWorkdir?.() || "/sandagent",
+        runnerType,
         verbose: true,
         artifactProcessors: [artifactProcessor],
         resume,
