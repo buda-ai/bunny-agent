@@ -96,3 +96,14 @@
 - Confirmed fix locally by updating lockfile and running:
   - `pnpm install --frozen-lockfile` ✅
 - This session also includes runner capability updates that required lockfile refresh.
+
+### 09:06
+- Investigated additional GitHub Actions failure on `main` (`Publish @sandagent/runner-cli to NPM`, run `22743936170`).
+- Found two concrete causes in publish pipeline:
+  - `runner-cli` tests executed before building internal runner package artifacts (`runner-codex`, `runner-gemini`, `runner-opencode`, `runner-pi`) and before generating `apps/runner-cli/dist/bundle.mjs`.
+  - Integration test `should accept claude runner option` was environment-sensitive and could hang.
+- Fixes applied:
+  - Updated `.github/workflows/publish-runner-cli.yml` build-dependencies step to build all runner package dependencies and `runner-cli` before tests.
+  - Updated `apps/runner-cli/src/__tests__/runner-cli.integration.test.ts` to force deterministic unauthenticated Claude path and assert successful stream output.
+- Verification:
+  - ✅ `pnpm --filter @sandagent/runner-cli test` (19/19 passed)
