@@ -1,13 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const createdAgents: MockAgent[] = [];
+// ── Mock session that drives the event loop ──────────────────────────
 
-class MockAgent {
-  state: { error?: string } = {};
-  private listeners: Array<(event: unknown) => void> = [];
+type Listener = (event: unknown) => void;
+
+class MockSession {
+  agent = { state: {}, setSystemPrompt: vi.fn() };
+  sessionId = "mock-session-id";
+  private listeners: Listener[] = [];
   private behavior: "normal" | "pending" = "normal";
 
-  subscribe(fn: (event: unknown) => void): () => void {
+  subscribe(fn: Listener): () => void {
     this.listeners.push(fn);
     return () => {
       this.listeners = this.listeners.filter((l) => l !== fn);
@@ -21,7 +24,7 @@ class MockAgent {
   async prompt(_userInput: string): Promise<void> {
     if (this.behavior === "pending") {
       return new Promise(() => {
-        // Keep pending for abort test.
+        // Keep pending forever so the abort test can fire.
       });
     }
 
@@ -52,6 +55,8 @@ class MockAgent {
     this.emit({ type: "agent_end", messages: [] });
   }
 
+  dispose(): void {}
+
   private emit(event: unknown): void {
     for (const listener of this.listeners) {
       listener(event);
@@ -59,11 +64,21 @@ class MockAgent {
   }
 }
 
-vi.mock("@mariozechner/pi-agent-core", () => ({
-  Agent: vi.fn().mockImplementation(() => {
-    const agent = new MockAgent();
-    createdAgents.push(agent);
-    return agent;
+const createdSessions: MockSession[] = [];
+let nextSessionBehavior: "normal" | "pending" = "normal";
+
+vi.mock("@mariozechner/pi-coding-agent", () => ({
+  createCodingTools: vi.fn().mockReturnValue([]),
+  SessionManager: {
+    continueRecent: vi.fn().mockResolvedValue("mock-session-manager"),
+    open: vi.fn().mockResolvedValue("mock-session-manager"),
+    list: vi.fn().mockResolvedValue([]),
+  },
+  createAgentSession: vi.fn().mockImplementation(async () => {
+    const session = new MockSession();
+    session.setBehavior(nextSessionBehavior);
+    createdSessions.push(session);
+    return { session };
   }),
 }));
 
@@ -76,15 +91,12 @@ vi.mock("@mariozechner/pi-ai", () => ({
     })),
 }));
 
-vi.mock("@mariozechner/pi-coding-agent", () => ({
-  createCodingTools: vi.fn().mockReturnValue([]),
-}));
-
 import { createPiRunner } from "../pi-runner.js";
 
 describe("createPiRunner", () => {
   beforeEach(() => {
-    createdAgents.length = 0;
+    createdSessions.length = 0;
+    nextSessionBehavior = "normal";
   });
 
   it("streams text/tool events and finishes", async () => {
@@ -114,24 +126,28 @@ describe("createPiRunner", () => {
   });
 
   it("emits abort error stream when aborted", async () => {
+    // Tell the next session to hang on prompt so we can abort mid-flight.
+    nextSessionBehavior = "pending";
+
     const controller = new AbortController();
     const runner = createPiRunner({
       model: "google:gemini-2.5-pro",
       abortController: controller,
     });
 
-    const agent = createdAgents[0];
-    agent.setBehavior("pending");
-
-    const chunks: string[] = [];
-    const runPromise = (async () => {
+    const readPromise = (async () => {
+      const chunks: string[] = [];
       for await (const chunk of runner.run("long task")) {
         chunks.push(chunk);
       }
+      return chunks;
     })();
 
+    // Give the generator time to enter the event loop
+    await new Promise((r) => setTimeout(r, 10));
+
     controller.abort();
-    await runPromise;
+    const chunks = await readPromise;
 
     expect(chunks.some((c) => c.includes('"type":"error"'))).toBe(true);
     expect(chunks.some((c) => c.includes('"type":"finish"'))).toBe(true);

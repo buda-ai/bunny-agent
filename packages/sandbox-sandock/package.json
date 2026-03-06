@@ -1,6 +1,6 @@
 {
   "name": "@sandagent/sandbox-sandock",
-  "version": "0.2.22",
+  "version": "0.5.1",
   "description": "Sandock sandbox adapter for SandAgent",
   "type": "module",
   "main": "./dist/index.js",
@@ -28,6 +28,9 @@
     "directory": "packages/sandbox-sandock"
   },
   "license": "Apache-2.0",
+  "publishConfig": {
+    "access": "public"
+  },
   "dependencies": {
     "@sandagent/manager": "workspace:*",
     "sandock": "^2.2.4"

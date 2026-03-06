@@ -276,7 +276,7 @@ const model = sandagent("claude-sonnet-4-20250514"); // Specific version
 
 | Entry Point | Exports |
 |-------------|---------|
-| `@sandagent/sdk` | `createSandAgent`, `LocalSandbox`, `SandAgentLanguageModel`, `resolveModelId`, `submitAnswer` |
+| `@sandagent/sdk` | `createSandAgent`, `LocalSandbox`, `SandAgentLanguageModel`, `submitAnswer` |
 | `@sandagent/sdk/react` | `useSandAgentChat`, `useArtifacts`, `useWriteTool`, `useAskUserQuestion` |
 
 ---

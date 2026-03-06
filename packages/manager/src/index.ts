@@ -24,4 +24,4 @@ export type { LocalSandboxOptions } from "./local-sandbox.js";
 
 // Env helpers
 export { buildRunnerEnv } from "./env.js";
-export type { RunnerEnvParams } from "./env.js";
+export type { RunnerEnvParams, RunnerType } from "./env.js";

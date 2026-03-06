@@ -24,8 +24,6 @@ export type {
   Question,
 } from "./types";
 
-export { resolveModelId } from "./types";
-
 // Re-exports from @sandagent/manager for convenience
 export type {
   SandboxAdapter,

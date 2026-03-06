@@ -51,12 +51,11 @@ export function useSandAgentChat({
     bodyRef.current = body;
   }, [body]);
 
-  // Helper to extract sessionId from message parts' providerMetadata
-  const getSessionIdFromMessage = (
+  // Helper to extract resume value (sessionId) from message parts' providerMetadata.
+  const getResumeFromMessage = (
     message: UIMessage | undefined,
   ): string | undefined => {
     if (!message?.parts) return undefined;
-    // Find the first text part with providerMetadata.sandagent.sessionId
     for (const part of message.parts) {
       if (part.type === "text") {
         const providerMetadata = (
@@ -82,9 +81,9 @@ export function useSandAgentChat({
       api: apiEndpoint,
       body: () => {
         const lastMessage = messagesRef.current[messagesRef.current.length - 1];
-        const sessionId = getSessionIdFromMessage(lastMessage);
+        const resume = getResumeFromMessage(lastMessage);
         return {
-          resume: sessionId,
+          resume,
           ...bodyRef.current,
         };
       },

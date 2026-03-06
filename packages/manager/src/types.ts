@@ -138,6 +138,11 @@ export interface RunnerSpec {
   kind: "claude-agent-sdk";
   /** The model to use */
   model: string;
+  /**
+   * CLI runner type: which implementation to use when running `sandagent run`
+   * (e.g. claude, pi, codex, gemini, opencode). Default is "claude".
+   */
+  runnerType?: "claude" | "pi" | "codex" | "gemini" | "opencode";
   /** Optional system prompt override (overrides template's CLAUDE.md) */
   systemPrompt?: string;
   /** Maximum number of conversation turns */

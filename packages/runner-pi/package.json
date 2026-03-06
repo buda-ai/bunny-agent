@@ -1,6 +1,6 @@
 {
   "name": "@sandagent/runner-pi",
-  "version": "0.1.0",
+  "version": "0.5.1",
   "description": "Pi agent runtime for SandAgent",
   "type": "module",
   "main": "./dist/index.js",
@@ -37,5 +37,8 @@
     "runner"
   ],
   "author": "SandAgent",
-  "license": "Apache-2.0"
+  "license": "Apache-2.0",
+  "publishConfig": {
+    "access": "public"
+  }
 }

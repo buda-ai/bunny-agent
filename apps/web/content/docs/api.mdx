@@ -58,18 +58,6 @@ const sandbox = new LocalSandbox({
 });
 ```
 
-### `resolveModelId(alias)`
-
-Resolves model aliases to full model IDs.
-
-```typescript
-import { resolveModelId } from "@sandagent/sdk";
-
-resolveModelId("sonnet");  // "claude-sonnet-4-20250514"
-resolveModelId("opus");    // "claude-opus-4-20250514"
-resolveModelId("haiku");   // "claude-3-5-haiku-20241022"
-```
-
 ### `submitAnswer(params)`
 
 Submit user answers for interactive `AskUserQuestion` tool calls.
@@ -138,7 +126,7 @@ const { questions, submitAnswer } = useAskUserQuestion({ messages });
 
 | Entry Point | Exports |
 |-------------|---------|
-| `@sandagent/sdk` | `createSandAgent`, `LocalSandbox`, `SandAgentLanguageModel`, `resolveModelId`, `submitAnswer` |
+| `@sandagent/sdk` | `createSandAgent`, `LocalSandbox`, `SandAgentLanguageModel`, `submitAnswer` |
 | `@sandagent/sdk/react` | `useSandAgentChat`, `useArtifacts`, `useWriteTool`, `useAskUserQuestion` |
 
 ## Types
@@ -146,11 +134,8 @@ const { questions, submitAnswer } = useAskUserQuestion({ messages });
 Key types exported from `@sandagent/sdk`:
 
 ```typescript
-type SandAgentModelId =
-  | "sonnet" | "opus" | "haiku"
-  | "claude-sonnet-4-20250514"
-  | "claude-opus-4-20250514"
-  | (string & {});
+// Model ID is passed through to the runner as-is (e.g. Claude model id, Pi model id).
+type SandAgentModelId = string;
 
 interface SandboxAdapter {
   attach(id?: string): Promise<SandboxHandle>;
