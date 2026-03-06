@@ -202,7 +202,7 @@ Usage:
   sandagent run [options] -- "<user input>"
 
 Options:
-  -r, --runner <runner>        Runner: claude, codex, gemini, copilot, pi (default: claude)
+  -r, --runner <runner>        Runner: claude, codex, gemini, opencode, copilot, pi (default: claude)
   -m, --model <model>          Model (default: claude-sonnet-4-20250514)
   -c, --cwd <path>             Working directory (default: cwd)
   -s, --system-prompt <prompt> Custom system prompt

@@ -58,3 +58,41 @@
   - `pnpm lint` initially failed on formatting/import ordering in 8 files.
   - Applied fixes via `pnpm biome check --write` to those files.
   - Re-ran `pnpm typecheck && pnpm lint && pnpm build`; all passed.
+
+### 01:40
+- Started cross-runner capability hardening for coding runners (`claude`, `codex`, `gemini`, `opencode`, `pi`).
+- Implemented `runner-pi` upgrades:
+  - Added strict model format validation (`<provider>:<model>`).
+  - Added env-aware base URL override resolution.
+  - Reworked streaming loop to event-driven wakeup (removed polling sleep loop).
+  - Switched text emission to `assistantMessageEvent.text_delta` to avoid duplicated text fragments.
+  - Added abort signal handling via `agent.abort()` and deterministic error/finish stream output.
+- Implemented ACP subprocess runner upgrades:
+  - `runner-gemini`: added `env` and `abortController` options with graceful abort and early-exit error handling.
+  - `runner-opencode`: added `env` and `abortController` options with graceful abort and early-exit error handling.
+- Updated `apps/runner-cli/src/runner.ts` to pass `env` + `abortController` through all runner constructors and pass model/env/abort to `opencode` + `gemini`.
+
+### 02:13
+- Added `@sandagent/runner-pi` package-level test coverage:
+  - `packages/runner-pi/src/__tests__/pi-runner.test.ts` with stream, model-validation, and abort-behavior cases.
+  - Added `packages/runner-pi/vitest.config.ts`.
+  - Updated `packages/runner-pi/package.json` scripts/devDependencies (`typecheck`, `test`, `vitest`).
+- Added `packages/runner-pi/README.md` with usage/options and output behavior.
+- Updated runner docs for ACP CLIs:
+  - `packages/runner-gemini/README.md`: replaced invalid `yolo` option with `env` and `abortController`.
+  - `packages/runner-opencode/README.md`: replaced invalid `sessionKey` option with `env` and `abortController`.
+- Updated runner CLI docs/help to list `opencode` in runner options.
+
+### 02:15
+- Validation completed after cross-runner hardening:
+  - ✅ `pnpm typecheck`
+  - ✅ `pnpm lint`
+  - ✅ `pnpm build`
+  - ✅ `pnpm --filter @sandagent/runner-pi test`
+
+### 02:20
+- Investigated latest failed CI run (`run_id: 22728607691`, workflow: `CI`).
+- Root cause: `ERR_PNPM_OUTDATED_LOCKFILE` during `pnpm install` in CI (`frozen-lockfile` default).
+- Confirmed fix locally by updating lockfile and running:
+  - `pnpm install --frozen-lockfile` ✅
+- This session also includes runner capability updates that required lockfile refresh.

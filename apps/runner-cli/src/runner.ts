@@ -67,6 +67,7 @@ export async function runAgent(options: RunAgentOptions): Promise<void> {
           maxTurns: options.maxTurns,
           allowedTools: options.allowedTools,
           resume: options.resume,
+          env: process.env as Record<string, string>,
           abortController: abortController,
         });
         break;
@@ -79,6 +80,7 @@ export async function runAgent(options: RunAgentOptions): Promise<void> {
           allowedTools: options.allowedTools,
           resume: options.resume,
           cwd: process.cwd(),
+          env: process.env as Record<string, string>,
           abortController: abortController,
         });
         break;
@@ -91,6 +93,8 @@ export async function runAgent(options: RunAgentOptions): Promise<void> {
         runner = createGeminiRunner({
           model: options.model,
           cwd: process.cwd(),
+          env: process.env as Record<string, string>,
+          abortController: abortController,
         });
         break;
       }
@@ -99,12 +103,18 @@ export async function runAgent(options: RunAgentOptions): Promise<void> {
           model: options.model,
           systemPrompt: options.systemPrompt,
           cwd: process.cwd(),
+          env: process.env as Record<string, string>,
           abortController: abortController,
         });
         break;
       }
       case "opencode": {
-        runner = createOpenCodeRunner({ cwd: process.cwd() });
+        runner = createOpenCodeRunner({
+          model: options.model,
+          cwd: process.cwd(),
+          env: process.env as Record<string, string>,
+          abortController: abortController,
+        });
         break;
       }
       default:

@@ -21,7 +21,8 @@ import { createGeminiRunner } from '@sandagent/runner-gemini';
 const runner = createGeminiRunner({
   model: 'gemini-2.0-flash-exp',
   cwd: '/path/to/workspace',
-  yolo: false,
+  env: { GEMINI_API_KEY: process.env.GEMINI_API_KEY ?? "" },
+  abortController: new AbortController(),
 });
 
 for await (const chunk of runner.run('Create a hello world script')) {
@@ -33,7 +34,8 @@ for await (const chunk of runner.run('Create a hello world script')) {
 
 - `model` - Model to use (optional, uses Gemini default)
 - `cwd` - Working directory (default: `process.cwd()`)
-- `yolo` - Auto-approve all actions (default: `false`)
+- `env` - Environment overrides passed to the Gemini process
+- `abortController` - Optional signal-based cancellation
 
 ## How it works
 
