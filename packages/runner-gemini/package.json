@@ -1,6 +1,7 @@
 {
   "name": "@sandagent/runner-gemini",
   "version": "0.1.0",
+  "private": true,
   "type": "module",
   "description": "Gemini CLI runner for SandAgent using ACP protocol",
   "main": "./dist/index.js",

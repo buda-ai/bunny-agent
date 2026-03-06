@@ -37,5 +37,8 @@
     "runner"
   ],
   "author": "SandAgent",
-  "license": "Apache-2.0"
+  "license": "Apache-2.0",
+  "publishConfig": {
+    "access": "public"
+  }
 }
