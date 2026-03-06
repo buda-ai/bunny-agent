@@ -1,0 +1,25 @@
+{
+  "mode": "pre",
+  "tag": "beta",
+  "initialVersions": {
+    "@sandagent/manager-cli": "0.1.0",
+    "@sandagent/runner-cli": "0.5.0",
+    "@sandagent/web": "0.0.0",
+    "@sandagent/docker-sandagent-claude": "0.2.7",
+    "@sandagent/benchmark-cli": "0.1.0",
+    "@sandagent/benchmark-sandagent": "0.1.0",
+    "@sandagent/benchmark-shared": "0.1.0",
+    "kui": "0.5.0",
+    "@sandagent/manager": "0.2.22",
+    "@sandagent/runner-claude": "0.1.2",
+    "@sandagent/runner-codex": "0.1.0",
+    "@sandagent/runner-gemini": "0.1.0",
+    "@sandagent/runner-opencode": "0.1.0",
+    "@sandagent/runner-pi": "0.1.0",
+    "@sandagent/sandbox-daytona": "0.2.22",
+    "@sandagent/sandbox-e2b": "0.2.22",
+    "@sandagent/sandbox-sandock": "0.2.22",
+    "@sandagent/sdk": "0.2.22"
+  },
+  "changesets": []
+}
