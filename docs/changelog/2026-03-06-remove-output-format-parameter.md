@@ -107,3 +107,7 @@
   - Updated `apps/runner-cli/src/__tests__/runner-cli.integration.test.ts` to force deterministic unauthenticated Claude path and assert successful stream output.
 - Verification:
   - ✅ `pnpm --filter @sandagent/runner-cli test` (19/19 passed)
+
+### 09:10
+- Bumped `@sandagent/runner-cli` package version:
+  - `apps/runner-cli/package.json`: `0.2.18` -> `0.5.0`
