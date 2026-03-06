@@ -237,7 +237,7 @@ Verify everything works without needing API keys:
 
 ```bash
 pnpm install && pnpm build
-pnpm test  # 93 tests
+pnpm test
 ```
 
 ### Option F: SDK Development Mode
@@ -821,7 +821,7 @@ Each result includes:
 |--------|-------------|
 | `pnpm install` | Install all dependencies |
 | `pnpm build` | Build all packages |
-| `pnpm test` | Run all tests (93 tests) |
+| `pnpm test` | Run all tests |
 | `pnpm lint` | Run linters |
 | `pnpm typecheck` | Type-check all packages |
 | `pnpm clean` | Clean build artifacts |

@@ -4,8 +4,7 @@ You are working on the SandAgent project - a framework that turns powerful codin
 
 ## Critical Rules
 
-1. **English Only**: All code, comments, documentation, commit messages, and responses MUST be in English
-2. **No Chinese Output**: Never generate Chinese text in any context
+1. **English Only**: All code, comments, documentation, commit messages, MUST be in English
 3. **Code Quality**: Follow TypeScript best practices and existing code style
 4. **Testing**: Write tests for new features when appropriate
 5. **Documentation**: Update relevant docs when adding features

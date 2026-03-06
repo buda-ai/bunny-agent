@@ -129,6 +129,8 @@ make e2b TEMPLATE=coder
 
 Templates live under `../../templates/`; `generate-dockerfile.sh` copies `.claude/` and `CLAUDE.md` into the image.
 
+**Skills:** The image entrypoint links `/skills` to `~/.claude/skills/from-slash-skills` so user-installed skills in `/skills` are visible to Claude. See [runner-cli docs: Skills](../../apps/runner-cli/docs/SKILLS.md).
+
 ## Use in SDK
 
 **Sandock**
