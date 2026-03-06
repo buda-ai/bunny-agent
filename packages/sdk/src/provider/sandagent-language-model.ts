@@ -96,6 +96,7 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
   private readonly options: SandAgentProviderSettings & { runner: RunnerSpec };
   private readonly logger: Logger;
   private sessionId: string | undefined;
+  private sessionFile: string | undefined;
   private toolNameMap: Map<string, string> = new Map();
 
   constructor(modelOptions: SandAgentLanguageModelOptions) {
@@ -381,17 +382,27 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
             rawValue: this.sessionId,
           });
         }
+        if (metadata?.sessionFile && typeof metadata.sessionFile === "string") {
+          this.sessionFile = metadata.sessionFile;
+          this.logger.debug(
+            `[sandagent] Session file extracted: ${this.sessionFile}`,
+          );
+        }
         break;
       }
 
       case "text-start": {
+        const sandagentMeta: Record<string, unknown> = {
+          sessionId: this.sessionId,
+        };
+        if (this.sessionFile != null) {
+          sandagentMeta.sessionFile = this.sessionFile;
+        }
         parts.push({
           type: "text-start",
           id: parsed.id as string,
           providerMetadata: {
-            sandagent: {
-              sessionId: this.sessionId,
-            },
+            sandagent: sandagentMeta as SharedV3ProviderMetadata,
           },
         });
         break;
@@ -489,12 +500,19 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
         const rawUsage = messageMetadata?.usage;
         const usage = this.convertUsage(rawUsage);
 
+        const finishSandagent: Record<string, unknown> = {
+          ...(parsed.messageMetadata as Record<string, unknown> ?? {}),
+          sessionId: this.sessionId,
+        };
+        if (this.sessionFile != null) {
+          finishSandagent.sessionFile = this.sessionFile;
+        }
         parts.push({
           type: "finish",
           finishReason,
           usage,
           providerMetadata: {
-            sandagent: (parsed.messageMetadata ?? {}) as SharedV3ProviderMetadata,
+            sandagent: finishSandagent as SharedV3ProviderMetadata,
           },
         });
         break;

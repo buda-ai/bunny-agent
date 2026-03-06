@@ -51,19 +51,28 @@ export function useSandAgentChat({
     bodyRef.current = body;
   }, [body]);
 
-  // Helper to extract sessionId from message parts' providerMetadata
-  const getSessionIdFromMessage = (
+  // Helper to extract resume value from message parts' providerMetadata.
+  // For Pi runner: use sessionFile (path) when present for multi-turn; else sessionId.
+  const getResumeFromMessage = (
     message: UIMessage | undefined,
   ): string | undefined => {
     if (!message?.parts) return undefined;
-    // Find the first text part with providerMetadata.sandagent.sessionId
+    type SandagentMeta = {
+      sessionId?: string;
+      sessionFile?: string;
+    };
     for (const part of message.parts) {
       if (part.type === "text") {
         const providerMetadata = (
-          part as { providerMetadata?: { sandagent?: { sessionId?: string } } }
+          part as { providerMetadata?: { sandagent?: SandagentMeta } }
         ).providerMetadata;
-        if (providerMetadata?.sandagent?.sessionId) {
-          return providerMetadata.sandagent.sessionId;
+        const sandagent = providerMetadata?.sandagent;
+        if (!sandagent) continue;
+        if (sandagent.sessionFile != null && sandagent.sessionFile !== "") {
+          return sandagent.sessionFile;
+        }
+        if (sandagent.sessionId != null && sandagent.sessionId !== "") {
+          return sandagent.sessionId;
         }
       }
     }
@@ -82,9 +91,9 @@ export function useSandAgentChat({
       api: apiEndpoint,
       body: () => {
         const lastMessage = messagesRef.current[messagesRef.current.length - 1];
-        const sessionId = getSessionIdFromMessage(lastMessage);
+        const resume = getResumeFromMessage(lastMessage);
         return {
-          resume: sessionId,
+          resume,
           ...bodyRef.current,
         };
       },

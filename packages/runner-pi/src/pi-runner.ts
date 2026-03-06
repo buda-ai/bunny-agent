@@ -1,9 +1,12 @@
-import { randomUUID } from "node:crypto";
 import { appendFileSync, existsSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
-import { Agent, type AgentEvent } from "@mariozechner/pi-agent-core";
+import type { AgentEvent } from "@mariozechner/pi-agent-core";
 import { getModel, type Usage } from "@mariozechner/pi-ai";
-import { createCodingTools } from "@mariozechner/pi-coding-agent";
+import {
+  createAgentSession,
+  SessionManager,
+  type AgentSessionEvent,
+} from "@mariozechner/pi-coding-agent";
 
 export interface PiRunnerOptions {
   model?: string;
@@ -12,10 +15,9 @@ export interface PiRunnerOptions {
   env?: Record<string, string>;
   abortController?: AbortController;
   /**
-   * Session ID for provider caching (see pi-agent-core Agent options).
-   * Optional; when set, the agent passes it to the LLM provider.
-   * Note: Full session persistence (JSONL tree, resume, branch like the Pi CLI)
-   * is not implemented in this runner.
+   * Session file path to resume (from previous run's message-metadata.sessionFile).
+   * When set, SessionManager.open(resume) is used; otherwise SessionManager.continueRecent(cwd).
+   * Sessions use Pi's default directory (~/.pi/agent/sessions/...) so workspace is not used.
    */
   sessionId?: string;
 }
@@ -137,12 +139,18 @@ function traceRawMessage(
 }
 
 /**
- * Create a Pi agent runner that outputs SSE format (Data Stream Protocol)
+ * Create a Pi agent runner that outputs SSE format (Data Stream Protocol).
+ * Uses pi-coding-agent's AgentSession + SessionManager with default session dir (~/.pi).
+ * Resume: pass previous run's message-metadata.sessionFile as options.sessionId (--resume).
  */
 export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
-  const modelSpec =
-    options.model || "google:gemini-2.5-flash-lite-preview-06-17";
-  const { provider, modelName } = parseModelSpec(modelSpec);
+  const modelSpec = options.model;
+  if (modelSpec == null || modelSpec.trim() === "") {
+    throw new Error(
+      "Pi runner: model is required. Pass a model in the form <provider>:<model>, e.g. openai:gpt-4o or google:gemini-2.5-flash.",
+    );
+  }
+  const { provider, modelName } = parseModelSpec(modelSpec.trim());
   const cwd = options.cwd || process.cwd();
 
   // biome-ignore lint/suspicious/noExplicitAny: getModel accepts provider string unions.
@@ -154,21 +162,26 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
   }
   applyModelOverrides(model, provider, options.env);
 
-  const agent = new Agent({
-    initialState: {
-      systemPrompt:
-        options.systemPrompt || "You are a helpful coding assistant.",
-      model,
-      tools: createCodingTools(cwd),
-    },
-    ...(options.sessionId !== undefined && options.sessionId !== ""
-      ? { sessionId: options.sessionId }
-      : {}),
-  });
-
   return {
     async *run(userInput: string): AsyncIterable<string> {
-      const eventQueue: AgentEvent[] = [];
+      const sessionManager =
+        options.sessionId != null && options.sessionId !== ""
+          ? SessionManager.open(options.sessionId)
+          : SessionManager.continueRecent(cwd);
+
+      const { session } = await createAgentSession({
+        cwd,
+        model,
+        sessionManager,
+      });
+
+      if (options.systemPrompt != null && options.systemPrompt !== "") {
+        session.agent.setSystemPrompt(options.systemPrompt);
+      } else {
+        session.agent.setSystemPrompt("You are a helpful coding assistant.");
+      }
+
+      const eventQueue: AgentSessionEvent[] = [];
       let isComplete = false;
       let aborted = false;
       let wakeConsumer: (() => void) | null = null;
@@ -178,7 +191,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
         wakeConsumer = null;
       };
 
-      const unsubscribe = agent.subscribe((e) => {
+      const unsubscribe = session.subscribe((e) => {
         eventQueue.push(e);
         if (e.type === "agent_end") {
           isComplete = true;
@@ -190,7 +203,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
       const abortHandler = () => {
         aborted = true;
         isComplete = true;
-        agent.abort();
+        void session.abort();
         notify();
       };
 
@@ -204,20 +217,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
       try {
         traceRawMessage(cwd, null, true);
 
-        const agentSessionId = (agent as { sessionId?: string }).sessionId;
-        const effectiveSessionId =
-          (agentSessionId !== undefined && agentSessionId !== "") ||
-          (options.sessionId !== undefined && options.sessionId !== "")
-            ? (agentSessionId ?? options.sessionId)!
-            : randomUUID();
-        if (
-          (agentSessionId === undefined || agentSessionId === "") &&
-          effectiveSessionId
-        ) {
-          (agent as { sessionId?: string }).sessionId = effectiveSessionId;
-        }
-
-        const promptPromise = agent.prompt(userInput);
+        const promptPromise = session.prompt(userInput);
 
         const messageId = `msg_${Date.now()}_${Math.random().toString(36).slice(2)}`;
         const textId = `text_${Date.now()}_${Math.random().toString(36).slice(2)}`;
@@ -228,9 +228,16 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
         const ensureStartEvent = async function* () {
           if (!hasStarted) {
             yield `data: ${JSON.stringify({ type: "start", messageId })}\n\n`;
+            const metadata: Record<string, string> = {
+              sessionId: session.sessionId,
+            };
+            const sessionFile = session.sessionFile;
+            if (sessionFile != null) {
+              metadata.sessionFile = sessionFile;
+            }
             yield `data: ${JSON.stringify({
               type: "message-metadata",
-              messageMetadata: { sessionId: effectiveSessionId },
+              messageMetadata: metadata,
             })}\n\n`;
             hasStarted = true;
           }
@@ -324,15 +331,16 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           return;
         }
 
-        if (!hasFinished && agent.state.error) {
+        if (!hasFinished && session.agent.state.error) {
           yield* ensureStartEvent();
-          yield* finishError(agent.state.error);
+          yield* finishError(session.agent.state.error);
         }
       } finally {
         if (abortSignal) {
           abortSignal.removeEventListener("abort", abortHandler);
         }
         unsubscribe();
+        session.dispose();
       }
     },
   };
