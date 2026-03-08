@@ -1,5 +1,13 @@
 # @sandagent/sandbox-e2b
 
+## 0.6.0
+
+### Patch Changes
+
+- Updated dependencies
+- Updated dependencies [5086df7]
+  - @sandagent/manager@0.6.0
+
 ## 0.2.21
 
 ### Patch Changes

@@ -1,5 +1,18 @@
 # @sandagent/sdk
 
+## 0.6.0
+
+### Minor Changes
+
+- 5086df7: Bump to v0.5.1 beta release
+
+### Patch Changes
+
+- Remove deprecated --output-format flag from runner-cli command
+- Updated dependencies
+- Updated dependencies [5086df7]
+  - @sandagent/manager@0.6.0
+
 ## 0.2.21
 
 ### Patch Changes
