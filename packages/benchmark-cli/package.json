@@ -1,6 +1,6 @@
 {
   "name": "@sandagent/benchmark-cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "GAIA benchmark runner for comparing agent CLIs (gemini-cli, claudecode, codex-cli, sandagent)",
   "type": "module",
@@ -16,7 +16,9 @@
       "types": "./dist/index.d.ts"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc",
     "clean": "rm -rf dist",
