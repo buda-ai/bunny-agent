@@ -68,9 +68,6 @@ function applyModelOverrides(
   const openAiBaseUrl = getEnvValue(optionsEnv, "OPENAI_BASE_URL");
   const geminiBaseUrl = getEnvValue(optionsEnv, "GEMINI_BASE_URL");
   const anthropicBaseUrl = getEnvValue(optionsEnv, "ANTHROPIC_BASE_URL");
-  const bedrockBaseUrl =
-    getEnvValue(optionsEnv, "AMAZON_BEDROCK_BASE_URL") ??
-    getEnvValue(optionsEnv, "ANTHROPIC_BEDROCK_BASE_URL");
 
   if (provider === "openai" && openAiBaseUrl) {
     model.baseUrl = openAiBaseUrl;
@@ -78,8 +75,6 @@ function applyModelOverrides(
     model.baseUrl = geminiBaseUrl;
   } else if (provider === "anthropic" && anthropicBaseUrl) {
     model.baseUrl = anthropicBaseUrl;
-  } else if (provider === "amazon-bedrock" && bedrockBaseUrl) {
-    model.baseUrl = bedrockBaseUrl;
   }
 }
 
@@ -190,13 +185,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
     // Auto-register: use <PROVIDER>_BASE_URL or fallback to OPENAI_BASE_URL
     const baseUrlEnvKey = `${provider.toUpperCase().replace(/-/g, "_")}_BASE_URL`;
     const apiKeyEnvKey = `${provider.toUpperCase().replace(/-/g, "_")}_API_KEY`;
-    const baseUrl = process.env[baseUrlEnvKey]
-      ?? process.env.ANTHROPIC_BEDROCK_BASE_URL
-      ?? process.env.OPENAI_BASE_URL;
-    // For amazon-bedrock, fall back to ANTHROPIC_API_KEY if dedicated key not set
-    const apiKey = provider === "amazon-bedrock"
-      ? (apiKeyEnvKey in process.env ? apiKeyEnvKey : "ANTHROPIC_API_KEY")
-      : apiKeyEnvKey;
+    const baseUrl = process.env[baseUrlEnvKey] ?? process.env.OPENAI_BASE_URL;
     if (!baseUrl) {
       throw new Error(
         `Pi runner: model "${modelSpec}" not found in built-in catalog. ` +
@@ -205,7 +194,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
     }
     modelRegistry.registerProvider(provider, {
       baseUrl,
-      apiKey: apiKey,
+      apiKey: apiKeyEnvKey,
       api: "openai-completions",
       models: [
         {
