@@ -146,5 +146,8 @@ vite.config.ts.timestamp-*
 .vercel
 
 
+# Docker image build context (created by sandagent image build)
+.docker-staging
+
 # Local output directory
 output
