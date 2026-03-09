@@ -1,6 +1,6 @@
 {
   "name": "@sandagent/runner-opencode",
-  "version": "0.1.0",
+  "version": "0.6.2",
   "private": true,
   "type": "module",
   "description": "OpenCode runner for SandAgent using ACP protocol",

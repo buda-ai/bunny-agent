@@ -68,10 +68,18 @@ const createdSessions: MockSession[] = [];
 let nextSessionBehavior: "normal" | "pending" = "normal";
 
 vi.mock("@mariozechner/pi-coding-agent", () => ({
-  createCodingTools: vi.fn().mockReturnValue([]),
+  AuthStorage: {
+    create: vi.fn().mockReturnValue({}),
+  },
+  ModelRegistry: vi.fn().mockImplementation(function (this: unknown) {
+    return {
+      find: vi.fn().mockReturnValue(undefined),
+      registerProvider: vi.fn(),
+    };
+  }),
   SessionManager: {
-    continueRecent: vi.fn().mockResolvedValue("mock-session-manager"),
-    open: vi.fn().mockResolvedValue("mock-session-manager"),
+    continueRecent: vi.fn().mockReturnValue({}),
+    open: vi.fn().mockReturnValue({}),
     list: vi.fn().mockResolvedValue([]),
   },
   createAgentSession: vi.fn().mockImplementation(async () => {

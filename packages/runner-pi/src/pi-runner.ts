@@ -189,24 +189,32 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
     if (!baseUrl) {
       throw new Error(
         `Pi runner: model "${modelSpec}" not found in built-in catalog. ` +
-        `Set ${baseUrlEnvKey} (or OPENAI_BASE_URL) to auto-register it.`,
+          `Set ${baseUrlEnvKey} (or OPENAI_BASE_URL) to auto-register it.`,
       );
     }
     modelRegistry.registerProvider(provider, {
       baseUrl,
       apiKey: apiKeyEnvKey,
       api: "openai-completions",
-      models: [{
-        id: modelName,
-        name: modelName,
-        reasoning: false,
-        input: ["text"],
-        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-        contextWindow: 128000,
-        maxTokens: 8192,
-      }],
+      models: [
+        {
+          id: modelName,
+          name: modelName,
+          reasoning: false,
+          input: ["text"],
+          cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+          contextWindow: 128000,
+          maxTokens: 8192,
+        },
+      ],
     });
-    model = modelRegistry.find(provider, modelName) as any;
+    const registered = modelRegistry.find(provider, modelName);
+    if (!registered) {
+      throw new Error(
+        `Pi runner: failed to resolve model "${modelSpec}" after registration.`,
+      );
+    }
+    model = registered;
   }
   applyModelOverrides(model, provider, options.env);
 
