@@ -4,6 +4,9 @@ import type { AgentEvent } from "@mariozechner/pi-agent-core";
 import { type Usage, getModel } from "@mariozechner/pi-ai";
 import {
   type AgentSessionEvent,
+  AuthStorage,
+  InMemoryAuthStorageBackend,
+  ModelRegistry,
   SessionManager,
   createAgentSession,
 } from "@mariozechner/pi-coding-agent";
@@ -174,12 +177,36 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
   const { provider, modelName } = parseModelSpec(modelSpec.trim());
   const cwd = options.cwd || process.cwd();
 
+  // Build a ModelRegistry, auto-registering unknown models using env-based config
+  const modelRegistry = new ModelRegistry(AuthStorage.create());
   // biome-ignore lint/suspicious/noExplicitAny: getModel accepts provider string unions.
-  const model = getModel(provider as any, modelName);
+  let model = getModel(provider as any, modelName) as any;
   if (model == null) {
-    throw new Error(
-      `Pi runner: unsupported model "${modelSpec}". getModel("${provider}", "${modelName}") returned undefined. Use a model from the pi-ai catalog; supported providers are typically: google, openai.`,
-    );
+    // Auto-register: use OPENAI_BASE_URL / ANTHROPIC_BASE_URL etc. from env
+    const baseUrlEnvKey = `${provider.toUpperCase().replace(/-/g, "_")}_BASE_URL`;
+    const apiKeyEnvKey = `${provider.toUpperCase().replace(/-/g, "_")}_API_KEY`;
+    const baseUrl = process.env[baseUrlEnvKey] ?? process.env.OPENAI_BASE_URL;
+    if (!baseUrl) {
+      throw new Error(
+        `Pi runner: model "${modelSpec}" not found in built-in catalog. ` +
+        `Set ${baseUrlEnvKey} (or OPENAI_BASE_URL) to auto-register it.`,
+      );
+    }
+    modelRegistry.registerProvider(provider, {
+      baseUrl,
+      apiKey: apiKeyEnvKey,
+      api: "openai-completions",
+      models: [{
+        id: modelName,
+        name: modelName,
+        reasoning: false,
+        input: ["text"],
+        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+        contextWindow: 128000,
+        maxTokens: 8192,
+      }],
+    });
+    model = modelRegistry.find(provider, modelName) as any;
   }
   applyModelOverrides(model, provider, options.env);
 
@@ -206,6 +233,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
         cwd,
         model,
         sessionManager,
+        modelRegistry,
       });
 
       if (options.systemPrompt != null && options.systemPrompt !== "") {
