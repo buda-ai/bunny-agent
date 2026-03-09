@@ -1,6 +1,6 @@
 {
   "name": "kui",
-  "version": "0.5.0",
+  "version": "0.6.2",
   "private": true,
   "description": "Custom design system based on shadcn/ui with tree-shaking support",
   "type": "module",

@@ -1,5 +1,13 @@
 # @sandagent/sandbox-daytona
 
+## 0.6.2
+
+### Patch Changes
+
+- Version bump to 0.6.2
+- Updated dependencies
+  - @sandagent/manager@0.6.2
+
 ## 0.6.0
 
 ### Patch Changes

@@ -1,5 +1,14 @@
 # @sandagent/sdk
 
+## 0.6.2
+
+### Patch Changes
+
+- Version bump to 0.6.2
+- chore: trigger release (9ef04e7)
+- Updated dependencies
+  - @sandagent/manager@0.6.2
+
 ## 0.6.0
 
 ### Minor Changes

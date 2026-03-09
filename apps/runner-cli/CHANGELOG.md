@@ -1,5 +1,13 @@
 # @sandagent/runner-cli
 
+## 0.6.2
+
+### Patch Changes
+
+- Version bump to 0.6.2
+- feat(runner-pi): auto-register unknown models via base URL env vars (e449d60)
+- chore: trigger release (9ef04e7)
+
 ## 0.6.0
 
 ### Minor Changes
