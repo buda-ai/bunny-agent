@@ -1,6 +1,6 @@
 {
   "name": "@sandagent/docker-sandagent-claude",
-  "version": "0.2.7",
+  "version": "0.6.2",
   "private": true,
   "type": "module",
   "scripts": {
