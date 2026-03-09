@@ -1,6 +1,6 @@
 {
   "name": "@sandagent/runner-pi",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "description": "Pi agent runtime for SandAgent",
   "type": "module",
   "main": "./dist/index.js",
