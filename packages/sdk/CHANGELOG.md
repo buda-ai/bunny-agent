@@ -1,5 +1,13 @@
 # @sandagent/sdk
 
+## 0.6.3
+
+### Patch Changes
+
+- bump version
+- Updated dependencies
+  - @sandagent/manager@0.6.3
+
 ## 0.6.2
 
 ### Patch Changes
