@@ -39,6 +39,8 @@ RUN mkdir -p /opt/sandagent && \
 ENV PLAYWRIGHT_BROWSERS_PATH=/opt/sandagent/pw-browsers
 RUN cd /opt/sandagent && npx playwright install --with-deps chromium
 
+RUN npm install simple-git -g
+
 # Create init script to copy deps to workspace on startup
 RUN echo '#!/bin/bash\n\
 if [ ! -d "/workspace/node_modules/@sandagent" ]; then\n\
