@@ -246,11 +246,17 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
         modelRegistry,
       });
 
+      // Only override Pi's native system prompt when --system-prompt is explicitly passed.
+      // Pi's createAgentSession already builds a full system prompt from:
+      //   .pi/SYSTEM.md, .pi/APPEND_SYSTEM.md, AGENTS.md, skills, etc.
+      // We append the CLI system prompt to preserve Pi's native context files.
       if (options.systemPrompt != null && options.systemPrompt !== "") {
-        session.agent.setSystemPrompt(options.systemPrompt);
-      } else {
-        session.agent.setSystemPrompt("You are a helpful coding assistant.");
+        const existing = session.agent.state.systemPrompt || "";
+        session.agent.setSystemPrompt(
+          existing ? existing + "\n\n" + options.systemPrompt : options.systemPrompt,
+        );
       }
+      // When no --system-prompt is passed, keep Pi's built system prompt as-is.
 
       const eventQueue: AgentSessionEvent[] = [];
       let isComplete = false;
