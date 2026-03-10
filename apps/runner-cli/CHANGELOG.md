@@ -1,5 +1,11 @@
 # @sandagent/runner-cli
 
+## 0.6.3
+
+### Patch Changes
+
+- bump version
+
 ## 0.6.2
 
 ### Patch Changes

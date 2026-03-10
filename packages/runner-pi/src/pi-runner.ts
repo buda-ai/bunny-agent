@@ -180,7 +180,9 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
   // Build a ModelRegistry, auto-registering unknown models using env-based config
   const modelRegistry = new ModelRegistry(AuthStorage.create());
   // biome-ignore lint/suspicious/noExplicitAny: getModel accepts provider string unions.
-  let model = (getModel(provider as any, modelName) ?? modelRegistry.find(provider, modelName)) as any;
+  const defaultModel = getModel(provider as any, modelName);
+  // biome-ignore lint/suspicious/noExplicitAny: model type is complex
+  let model = (defaultModel ?? modelRegistry.find(provider, modelName)) as any;
   if (model == null) {
     // Auto-register: use <PROVIDER>_BASE_URL or fallback to OPENAI_BASE_URL
     const baseUrlEnvKey = `${provider.toUpperCase().replace(/-/g, "_")}_BASE_URL`;
