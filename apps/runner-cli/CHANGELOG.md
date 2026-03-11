@@ -1,5 +1,11 @@
 # @sandagent/runner-cli
 
+## 0.7.2
+
+### Patch Changes
+
+- Prepare patch release `0.7.2`.
+
 ## 0.7.1
 
 ### Patch Changes

@@ -1,5 +1,13 @@
 # @sandagent/sandbox-e2b
 
+## 0.7.2
+
+### Patch Changes
+
+- Prepare patch release `0.7.2`.
+- Updated dependencies
+  - @sandagent/manager@0.7.2
+
 ## 0.7.1
 
 ### Patch Changes
