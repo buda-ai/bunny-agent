@@ -390,3 +390,54 @@ describe("SandockSandbox Volume Persistence", () => {
     expect(handle2).toBeDefined();
   });
 });
+
+describe("Shell Escaping", () => {
+  // Test the escaping logic used in exec's baseCmd construction
+  // This mirrors the logic: command.map(arg => "'" + arg.replace(/'/g, "'\\''") + "'").join(" ")
+  function shellEscapeArgs(command: string[]): string {
+    return command.length === 1
+      ? command[0]
+      : command.map(arg => "'" + arg.replace(/'/g, "'\\''") + "'").join(" ");
+  }
+
+  it("should wrap each argument in single quotes", () => {
+    const result = shellEscapeArgs(["echo", "hello world"]);
+    expect(result).toBe("'echo' 'hello world'");
+  });
+
+  it("should escape single quotes inside arguments", () => {
+    const result = shellEscapeArgs(["echo", "it's a test"]);
+    expect(result).toBe("'echo' 'it'\\''s a test'");
+  });
+
+  it("should handle arguments with newlines and special chars", () => {
+    const prompt = "You are an agent.\n## Environment\n- Platform: Buda";
+    const result = shellEscapeArgs(["runner", "--system-prompt", prompt, "--", "hi"]);
+    expect(result).toContain("'runner'");
+    expect(result).toContain("'--system-prompt'");
+    expect(result).toContain("'--'");
+    expect(result).toContain("'hi'");
+    // The prompt should be safely inside single quotes
+    expect(result).toContain("'" + prompt + "'");
+  });
+
+  it("should not wrap single-element commands", () => {
+    const result = shellEscapeArgs(["ls -la"]);
+    expect(result).toBe("ls -la");
+  });
+
+  it("should handle empty arguments", () => {
+    const result = shellEscapeArgs(["echo", ""]);
+    expect(result).toBe("'echo' ''");
+  });
+
+  it("should handle arguments with hash characters", () => {
+    const result = shellEscapeArgs(["echo", "# this is not a comment"]);
+    expect(result).toBe("'echo' '# this is not a comment'");
+  });
+
+  it("should handle arguments with double dashes", () => {
+    const result = shellEscapeArgs(["cmd", "--", "arg"]);
+    expect(result).toBe("'cmd' '--' 'arg'");
+  });
+});
