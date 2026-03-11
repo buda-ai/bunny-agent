@@ -1,18 +1,10 @@
-name: Publish @sandagent/runner-cli to NPM
+name: Publish Selected Packages to NPM
 
 on:
   push:
     branches:
       - main
-    paths:
-      - 'apps/runner-cli/**'
-      - 'packages/runner-claude/**'
-  workflow_dispatch:  # Manual trigger
-    inputs:
-      version:
-        description: 'Version to publish (e.g., 1.0.0, 1.0.1-beta.1). Leave empty to use current package.json version'
-        required: false
-        type: string
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -44,33 +36,39 @@ jobs:
           pnpm --filter @sandagent/runner-gemini build
           pnpm --filter @sandagent/runner-opencode build
           pnpm --filter @sandagent/runner-pi build
-          pnpm --filter @sandagent/runner-cli build
-
-      - name: Run tests
-        run: |
-          pnpm --filter @sandagent/runner-cli test
-          pnpm --filter @sandagent/runner-claude test
-
-      - name: Build
-        run: pnpm --filter @sandagent/runner-cli build
-
-      - name: Type check
-        run: |
-          pnpm --filter @sandagent/runner-cli typecheck
-          pnpm --filter @sandagent/runner-claude typecheck
-
-      - name: Update version (if specified)
-        if: github.event_name == 'workflow_dispatch' && github.event.inputs.version != ''
-        run: npm version ${{ github.event.inputs.version }} --no-git-tag-version
-        working-directory: ./apps/runner-cli
 
       - name: Verify npm auth
         run: npm whoami
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN || secrets.NODE_AUTH_TOKEN || secrets.NPM_PUBLISH_TOKEN }}
 
-      - name: Publish to NPM
-        run: pnpm publish --access public --no-git-checks
-        working-directory: ./apps/runner-cli
+      - name: Publish selected packages
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          publish_if_needed() {
+            local package_name="$1"
+            local package_dir="$2"
+
+            local local_version
+            local_version="$(node -p "require('./${package_dir}/package.json').version")"
+
+            echo "Checking ${package_name}@${local_version}"
+            if npm view "${package_name}@${local_version}" version >/dev/null 2>&1; then
+              echo "Skipping ${package_name}@${local_version} (already published)"
+              return
+            fi
+
+            echo "Building ${package_name} and workspace dependencies"
+            pnpm -r --filter "${package_name}..." build
+
+            echo "Publishing ${package_name}@${local_version}"
+            pnpm publish --access public --no-git-checks --dir "${package_dir}"
+          }
+
+          publish_if_needed "@sandagent/sdk" "packages/sdk"
+          publish_if_needed "@sandagent/runner-cli" "apps/runner-cli"
+          publish_if_needed "@sandagent/manager-cli" "apps/manager-cli"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN || secrets.NODE_AUTH_TOKEN || secrets.NPM_PUBLISH_TOKEN }}

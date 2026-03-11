@@ -5,6 +5,7 @@
   "fixed": [
     [
       "@sandagent/manager",
+      "@sandagent/manager-cli",
       "@sandagent/runner-cli",
       "@sandagent/sandbox-e2b",
       "@sandagent/sandbox-sandock",
@@ -18,7 +19,6 @@
   "updateInternalDependencies": "patch",
   "ignore": [
     "@sandagent/web",
-    "@sandagent/manager-cli",
     "@sandagent/benchmark-cli",
     "@sandagent/benchmark-sandagent",
     "@sandagent/benchmark-shared"
