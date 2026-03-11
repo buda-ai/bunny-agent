@@ -397,7 +397,7 @@ describe("Shell Escaping", () => {
   function shellEscapeArgs(command: string[]): string {
     return command.length === 1
       ? command[0]
-      : command.map(arg => "'" + arg.replace(/'/g, "'\\''") + "'").join(" ");
+      : command.map((arg) => "'" + arg.replace(/'/g, "'\\''") + "'").join(" ");
   }
 
   it("should wrap each argument in single quotes", () => {
@@ -412,7 +412,13 @@ describe("Shell Escaping", () => {
 
   it("should handle arguments with newlines and special chars", () => {
     const prompt = "You are an agent.\n## Environment\n- Platform: Buda";
-    const result = shellEscapeArgs(["runner", "--system-prompt", prompt, "--", "hi"]);
+    const result = shellEscapeArgs([
+      "runner",
+      "--system-prompt",
+      prompt,
+      "--",
+      "hi",
+    ]);
     expect(result).toContain("'runner'");
     expect(result).toContain("'--system-prompt'");
     expect(result).toContain("'--'");

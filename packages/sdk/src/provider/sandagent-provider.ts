@@ -105,7 +105,7 @@ export function createSandAgent(
       runnerType: options.runnerType ?? defaultOptions.runnerType,
       outputFormat: "stream",
       maxTurns: options.maxTurns ?? defaultOptions.maxTurns,
-      ...(options.systemPrompt ?? defaultOptions.systemPrompt
+      ...((options.systemPrompt ?? defaultOptions.systemPrompt)
         ? { systemPrompt: options.systemPrompt ?? defaultOptions.systemPrompt }
         : {}),
       ...(options.skillPaths ? { skillPaths: options.skillPaths } : {}),
