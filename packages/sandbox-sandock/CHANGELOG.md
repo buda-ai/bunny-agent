@@ -1,5 +1,16 @@
 # @sandagent/sandbox-sandock
 
+## 0.8.0
+
+### Minor Changes
+
+- Release coordinated package updates as `0.8.0`.
+
+### Patch Changes
+
+- Updated dependencies
+  - @sandagent/manager@0.8.0
+
 ## 0.7.6
 
 ### Patch Changes

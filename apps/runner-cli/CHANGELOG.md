@@ -1,5 +1,11 @@
 # @sandagent/runner-cli
 
+## 0.8.0
+
+### Minor Changes
+
+- Release coordinated package updates as `0.8.0`.
+
 ## 0.7.6
 
 ## 0.7.5
