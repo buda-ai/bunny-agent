@@ -108,6 +108,7 @@ export function createSandAgent(
       ...(options.systemPrompt ?? defaultOptions.systemPrompt
         ? { systemPrompt: options.systemPrompt ?? defaultOptions.systemPrompt }
         : {}),
+      ...(options.skillPaths ? { skillPaths: options.skillPaths } : {}),
     };
 
     const mergedOptions = {

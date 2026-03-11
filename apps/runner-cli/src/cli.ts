@@ -73,6 +73,7 @@ interface ParsedRunArgs {
   maxTurns?: number;
   allowedTools?: string[];
   resume?: string;
+  skillPaths?: string[];
   userInput: string;
 }
 
@@ -94,6 +95,7 @@ function parseRunArgs(): ParsedRunArgs {
       "system-prompt": { type: "string", short: "s" },
       "max-turns": { type: "string", short: "t" },
       "allowed-tools": { type: "string", short: "a" },
+      "skill-path": { type: "string", multiple: true },
       resume: { type: "string" },
       help: { type: "boolean", short: "h" },
     },
@@ -139,6 +141,7 @@ function parseRunArgs(): ParsedRunArgs {
       ? Number.parseInt(values["max-turns"], 10)
       : undefined,
     allowedTools: values["allowed-tools"]?.split(",").map((t) => t.trim()),
+    skillPaths: values["skill-path"] as string[] | undefined,
     resume: values.resume,
     userInput,
   };
@@ -208,6 +211,7 @@ Options:
   -s, --system-prompt <prompt> Custom system prompt
   -t, --max-turns <n>          Max conversation turns
   -a, --allowed-tools <tools>  Comma-separated allowed tools
+      --skill-path <path>      Additional skill path (can be repeated, for pi runner)
       --resume <session-id>    Resume a previous session
   -h, --help                   Show this help
 
@@ -300,6 +304,7 @@ async function main(): Promise<void> {
         systemPrompt: args.systemPrompt,
         maxTurns: args.maxTurns,
         allowedTools: args.allowedTools,
+        skillPaths: args.skillPaths,
         resume: args.resume,
       });
       break;

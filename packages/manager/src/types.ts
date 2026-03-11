@@ -151,6 +151,8 @@ export interface RunnerSpec {
   allowedTools?: string[];
   /** Output format for streaming responses */
   outputFormat?: OutputFormat;
+  /** Additional skill paths (files or directories) for pi runner */
+  skillPaths?: string[];
 }
 
 /**

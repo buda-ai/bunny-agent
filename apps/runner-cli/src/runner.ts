@@ -16,6 +16,8 @@ export interface RunAgentOptions extends BaseRunnerOptions {
   userInput: string;
   /** Template to use (e.g., "default", "coder", "analyst", "researcher") */
   template?: string;
+  /** Additional skill paths (for pi runner) */
+  skillPaths?: string[];
 }
 
 /**
@@ -100,6 +102,7 @@ export async function runAgent(options: RunAgentOptions): Promise<void> {
           env: process.env as Record<string, string>,
           abortController,
           sessionId: options.resume,
+          skillPaths: options.skillPaths,
         });
         break;
       }
