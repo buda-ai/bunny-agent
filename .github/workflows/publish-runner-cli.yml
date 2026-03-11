@@ -64,7 +64,7 @@ jobs:
             pnpm -r --filter "${package_name}..." build
 
             echo "Publishing ${package_name}@${local_version}"
-            pnpm publish --access public --no-git-checks --dir "${package_dir}"
+            pnpm --dir "${package_dir}" publish --access public --no-git-checks
           }
 
           publish_if_needed "@sandagent/sdk" "packages/sdk"
