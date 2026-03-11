@@ -37,8 +37,7 @@
   ],
   "license": "Apache-2.0",
   "publishConfig": {
-    "access": "public",
-    "tag": "beta"
+    "access": "public"
   },
   "engines": {
     "node": ">=20.0.0"
