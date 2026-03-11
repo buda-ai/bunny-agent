@@ -60,8 +60,8 @@ jobs:
         with:
           publish: pnpm changeset publish
           version: pnpm changeset version
-          title: ${{ github.ref == 'refs/heads/develop' && 'chore: Version Packages (Beta)' || 'chore: Version Packages' }}
-          commit: ${{ github.ref == 'refs/heads/develop' && 'chore: Version Packages (Beta)' || 'chore: Version Packages' }}
+          title: "chore: Version Packages"
+          commit: "chore: Version Packages"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
