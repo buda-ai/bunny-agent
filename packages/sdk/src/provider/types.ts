@@ -98,6 +98,8 @@ export interface SandAgentProviderSettings
   artifactProcessors?: ArtifactProcessor[];
   /** Limit the number of back-and-forth iterations */
   maxTurns?: number;
+  /** Optional system prompt override (overrides template's default) */
+  systemPrompt?: string;
 }
 
 /**

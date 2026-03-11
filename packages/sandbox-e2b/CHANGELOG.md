@@ -1,5 +1,16 @@
 # @sandagent/sandbox-e2b
 
+## 0.7.0
+
+### Minor Changes
+
+- Add SDK support for explicit `systemPrompt` provider settings and release coordinated package updates.
+
+### Patch Changes
+
+- Updated dependencies
+  - @sandagent/manager@0.7.0
+
 ## 0.6.3
 
 ### Patch Changes

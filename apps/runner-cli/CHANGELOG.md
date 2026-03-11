@@ -1,5 +1,11 @@
 # @sandagent/runner-cli
 
+## 0.7.0
+
+### Minor Changes
+
+- Add SDK support for explicit `systemPrompt` provider settings and release coordinated package updates.
+
 ## 0.6.3
 
 ### Patch Changes
