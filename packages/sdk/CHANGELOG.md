@@ -1,5 +1,12 @@
 # @sandagent/sdk
 
+## 0.7.6
+
+### Patch Changes
+
+- sandanget with system prompt
+  - @sandagent/manager@0.7.6
+
 ## 0.7.5
 
 ### Patch Changes

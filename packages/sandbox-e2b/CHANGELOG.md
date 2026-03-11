@@ -1,5 +1,11 @@
 # @sandagent/sandbox-e2b
 
+## 0.7.6
+
+### Patch Changes
+
+- @sandagent/manager@0.7.6
+
 ## 0.7.5
 
 ### Patch Changes
