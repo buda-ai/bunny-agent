@@ -1,5 +1,11 @@
 # @sandagent/manager
 
+## 0.7.5
+
+### Patch Changes
+
+- Prepare coordinated release update toward `0.7.5`.
+
 ## 0.7.2
 
 ### Patch Changes
