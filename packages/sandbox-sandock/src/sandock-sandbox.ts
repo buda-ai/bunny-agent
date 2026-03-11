@@ -510,9 +510,9 @@ class SandockHandle implements SandboxHandle {
 
     return {
       async *[Symbol.asyncIterator](): AsyncIterator<Uint8Array> {
-        // Build command string - note: proper shell escaping would be better
-        // but we maintain backward compatibility with the original implementation
-        const baseCmd = command.length === 1 ? command[0] : command.join(" ");
+        // Build command string with proper shell escaping (single-quote wrapping)
+        // Each argument is wrapped in single quotes with internal quotes escaped
+        const baseCmd = command.length === 1 ? command[0] : command.map(arg => "'" + arg.replace(/'/g, "'\\''") + "'").join(" ");
 
         // Build full command with cwd and env support
         const parts: string[] = [];
