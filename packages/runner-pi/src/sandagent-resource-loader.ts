@@ -1,14 +1,26 @@
-import { join } from "node:path";
 import { homedir } from "node:os";
-import type { ResourceLoader, Skill, ResourceDiagnostic, LoadExtensionsResult, PromptTemplate, Theme, PathMetadata } from "@mariozechner/pi-coding-agent";
-import { DefaultResourceLoader, loadSkills } from "@mariozechner/pi-coding-agent";
+import { join } from "node:path";
+import type {
+  LoadExtensionsResult,
+  PathMetadata,
+  PromptTemplate,
+  ResourceDiagnostic,
+  ResourceLoader,
+  SettingsManager,
+  Skill,
+  Theme,
+} from "@mariozechner/pi-coding-agent";
+import {
+  DefaultResourceLoader,
+  loadSkills,
+} from "@mariozechner/pi-coding-agent";
 
 export interface SandagentResourceLoaderOptions {
-	cwd?: string;
-	agentDir?: string;
-	settingsManager?: any;
-	/** Additional skill paths (files or directories) */
-	skillPaths?: string[];
+  cwd?: string;
+  agentDir?: string;
+  settingsManager?: SettingsManager;
+  /** Additional skill paths (files or directories) */
+  skillPaths?: string[];
 }
 
 /**
@@ -16,72 +28,77 @@ export interface SandagentResourceLoaderOptions {
  * Extends DefaultResourceLoader and overrides skill loading.
  */
 export class SandagentResourceLoader implements ResourceLoader {
-	private delegate: DefaultResourceLoader;
-	private skillPaths: string[];
-	private cwd: string;
-	private agentDir: string;
-	private cachedSkills?: { skills: Skill[]; diagnostics: ResourceDiagnostic[] };
+  private delegate: DefaultResourceLoader;
+  private skillPaths: string[];
+  private cwd: string;
+  private agentDir: string;
+  private cachedSkills?: { skills: Skill[]; diagnostics: ResourceDiagnostic[] };
 
-	constructor(options: SandagentResourceLoaderOptions = {}) {
-		this.cwd = options.cwd ?? process.cwd();
-		this.agentDir = options.agentDir ?? join(homedir(), ".pi", "agent");
-		this.skillPaths = options.skillPaths ?? [];
-		
-		// Delegate to DefaultResourceLoader for everything except skills
-		this.delegate = new DefaultResourceLoader({
-			cwd: this.cwd,
-			agentDir: this.agentDir,
-			settingsManager: options.settingsManager,
-		});
-	}
+  constructor(options: SandagentResourceLoaderOptions = {}) {
+    this.cwd = options.cwd ?? process.cwd();
+    this.agentDir = options.agentDir ?? join(homedir(), ".pi", "agent");
+    this.skillPaths = options.skillPaths ?? [];
 
-	async reload(): Promise<void> {
-		await this.delegate.reload();
-		this.cachedSkills = undefined; // Clear cache
-	}
+    // Delegate to DefaultResourceLoader for everything except skills
+    this.delegate = new DefaultResourceLoader({
+      cwd: this.cwd,
+      agentDir: this.agentDir,
+      settingsManager: options.settingsManager,
+    });
+  }
 
-	getSkills(): { skills: Skill[]; diagnostics: ResourceDiagnostic[] } {
-		if (!this.cachedSkills) {
-			// Load skills with additional skillPaths
-			this.cachedSkills = loadSkills({
-				cwd: this.cwd,
-				agentDir: this.agentDir,
-				skillPaths: this.skillPaths,
-			});
-		}
-		return this.cachedSkills;
-	}
+  async reload(): Promise<void> {
+    await this.delegate.reload();
+    this.cachedSkills = undefined; // Clear cache
+  }
 
-	// Delegate all other methods
-	getExtensions(): LoadExtensionsResult {
-		return this.delegate.getExtensions();
-	}
+  getSkills(): { skills: Skill[]; diagnostics: ResourceDiagnostic[] } {
+    if (!this.cachedSkills) {
+      // Load skills with additional skillPaths
+      this.cachedSkills = loadSkills({
+        cwd: this.cwd,
+        agentDir: this.agentDir,
+        skillPaths: this.skillPaths,
+      });
+    }
+    return this.cachedSkills;
+  }
 
-	getPrompts(): { prompts: PromptTemplate[]; diagnostics: ResourceDiagnostic[] } {
-		return this.delegate.getPrompts();
-	}
+  // Delegate all other methods
+  getExtensions(): LoadExtensionsResult {
+    return this.delegate.getExtensions();
+  }
 
-	getThemes(): { themes: Theme[]; diagnostics: ResourceDiagnostic[] } {
-		return this.delegate.getThemes();
-	}
+  getPrompts(): {
+    prompts: PromptTemplate[];
+    diagnostics: ResourceDiagnostic[];
+  } {
+    return this.delegate.getPrompts();
+  }
 
-	getAgentsFiles(): { agentsFiles: Array<{ path: string; content: string }> } {
-		return this.delegate.getAgentsFiles();
-	}
+  getThemes(): { themes: Theme[]; diagnostics: ResourceDiagnostic[] } {
+    return this.delegate.getThemes();
+  }
 
-	getSystemPrompt(): string | undefined {
-		return this.delegate.getSystemPrompt();
-	}
+  getAgentsFiles(): { agentsFiles: Array<{ path: string; content: string }> } {
+    return this.delegate.getAgentsFiles();
+  }
 
-	getAppendSystemPrompt(): string[] {
-		return this.delegate.getAppendSystemPrompt();
-	}
+  getSystemPrompt(): string | undefined {
+    return this.delegate.getSystemPrompt();
+  }
 
-	getPathMetadata(): Map<string, PathMetadata> {
-		return this.delegate.getPathMetadata();
-	}
+  getAppendSystemPrompt(): string[] {
+    return this.delegate.getAppendSystemPrompt();
+  }
 
-	extendResources(paths: any): void {
-		this.delegate.extendResources(paths);
-	}
+  getPathMetadata(): Map<string, PathMetadata> {
+    return this.delegate.getPathMetadata();
+  }
+
+  extendResources(
+    paths: Parameters<ResourceLoader["extendResources"]>[0],
+  ): void {
+    this.delegate.extendResources(paths);
+  }
 }
