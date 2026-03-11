@@ -100,6 +100,8 @@ export interface SandAgentProviderSettings
   maxTurns?: number;
   /** Optional system prompt override (overrides template's default) */
   systemPrompt?: string;
+  /** Additional skill paths (files or directories) for pi runner */
+  skillPaths?: string[];
 }
 
 /**

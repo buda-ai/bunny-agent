@@ -63,6 +63,13 @@ export class SandAgent {
       cmd.push("--system-prompt", this.runner.systemPrompt);
     }
 
+    // Add optional skill paths (for pi runner)
+    if (this.runner.skillPaths && this.runner.skillPaths.length > 0) {
+      for (const skillPath of this.runner.skillPaths) {
+        cmd.push("--skill-path", skillPath);
+      }
+    }
+
     // Add optional max turns
     if (this.runner.maxTurns !== undefined) {
       cmd.push("--max-turns", String(this.runner.maxTurns));

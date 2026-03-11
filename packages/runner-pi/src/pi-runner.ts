@@ -10,6 +10,7 @@ import {
   SessionManager,
   createAgentSession,
 } from "@mariozechner/pi-coding-agent";
+import { SandagentResourceLoader } from "./sandagent-resource-loader.js";
 
 export interface PiRunnerOptions {
   model?: string;
@@ -25,6 +26,8 @@ export interface PiRunnerOptions {
    * Sessions use Pi's default directory (~/.pi/agent/sessions/...) so workspace is not used.
    */
   sessionId?: string;
+  /** Additional skill paths (files or directories) */
+  skillPaths?: string[];
 }
 
 export interface PiRunner {
@@ -244,6 +247,9 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
         model,
         sessionManager,
         modelRegistry,
+        resourceLoader: options.skillPaths
+          ? new SandagentResourceLoader({ cwd, skillPaths: options.skillPaths })
+          : undefined,
       });
 
       if (options.systemPrompt != null && options.systemPrompt !== "") {
