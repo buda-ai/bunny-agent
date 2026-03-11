@@ -30,7 +30,7 @@ RUN mkdir -p /opt/sandagent && \
     npm init -y && \
     npm install --no-audit --no-fund \
     @anthropic-ai/claude-agent-sdk \
-    @sandagent/runner-cli@0.6.3 \
+    @sandagent/runner-cli@0.7.6 \
     playwright && \
     rm package.json package-lock.json && \
     npm cache clean --force
