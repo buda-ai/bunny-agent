@@ -8,7 +8,7 @@ class MockSession {
   agent = { state: {}, setSystemPrompt: vi.fn() };
   sessionId = "mock-session-id";
   private listeners: Listener[] = [];
-  private behavior: "normal" | "pending" = "normal";
+  private behavior: "normal" | "pending" | "tool_error" = "normal";
 
   subscribe(fn: Listener): () => void {
     this.listeners.push(fn);
@@ -17,7 +17,7 @@ class MockSession {
     };
   }
 
-  setBehavior(behavior: "normal" | "pending"): void {
+  setBehavior(behavior: "normal" | "pending" | "tool_error"): void {
     this.behavior = behavior;
   }
 
@@ -26,6 +26,24 @@ class MockSession {
       return new Promise(() => {
         // Keep pending forever so the abort test can fire.
       });
+    }
+
+    if (this.behavior === "tool_error") {
+      this.emit({
+        type: "tool_execution_start",
+        toolCallId: "tool_fail",
+        toolName: "bash",
+        args: { command: "exit 1" },
+      });
+      this.emit({
+        type: "tool_execution_end",
+        toolCallId: "tool_fail",
+        toolName: "bash",
+        result: { stdout: "", stderr: "command failed" },
+        isError: true,
+      });
+      this.emit({ type: "agent_end", messages: [] });
+      return;
     }
 
     this.emit({
@@ -65,7 +83,7 @@ class MockSession {
 }
 
 const createdSessions: MockSession[] = [];
-let nextSessionBehavior: "normal" | "pending" = "normal";
+let nextSessionBehavior: "normal" | "pending" | "tool_error" = "normal";
 
 vi.mock("@mariozechner/pi-coding-agent", () => ({
   AuthStorage: {
@@ -161,4 +179,21 @@ describe("createPiRunner", () => {
     expect(chunks.some((c) => c.includes('"type":"finish"'))).toBe(true);
     expect(chunks.some((c) => c.includes("[DONE]"))).toBe(true);
   });
+});
+
+it("emits isError flag when a tool execution fails", async () => {
+  nextSessionBehavior = "tool_error";
+  const runner = createPiRunner({ model: "openai:gpt-4o" });
+
+  const chunks: string[] = [];
+  for await (const chunk of runner.run("trigger tool error")) {
+    chunks.push(chunk);
+  }
+
+  // We should see a tool-output-available chunk that includes isError:true
+  const outputChunk = chunks.find((c) =>
+    c.includes('"type":"tool-output-available"'),
+  );
+  expect(outputChunk).toBeDefined();
+  expect(outputChunk).toContain('"isError":true');
 });
