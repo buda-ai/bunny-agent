@@ -361,7 +361,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
               yield `data: ${JSON.stringify({ type: "tool-input-start", toolCallId: event.toolCallId, toolName: event.toolName, dynamic: true })}\n\n`;
               yield `data: ${JSON.stringify({ type: "tool-input-available", toolCallId: event.toolCallId, toolName: event.toolName, input: event.args, dynamic: true })}\n\n`;
             } else if (event.type === "tool_execution_end") {
-              yield `data: ${JSON.stringify({ type: "tool-output-available", toolCallId: event.toolCallId, output: event.result, dynamic: true })}\n\n`;
+              yield `data: ${JSON.stringify({ type: "tool-output-available", toolCallId: event.toolCallId, output: event.result, isError: event.isError, dynamic: true })}\n\n`;
             } else if (event.type === "agent_end") {
               if (aborted) {
                 yield* finishError("Run aborted by signal.");
