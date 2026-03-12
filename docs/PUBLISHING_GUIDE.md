@@ -1,22 +1,19 @@
----
-title: Publishing npm Packages
-description: How to version and publish SandAgent packages to npm
----
+# Publishing npm Packages
 
-SandAgent uses [Changesets](https://github.com/changesets/changesets) for version management together with GitHub Actions to automate publishing to npm.
+How to version and publish SandAgent packages to npm.
+
+---
 
 ## Published Packages
 
-The following packages are published to npm under the `@sandagent` scope:
+The following packages are published to npm under the `@sandagent` scope and form a **fixed release group** — they are always versioned and published together.
 
-| Package | npm | Description |
-|---------|-----|-------------|
-| `@sandagent/sdk` | [![npm](https://img.shields.io/npm/v/@sandagent/sdk)](https://www.npmjs.com/package/@sandagent/sdk) | Next.js / framework SDK |
-| `@sandagent/manager` | [![npm](https://img.shields.io/npm/v/@sandagent/manager)](https://www.npmjs.com/package/@sandagent/manager) | Core orchestration & interfaces |
-| `@sandagent/sandbox-sandock` | [![npm](https://img.shields.io/npm/v/@sandagent/sandbox-sandock)](https://www.npmjs.com/package/@sandagent/sandbox-sandock) | Sandock sandbox adapter |
-| `@sandagent/runner-cli` | [![npm](https://img.shields.io/npm/v/@sandagent/runner-cli)](https://www.npmjs.com/package/@sandagent/runner-cli) | Universal agent runner CLI |
-
-The packages above are part of a **fixed release group** — they are always versioned and published together.
+| Package | Description |
+|---------|-------------|
+| `@sandagent/sdk` | Next.js / framework SDK |
+| `@sandagent/manager` | Core orchestration & interfaces |
+| `@sandagent/sandbox-sandock` | Sandock sandbox adapter |
+| `@sandagent/runner-cli` | Universal agent runner CLI |
 
 ---
 
@@ -31,7 +28,7 @@ Push a semver tag (`v*.*.*`) to `main`. The **Release on Tag** workflow will:
 1. Build all packages.
 2. Apply any pending changesets (auto-creates a `patch` bump if none exist).
 3. Publish the fixed-group packages to npm.
-4. Open a "Version Packages" pull request to sync `package.json` / `CHANGELOG.md` back into `main`.
+4. Open a "Version Packages" pull request to sync `package.json` and `CHANGELOG.md` back into `main`.
 
 ### 2. Push-Based Release (on every `main` push)
 
@@ -57,7 +54,7 @@ The CLI will ask you to:
 2. Choose the semver bump type — `major`, `minor`, or `patch`.
 3. Write a short summary (this ends up in `CHANGELOG.md`).
 
-A new markdown file is created under `.changeset/`. Commit it together with your code changes.
+A new markdown file is created under `.changeset/`. Commit it together with your code changes:
 
 ```bash
 git add .changeset/<generated-file>.md
@@ -140,14 +137,14 @@ npm view @sandagent/sdk versions --json
 npm view @sandagent/manager versions --json
 ```
 
-Or check the Actions tab in GitHub for the workflow run logs.
+Or check the **Actions** tab in GitHub for the workflow run logs.
 
 ---
 
 ## Adding a New Published Package
 
 1. Create the package under `packages/` or `apps/`.
-2. Set `"private": false` and configure `"publishConfig": { "access": "public" }` in its `package.json`.
+2. Set `"private": false` and add `"publishConfig": { "access": "public" }` in its `package.json`.
 3. Add the package name to the `fixed` group in `.changeset/config.json`:
 
 ```json
@@ -162,5 +159,5 @@ Or check the Actions tab in GitHub for the workflow run logs.
 }
 ```
 
-4. Add a `publish_if_needed` call for the new package in `.github/workflows/publish-runner-cli.yml` and the `pnpm --filter … publish` line in `.github/workflows/release-tag.yml`.
+4. Add a `publish_if_needed` call for the new package in `.github/workflows/publish-runner-cli.yml` and a `pnpm --filter … publish` line in `.github/workflows/release-tag.yml`.
 5. Run `pnpm changeset` to create the initial changeset.
