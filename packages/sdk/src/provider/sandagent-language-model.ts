@@ -204,7 +204,29 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
     options: LanguageModelV3CallOptions,
   ): Promise<LanguageModelV3StreamResult> {
     const { prompt, abortSignal } = options;
-    const messages = this.convertPromptToMessages(prompt);
+    const allMessages = this.convertPromptToMessages(prompt);
+
+    // Extract system messages and merge into runner.systemPrompt.
+    // Gemini (Vertex AI) rejects role:"system" in messages — only "user" and
+    // "model" are valid.  By folding system content into the runner's
+    // systemPrompt CLI flag we keep all providers happy.
+    const systemParts: string[] = [];
+    const messages: Message[] = [];
+    for (const m of allMessages) {
+      if (m.role === "system") {
+        systemParts.push(m.content);
+      } else {
+        messages.push(m);
+      }
+    }
+
+    const runner = this.options.runner;
+    if (systemParts.length > 0) {
+      const extra = systemParts.join("\n");
+      runner.systemPrompt = runner.systemPrompt
+        ? `${runner.systemPrompt}\n${extra}`
+        : extra;
+    }
 
     this.logger.debug(
       `[sandagent] Starting stream with ${messages.length} messages`,
@@ -217,7 +239,7 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
 
     const agent = new SandAgent({
       sandbox: this.options.sandbox,
-      runner: this.options.runner,
+      runner,
       env: { ...sandboxEnv, ...this.options.env },
     });
 
