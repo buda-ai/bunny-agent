@@ -88,7 +88,7 @@ function toToolStartPayload(
 
 function toToolEndPayload(
   event: ThreadEvent,
-): { toolCallId: string; result: unknown } | null {
+): { toolCallId: string; result: unknown; isError?: boolean } | null {
   if (event.type !== "item.completed") {
     return null;
   }
@@ -103,6 +103,7 @@ function toToolEndPayload(
         exitCode: item.exit_code,
         output: item.aggregated_output,
       },
+      isError: item.exit_code !== 0,
     };
   }
 
@@ -110,6 +111,7 @@ function toToolEndPayload(
     return {
       toolCallId: item.id,
       result: item.result ?? item.error ?? { status: item.status },
+      isError: item.error != null || item.status === "failed",
     };
   }
 
@@ -184,7 +186,7 @@ export function createCodexRunner(options: CodexRunnerOptions): CodexRunner {
 
         const toolEnd = toToolEndPayload(event);
         if (toolEnd) {
-          yield `data: ${JSON.stringify({ type: "tool-output-available", toolCallId: toolEnd.toolCallId, output: toolEnd.result })}\n\n`;
+          yield `data: ${JSON.stringify({ type: "tool-output-available", toolCallId: toolEnd.toolCallId, output: toolEnd.result, isError: toolEnd.isError })}\n\n`;
         }
 
         if (event.type === "turn.completed") {
