@@ -1,0 +1,109 @@
+name: Release on Tag
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
+
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+        with:
+          # Full history is needed so changeset can read prior tags
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Packages
+        run: pnpm build
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      # If no changeset files exist, generate a patch bump for all
+      # fixed-group packages so that `changeset version` has something to apply.
+      - name: Create auto-changeset if none exist
+        shell: bash
+        run: |
+          count=0
+          if [ -d .changeset ]; then
+            count=$(find .changeset -maxdepth 1 -name '*.md' ! -name 'README.md' | wc -l)
+          fi
+          if [ "$count" -eq 0 ]; then
+            echo "No pending changesets found — generating patch changeset for fixed packages"
+            node - <<'EOF'
+          const fs = require("fs");
+          const raw = fs.readFileSync(".changeset/config.json", "utf8");
+          const config = JSON.parse(raw);
+          const fixedGroups = Array.isArray(config.fixed) ? config.fixed : [];
+          const pkgs = Array.isArray(fixedGroups[0]) ? fixedGroups[0] : [];
+          if (pkgs.length === 0) {
+            console.error("No fixed-group packages found in .changeset/config.json — skipping");
+            process.exit(0);
+          }
+          const bumps = pkgs.map((p) => `"${p}": patch`).join("\n");
+          const tag = process.env.GITHUB_REF_NAME || "unknown";
+          const content = `---\n${bumps}\n---\n\nRelease ${tag}\n`;
+          fs.writeFileSync(".changeset/auto-release.md", content);
+          console.log("Created .changeset/auto-release.md");
+          EOF
+          else
+            echo "Found $count pending changeset(s), skipping auto-generation"
+          fi
+
+      # Apply all pending changesets: bumps package.json versions and writes CHANGELOGs
+      - name: Apply version bumps
+        run: pnpm changeset version
+
+      # Publish every package whose current version is not yet on the registry.
+      # changeset publish also creates per-package git tags (e.g. @sandagent/sdk@0.8.0).
+      - name: Publish to npm
+        run: pnpm changeset publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN || secrets.NODE_AUTH_TOKEN || secrets.NPM_PUBLISH_TOKEN }}
+
+      # Open a PR that carries the version-bump commits back into main so that
+      # package.json files and CHANGELOGs stay in sync with what was published.
+      - name: Create Version PR
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore: version packages (${{ github.ref_name }})"
+          title: "chore: Version Packages (${{ github.ref_name }})"
+          body: |
+            ## Version Packages — ${{ github.ref_name }}
+
+            This PR was automatically created by the **Release on Tag** workflow.
+
+            It contains the `package.json` version bumps and `CHANGELOG.md` updates
+            that were applied and published to npm when tag `${{ github.ref_name }}` was pushed.
+
+            Please review and merge to keep the repository in sync.
+          branch: changeset-release/main
+          base: main
+          delete-branch: true
