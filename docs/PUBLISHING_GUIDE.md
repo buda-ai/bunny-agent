@@ -1,0 +1,163 @@
+# Publishing npm Packages
+
+How to version and publish SandAgent packages to npm.
+
+---
+
+## Published Packages
+
+The following packages are published to npm under the `@sandagent` scope and form a **fixed release group** — they are always versioned and published together.
+
+| Package | Description |
+|---------|-------------|
+| `@sandagent/sdk` | Next.js / framework SDK |
+| `@sandagent/manager` | Core orchestration & interfaces |
+| `@sandagent/sandbox-sandock` | Sandock sandbox adapter |
+| `@sandagent/runner-cli` | Universal agent runner CLI |
+
+---
+
+## How Publishing Works
+
+There are two automated publishing paths:
+
+### 1. Tag-Based Release (recommended)
+
+Push a semver tag (`v*.*.*`) to `main`. The **Release on Tag** workflow will:
+
+1. Build all packages.
+2. Apply any pending changesets (auto-creates a `patch` bump if none exist).
+3. Publish the fixed-group packages to npm.
+4. Open a "Version Packages" pull request to sync `package.json` and `CHANGELOG.md` back into `main`.
+
+### 2. Push-Based Release (on every `main` push)
+
+The **Publish Selected Packages to npm** workflow runs on every push to `main` and publishes each package only if the version in `package.json` is not yet on the npm registry. This is a safety net that ensures `main` always stays in sync with npm.
+
+---
+
+## Developer Workflow
+
+### Step 1 — Make your code changes
+
+Edit the relevant package(s) and write/update tests as needed.
+
+### Step 2 — Create a changeset
+
+```bash
+pnpm changeset
+```
+
+The CLI will ask you to:
+
+1. Select which packages changed.
+2. Choose the semver bump type — `major`, `minor`, or `patch`.
+3. Write a short summary (this ends up in `CHANGELOG.md`).
+
+A new markdown file is created under `.changeset/`. Commit it together with your code changes:
+
+```bash
+git add .changeset/<generated-file>.md
+git commit -m "feat: your change summary"
+```
+
+### Step 3 — Open a pull request
+
+Push your branch and open a PR targeting `main` (or `develop` for pre-releases).
+
+> **Note:** If your change does **not** affect any published package (e.g. docs-only, internal tooling), you can skip creating a changeset.
+
+### Step 4 — Merge the pull request
+
+Once the PR is reviewed and CI passes, merge it into `main`.
+
+The **Publish Selected Packages to npm** workflow will automatically publish any package whose version has been bumped but is not yet on npm.
+
+---
+
+## Triggering a Tagged Release
+
+To create an official release and publish all fixed-group packages together:
+
+```bash
+# Make sure your working tree is clean and on main
+git checkout main
+git pull origin main
+
+# Create and push an annotated tag
+git tag -a v1.2.3 -m "Release v1.2.3"
+git push origin v1.2.3
+```
+
+The **Release on Tag** workflow kicks off immediately and publishes to npm. A "Version Packages" PR is then opened automatically — merge it to keep `main` in sync.
+
+---
+
+## Pre-releases (beta)
+
+Beta releases are published from the `develop` branch. Changesets uses [pre-release mode](https://github.com/changesets/changesets/blob/main/docs/prereleases.md) which appends a `-beta.N` suffix to every version.
+
+The CI workflow handles entering / exiting pre-release mode automatically:
+
+- Pushes to `develop` → enter `beta` pre-release mode.
+- Pushes to `main` → exit pre-release mode.
+
+To publish a beta manually, tag `develop` with a pre-release tag:
+
+```bash
+git checkout develop
+git tag -a v1.2.3-beta.0 -m "Beta release"
+git push origin v1.2.3-beta.0
+```
+
+---
+
+## Required Repository Secrets
+
+| Secret | Description |
+|--------|-------------|
+| `NPM_TOKEN` | npm automation token with `Publish` permission |
+
+The CI workflow also falls back to `NODE_AUTH_TOKEN` or `NPM_PUBLISH_TOKEN` if `NPM_TOKEN` is not set.
+
+To generate a token:
+
+1. Log in to [npmjs.com](https://www.npmjs.com) as the `@sandagent` org admin.
+2. Go to **Access Tokens → Generate New Token → Automation**.
+3. Add it as a repository secret named `NPM_TOKEN` in **Settings → Secrets → Actions**.
+
+---
+
+## Verifying a Publish
+
+After the workflow runs, check that the new version appears on npm:
+
+```bash
+npm view @sandagent/sdk versions --json
+npm view @sandagent/manager versions --json
+```
+
+Or check the **Actions** tab in GitHub for the workflow run logs.
+
+---
+
+## Adding a New Published Package
+
+1. Create the package under `packages/` or `apps/`.
+2. Set `"private": false` and add `"publishConfig": { "access": "public" }` in its `package.json`.
+3. Add the package name to the `fixed` group in `.changeset/config.json`:
+
+```json
+{
+  "fixed": [
+    [
+      "@sandagent/manager",
+      "@sandagent/sdk",
+      "@sandagent/your-new-package"
+    ]
+  ]
+}
+```
+
+4. Add a `publish_if_needed` call for the new package in `.github/workflows/publish-runner-cli.yml` and a `pnpm --filter … publish` line in `.github/workflows/release-tag.yml`.
+5. Run `pnpm changeset` to create the initial changeset.
