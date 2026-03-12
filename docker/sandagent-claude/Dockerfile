@@ -16,12 +16,17 @@ RUN for i in 1 2 3; do \
     apt-get update && apt-get install -y \
     git \
     curl \
+    sudo \
     && rm -rf /var/lib/apt/lists/* \
     && break || sleep 5; \
     done
 
+# Create agent user with home directory
+RUN useradd -m -d /home/agent -s /bin/bash agent && \
+    echo "agent ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
 # Create directories with proper permissions
-RUN mkdir -p /workspace && chmod 777 /workspace
+RUN mkdir -p /workspace && chown agent:agent /workspace
 WORKDIR /workspace
 
 # Pre-install dependencies to /opt/sandagent (won't be overwritten by volume mount)
@@ -33,7 +38,8 @@ RUN mkdir -p /opt/sandagent && \
     @sandagent/runner-cli@0.7.6 \
     playwright && \
     rm package.json package-lock.json && \
-    npm cache clean --force
+    npm cache clean --force && \
+    chown -R agent:agent /opt/sandagent
 
 # Install Playwright Chromium browser and system dependencies
 ENV PLAYWRIGHT_BROWSERS_PATH=/opt/sandagent/pw-browsers
@@ -66,6 +72,9 @@ RUN printf '%s\n' \
     'fi' \
     'exec "$@"' > /usr/local/bin/sandagent-entrypoint && \
     chmod +x /usr/local/bin/sandagent-entrypoint
+
+# Switch to agent user
+USER agent
 
 # Set environment variables
 ENV NODE_PATH=/opt/sandagent/node_modules
