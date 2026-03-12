@@ -22,7 +22,7 @@ RUN for i in 1 2 3; do \
     done
 
 # Create agent user with home directory
-RUN useradd -m -d /home/agent -s /bin/bash agent && \
+RUN useradd -m -d /agent -s /bin/bash agent && \
     echo "agent ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
 # Create directories with proper permissions
@@ -73,9 +73,6 @@ RUN printf '%s\n' \
     'exec "$@"' > /usr/local/bin/sandagent-entrypoint && \
     chmod +x /usr/local/bin/sandagent-entrypoint
 
-# Switch to agent user
-USER agent
-
 # Set environment variables
 ENV NODE_PATH=/opt/sandagent/node_modules
 ENV PATH=/usr/local/bin:$PATH
@@ -112,9 +109,12 @@ for i in $(seq 1 30); do\n\
   if curl -s http://127.0.0.1:9223/json/version > /dev/null 2>&1; then break; fi\n\
   sleep 0.5\n\
 done\n\
-nginx\n\
+sudo nginx\n\
 echo "CDP available on 0.0.0.0:9222 (nginx proxy rewriting Host to localhost)"' > /usr/local/bin/start-cdp && \
     chmod +x /usr/local/bin/start-cdp
+
+# Switch to agent user
+USER agent
 
 # Template files (optional, added by build script)
 
