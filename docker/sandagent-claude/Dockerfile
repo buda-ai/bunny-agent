@@ -17,6 +17,7 @@ RUN for i in 1 2 3; do \
     git \
     curl \
     sudo \
+    tmux \
     && rm -rf /var/lib/apt/lists/* \
     && break || sleep 5; \
     done
@@ -35,7 +36,7 @@ RUN mkdir -p /opt/sandagent && \
     npm init -y && \
     npm install --no-audit --no-fund \
     @anthropic-ai/claude-agent-sdk \
-    @sandagent/runner-cli@0.7.6 \
+    @sandagent/runner-cli@0.8.1 \
     playwright && \
     rm package.json package-lock.json && \
     npm cache clean --force && \
