@@ -1,0 +1,2 @@
+- Fixed docker build error where nginx installation and configuration failed because the container switched to the `agent` user too early. Moved `USER agent` just before `ENTRYPOINT` and added `sudo` to the nginx start command.
+- Changed agent user's home directory from `/home/agent` to `/agent` in the Dockerfile.

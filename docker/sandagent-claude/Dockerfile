@@ -16,12 +16,17 @@ RUN for i in 1 2 3; do \
     apt-get update && apt-get install -y \
     git \
     curl \
+    sudo \
     && rm -rf /var/lib/apt/lists/* \
     && break || sleep 5; \
     done
 
+# Create agent user with home directory
+RUN useradd -m -d /agent -s /bin/bash agent && \
+    echo "agent ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
 # Create directories with proper permissions
-RUN mkdir -p /workspace && chmod 777 /workspace
+RUN mkdir -p /workspace && chown agent:agent /workspace
 WORKDIR /workspace
 
 # Pre-install dependencies to /opt/sandagent (won't be overwritten by volume mount)
@@ -33,7 +38,8 @@ RUN mkdir -p /opt/sandagent && \
     @sandagent/runner-cli@0.7.6 \
     playwright && \
     rm package.json package-lock.json && \
-    npm cache clean --force
+    npm cache clean --force && \
+    chown -R agent:agent /opt/sandagent
 
 # Install Playwright Chromium browser and system dependencies
 ENV PLAYWRIGHT_BROWSERS_PATH=/opt/sandagent/pw-browsers
@@ -103,9 +109,12 @@ for i in $(seq 1 30); do\n\
   if curl -s http://127.0.0.1:9223/json/version > /dev/null 2>&1; then break; fi\n\
   sleep 0.5\n\
 done\n\
-nginx\n\
+sudo nginx\n\
 echo "CDP available on 0.0.0.0:9222 (nginx proxy rewriting Host to localhost)"' > /usr/local/bin/start-cdp && \
     chmod +x /usr/local/bin/start-cdp
+
+# Switch to agent user
+USER agent
 
 # Template files (optional, added by build script)
 
