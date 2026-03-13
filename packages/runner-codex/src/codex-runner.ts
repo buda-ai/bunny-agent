@@ -168,7 +168,28 @@ export function createCodexRunner(options: CodexRunnerOptions): CodexRunner {
         ? codex.resumeThread(options.resume, threadOptions)
         : codex.startThread(threadOptions);
 
-      const streamedTurn = await thread.runStreamed(userInput, {
+      let inputToCodex: string | Array<Record<string, unknown>> = userInput;
+      try {
+        if (userInput.startsWith("[") && userInput.endsWith("]")) {
+          const parsed = JSON.parse(userInput);
+          if (Array.isArray(parsed)) {
+            // Codex expects OpenAI format parts for user message
+            inputToCodex = parsed.map((p) => {
+              if (p.type === "image") {
+                return {
+                  type: "image_url",
+                  image_url: { url: p.data },
+                };
+              }
+              return { type: "text", text: p.text || JSON.stringify(p) };
+            });
+          }
+        }
+      } catch (e) {
+        // Fallback to string
+      }
+
+      const streamedTurn = await thread.runStreamed(inputToCodex, {
         signal: options.abortController?.signal,
       });
 

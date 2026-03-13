@@ -96,7 +96,7 @@ export class SandAgent {
       .pop();
 
     if (lastUserMessage) {
-      cmd.push(lastUserMessage.content);
+      cmd.push(typeof lastUserMessage.content === "string" ? lastUserMessage.content : JSON.stringify(lastUserMessage.content));
     }
 
     return cmd;

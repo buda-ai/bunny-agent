@@ -521,17 +521,50 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
         }
 
         case "user": {
-          const textParts = message.content
+          const parts = message.content
+            .map((part) => {
+              if (part.type === "text") {
+                return { type: "text" as const, text: part.text };
+              }
+              if (part.type === "image") {
+                // Convert Uint8Array to base64 if needed, or if it's a URL, we hope Buda already converted it or we just stringify.
+                // Vercel AI SDK parts can be Uint8Array or URL string
+                let dataStr = "";
+                if (part.image instanceof Uint8Array) {
+                  dataStr = Buffer.from(part.image).toString("base64");
+                } else if (part.image instanceof URL) {
+                  dataStr = part.image.toString();
+                } else if (typeof part.image === "string") {
+                  // If it's a base64 string or URL
+                  dataStr = part.image;
+                }
+                return {
+                  type: "image" as const,
+                  mimeType: part.mimeType || "image/png",
+                  data: dataStr,
+                };
+              }
+              return null;
+            })
             .filter(
-              (part): part is { type: "text"; text: string } =>
-                part.type === "text",
-            )
-            .map((part) => part.text);
+              (
+                p,
+              ): p is
+                | { type: "text"; text: string }
+                | { type: "image"; mimeType: string; data: string } =>
+                p !== null,
+            );
 
-          if (textParts.length > 0) {
+          if (parts.length > 0) {
+            // If only text parts, combine them into a string for cleaner payload, else pass array
+            const isAllText = parts.every((p) => p.type === "text");
             messages.push({
               role: "user",
-              content: textParts.join("\n"),
+              content: isAllText
+                ? parts
+                    .map((p) => (p as { type: "text"; text: string }).text)
+                    .join("\n")
+                : parts,
             });
           }
           break;
