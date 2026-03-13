@@ -1,0 +1,66 @@
+name: Publish Docker Image
+
+on:
+  workflow_run:
+    workflows:
+      - "Release on Tag"
+    types:
+      - completed
+
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+
+jobs:
+  publish-docker:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    # Only run when the Release workflow succeeded AND was triggered by a semver tag (v*.*.*)
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      startsWith(github.event.workflow_run.head_branch, 'v')
+
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+        with:
+          # Check out the exact version tag. The job-level 'if' already
+          # ensures head_branch is a v*.*.* tag (trusted maintainer ref).
+          ref: refs/tags/${{ github.event.workflow_run.head_branch }}
+          fetch-depth: 0
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          # Resolve the exact tag pointing at the triggering commit so we get the
+          # canonical semver string even when head_branch carries unexpected values.
+          TAG=$(git tag --points-at HEAD | grep -E '^v[0-9]+\.[0-9]+\.[0-9]' | sort -V | tail -1)
+          if [ -z "${TAG}" ]; then
+            # Fall back to the head_branch value reported by the workflow_run event
+            TAG="${{ github.event.workflow_run.head_branch }}"
+          fi
+          # Strip the leading 'v' prefix if present (e.g. v1.2.3 → 1.2.3)
+          VERSION="${TAG#v}"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Detected version: ${VERSION} (from tag: ${TAG})"
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./docker/sandagent-claude
+          file: ./docker/sandagent-claude/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: |
+            vikadata/sandagent:${{ steps.version.outputs.version }}
+            vikadata/sandagent:latest
