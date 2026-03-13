@@ -22,7 +22,8 @@ export interface PiRunnerOptions {
    * Session ID to resume (from previous run's message-metadata.sessionId).
    * When set, the runner resolves it to a session file via SessionManager.list(cwd) and opens it;
    * if the value contains '/', it is treated as a session file path and opened directly.
-   * Otherwise SessionManager.continueRecent(cwd) is used.
+   * When NOT set, a brand-new session is created each time so no stale context
+   * is loaded from previous runs.
    * Sessions use Pi's default directory (~/.pi/agent/sessions/...) so workspace is not used.
    */
   sessionId?: string;
@@ -87,6 +88,44 @@ function emitStreamError(errorText: string): string[] {
     `data: ${JSON.stringify({ type: "finish", finishReason: "error" })}\n\n`,
     "data: [DONE]\n\n",
   ];
+}
+
+/**
+ * Extract plain text from pi's ToolResult format.
+ *
+ * Pi tools return results in the shape:
+ *   { content: [{ type: "text", text: "..." }, ...], details: { ... } }
+ *
+ * When this object is serialised as-is into the `tool-output-available` SSE
+ * event and the UI renders it, users see raw JSON like
+ *   {"content":[{"type":"text","text":"Command timed out after 10 seconds"}],"details":{}}
+ * instead of a readable message.
+ *
+ * This function unwraps the content array and joins all text parts so the
+ * downstream SDK and UI always receive a plain string.
+ */
+export function extractToolResultText(result: unknown): string {
+  if (result !== null && typeof result === "object") {
+    const r = result as {
+      content?: Array<{ type?: string; text?: string }>;
+    };
+    if (Array.isArray(r.content) && r.content.length > 0) {
+      const text = r.content
+        .filter((c) => c.type === "text" && typeof c.text === "string")
+        .map((c) => c.text as string)
+        .join("\n");
+      if (text.length > 0) {
+        return text;
+      }
+    }
+  }
+  // Fallback: stringify whatever we received so the caller always gets a string.
+  if (typeof result === "string") return result;
+  try {
+    return JSON.stringify(result);
+  } catch {
+    return String(result);
+  }
 }
 
 /**
@@ -227,7 +266,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
     async *run(userInput: string): AsyncIterable<string> {
       const resume = options.sessionId?.trim();
       const sessionManager = await (async (): Promise<
-        ReturnType<typeof SessionManager.continueRecent>
+        ReturnType<typeof SessionManager.create>
       > => {
         if (resume !== undefined && resume !== "") {
           if (resume.includes("/")) {
@@ -237,19 +276,33 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           const found = sessions.find((s) => s.id === resume);
           return found
             ? SessionManager.open(found.path)
-            : SessionManager.continueRecent(cwd);
+            : SessionManager.create(cwd);
         }
-        return SessionManager.continueRecent(cwd);
+        // Always start a fresh session when no explicit resume is requested.
+        // Using continueRecent() would load stale session data from previous
+        // runs, which can confuse the LLM context and cause errors such as
+        // "Model tried to call unavailable tool 'bash'. No tools are available."
+        return SessionManager.create(cwd);
       })();
+
+      const resourceLoader = options.skillPaths
+        ? new SandagentResourceLoader({ cwd, skillPaths: options.skillPaths })
+        : undefined;
+
+      // createAgentSession only calls reload() when it creates its own
+      // DefaultResourceLoader.  When we supply our own SandagentResourceLoader
+      // we must reload it ourselves so that skills and extensions on disk are
+      // picked up before the session is built.
+      if (resourceLoader) {
+        await resourceLoader.reload();
+      }
 
       const { session } = await createAgentSession({
         cwd,
         model,
         sessionManager,
         modelRegistry,
-        resourceLoader: options.skillPaths
-          ? new SandagentResourceLoader({ cwd, skillPaths: options.skillPaths })
-          : undefined,
+        resourceLoader,
       });
 
       if (options.systemPrompt != null && options.systemPrompt !== "") {
@@ -361,7 +414,11 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
               yield `data: ${JSON.stringify({ type: "tool-input-start", toolCallId: event.toolCallId, toolName: event.toolName, dynamic: true })}\n\n`;
               yield `data: ${JSON.stringify({ type: "tool-input-available", toolCallId: event.toolCallId, toolName: event.toolName, input: event.args, dynamic: true })}\n\n`;
             } else if (event.type === "tool_execution_end") {
-              yield `data: ${JSON.stringify({ type: "tool-output-available", toolCallId: event.toolCallId, output: event.result, isError: event.isError, dynamic: true })}\n\n`;
+              // Pi tools return results in { content: [{type:"text",text:"..."}], details:{} }
+              // format.  Extract the plain text so the UI and downstream SDK
+              // receive a readable string instead of a raw JSON object.
+              const output = extractToolResultText(event.result);
+              yield `data: ${JSON.stringify({ type: "tool-output-available", toolCallId: event.toolCallId, output, isError: event.isError, dynamic: true })}\n\n`;
             } else if (event.type === "agent_end") {
               if (aborted) {
                 yield* finishError("Run aborted by signal.");

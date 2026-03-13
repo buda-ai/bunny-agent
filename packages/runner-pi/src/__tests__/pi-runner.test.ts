@@ -39,7 +39,11 @@ class MockSession {
         type: "tool_execution_end",
         toolCallId: "tool_fail",
         toolName: "bash",
-        result: { stdout: "", stderr: "command failed" },
+        // Use pi's actual ToolResult format: { content: [...], details: {} }
+        result: {
+          content: [{ type: "text", text: "command failed" }],
+          details: {},
+        },
         isError: true,
       });
       this.emit({ type: "agent_end", messages: [] });
@@ -64,7 +68,8 @@ class MockSession {
       type: "tool_execution_end",
       toolCallId: "tool_1",
       toolName: "bash",
-      result: { stdout: "hi" },
+      // Use pi's actual ToolResult format: { content: [...], details: {} }
+      result: { content: [{ type: "text", text: "hi" }], details: {} },
     });
     this.emit({ type: "agent_end", messages: [] });
   }
@@ -97,6 +102,7 @@ vi.mock("@mariozechner/pi-coding-agent", () => ({
   }),
   SessionManager: {
     continueRecent: vi.fn().mockReturnValue({}),
+    create: vi.fn().mockReturnValue({}),
     open: vi.fn().mockReturnValue({}),
     list: vi.fn().mockResolvedValue([]),
   },
@@ -117,7 +123,69 @@ vi.mock("@mariozechner/pi-ai", () => ({
     })),
 }));
 
-import { createPiRunner } from "../pi-runner.js";
+import { createPiRunner, extractToolResultText } from "../pi-runner.js";
+
+// ── extractToolResultText unit tests ─────────────────────────────────────────
+
+describe("extractToolResultText", () => {
+  it("extracts text from pi ToolResult content array", () => {
+    expect(
+      extractToolResultText({
+        content: [{ type: "text", text: "hello world" }],
+        details: {},
+      }),
+    ).toBe("hello world");
+  });
+
+  it("joins multiple text parts with newline", () => {
+    expect(
+      extractToolResultText({
+        content: [
+          { type: "text", text: "line 1" },
+          { type: "text", text: "line 2" },
+        ],
+        details: {},
+      }),
+    ).toBe("line 1\nline 2");
+  });
+
+  it("skips non-text content entries", () => {
+    expect(
+      extractToolResultText({
+        content: [
+          { type: "image", url: "data:image/png;base64,abc" },
+          { type: "text", text: "output" },
+        ],
+        details: {},
+      }),
+    ).toBe("output");
+  });
+
+  it("extracts timeout error message from pi's bash tool format", () => {
+    const piResult = {
+      content: [
+        {
+          type: "text",
+          text: "partial stdout\n\nCommand timed out after 10 seconds",
+        },
+      ],
+      details: {},
+    };
+    const text = extractToolResultText(piResult);
+    expect(text).toBe("partial stdout\n\nCommand timed out after 10 seconds");
+    // Must NOT be a JSON string like {"content":[...],"details":{}}
+    expect(text).not.toContain('"content"');
+  });
+
+  it("returns string input unchanged", () => {
+    expect(extractToolResultText("plain string")).toBe("plain string");
+  });
+
+  it("serialises unknown objects as JSON fallback", () => {
+    const result = extractToolResultText({ foo: "bar" });
+    expect(result).toBe('{"foo":"bar"}');
+  });
+});
 
 describe("createPiRunner", () => {
   beforeEach(() => {
@@ -143,6 +211,27 @@ describe("createPiRunner", () => {
     ).toBe(true);
     expect(chunks.some((c) => c.includes('"type":"finish"'))).toBe(true);
     expect(chunks.some((c) => c.includes("[DONE]"))).toBe(true);
+  });
+
+  it("tool-output-available emits a plain string output (not raw pi object)", async () => {
+    const runner = createPiRunner({ model: "google:gemini-2.5-pro" });
+    const chunks: string[] = [];
+
+    for await (const chunk of runner.run("say hello")) {
+      chunks.push(chunk);
+    }
+
+    const outputChunk = chunks.find((c) =>
+      c.includes('"type":"tool-output-available"'),
+    );
+    expect(outputChunk).toBeDefined();
+
+    // Parse the SSE data and verify output is a plain string, not a pi object
+    const data = JSON.parse(outputChunk!.replace(/^data: /, "").trim());
+    expect(typeof data.output).toBe("string");
+    expect(data.output).toBe("hi");
+    // Must not be the raw pi ToolResult JSON object
+    expect(data.output).not.toContain('"content"');
   });
 
   it("throws for invalid model format", () => {
@@ -196,4 +285,9 @@ it("emits isError flag when a tool execution fails", async () => {
   );
   expect(outputChunk).toBeDefined();
   expect(outputChunk).toContain('"isError":true');
+
+  // The output must be a plain string, not the raw pi ToolResult object
+  const data = JSON.parse(outputChunk!.replace(/^data: /, "").trim());
+  expect(typeof data.output).toBe("string");
+  expect(data.output).toBe("command failed");
 });
