@@ -61,6 +61,8 @@ jobs:
           file: ./docker/sandagent-claude/Dockerfile
           platforms: linux/amd64
           push: true
+          build-args: |
+            RUNNER_CLI_VERSION=${{ steps.version.outputs.version }}
           tags: |
             vikadata/sandagent:${{ steps.version.outputs.version }}
             vikadata/sandagent:latest
