@@ -277,16 +277,18 @@ class LocalSandboxHandle implements SandboxHandle {
     }
 
     // Set up abort signal if provided
+    const abortHandler = () => {
+      isAborted = true;
+      child.kill("SIGTERM");
+      setTimeout(() => {
+        if (!child.killed) {
+          child.kill("SIGKILL");
+        }
+      }, 5000);
+    };
+
     if (opts.signal) {
-      opts.signal.addEventListener("abort", () => {
-        isAborted = true;
-        child.kill("SIGTERM");
-        setTimeout(() => {
-          if (!child.killed) {
-            child.kill("SIGKILL");
-          }
-        }, 5000);
-      });
+      opts.signal.addEventListener("abort", abortHandler);
     }
 
     // Handle spawn errors (e.g., command not found)
@@ -298,6 +300,10 @@ class LocalSandboxHandle implements SandboxHandle {
     if (spawnError) {
       if (timeoutId) {
         clearTimeout(timeoutId);
+      }
+
+      if (opts.signal) {
+        opts.signal.removeEventListener("abort", abortHandler);
       }
       throw spawnError;
     }
