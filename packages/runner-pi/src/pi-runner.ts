@@ -347,7 +347,39 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
       try {
         traceRawMessage(cwd, null, true);
 
-        const promptPromise = session.prompt(userInput);
+        let promptText = userInput;
+        let images:
+          | Array<{ type: "image"; data: string; mimeType: string }>
+          | undefined = undefined;
+
+        // Try to parse userInput as a JSON array of parts (if passed from sandagent SDK)
+        try {
+          if (userInput.startsWith("[") && userInput.endsWith("]")) {
+            const parsed = JSON.parse(userInput);
+            if (Array.isArray(parsed)) {
+              promptText = parsed
+                .filter((p) => p.type === "text")
+                .map((p) => p.text)
+                .join("\n");
+
+              const imageParts = parsed.filter((p) => p.type === "image");
+              if (imageParts.length > 0) {
+                images = imageParts.map((p) => ({
+                  type: "image",
+                  data: p.data,
+                  mimeType: p.mimeType,
+                }));
+              }
+            }
+          }
+        } catch (e) {
+          // Fallback to raw string if parsing fails
+        }
+
+        const promptPromise = session.prompt(
+          promptText,
+          images ? { images } : undefined,
+        );
 
         const messageId = `msg_${Date.now()}_${Math.random().toString(36).slice(2)}`;
         const textId = `text_${Date.now()}_${Math.random().toString(36).slice(2)}`;

@@ -521,17 +521,49 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
         }
 
         case "user": {
-          const textParts = message.content
+          const parts = message.content
+            .map((part) => {
+              if (part.type === "text") {
+                return { type: "text" as const, text: part.text };
+              }
+              if (part.type === "file") {
+                // LanguageModelV3FilePart: data is Uint8Array | string | URL, mediaType is IANA type
+                let dataStr = "";
+                if (part.data instanceof Uint8Array) {
+                  dataStr = `data:${part.mediaType};base64,${Buffer.from(part.data).toString("base64")}`;
+                } else if (part.data instanceof URL) {
+                  dataStr = part.data.toString();
+                } else if (typeof part.data === "string") {
+                  // Already a data URL or base64 string
+                  dataStr = part.data;
+                }
+                return {
+                  type: "image" as const,
+                  mimeType: part.mediaType || "image/png",
+                  data: dataStr,
+                };
+              }
+              return null;
+            })
             .filter(
-              (part): part is { type: "text"; text: string } =>
-                part.type === "text",
-            )
-            .map((part) => part.text);
+              (
+                p,
+              ): p is
+                | { type: "text"; text: string }
+                | { type: "image"; mimeType: string; data: string } =>
+                p !== null,
+            );
 
-          if (textParts.length > 0) {
+          if (parts.length > 0) {
+            // If only text parts, combine them into a string for cleaner payload, else pass array
+            const isAllText = parts.every((p) => p.type === "text");
             messages.push({
               role: "user",
-              content: textParts.join("\n"),
+              content: isAllText
+                ? parts
+                    .map((p) => (p as { type: "text"; text: string }).text)
+                    .join("\n")
+                : parts,
             });
           }
           break;

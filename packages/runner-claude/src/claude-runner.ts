@@ -48,11 +48,36 @@ export interface ClaudeRunnerOptions extends BaseRunnerOptions {
  * Build a regular user message (not a tool result)
  */
 export function buildUserMessage(userInput: string): SDKUserMessage {
+  // If userInput is a serialized JSON array (from SandAgent manager for multi-part messages)
+  // Claude Agent SDK allows content to be string or array of blocks.
+  // Let's decode it safely.
+  let parsedContent: string | Array<Record<string, unknown>> = userInput;
+  try {
+    if (userInput.startsWith("[") && userInput.endsWith("]")) {
+      const parsed = JSON.parse(userInput);
+      if (Array.isArray(parsed)) {
+        // Claude SDK UserMessage allows arrays of ContentBlock
+        // Convert to Claude's format if it contains images
+        parsedContent = parsed.map((p) => {
+          if (p.type === "text") return { type: "text", text: p.text };
+          if (p.type === "image")
+            return {
+              type: "image",
+              source: { type: "base64", media_type: p.mimeType, data: p.data },
+            };
+          return { type: "text", text: JSON.stringify(p) };
+        });
+      }
+    }
+  } catch (e) {
+    // Fallback to string
+  }
+
   return {
     type: "user",
     message: {
       role: "user",
-      content: userInput,
+      content: parsedContent,
     },
   } as SDKUserMessage;
 }
