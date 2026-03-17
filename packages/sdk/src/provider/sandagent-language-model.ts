@@ -526,21 +526,20 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
               if (part.type === "text") {
                 return { type: "text" as const, text: part.text };
               }
-              if (part.type === "image") {
-                // Convert Uint8Array to base64 if needed, or if it's a URL, we hope Buda already converted it or we just stringify.
-                // Vercel AI SDK parts can be Uint8Array or URL string
+              if (part.type === "file") {
+                // LanguageModelV3FilePart: data is Uint8Array | string | URL, mediaType is IANA type
                 let dataStr = "";
-                if (part.image instanceof Uint8Array) {
-                  dataStr = Buffer.from(part.image).toString("base64");
-                } else if (part.image instanceof URL) {
-                  dataStr = part.image.toString();
-                } else if (typeof part.image === "string") {
-                  // If it's a base64 string or URL
-                  dataStr = part.image;
+                if (part.data instanceof Uint8Array) {
+                  dataStr = `data:${part.mediaType};base64,${Buffer.from(part.data).toString("base64")}`;
+                } else if (part.data instanceof URL) {
+                  dataStr = part.data.toString();
+                } else if (typeof part.data === "string") {
+                  // Already a data URL or base64 string
+                  dataStr = part.data;
                 }
                 return {
                   type: "image" as const,
-                  mimeType: part.mimeType || "image/png",
+                  mimeType: part.mediaType || "image/png",
                   data: dataStr,
                 };
               }

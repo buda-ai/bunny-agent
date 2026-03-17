@@ -1,9 +1,14 @@
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 import {
   type ApprovalMode,
   Codex,
+  type Input,
   type ModelReasoningEffort,
   type SandboxMode,
   type ThreadEvent,
+  type UserInput,
   type WebSearchMode,
 } from "@openai/codex-sdk";
 import type { BaseRunnerOptions } from "./types.js";
@@ -168,21 +173,38 @@ export function createCodexRunner(options: CodexRunnerOptions): CodexRunner {
         ? codex.resumeThread(options.resume, threadOptions)
         : codex.startThread(threadOptions);
 
-      let inputToCodex: string | Array<Record<string, unknown>> = userInput;
+      let inputToCodex: Input = userInput;
+      const tempFiles: string[] = [];
       try {
         if (userInput.startsWith("[") && userInput.endsWith("]")) {
           const parsed = JSON.parse(userInput);
           if (Array.isArray(parsed)) {
-            // Codex expects OpenAI format parts for user message
-            inputToCodex = parsed.map((p) => {
-              if (p.type === "image") {
-                return {
-                  type: "image_url",
-                  image_url: { url: p.data },
-                };
+            // Codex expects its own UserInput format (text or local_image)
+            const parts: UserInput[] = [];
+            for (const p of parsed) {
+              if (p.type === "image" && typeof p.data === "string") {
+                // Write base64 data URL to a temp file for local_image support
+                const match = /^data:([^;]+);base64,(.+)$/.exec(p.data);
+                if (match) {
+                  const ext = match[1].split("/")[1] ?? "png";
+                  const tmpPath = path.join(
+                    os.tmpdir(),
+                    `sandagent-img-${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`,
+                  );
+                  fs.writeFileSync(tmpPath, Buffer.from(match[2], "base64"));
+                  tempFiles.push(tmpPath);
+                  parts.push({ type: "local_image", path: tmpPath });
+                }
+                // Non-base64 image URLs are not supported by Codex SDK; skip them.
+              } else {
+                const text: string =
+                  typeof p.text === "string" ? p.text : JSON.stringify(p);
+                parts.push({ type: "text", text });
               }
-              return { type: "text", text: p.text || JSON.stringify(p) };
-            });
+            }
+            if (parts.length > 0) {
+              inputToCodex = parts;
+            }
           }
         }
       } catch (e) {
@@ -225,6 +247,15 @@ export function createCodexRunner(options: CodexRunnerOptions): CodexRunner {
           yield `data: ${JSON.stringify({ type: "error", errorText: stringifyUnknown(event.message) })}\n\n`;
           yield `data: ${JSON.stringify({ type: "finish", finishReason: "error" })}\n\n`;
           yield `data: [DONE]\n\n`;
+        }
+      }
+
+      // Clean up any temp image files written for local_image inputs
+      for (const tmpFile of tempFiles) {
+        try {
+          fs.unlinkSync(tmpFile);
+        } catch {
+          // Ignore cleanup errors
         }
       }
     },
