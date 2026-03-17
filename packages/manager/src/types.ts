@@ -174,7 +174,12 @@ export interface Message {
   /** Role of the message sender */
   role: "user" | "assistant" | "system";
   /** Content of the message */
-  content: string | Array<{ type: "text"; text: string } | { type: "image"; data: string; mimeType: string }>;
+  content:
+    | string
+    | Array<
+        | { type: "text"; text: string }
+        | { type: "image"; data: string; mimeType: string }
+      >;
 }
 
 /**
