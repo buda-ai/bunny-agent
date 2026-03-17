@@ -1,6 +1,6 @@
 {
   "name": "@sandagent/sandbox-e2b",
-  "version": "0.8.2",
+  "version": "0.8.3",
   "description": "E2B sandbox adapter for SandAgent",
   "type": "module",
   "main": "./dist/index.js",
