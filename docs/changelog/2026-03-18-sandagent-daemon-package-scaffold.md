@@ -125,10 +125,15 @@ Prepared a pull request for the initial daemon package scaffold, expanded it int
 
 - Moved the agent streaming route implementation into a dedicated coding route module.
 - Kept the runner-core streaming behavior while aligning the route naming with `/api/coding/run`.
+- Added a web `Response` streaming helper for Next.js embedded daemon usage.
 
 ### `apps/daemon/src/server.ts`
 
 - Renamed the daemon streaming endpoint from `/api/sandagent/run` to `/api/coding/run`.
+
+### `apps/daemon/src/nextjs.ts`
+
+- Added direct handling for `/api/coding/run` so embedded Next.js deployments can return streamed NDJSON responses.
 
 ### `packages/sdk/src/provider/sandagent-daemon-provider.ts`
 
