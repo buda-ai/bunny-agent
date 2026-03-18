@@ -189,13 +189,13 @@ describe("git clone + exec", () => {
     expect(r.ok === true || r.error?.includes("does not have any commits")).toBe(true);
   });
 
-  it("exec rejects push", async () => {
+  it("exec rejects disallowed subcommand", async () => {
     const r = await post("/api/git/exec", {
       repo: "exec-test",
-      args: ["push"],
+      args: ["daemon"],
     });
     expect(r.ok).toBe(false);
-    expect(r.error).toMatch(/not allowed/i);
+    expect(r.error).toMatch(/unsupported/i);
   });
 });
 

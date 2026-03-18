@@ -140,6 +140,7 @@ Prepared a pull request for the initial daemon package scaffold, expanded it int
 ### `apps/daemon/src/__tests__/coding.test.ts`
 
 - Added standalone and embedded streaming tests for the `/api/coding/run` route and the Next.js adapter.
+- Updated the git exec negative test to assert the current unsupported-subcommand error path.
 
 ### `packages/sdk/src/provider/sandagent-daemon-provider.ts`
 
