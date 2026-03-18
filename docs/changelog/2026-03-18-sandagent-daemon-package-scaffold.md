@@ -20,6 +20,18 @@ Prepared a pull request for the initial `apps/sandagent-daemon` package scaffold
 
 - Added shared API envelope helpers, application state types, safe path resolution helpers, and directory creation utilities.
 
+### `apps/sandagent-daemon/src/proxy.ts`
+
+- Added a lightweight HTTP proxy helper for routing daemon requests to downstream services.
+
+### `apps/sandagent-daemon/src/routes/health.ts`
+
+- Added a health route helper returning the configured root and volumes paths.
+
+### `apps/sandagent-daemon/src/routes/volumes.ts`
+
+- Added volume listing, creation, and removal helpers backed by the daemon state paths.
+
 ### `docs/changelog/2026-03-18-sandagent-daemon-package-scaffold.md`
 
 - Documented the session changes and PR preparation work.
