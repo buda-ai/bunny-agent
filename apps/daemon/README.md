@@ -35,16 +35,17 @@ The same `@sandagent/daemon` package works in both modes — Next.js embed for l
      │
      │  HTTP (proxied)
      ▼
-┌────────────────────────────────────────────┐
-│           sandbox container                │
-│                                            │
-│   ┌────────────────────────────────────┐   │
-│   │       sandagent-daemon :3080       │   │
-│   │       (unified API gateway)        │   │
-│   └────────────────────────────────────┘   │
-│                                            │
-│   chromium --remote-debugging-port=9222    │
-└────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────┐
+│           sandbox container                         │
+│                                                     │
+│   ┌────────────────────────────────────┐            │
+│   │       sandagent-daemon :3080       │            │
+│   │       (unified API gateway)        │            │
+│   └────────────────────────────────────┘            │
+│                                                     │
+│   chromium :9223 (internal) --remote-allow-origins=*│
+│   nginx :9222 → :9223  (rewrites Host: localhost)   │
+└─────────────────────────────────────────────────────┘
 ```
 
 External callers only ever see **one port: 3080**. Everything else is internal.
@@ -110,7 +111,8 @@ packages/
 │  Mode A: Standalone process (container / local)                  │
 │                                                                  │
 │  entrypoint.sh                                                   │
-│  ├── chromium --remote-debugging-port=9222 &                     │
+│  ├── chromium :9223 (internal) --remote-allow-origins=* &        │
+│  ├── nginx :9222 → :9223 (rewrites Host: localhost) &            │
 │  └── sandagent-daemon          ← node process, listens :3080     │
 │                                                                  │
 │  caller: curl / Buda SDK / any HTTP client                       │
@@ -179,8 +181,17 @@ Output: raw AI SDK UI NDJSON stream to stdout.
 ### Option B: daemon standalone (container)
 
 ```bash
-# see docs/entrypoint.example.sh
-chromium --headless --no-sandbox --remote-debugging-port=9222 &
+# see docs/entrypoint.example.sh for the full script
+#
+# Chromium runs on internal port 9223 with --remote-allow-origins=* so
+# the WebSocket origin check passes. nginx proxies 0.0.0.0:9222 → 9223
+# and rewrites the Host header to "localhost" to satisfy Chromium's
+# DNS-rebinding security check. Without this rewrite, external clients
+# (Host: container-ip:9222) are rejected even when the port is open.
+chromium --headless --no-sandbox \
+  --remote-debugging-port=9223 \
+  --remote-allow-origins=* &
+nginx  # proxies :9222 → :9223 with Host rewrite
 exec sandagent-daemon
 ```
 
