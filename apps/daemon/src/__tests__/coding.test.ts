@@ -8,6 +8,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 vi.mock("@sandagent/runner-core", () => ({
   createRunner: vi.fn((opts: { userInput: string }) => {
     if (opts.userInput === "__THROW__") {
+      // biome-ignore lint/correctness/useYield: throw-only generator simulates immediate runner failure
       return (async function* () {
         throw new Error("runner exploded");
       })();
@@ -20,9 +21,9 @@ vi.mock("@sandagent/runner-core", () => ({
   }),
 }));
 
-import { createDaemon } from "../server.js";
 import { createNextHandler } from "../nextjs.js";
 import { codingRunStream } from "../routes/coding.js";
+import { createDaemon } from "../server.js";
 
 const PORT = 13081;
 const BASE = `http://localhost:${PORT}`;
@@ -138,7 +139,10 @@ describe("createNextHandler", () => {
   });
 
   it("supports custom prefix", async () => {
-    const custom = createNextHandler({ root: os.tmpdir(), prefix: "/my/prefix" });
+    const custom = createNextHandler({
+      root: os.tmpdir(),
+      prefix: "/my/prefix",
+    });
     const req = new Request("http://localhost/my/prefix/healthz");
     const res = await custom(req);
     const json = await res.json();
@@ -186,7 +190,9 @@ describe("git clone + exec", () => {
       args: ["log", "--oneline"],
     });
     // Empty repo log may fail but should not be rejected as disallowed
-    expect(r.ok === true || r.error?.includes("does not have any commits")).toBe(true);
+    expect(
+      r.ok === true || r.error?.includes("does not have any commits"),
+    ).toBe(true);
   });
 
   it("exec rejects disallowed subcommand", async () => {
@@ -210,7 +216,10 @@ describe("path safety edge cases", () => {
   }
 
   it("rejects absolute path outside root", async () => {
-    const r = await post("/api/fs/write", { path: "/etc/passwd", content: "x" });
+    const r = await post("/api/fs/write", {
+      path: "/etc/passwd",
+      content: "x",
+    });
     expect(r.ok).toBe(false);
   });
 
@@ -220,7 +229,10 @@ describe("path safety edge cases", () => {
   });
 
   it("rejects dot-dot traversal variants", async () => {
-    const r = await post("/api/fs/write", { path: "foo/../../etc/evil", content: "x" });
+    const r = await post("/api/fs/write", {
+      path: "foo/../../etc/evil",
+      content: "x",
+    });
     expect(r.ok).toBe(false);
   });
 });
