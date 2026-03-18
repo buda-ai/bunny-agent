@@ -62,6 +62,9 @@ export class SandAgent {
     if (this.runner.systemPrompt) {
       cmd.push("--system-prompt", this.runner.systemPrompt);
     }
+    if (this.runner.appendSystemPrompt) {
+      cmd.push("--append-system-prompt", this.runner.appendSystemPrompt);
+    }
 
     // Add optional skill paths (for pi runner)
     if (this.runner.skillPaths && this.runner.skillPaths.length > 0) {

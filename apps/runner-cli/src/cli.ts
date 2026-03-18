@@ -93,6 +93,7 @@ function parseRunArgs(): ParsedRunArgs {
         default: process.env.SANDAGENT_WORKSPACE ?? process.cwd(),
       },
       "system-prompt": { type: "string", short: "s" },
+      "append-system-prompt": { type: "string" },
       "max-turns": { type: "string", short: "t" },
       "allowed-tools": { type: "string", short: "a" },
       "skill": { type: "string", multiple: true },
@@ -137,6 +138,7 @@ function parseRunArgs(): ParsedRunArgs {
     model: values.model!,
     cwd: values.cwd!,
     systemPrompt: values["system-prompt"],
+    appendSystemPrompt: values["append-system-prompt"],
     maxTurns: values["max-turns"]
       ? Number.parseInt(values["max-turns"], 10)
       : undefined,
@@ -209,6 +211,7 @@ Options:
   -m, --model <model>          Model (default: claude-sonnet-4-20250514)
   -c, --cwd <path>             Working directory (default: cwd)
   -s, --system-prompt <prompt> Custom system prompt
+      --append-system-prompt <prompt> Append text to system prompt
   -t, --max-turns <n>          Max conversation turns
   -a, --allowed-tools <tools>  Comma-separated allowed tools
       --skill <path>      Additional skill path (can be repeated, for pi runner)

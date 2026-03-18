@@ -145,6 +145,8 @@ export interface RunnerSpec {
   runnerType?: "claude" | "pi" | "codex" | "gemini" | "opencode";
   /** Optional system prompt override (overrides template's CLAUDE.md) */
   systemPrompt?: string;
+  /** Text to append to the system prompt */
+  appendSystemPrompt?: string;
   /** Maximum number of conversation turns */
   maxTurns?: number;
   /** Allowed tools (undefined means all tools, or use template's settings) */

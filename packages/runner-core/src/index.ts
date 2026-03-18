@@ -28,6 +28,7 @@ export function createRunner(
   const base = {
     model: options.model,
     systemPrompt: options.systemPrompt,
+    appendSystemPrompt: options.appendSystemPrompt,
     maxTurns: options.maxTurns,
     allowedTools: options.allowedTools,
     resume: options.resume,

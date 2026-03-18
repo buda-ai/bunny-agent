@@ -285,11 +285,12 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
         return SessionManager.create(cwd);
       })();
 
-      const resourceLoader = options.skillPaths || options.systemPrompt
+      const resourceLoader = options.skillPaths || options.systemPrompt || options.appendSystemPrompt
         ? new SandagentResourceLoader({
             cwd,
             skillPaths: options.skillPaths,
             systemPrompt: options.systemPrompt,
+            appendSystemPrompt: options.appendSystemPrompt,
           })
         : undefined;
 

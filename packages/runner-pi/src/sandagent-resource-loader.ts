@@ -23,6 +23,8 @@ export interface SandagentResourceLoaderOptions {
   skillPaths?: string[];
   /** Custom system prompt */
   systemPrompt?: string;
+  /** Text to append to the system prompt */
+  appendSystemPrompt?: string;
 }
 
 /**
@@ -47,6 +49,7 @@ export class SandagentResourceLoader implements ResourceLoader {
       agentDir: this.agentDir,
       settingsManager: options.settingsManager,
       systemPrompt: options.systemPrompt,
+      appendSystemPrompt: options.appendSystemPrompt,
     });
   }
 
