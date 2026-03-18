@@ -108,6 +108,9 @@ export function createSandAgent(
       ...((options.systemPrompt ?? defaultOptions.systemPrompt)
         ? { systemPrompt: options.systemPrompt ?? defaultOptions.systemPrompt }
         : {}),
+      ...((options.appendSystemPrompt ?? defaultOptions.appendSystemPrompt)
+        ? { appendSystemPrompt: options.appendSystemPrompt ?? defaultOptions.appendSystemPrompt }
+        : {}),
       ...(options.skillPaths ? { skillPaths: options.skillPaths } : {}),
     };
 

@@ -18,6 +18,7 @@ export interface DaemonProviderSettings {
   resume?: string;
   /** Override system prompt */
   systemPrompt?: string;
+  appendSystemPrompt?: string;
   /** Max agent turns */
   maxTurns?: number;
   /** Allowed tools */
@@ -101,6 +102,7 @@ class DaemonLanguageModel implements LanguageModelV3 {
       cwd: this.settings.cwd,
       resume: this.settings.resume,
       systemPrompt: this.settings.systemPrompt,
+      appendSystemPrompt: this.settings.appendSystemPrompt,
       maxTurns: this.settings.maxTurns,
       allowedTools: this.settings.allowedTools,
       skillPaths: this.settings.skillPaths,
