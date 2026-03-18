@@ -109,3 +109,8 @@ Prepared a pull request for the initial daemon package scaffold, expanded it int
 
 - Renamed the daemon app directory from `apps/sandagent-daemon` to `apps/daemon`.
 - Updated package metadata and workspace references to match the new app location.
+
+### `apps/daemon/README.md`
+
+- Expanded the documentation for direct `runner-core` usage without the daemon HTTP layer.
+- Added detailed request and streaming response documentation for `POST /api/sandagent/run`.

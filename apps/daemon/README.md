@@ -216,14 +216,38 @@ export const POST = handler;
 
 Covers `/api/fs/*`, `/api/git/*`, `/api/volumes/*` at `/api/daemon/*`. No extra process.
 
-### Option D: programmatic
+### Option D: just run an agent directly (no daemon needed)
+
+If you only need to run an agent — no file API, no HTTP server — use `runner-core` directly:
 
 ```ts
-import { createDaemon } from "@sandagent/daemon";
+import { createRunner } from "@sandagent/runner-core";
 
-const server = createDaemon({ host: "0.0.0.0", port: 3080, root: "/workspace" });
-server.listen(3080);
+const stream = createRunner({
+  runner: "claude",           // or "pi", "gemini", "codex", "opencode"
+  model: "claude-sonnet-4-20250514",
+  userInput: "Build a REST API",
+  cwd: "/workspace",
+  env: process.env as Record<string, string>,
+});
+
+// Collect all chunks into a full response
+const chunks: string[] = [];
+for await (const chunk of stream) {
+  chunks.push(chunk);
+}
+const fullResponse = chunks.join("");
+
+// Or parse each NDJSON line as it arrives
+for await (const chunk of stream) {
+  for (const line of chunk.split("\n").filter(Boolean)) {
+    const msg = JSON.parse(line);
+    console.log(msg);
+  }
+}
 ```
+
+`runner-core` is the shared core used by both `runner-cli` and `sandagent-daemon`. Use it directly when you don't need the HTTP gateway.
 
 ---
 
@@ -231,14 +255,49 @@ server.listen(3080);
 
 All JSON responses: `{ "ok": true, "data": {}, "error": null }`
 
-### Agent
+### Agent `/api/sandagent/*`
 
-| Method | Path | Body |
-|--------|------|------|
-| POST | `/api/sandagent/run` | `{"runner":"claude","userInput":"...","model":"...","cwd":"..."}` |
+#### `POST /api/sandagent/run`
 
-Response: SSE stream of AI SDK UI NDJSON chunks.
-Runners: `claude` · `codex` · `gemini` · `pi` · `opencode`
+Run an agent and stream the output as SSE (AI SDK UI NDJSON format).
+
+Request body:
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `userInput` | string | required | The task / prompt |
+| `runner` | string | `"claude"` | `claude` · `codex` · `gemini` · `pi` · `opencode` |
+| `model` | string | `"claude-sonnet-4-20250514"` | Model name for the runner |
+| `cwd` | string | `SANDAGENT_ROOT` | Working directory inside the sandbox |
+| `systemPrompt` | string | — | Override system prompt |
+| `maxTurns` | number | — | Max agent turns |
+| `allowedTools` | string[] | — | Restrict which tools the agent can use |
+| `resume` | string | — | Session ID to resume |
+| `skillPaths` | string[] | — | Extra skill paths (pi runner) |
+
+Example:
+
+```bash
+# Stream with curl (-N disables buffering)
+curl -N -X POST http://localhost:3080/api/sandagent/run \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "runner": "claude",
+    "userInput": "List all TypeScript files and summarize what each does",
+    "cwd": "/workspace/myproject"
+  }'
+
+# Use pi runner with a different model
+curl -N -X POST http://localhost:3080/api/sandagent/run \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "runner": "pi",
+    "model": "gemini-2.0-flash",
+    "userInput": "Refactor this codebase to use async/await"
+  }'
+```
+
+Response: `text/event-stream` — each chunk is an AI SDK UI NDJSON line, compatible with Vercel AI SDK `useChat` / `streamText`.
 
 ### Filesystem `/api/fs/*`
 
