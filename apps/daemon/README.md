@@ -43,7 +43,7 @@ The same `@sandagent/daemon` package works in both modes — Next.js embed for l
 │   │       (unified API gateway)        │   │
 │   └────────────────────────────────────┘   │
 │                                            │
-│   chromium --remote-debugging-port=9222    │
+│   chromium --remote-debugging-port=9222 --remote-debugging-address=0.0.0.0   │
 └────────────────────────────────────────────┘
 ```
 
@@ -110,7 +110,7 @@ packages/
 │  Mode A: Standalone process (container / local)                  │
 │                                                                  │
 │  entrypoint.sh                                                   │
-│  ├── chromium --remote-debugging-port=9222 &                     │
+│  ├── chromium --remote-debugging-port=9222 --remote-debugging-address=0.0.0.0 & │
 │  └── sandagent-daemon          ← node process, listens :3080     │
 │                                                                  │
 │  caller: curl / Buda SDK / any HTTP client                       │
@@ -180,7 +180,7 @@ Output: raw AI SDK UI NDJSON stream to stdout.
 
 ```bash
 # see docs/entrypoint.example.sh
-chromium --headless --no-sandbox --remote-debugging-port=9222 &
+chromium --headless --no-sandbox --remote-debugging-port=9222 --remote-debugging-address=0.0.0.0 &
 exec sandagent-daemon
 ```
 
