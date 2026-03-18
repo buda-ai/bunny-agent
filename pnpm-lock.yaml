@@ -66,6 +66,9 @@ importers:
       '@openai/codex-sdk':
         specifier: ^0.110.0
         version: 0.110.0
+      '@sandagent/runner-core':
+        specifier: workspace:*
+        version: link:../../packages/runner-core
       dotenv:
         specifier: ^17.3.1
         version: 17.3.1
@@ -102,6 +105,10 @@ importers:
         version: 1.6.1(@types/node@20.19.33)(lightningcss@1.30.2)
 
   apps/sandagent-daemon:
+    dependencies:
+      '@sandagent/runner-core':
+        specifier: workspace:*
+        version: link:../../packages/runner-core
     devDependencies:
       '@types/node':
         specifier: ^20.10.0
@@ -524,6 +531,34 @@ importers:
       '@openai/codex-sdk':
         specifier: ^0.110.0
         version: 0.110.0
+    devDependencies:
+      '@types/node':
+        specifier: ^20.10.0
+        version: 20.19.33
+      typescript:
+        specifier: ^5.3.0
+        version: 5.9.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.33)(lightningcss@1.30.2)
+
+  packages/runner-core:
+    dependencies:
+      '@sandagent/runner-claude':
+        specifier: workspace:*
+        version: link:../runner-claude
+      '@sandagent/runner-codex':
+        specifier: workspace:*
+        version: link:../runner-codex
+      '@sandagent/runner-gemini':
+        specifier: workspace:*
+        version: link:../runner-gemini
+      '@sandagent/runner-opencode':
+        specifier: workspace:*
+        version: link:../runner-opencode
+      '@sandagent/runner-pi':
+        specifier: workspace:*
+        version: link:../runner-pi
     devDependencies:
       '@types/node':
         specifier: ^20.10.0

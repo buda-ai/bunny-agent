@@ -50,6 +50,7 @@
     "anthropic"
   ],
   "dependencies": {
+    "@sandagent/runner-core": "workspace:*",
     "@anthropic-ai/claude-agent-sdk": "0.2.70",
     "@openai/codex-sdk": "^0.110.0",
     "@mariozechner/pi-agent-core": "^0.56.1",

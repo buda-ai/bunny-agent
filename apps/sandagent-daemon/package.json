@@ -42,7 +42,9 @@
   "engines": {
     "node": ">=20.0.0"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@sandagent/runner-core": "workspace:*"
+  },
   "devDependencies": {
     "@types/node": "^20.10.0",
     "esbuild": "^0.27.2",
