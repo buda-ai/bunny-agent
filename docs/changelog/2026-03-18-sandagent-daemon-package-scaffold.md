@@ -4,7 +4,7 @@
 
 ## Summary
 
-Prepared a pull request for the initial `apps/sandagent-daemon` package scaffold and expanded it into a working daemon entrypoint with filesystem, git, and Next.js integration helpers.
+Prepared a pull request for the initial daemon package scaffold, expanded it into a working daemon entrypoint with filesystem, git, and Next.js integration helpers, and renamed the app from `apps/sandagent-daemon` to `apps/daemon`.
 
 ## Changes
 
@@ -104,3 +104,8 @@ Prepared a pull request for the initial `apps/sandagent-daemon` package scaffold
 ### `pnpm-lock.yaml`
 
 - Added the daemon package importer and its development dependency resolutions to the workspace lockfile.
+
+### `apps/daemon/*`
+
+- Renamed the daemon app directory from `apps/sandagent-daemon` to `apps/daemon`.
+- Updated package metadata and workspace references to match the new app location.
