@@ -1,5 +1,4 @@
 "use client";
-import { cn } from "@/lib/cn";
 import { buttonVariants } from "fumadocs-ui/components/ui/button";
 import {
   Popover,
@@ -9,6 +8,7 @@ import {
 import { useCopyButton } from "fumadocs-ui/utils/use-copy-button";
 import { Check, ChevronDown, Copy, ExternalLinkIcon } from "lucide-react";
 import { useMemo, useState } from "react";
+import { cn } from "@/lib/cn";
 
 const cache = new Map<string, string>();
 

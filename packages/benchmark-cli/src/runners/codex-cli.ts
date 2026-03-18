@@ -8,6 +8,7 @@
 import type { BenchmarkResult, GaiaTask } from "../types.js";
 import { BaseRunner } from "./base.js";
 import type { RunnerCommand } from "./types.js";
+
 class CodexCliRunner extends BaseRunner {
   readonly name = "codex-cli";
   readonly defaults = {

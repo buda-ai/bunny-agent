@@ -5,5 +5,5 @@
  */
 
 export * from "./gaia.js";
-export * from "./swe-bench.js";
 export * from "./smoking.js";
+export * from "./swe-bench.js";

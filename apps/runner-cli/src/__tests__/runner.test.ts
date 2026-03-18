@@ -39,7 +39,6 @@ describe("runAgent", () => {
   beforeEach(() => {
     writtenData = [];
     originalWrite = process.stdout.write;
-    // @ts-ignore - mocking stdout.write
     process.stdout.write = vi.fn((data: string) => {
       writtenData.push(data);
       return true;

@@ -13,8 +13,8 @@ import { piRunner } from "./pi.js";
 import { sandagentRunner } from "./sandagent.js";
 import type { RunnerHandler } from "./types.js";
 
-export type { RunnerCommand, RunnerDefaults, RunnerHandler } from "./types.js";
 export { BaseRunner } from "./base.js";
+export type { RunnerCommand, RunnerDefaults, RunnerHandler } from "./types.js";
 
 /**
  * Registry of all available runners

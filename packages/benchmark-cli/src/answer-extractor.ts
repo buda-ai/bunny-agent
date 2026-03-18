@@ -158,9 +158,9 @@ const ANSWER_PATTERNS = {
 
   // Numeric patterns
   numeric: [
-    /(?:equals?|=|is)\s*\*?\*?(\d[\d,\.]*)\*?\*?/i,
-    /(?:total|sum|count|result)(?:\s+is)?:\s*(\d[\d,\.]*)/i,
-    /rounds?\s+to\s+\*?\*?(\d[\d,\.]*)\*?\*?/i,
+    /(?:equals?|=|is)\s*\*?\*?(\d[\d,.]*)\*?\*?/i,
+    /(?:total|sum|count|result)(?:\s+is)?:\s*(\d[\d,.]*)/i,
+    /rounds?\s+to\s+\*?\*?(\d[\d,.]*)\*?\*?/i,
   ],
 
   // List patterns

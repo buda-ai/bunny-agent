@@ -3,14 +3,14 @@
 import { CheckIcon, CopyIcon } from "lucide-react";
 import {
   type ComponentProps,
-  type HTMLAttributes,
   createContext,
+  type HTMLAttributes,
   useContext,
   useEffect,
   useRef,
   useState,
 } from "react";
-import { type BundledLanguage, type ShikiTransformer, codeToHtml } from "shiki";
+import { type BundledLanguage, codeToHtml, type ShikiTransformer } from "shiki";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
 

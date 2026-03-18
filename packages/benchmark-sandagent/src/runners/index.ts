@@ -6,8 +6,8 @@ import type { SandAgentRunner as RunnerName } from "../types.js";
 import { SandAgentRunner } from "./sandagent.js";
 import type { RunnerHandler } from "./types.js";
 
-export type { RunnerCommand, RunnerDefaults, RunnerHandler } from "./types.js";
 export { BaseRunner } from "./base.js";
+export type { RunnerCommand, RunnerDefaults, RunnerHandler } from "./types.js";
 
 /**
  * Get a runner by name
