@@ -1,14 +1,14 @@
 import { appendFileSync, existsSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import type { AgentEvent } from "@mariozechner/pi-agent-core";
-import { type Usage, getModel } from "@mariozechner/pi-ai";
+import { getModel, type Usage } from "@mariozechner/pi-ai";
 import {
   type AgentSessionEvent,
   AuthStorage,
+  createAgentSession,
   InMemoryAuthStorageBackend,
   ModelRegistry,
   SessionManager,
-  createAgentSession,
 } from "@mariozechner/pi-coding-agent";
 import { SandagentResourceLoader } from "./sandagent-resource-loader.js";
 
@@ -350,7 +350,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
         let promptText = userInput;
         let images:
           | Array<{ type: "image"; data: string; mimeType: string }>
-          | undefined = undefined;
+          | undefined;
 
         // Try to parse userInput as a JSON array of parts (if passed from sandagent SDK)
         try {

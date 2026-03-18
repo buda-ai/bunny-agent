@@ -1,8 +1,8 @@
+import { type Question, submitAnswer } from "@sandagent/sdk";
 import {
   type CreateSandboxParams,
   getOrCreateSandbox,
 } from "@/lib/example/create-sandbox";
-import { type Question, submitAnswer } from "@sandagent/sdk";
 
 /**
  * POST /api/answer

@@ -4,56 +4,53 @@
  * GAIA benchmark runner for comparing agent CLIs
  */
 
-// Types
-export type {
-  GaiaTask,
-  GaiaFile,
-  GaiaLevel,
-  TaskCategory,
-  AgentRunner,
-  BenchmarkConfig,
-  BenchmarkResult,
-  BenchmarkReport,
-  BenchmarkMetadata,
-  ComparisonResult,
-  ComparisonSummary,
-} from "./types.js";
+// Comparison
+export {
+  compareResults,
+  displayComparisonTable,
+  generateComparisonSummary,
+  generateMarkdownReport,
+  loadAllRunnerResults,
+  loadRunnerResults,
+  saveComparisonReport,
+} from "./compare.js";
 
 // Downloader
 export {
   downloadGaiaDataset,
-  saveTasksToJson,
-  loadTasksFromJson,
   getFileDataUrl,
+  loadTasksFromJson,
+  saveTasksToJson,
 } from "./downloader.js";
-
-// Runner
-export {
-  runTask,
-  runTaskWithReflection,
-  normalizeAnswer,
-  checkAnswer,
-  isRunnerAvailable,
-  getAvailableRunners,
-} from "./runner.js";
-
 // Evaluator
 export {
   categorizeTask,
+  displaySummary,
   filterTasks,
   loadCheckpoint,
-  saveResults,
-  displaySummary,
   runBenchmark,
+  saveResults,
 } from "./evaluator.js";
-
-// Comparison
+// Runner
 export {
-  loadRunnerResults,
-  loadAllRunnerResults,
-  compareResults,
-  generateComparisonSummary,
-  displayComparisonTable,
-  generateMarkdownReport,
-  saveComparisonReport,
-} from "./compare.js";
+  checkAnswer,
+  getAvailableRunners,
+  isRunnerAvailable,
+  normalizeAnswer,
+  runTask,
+  runTaskWithReflection,
+} from "./runner.js";
+// Types
+export type {
+  AgentRunner,
+  BenchmarkConfig,
+  BenchmarkMetadata,
+  BenchmarkReport,
+  BenchmarkResult,
+  ComparisonResult,
+  ComparisonSummary,
+  GaiaFile,
+  GaiaLevel,
+  GaiaTask,
+  TaskCategory,
+} from "./types.js";

@@ -1,6 +1,5 @@
 "use client";
 
-import { DEFAULT_RUNNER, RUNNER_OPTIONS } from "@/lib/runner";
 import {
   ArrowLeft,
   Bot as BotIcon,
@@ -13,6 +12,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { DEFAULT_RUNNER, RUNNER_OPTIONS } from "@/lib/runner";
 
 /**
  * Environment variable configuration (client-side)
