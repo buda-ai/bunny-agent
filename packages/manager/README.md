@@ -1,5 +1,13 @@
 # @sandagent/manager
 
+> ⚠️ **Deprecated (exec-based transport)**
+>
+> `@sandagent/manager` works by spawning `sandagent run` CLI inside a sandbox via `exec()`. This approach is being superseded by **`@sandagent/daemon`** — a unified HTTP gateway that runs inside the sandbox and exposes the same capabilities over a clean REST API.
+>
+> **Prefer `createSandAgentDaemon()` from `@sandagent/sdk`** for new integrations.
+>
+> This package remains supported for sandboxes that only provide `exec()` capability (E2B, Daytona, etc.) and has no planned removal date.
+
 Core manager package for SandAgent - manages sandbox and runner lifecycle, defines core interfaces.
 
 This package is the core runtime that wires **sandbox adapters** + a **runner spec** into an AI SDK UI stream you can consume from your server or CLI.

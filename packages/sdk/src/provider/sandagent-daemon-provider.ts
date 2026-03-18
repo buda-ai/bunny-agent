@@ -107,7 +107,7 @@ class DaemonLanguageModel implements LanguageModelV3 {
     };
 
     const response = await fetch(
-      `${this.settings.daemonUrl}/api/sandagent/run`,
+      `${this.settings.daemonUrl}/api/coding/run`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },

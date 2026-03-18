@@ -60,7 +60,7 @@ incoming HTTP request
 ┌───────────────────────────────────────────────────────┐
 │                  sandagent-daemon                     │
 │                                                       │
-│  POST /api/sandagent/run  ──────────────────────────┐ │
+│  POST /api/coding/run  ──────────────────────────┐ │
 │                                                     │ │
 │  GET|POST /api/fs/*   ──────────────────────────┐  │ │
 │  GET|POST /api/git/*  ──────────────────────┐   │  │ │
@@ -155,7 +155,7 @@ apps/sandagent-daemon/
 │       ├── fs.ts       GET|POST /api/fs/*
 │       ├── volumes.ts  GET|POST /api/volumes/*
 │       ├── git.ts      POST /api/git/*  (spawns git CLI)
-│       └── sandagent.ts POST /api/sandagent/run  (SSE, uses runner-core)
+│       └── coding.ts POST /api/coding/run  (SSE, uses runner-core)
 └── src/__tests__/
     └── daemon.test.ts  13 integration tests (no mocks, real fs + git)
 ```
@@ -186,7 +186,7 @@ exec sandagent-daemon
 
 ```bash
 # Run an agent — SSE stream
-curl -N -X POST http://localhost:3080/api/sandagent/run \
+curl -N -X POST http://localhost:3080/api/coding/run \
   -H 'Content-Type: application/json' \
   -d '{"runner":"claude","userInput":"List files in /workspace"}'
 
@@ -255,9 +255,9 @@ for await (const chunk of stream) {
 
 All JSON responses: `{ "ok": true, "data": {}, "error": null }`
 
-### Agent `/api/sandagent/*`
+### Agent `/api/coding/*`
 
-#### `POST /api/sandagent/run`
+#### `POST /api/coding/run`
 
 Run an agent and stream the output as SSE (AI SDK UI NDJSON format).
 
@@ -279,7 +279,7 @@ Example:
 
 ```bash
 # Stream with curl (-N disables buffering)
-curl -N -X POST http://localhost:3080/api/sandagent/run \
+curl -N -X POST http://localhost:3080/api/coding/run \
   -H 'Content-Type: application/json' \
   -d '{
     "runner": "claude",
@@ -288,7 +288,7 @@ curl -N -X POST http://localhost:3080/api/sandagent/run \
   }'
 
 # Use pi runner with a different model
-curl -N -X POST http://localhost:3080/api/sandagent/run \
+curl -N -X POST http://localhost:3080/api/coding/run \
   -H 'Content-Type: application/json' \
   -d '{
     "runner": "pi",

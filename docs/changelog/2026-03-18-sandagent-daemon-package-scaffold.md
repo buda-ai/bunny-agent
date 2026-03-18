@@ -121,10 +121,20 @@ Prepared a pull request for the initial daemon package scaffold, expanded it int
 - Switched daemon agent streaming responses to `application/x-ndjson` chunked output.
 - Emitted plain NDJSON error lines instead of SSE-formatted error events.
 
+### `apps/daemon/src/routes/coding.ts`
+
+- Moved the agent streaming route implementation into a dedicated coding route module.
+- Kept the runner-core streaming behavior while aligning the route naming with `/api/coding/run`.
+
+### `apps/daemon/src/server.ts`
+
+- Renamed the daemon streaming endpoint from `/api/sandagent/run` to `/api/coding/run`.
+
 ### `packages/sdk/src/provider/sandagent-daemon-provider.ts`
 
 - Added a daemon-backed AI SDK language model provider that calls `/api/sandagent/run`.
 - Mapped daemon NDJSON stream messages into AI SDK `LanguageModelV3` stream parts.
+- Updated the daemon transport provider to call `/api/coding/run`.
 
 ### `packages/sdk/src/index.ts`
 
@@ -134,3 +144,15 @@ Prepared a pull request for the initial daemon package scaffold, expanded it int
 
 - Documented the new daemon transport provider alongside the existing sandbox transport provider.
 - Added usage examples for `createSandAgentDaemon` and clarified transport swapping behavior.
+
+### `packages/manager/README.md`
+
+- Marked the exec-based manager transport as deprecated in favor of the daemon HTTP transport for new integrations.
+
+### `docs/ARCHITECTURE.md`
+
+- Added a high-level architecture document covering daemon deployment modes, SDK transport options, and package dependencies.
+
+### `apps/daemon/README.md`
+
+- Renamed the documented agent endpoint from `/api/sandagent/run` to `/api/coding/run`.

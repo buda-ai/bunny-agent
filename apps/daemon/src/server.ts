@@ -1,7 +1,7 @@
 import * as http from "node:http";
 import { URL } from "node:url";
 import { DaemonRouter } from "./router.js";
-import { sandagentRun } from "./routes/sandagent.js";
+import { sandagentRun } from "./routes/coding.js";
 import { fail } from "./utils.js";
 
 export interface DaemonConfig {
@@ -22,8 +22,8 @@ export function createDaemon(config: DaemonConfig): http.Server {
     );
     const pathname = url.pathname;
 
-    // Streaming: /api/sandagent/run
-    if (method === "POST" && pathname === "/api/sandagent/run") {
+    // Streaming: /api/coding/run
+    if (method === "POST" && pathname === "/api/coding/run") {
       const body = JSON.parse((await readBody(req)) || "{}");
       return sandagentRun(body, res, env);
     }
