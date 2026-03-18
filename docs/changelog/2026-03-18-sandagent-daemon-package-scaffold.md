@@ -17,6 +17,10 @@ Prepared a pull request for the initial `apps/sandagent-daemon` package scaffold
 
 - Added a package-local TypeScript configuration extending the workspace base config.
 
+### `apps/sandagent-daemon/vitest.config.ts`
+
+- Added a package-local Vitest configuration for daemon tests.
+
 ### `apps/sandagent-daemon/README.md`
 
 - Added English documentation covering the daemon architecture, API surface, runtime environment variables, and integration examples.
@@ -68,6 +72,10 @@ Prepared a pull request for the initial `apps/sandagent-daemon` package scaffold
 ### `apps/sandagent-daemon/src/routes/volumes.ts`
 
 - Added volume listing, creation, and removal helpers backed by the daemon state paths.
+
+### `apps/sandagent-daemon/src/__tests__/daemon.test.ts`
+
+- Added end-to-end daemon tests covering health, filesystem, volume, git, and not-found routes.
 
 ### `docs/changelog/2026-03-18-sandagent-daemon-package-scaffold.md`
 
