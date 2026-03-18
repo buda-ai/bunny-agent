@@ -7,9 +7,13 @@
 
 FROM node:20-slim
 
+# Version of @sandagent/runner-cli to install.
+# Override at build time: docker build --build-arg RUNNER_CLI_VERSION=1.2.3 ...
+ARG RUNNER_CLI_VERSION=latest
+
 LABEL org.opencontainers.image.title="sandagent"
 LABEL org.opencontainers.image.description="SandAgent with Claude Agent SDK pre-installed"
-LABEL org.opencontainers.image.version="0.1.0"
+LABEL org.opencontainers.image.version="$RUNNER_CLI_VERSION"
 
 # Install common tools (with retry for network issues)
 RUN for i in 1 2 3; do \
@@ -36,7 +40,7 @@ RUN mkdir -p /opt/sandagent && \
     npm init -y && \
     npm install --no-audit --no-fund \
     @anthropic-ai/claude-agent-sdk \
-    @sandagent/runner-cli@0.8.1 \
+    @sandagent/runner-cli@${RUNNER_CLI_VERSION} \
     playwright && \
     rm package.json package-lock.json && \
     npm cache clean --force && \
