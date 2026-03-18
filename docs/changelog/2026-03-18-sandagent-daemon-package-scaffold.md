@@ -114,3 +114,23 @@ Prepared a pull request for the initial daemon package scaffold, expanded it int
 
 - Expanded the documentation for direct `runner-core` usage without the daemon HTTP layer.
 - Added detailed request and streaming response documentation for `POST /api/sandagent/run`.
+- Updated the documented agent stream format from SSE to chunked NDJSON.
+
+### `apps/daemon/src/routes/sandagent.ts`
+
+- Switched daemon agent streaming responses to `application/x-ndjson` chunked output.
+- Emitted plain NDJSON error lines instead of SSE-formatted error events.
+
+### `packages/sdk/src/provider/sandagent-daemon-provider.ts`
+
+- Added a daemon-backed AI SDK language model provider that calls `/api/sandagent/run`.
+- Mapped daemon NDJSON stream messages into AI SDK `LanguageModelV3` stream parts.
+
+### `packages/sdk/src/index.ts`
+
+- Exported `createSandAgentDaemon` and its provider settings type from the SDK entrypoint.
+
+### `packages/sdk/README.md`
+
+- Documented the new daemon transport provider alongside the existing sandbox transport provider.
+- Added usage examples for `createSandAgentDaemon` and clarified transport swapping behavior.

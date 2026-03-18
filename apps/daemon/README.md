@@ -297,7 +297,7 @@ curl -N -X POST http://localhost:3080/api/sandagent/run \
   }'
 ```
 
-Response: `text/event-stream` — each chunk is an AI SDK UI NDJSON line, compatible with Vercel AI SDK `useChat` / `streamText`.
+Response: `application/x-ndjson` chunked stream — each line is an AI SDK UI message, compatible with Vercel AI SDK `useChat` / `streamText`.
 
 ### Filesystem `/api/fs/*`
 

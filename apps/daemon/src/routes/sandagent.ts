@@ -26,9 +26,9 @@ export async function sandagentRun(
   res.on("close", () => abortController.abort());
 
   res.writeHead(200, {
-    "Content-Type": "text/event-stream",
+    "Content-Type": "application/x-ndjson",
     "Cache-Control": "no-cache",
-    Connection: "keep-alive",
+    "Transfer-Encoding": "chunked",
   });
 
   try {
@@ -51,7 +51,7 @@ export async function sandagentRun(
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    res.write(`data: ${JSON.stringify({ error: msg })}\n\n`);
+    res.write(`${JSON.stringify({ error: msg })}\n`);
   } finally {
     res.end();
   }

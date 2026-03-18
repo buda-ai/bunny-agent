@@ -253,6 +253,8 @@ import {
 
 ### Provider
 
+#### `createSandAgent` — sandbox transport (cloud / local filesystem)
+
 ```typescript
 import { createSandAgent, LocalSandbox } from "@sandagent/sdk";
 
@@ -265,18 +267,32 @@ const sandagent = createSandAgent({
   verbose?: boolean,             // Debug logging
 });
 
-// Use as AI SDK model
-const model = sandagent("sonnet");           // Claude Sonnet (latest)
-const model = sandagent("opus");             // Claude Opus
-const model = sandagent("haiku");            // Claude Haiku
-const model = sandagent("claude-sonnet-4-20250514"); // Specific version
+const model = sandagent("claude-sonnet-4-20250514");
 ```
+
+#### `createSandAgentDaemon` — daemon HTTP transport (local dev / buda embed)
+
+Use this when `sandagent-daemon` is running — either as a standalone process in a container, or embedded in a Next.js app via `createNextHandler`.
+
+```typescript
+import { createSandAgentDaemon } from "@sandagent/sdk";
+
+const sandagent = createSandAgentDaemon({
+  daemonUrl: "http://localhost:3080",  // or /api/daemon when embedded in Next.js
+  runner: "claude",                    // claude · pi · gemini · codex · opencode
+  cwd: "/workspace",
+});
+
+const model = sandagent("claude-sonnet-4-20250514");
+```
+
+Both return the same `LanguageModelV3` interface — swap transports without changing any other code.
 
 ### Exports
 
 | Entry Point | Exports |
 |-------------|---------|
-| `@sandagent/sdk` | `createSandAgent`, `LocalSandbox`, `SandAgentLanguageModel`, `submitAnswer` |
+| `@sandagent/sdk` | `createSandAgent`, `createSandAgentDaemon`, `LocalSandbox`, `SandAgentLanguageModel`, `submitAnswer` |
 | `@sandagent/sdk/react` | `useSandAgentChat`, `useArtifacts`, `useWriteTool`, `useAskUserQuestion` |
 
 ---

@@ -26,6 +26,9 @@ export {
   submitAnswer,
 } from "./provider";
 
+export { createSandAgentDaemon } from "./provider/sandagent-daemon-provider";
+export type { DaemonProviderSettings } from "./provider/sandagent-daemon-provider";
+
 export type {
   SandAgentProvider,
   SandAgentProviderSettings,
