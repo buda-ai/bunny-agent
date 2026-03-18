@@ -21,6 +21,8 @@ export interface SandagentResourceLoaderOptions {
   settingsManager?: SettingsManager;
   /** Additional skill paths (files or directories) */
   skillPaths?: string[];
+  /** Custom system prompt */
+  systemPrompt?: string;
 }
 
 /**
@@ -44,6 +46,7 @@ export class SandagentResourceLoader implements ResourceLoader {
       cwd: this.cwd,
       agentDir: this.agentDir,
       settingsManager: options.settingsManager,
+      systemPrompt: options.systemPrompt,
     });
   }
 

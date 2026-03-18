@@ -285,8 +285,12 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
         return SessionManager.create(cwd);
       })();
 
-      const resourceLoader = options.skillPaths
-        ? new SandagentResourceLoader({ cwd, skillPaths: options.skillPaths })
+      const resourceLoader = options.skillPaths || options.systemPrompt
+        ? new SandagentResourceLoader({
+            cwd,
+            skillPaths: options.skillPaths,
+            systemPrompt: options.systemPrompt,
+          })
         : undefined;
 
       // createAgentSession only calls reload() when it creates its own
@@ -305,11 +309,14 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
         resourceLoader,
       });
 
-      if (options.systemPrompt != null && options.systemPrompt !== "") {
-        session.agent.setSystemPrompt(options.systemPrompt);
-      } else {
-        session.agent.setSystemPrompt("You are a helpful coding assistant.");
-      }
+      // The systemPrompt is natively handled by pi-mono's AgentSession which uses
+      // the SandagentResourceLoader to build a comprehensive prompt including:
+      // - The base system prompt (from options.systemPrompt or defaults)
+      // - Tool descriptions and guidelines
+      // - Context files (AGENTS.md, etc.)
+      // - Skill descriptions (<available_skills>)
+      // We do NOT manually call session.agent.setSystemPrompt here, as it would
+      // overwrite the beautifully constructed prompt.
 
       const eventQueue: AgentSessionEvent[] = [];
       let isComplete = false;

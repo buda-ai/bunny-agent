@@ -66,7 +66,7 @@ export class SandAgent {
     // Add optional skill paths (for pi runner)
     if (this.runner.skillPaths && this.runner.skillPaths.length > 0) {
       for (const skillPath of this.runner.skillPaths) {
-        cmd.push("--skill-path", skillPath);
+        cmd.push("--skill", skillPath);
       }
     }
 
