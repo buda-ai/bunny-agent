@@ -87,7 +87,9 @@ export function codingRunStream(
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        controller.enqueue(new TextEncoder().encode(`${JSON.stringify({ error: msg })}\n`));
+        controller.enqueue(
+          new TextEncoder().encode(`${JSON.stringify({ error: msg })}\n`),
+        );
       } finally {
         controller.close();
       }

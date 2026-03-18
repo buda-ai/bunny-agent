@@ -391,7 +391,10 @@ export const ContextCacheUsage = ({
 const TokensWithCost = ({
   tokens,
   costText,
-}: { tokens?: number; costText?: string }) => (
+}: {
+  tokens?: number;
+  costText?: string;
+}) => (
   <span>
     {tokens === undefined
       ? "—"

@@ -514,7 +514,7 @@ class DaytonaHandle implements SandboxHandle {
    */
   private shellEscape(arg: string): string {
     // If the argument contains no special characters, return as-is
-    if (/^[a-zA-Z0-9._\-\/=]+$/.test(arg)) {
+    if (/^[a-zA-Z0-9._\-/=]+$/.test(arg)) {
       return arg;
     }
     // Wrap in single quotes and escape any single quotes within

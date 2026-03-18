@@ -1,11 +1,11 @@
 import {
   BaseEdge,
   type EdgeProps,
+  getBezierPath,
+  getSimpleBezierPath,
   type InternalNode,
   type Node,
   Position,
-  getBezierPath,
-  getSimpleBezierPath,
   useInternalNode,
 } from "@xyflow/react";
 

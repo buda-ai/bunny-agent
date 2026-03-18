@@ -2,8 +2,8 @@
  * Gemini CLI Runner using ACP (Agent Client Protocol)
  */
 
-import { spawn } from "node:child_process";
 import type { ChildProcess } from "node:child_process";
+import { spawn } from "node:child_process";
 
 export interface GeminiRunnerOptions {
   model?: string;

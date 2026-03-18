@@ -106,15 +106,12 @@ class DaemonLanguageModel implements LanguageModelV3 {
       skillPaths: this.settings.skillPaths,
     };
 
-    const response = await fetch(
-      `${this.settings.daemonUrl}/api/coding/run`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-        signal: abortSignal,
-      },
-    );
+    const response = await fetch(`${this.settings.daemonUrl}/api/coding/run`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: abortSignal,
+    });
 
     if (!response.ok || !response.body) {
       throw new Error(

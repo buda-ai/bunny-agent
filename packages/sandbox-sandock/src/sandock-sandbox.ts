@@ -6,7 +6,7 @@ import type {
   SandboxHandle,
   Volume,
 } from "@sandagent/manager";
-import { type SandockClient, createSandockClient } from "sandock";
+import { createSandockClient, type SandockClient } from "sandock";
 
 /** Single volume mount configuration (name → get/create by name; mountPath inside container) */
 export interface SandockVolumeConfig {

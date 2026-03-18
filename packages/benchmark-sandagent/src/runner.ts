@@ -5,8 +5,10 @@
 import { spawn } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { getAllSmokingTests } from "@sandagent/benchmark-shared";
-import { evaluateAnswer } from "@sandagent/benchmark-shared";
+import {
+  evaluateAnswer,
+  getAllSmokingTests,
+} from "@sandagent/benchmark-shared";
 import { getRunner } from "./runners/index.js";
 
 // Setup logging
@@ -21,6 +23,7 @@ function log(message: string) {
   writeFileSync(logFile, line, { flag: "a" });
   console.log(`[LOG] ${message}`);
 }
+
 import type { BenchmarkResult, SandAgentRunner } from "./types.js";
 
 export interface RunOptions {

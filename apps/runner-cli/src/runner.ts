@@ -1,4 +1,4 @@
-import { type RunnerCoreOptions, createRunner } from "@sandagent/runner-core";
+import { createRunner, type RunnerCoreOptions } from "@sandagent/runner-core";
 
 export type RunAgentOptions = RunnerCoreOptions;
 

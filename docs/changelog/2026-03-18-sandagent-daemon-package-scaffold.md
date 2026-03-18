@@ -134,12 +134,18 @@ Prepared a pull request for the initial daemon package scaffold, expanded it int
 ### `apps/daemon/src/nextjs.ts`
 
 - Added direct handling for `/api/coding/run` so embedded Next.js deployments can return streamed NDJSON responses.
+- Fixed import ordering to satisfy Biome lint checks.
 
 ### `packages/sdk/src/provider/sandagent-daemon-provider.ts`
 
 - Added a daemon-backed AI SDK language model provider that calls `/api/sandagent/run`.
 - Mapped daemon NDJSON stream messages into AI SDK `LanguageModelV3` stream parts.
 - Updated the daemon transport provider to call `/api/coding/run`.
+- Applied Biome formatting fixes after adding the daemon transport fetch logic.
+
+### `apps/daemon/src/routes/coding.ts`
+
+- Applied Biome formatting fixes to the NDJSON error streaming path.
 
 ### `packages/sdk/src/index.ts`
 
@@ -161,3 +167,19 @@ Prepared a pull request for the initial daemon package scaffold, expanded it int
 ### `apps/daemon/README.md`
 
 - Renamed the documented agent endpoint from `/api/sandagent/run` to `/api/coding/run`.
+
+### `package.json`
+
+- Upgraded the root `@biomejs/biome` dependency to the 2.3.x line so workspace lint uses a consistent CLI/schema version.
+
+### `biome.json`
+
+- Migrated the root Biome configuration to the 2.3 schema and updated file include patterns to the current config format.
+
+### Workspace Biome fixes
+
+- Ran Biome safe fixes across the repository, normalizing import/export ordering and removing a broad set of lintable formatting issues.
+
+### `packages/kui/src/components/ui/input-group.tsx`
+
+- Added keyboard handling for the clickable input-group addon so it satisfies Biome accessibility lint rules.

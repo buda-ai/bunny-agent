@@ -19,43 +19,41 @@
  * ```
  */
 
+export type {
+  LocalSandboxOptions,
+  RunnerEnvParams,
+  RunnerType,
+} from "@sandagent/manager";
+// Re-export LocalSandbox for convenience
+// Re-export env helpers
+export { buildRunnerEnv, LocalSandbox } from "@sandagent/manager";
+export type {
+  ArtifactProcessor,
+  ArtifactResult,
+  // Re-exports from @ai-sdk/provider
+  LanguageModelV3StreamPart,
+  Logger,
+  Message,
+  Question,
+  SandAgentLanguageModelOptions,
+  SandAgentModelId,
+  SandAgentProvider,
+  SandAgentProviderSettings,
+  // Re-exports from @sandagent/manager
+  SandboxAdapter,
+  SandboxHandle,
+  StreamWriter,
+  SubmitAnswerOptions,
+  SubmitAnswerParams,
+  TranscriptEntry,
+} from "./provider";
 // Provider exports
 export {
   createSandAgent,
   SandAgentLanguageModel,
   submitAnswer,
 } from "./provider";
-
-export { createSandAgentDaemon } from "./provider/sandagent-daemon-provider";
 export type { DaemonProviderSettings } from "./provider/sandagent-daemon-provider";
-
-export type {
-  SandAgentProvider,
-  SandAgentProviderSettings,
-  SandAgentLanguageModelOptions,
-  SandAgentModelId,
-  Logger,
-  ArtifactProcessor,
-  ArtifactResult,
-  StreamWriter,
-  SubmitAnswerParams,
-  SubmitAnswerOptions,
-  Question,
-  // Re-exports from @sandagent/manager
-  SandboxAdapter,
-  SandboxHandle,
-  TranscriptEntry,
-  Message,
-  // Re-exports from @ai-sdk/provider
-  LanguageModelV3StreamPart,
-} from "./provider";
-
-// Re-export LocalSandbox for convenience
-export { LocalSandbox } from "@sandagent/manager";
-export type { LocalSandboxOptions } from "@sandagent/manager";
-
-// Re-export env helpers
-export { buildRunnerEnv } from "@sandagent/manager";
-export type { RunnerEnvParams, RunnerType } from "@sandagent/manager";
+export { createSandAgentDaemon } from "./provider/sandagent-daemon-provider";
 
 export const VERSION = "0.1.0";
