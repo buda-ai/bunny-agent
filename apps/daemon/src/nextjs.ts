@@ -5,22 +5,29 @@
  *
  *   // app/api/daemon/[...path]/route.ts
  *   import { createNextHandler } from "@sandagent/daemon/nextjs";
- *   const handler = createNextHandler({ root: "/workspace" });
+ *   const handler = createNextHandler({ root: "/workspace", prefix: "/api/daemon" });
  *   export const GET = handler;
  *   export const POST = handler;
+ *
+ * Requests to /api/daemon/healthz      → daemon /healthz
+ * Requests to /api/daemon/api/fs/read  → daemon /api/fs/read
+ * Requests to /api/daemon/api/coding/run → daemon /api/coding/run (NDJSON stream)
  */
 
 import { DaemonRouter } from "./router.js";
 import { codingRunStream, type RunRequest } from "./routes/coding.js";
 
-export function createNextHandler(opts: { root: string }) {
+export function createNextHandler(opts: { root: string; prefix?: string }) {
   const router = new DaemonRouter({ root: opts.root });
   const env = process.env as Record<string, string>;
+  const prefix = opts.prefix ?? "/api/daemon";
 
   return async (req: Request): Promise<Response> => {
     const url = new URL(req.url);
-    // Strip the Next.js prefix: /api/daemon/coding/run -> /api/coding/run
-    const pathname = url.pathname.replace(/^\/api\/daemon/, "/api");
+    // Strip the mount prefix to get the daemon-internal path
+    const pathname = url.pathname.startsWith(prefix)
+      ? url.pathname.slice(prefix.length) || "/"
+      : url.pathname;
     const method = req.method ?? "GET";
 
     // Streaming: /api/coding/run → NDJSON stream

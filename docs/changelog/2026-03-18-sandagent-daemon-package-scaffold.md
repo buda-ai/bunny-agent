@@ -135,6 +135,11 @@ Prepared a pull request for the initial daemon package scaffold, expanded it int
 
 - Added direct handling for `/api/coding/run` so embedded Next.js deployments can return streamed NDJSON responses.
 - Fixed import ordering to satisfy Biome lint checks.
+- Added configurable mount-prefix support so the embedded handler can be mounted outside the default `/api/daemon` path.
+
+### `apps/daemon/src/__tests__/coding.test.ts`
+
+- Added standalone and embedded streaming tests for the `/api/coding/run` route and the Next.js adapter.
 
 ### `packages/sdk/src/provider/sandagent-daemon-provider.ts`
 
