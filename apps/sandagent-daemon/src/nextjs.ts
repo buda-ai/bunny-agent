@@ -21,13 +21,17 @@ export function createNextHandler(opts: { root: string }) {
     const pathname = url.pathname.replace(/^\/api\/daemon/, "/api");
     const method = req.method ?? "GET";
 
-    const params = method === "GET"
-      ? Object.fromEntries(url.searchParams)
-      : await req.json().catch(() => ({})) as Record<string, unknown>;
+    const params =
+      method === "GET"
+        ? Object.fromEntries(url.searchParams)
+        : ((await req.json().catch(() => ({}))) as Record<string, unknown>);
 
     const result = await router.handle(method, pathname, params);
     if (!result) {
-      return Response.json({ ok: false, data: null, error: `not found: ${method} ${pathname}` }, { status: 404 });
+      return Response.json(
+        { ok: false, data: null, error: `not found: ${method} ${pathname}` },
+        { status: 404 },
+      );
     }
     return Response.json(result.body, { status: result.status });
   };

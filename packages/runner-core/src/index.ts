@@ -18,7 +18,9 @@ export interface RunnerCoreOptions extends BaseRunnerOptions {
  * Create a runner and return its output as an AsyncIterable<string>.
  * No stdout writing, no signal handling — caller decides what to do with the stream.
  */
-export function createRunner(options: RunnerCoreOptions): AsyncIterable<string> {
+export function createRunner(
+  options: RunnerCoreOptions,
+): AsyncIterable<string> {
   const cwd = options.cwd ?? process.cwd();
   const env = options.env ?? (process.env as Record<string, string>);
   const abortController = options.abortController ?? new AbortController();
@@ -39,11 +41,26 @@ export function createRunner(options: RunnerCoreOptions): AsyncIterable<string> 
     case "codex":
       return createCodexRunner({ ...base, cwd }).run(options.userInput);
     case "gemini":
-      return createGeminiRunner({ model: options.model, cwd, env, abortController }).run(options.userInput);
+      return createGeminiRunner({
+        model: options.model,
+        cwd,
+        env,
+        abortController,
+      }).run(options.userInput);
     case "pi":
-      return createPiRunner({ ...base, cwd, sessionId: options.resume, skillPaths: options.skillPaths }).run(options.userInput);
+      return createPiRunner({
+        ...base,
+        cwd,
+        sessionId: options.resume,
+        skillPaths: options.skillPaths,
+      }).run(options.userInput);
     case "opencode":
-      return createOpenCodeRunner({ model: options.model, cwd, env, abortController }).run(options.userInput);
+      return createOpenCodeRunner({
+        model: options.model,
+        cwd,
+        env,
+        abortController,
+      }).run(options.userInput);
     case "copilot":
       throw new Error("Copilot runner not yet implemented");
     default:

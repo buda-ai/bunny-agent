@@ -1,8 +1,8 @@
 import * as http from "node:http";
 import { URL } from "node:url";
-import { fail } from "./utils.js";
 import { DaemonRouter } from "./router.js";
 import { sandagentRun } from "./routes/sandagent.js";
+import { fail } from "./utils.js";
 
 export interface DaemonConfig {
   host: string;
@@ -16,19 +16,23 @@ export function createDaemon(config: DaemonConfig): http.Server {
 
   return http.createServer(async (req, res) => {
     const method = req.method ?? "GET";
-    const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
+    const url = new URL(
+      req.url ?? "/",
+      `http://${req.headers.host ?? "localhost"}`,
+    );
     const pathname = url.pathname;
 
     // Streaming: /api/sandagent/run
     if (method === "POST" && pathname === "/api/sandagent/run") {
-      const body = JSON.parse(await readBody(req) || "{}");
+      const body = JSON.parse((await readBody(req)) || "{}");
       return sandagentRun(body, res, env);
     }
 
     // Standard JSON routes
-    const params = method === "GET"
-      ? Object.fromEntries(url.searchParams)
-      : JSON.parse(await readBody(req) || "{}");
+    const params =
+      method === "GET"
+        ? Object.fromEntries(url.searchParams)
+        : JSON.parse((await readBody(req)) || "{}");
 
     const result = await router.handle(method, pathname, params);
     const status = result?.status ?? 404;

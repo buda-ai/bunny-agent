@@ -1,7 +1,12 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { AppState } from "../utils.js";
-import { ok, resolveVolumeRoot, resolveUnderRoot, ensureDir } from "../utils.js";
+import {
+  ensureDir,
+  ok,
+  resolveUnderRoot,
+  resolveVolumeRoot,
+} from "../utils.js";
 
 // --- Query types ---
 
@@ -83,13 +88,20 @@ export async function fsStat(state: AppState, q: PathQuery) {
   const root = resolveVolumeRoot(state, q.volume);
   const target = resolveUnderRoot(root, q.path);
   const stat = await fs.stat(target);
-  return ok({ path: target, is_dir: stat.isDirectory(), size: stat.isFile() ? stat.size : 0 });
+  return ok({
+    path: target,
+    is_dir: stat.isDirectory(),
+    size: stat.isFile() ? stat.size : 0,
+  });
 }
 
 export async function fsExists(state: AppState, q: PathQuery) {
   const root = resolveVolumeRoot(state, q.volume);
   const target = resolveUnderRoot(root, q.path);
-  const exists = await fs.stat(target).then(() => true, () => false);
+  const exists = await fs.stat(target).then(
+    () => true,
+    () => false,
+  );
   return ok({ path: target, exists });
 }
 
@@ -98,7 +110,12 @@ export async function fsFind(state: AppState, q: FindQuery) {
   const start = resolveUnderRoot(root, q.path ?? ".");
   const needle = q.pattern.toLowerCase();
   const limit = Math.min(Math.max(q.limit ?? 200, 1), 2000);
-  const result: { name: string; path: string; is_dir: boolean; size: number }[] = [];
+  const result: {
+    name: string;
+    path: string;
+    is_dir: boolean;
+    size: number;
+  }[] = [];
   const queue = [start];
 
   while (queue.length > 0 && result.length < limit) {

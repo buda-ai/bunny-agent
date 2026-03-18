@@ -1,9 +1,9 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { createDaemon } from "../server.js";
-import * as http from "node:http";
 import * as fs from "node:fs/promises";
+import type * as http from "node:http";
 import * as os from "node:os";
 import * as path from "node:path";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { createDaemon } from "../server.js";
 
 const PORT = 13080;
 const BASE = `http://localhost:${PORT}`;
@@ -45,7 +45,10 @@ describe("healthz", () => {
 
 describe("fs", () => {
   it("write + read", async () => {
-    const w = await post("/api/fs/write", { path: "hello.txt", content: "world" });
+    const w = await post("/api/fs/write", {
+      path: "hello.txt",
+      content: "world",
+    });
     expect(w.ok).toBe(true);
 
     const r = await get("/api/fs/read?path=hello.txt");
@@ -56,7 +59,9 @@ describe("fs", () => {
   it("list", async () => {
     const r = await get("/api/fs/list?path=.");
     expect(r.ok).toBe(true);
-    expect(r.data.some((e: any) => e.name === "hello.txt")).toBe(true);
+    expect(r.data.some((e: { name: string }) => e.name === "hello.txt")).toBe(
+      true,
+    );
   });
 
   it("stat", async () => {
@@ -97,11 +102,16 @@ describe("fs", () => {
     expect((await get("/api/fs/exists?path=moved.txt")).data.exists).toBe(true);
 
     await post("/api/fs/remove", { path: "moved.txt" });
-    expect((await get("/api/fs/exists?path=moved.txt")).data.exists).toBe(false);
+    expect((await get("/api/fs/exists?path=moved.txt")).data.exists).toBe(
+      false,
+    );
   });
 
   it("rejects path traversal", async () => {
-    const r = await post("/api/fs/write", { path: "../../etc/evil", content: "x" });
+    const r = await post("/api/fs/write", {
+      path: "../../etc/evil",
+      content: "x",
+    });
     expect(r.ok).toBe(false);
   });
 });
@@ -120,7 +130,10 @@ describe("volumes", () => {
 
 describe("git", () => {
   it("init + status", async () => {
-    const init = await post("/api/git/init", { repo: "myrepo", initial_branch: "main" });
+    const init = await post("/api/git/init", {
+      repo: "myrepo",
+      initial_branch: "main",
+    });
     expect(init.ok).toBe(true);
 
     const status = await post("/api/git/status", { repo: "myrepo" });
