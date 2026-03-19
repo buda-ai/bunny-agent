@@ -85,9 +85,6 @@ importers:
       '@openai/codex-sdk':
         specifier: ^0.110.0
         version: 0.110.0
-      '@sandagent/runner-core':
-        specifier: workspace:*
-        version: link:../../packages/runner-core
       dotenv:
         specifier: ^17.3.1
         version: 17.3.1
@@ -101,6 +98,9 @@ importers:
       '@sandagent/runner-codex':
         specifier: workspace:*
         version: link:../../packages/runner-codex
+      '@sandagent/runner-core':
+        specifier: workspace:*
+        version: link:../../packages/runner-core
       '@sandagent/runner-gemini':
         specifier: workspace:*
         version: link:../../packages/runner-gemini
@@ -600,13 +600,13 @@ importers:
     dependencies:
       '@mariozechner/pi-agent-core':
         specifier: ^0.56.1
-        version: 0.56.1(ws@8.19.0)(zod@3.25.76)
+        version: 0.56.1(ws@8.19.0)(zod@4.3.6)
       '@mariozechner/pi-ai':
         specifier: ^0.56.1
-        version: 0.56.1(ws@8.19.0)(zod@3.25.76)
+        version: 0.56.1(ws@8.19.0)(zod@4.3.6)
       '@mariozechner/pi-coding-agent':
         specifier: ^0.56.1
-        version: 0.56.1(ws@8.19.0)(zod@3.25.76)
+        version: 0.56.1(ws@8.19.0)(zod@4.3.6)
     devDependencies:
       typescript:
         specifier: ^5.7.3
@@ -6726,12 +6726,6 @@ snapshots:
       '@img/sharp-win32-arm64': 0.34.5
       '@img/sharp-win32-x64': 0.34.5
 
-  '@anthropic-ai/sdk@0.73.0(zod@3.25.76)':
-    dependencies:
-      json-schema-to-ts: 3.1.1
-    optionalDependencies:
-      zod: 3.25.76
-
   '@anthropic-ai/sdk@0.73.0(zod@4.3.6)':
     dependencies:
       json-schema-to-ts: 3.1.1
@@ -8299,45 +8293,9 @@ snapshots:
       std-env: 3.10.0
       yoctocolors: 2.1.2
 
-  '@mariozechner/pi-agent-core@0.56.1(ws@8.19.0)(zod@3.25.76)':
-    dependencies:
-      '@mariozechner/pi-ai': 0.56.1(ws@8.19.0)(zod@3.25.76)
-    transitivePeerDependencies:
-      - '@modelcontextprotocol/sdk'
-      - aws-crt
-      - bufferutil
-      - supports-color
-      - utf-8-validate
-      - ws
-      - zod
-
   '@mariozechner/pi-agent-core@0.56.1(ws@8.19.0)(zod@4.3.6)':
     dependencies:
       '@mariozechner/pi-ai': 0.56.1(ws@8.19.0)(zod@4.3.6)
-    transitivePeerDependencies:
-      - '@modelcontextprotocol/sdk'
-      - aws-crt
-      - bufferutil
-      - supports-color
-      - utf-8-validate
-      - ws
-      - zod
-
-  '@mariozechner/pi-ai@0.56.1(ws@8.19.0)(zod@3.25.76)':
-    dependencies:
-      '@anthropic-ai/sdk': 0.73.0(zod@3.25.76)
-      '@aws-sdk/client-bedrock-runtime': 3.1002.0
-      '@google/genai': 1.44.0
-      '@mistralai/mistralai': 1.10.0
-      '@sinclair/typebox': 0.34.48
-      ajv: 8.18.0
-      ajv-formats: 3.0.1(ajv@8.18.0)
-      chalk: 5.6.2
-      openai: 6.10.0(ws@8.19.0)(zod@3.25.76)
-      partial-json: 0.1.7
-      proxy-agent: 6.5.0
-      undici: 7.22.0
-      zod-to-json-schema: 3.25.1(zod@3.25.76)
     transitivePeerDependencies:
       - '@modelcontextprotocol/sdk'
       - aws-crt
@@ -8362,38 +8320,6 @@ snapshots:
       proxy-agent: 6.5.0
       undici: 7.22.0
       zod-to-json-schema: 3.25.1(zod@4.3.6)
-    transitivePeerDependencies:
-      - '@modelcontextprotocol/sdk'
-      - aws-crt
-      - bufferutil
-      - supports-color
-      - utf-8-validate
-      - ws
-      - zod
-
-  '@mariozechner/pi-coding-agent@0.56.1(ws@8.19.0)(zod@3.25.76)':
-    dependencies:
-      '@mariozechner/jiti': 2.6.5
-      '@mariozechner/pi-agent-core': 0.56.1(ws@8.19.0)(zod@3.25.76)
-      '@mariozechner/pi-ai': 0.56.1(ws@8.19.0)(zod@3.25.76)
-      '@mariozechner/pi-tui': 0.56.1
-      '@silvia-odwyer/photon-node': 0.3.4
-      chalk: 5.6.2
-      cli-highlight: 2.1.11
-      diff: 8.0.3
-      extract-zip: 2.0.1
-      file-type: 21.3.0
-      glob: 13.0.6
-      hosted-git-info: 9.0.2
-      ignore: 7.0.5
-      marked: 15.0.12
-      minimatch: 10.2.4
-      proper-lockfile: 4.1.2
-      strip-ansi: 7.2.0
-      undici: 7.22.0
-      yaml: 2.8.2
-    optionalDependencies:
-      '@mariozechner/clipboard': 0.3.2
     transitivePeerDependencies:
       - '@modelcontextprotocol/sdk'
       - aws-crt
@@ -12738,11 +12664,6 @@ snapshots:
       oniguruma-parser: 0.12.1
       regex: 6.1.0
       regex-recursion: 6.0.2
-
-  openai@6.10.0(ws@8.19.0)(zod@3.25.76):
-    optionalDependencies:
-      ws: 8.19.0
-      zod: 3.25.76
 
   openai@6.10.0(ws@8.19.0)(zod@4.3.6):
     optionalDependencies:
