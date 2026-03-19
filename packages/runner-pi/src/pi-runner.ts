@@ -443,14 +443,14 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
                 }
               }
             } else if (event.type === "tool_execution_start") {
-              yield `data: ${JSON.stringify({ type: "tool-input-start", toolCallId: event.toolCallId, toolName: event.toolName, dynamic: true })}\n\n`;
-              yield `data: ${JSON.stringify({ type: "tool-input-available", toolCallId: event.toolCallId, toolName: event.toolName, input: event.args, dynamic: true })}\n\n`;
+              yield `data: ${JSON.stringify({ type: "tool-input-start", toolCallId: event.toolCallId, toolName: event.toolName, dynamic: true, providerExecuted: true })}\n\n`;
+              yield `data: ${JSON.stringify({ type: "tool-input-available", toolCallId: event.toolCallId, toolName: event.toolName, input: event.args, dynamic: true, providerExecuted: true })}\n\n`;
             } else if (event.type === "tool_execution_end") {
               // Pi tools return results in { content: [{type:"text",text:"..."}], details:{} }
               // format.  Extract the plain text so the UI and downstream SDK
               // receive a readable string instead of a raw JSON object.
               const output = extractToolResultText(event.result);
-              yield `data: ${JSON.stringify({ type: "tool-output-available", toolCallId: event.toolCallId, output, isError: event.isError, dynamic: true })}\n\n`;
+              yield `data: ${JSON.stringify({ type: "tool-output-available", toolCallId: event.toolCallId, output, isError: event.isError, dynamic: true, providerExecuted: true })}\n\n`;
             } else if (event.type === "agent_end") {
               if (aborted) {
                 yield* finishError("Run aborted by signal.");
