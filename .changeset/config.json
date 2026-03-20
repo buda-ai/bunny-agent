@@ -4,6 +4,7 @@
   "commit": false,
   "fixed": [
     [
+      "@sandagent/daemon",
       "@sandagent/manager",
       "@sandagent/runner-cli",
       "@sandagent/sandbox-e2b",
