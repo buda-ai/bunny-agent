@@ -1,5 +1,11 @@
 # @sandagent/manager
 
+## 0.8.6
+
+### Patch Changes
+
+- Release v0.8.6
+
 ## 0.8.5
 
 ### Patch Changes
