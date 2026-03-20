@@ -21,7 +21,7 @@ import { SandockSandbox } from "@sandagent/sandbox-sandock";
 const sandbox = new SandockSandbox({
   apiKey: process.env.SANDOCK_API_KEY,
   workdir: "/workspace",
-  image: "vikadata/sandagent:latest",
+  image: "ghcr.io/vikadata/sandagent:latest",
   skipBootstrap: true,
 });
 ```
@@ -49,7 +49,7 @@ const sandbox = new SandockSandbox({
 ```ts
 new SandockSandbox({
   apiKey: process.env.SANDOCK_API_KEY,
-  image: "vikadata/sandagent:latest",
+  image: "ghcr.io/vikadata/sandagent:latest",
   skipBootstrap: true,
   workdir: "/workspace",
 });
@@ -60,7 +60,7 @@ new SandockSandbox({
 ```ts
 new SandockSandbox({
   apiKey: process.env.SANDOCK_API_KEY,
-  image: "vikadata/sandagent:latest",
+  image: "ghcr.io/vikadata/sandagent:latest",
   skipBootstrap: true,
   workdir: "/workspace",
   volumes: [
@@ -77,7 +77,7 @@ Pass `sandboxId` to reattach to a previously created sandbox. The adapter will o
 ```ts
 const sandbox = new SandockSandbox({
   apiKey: process.env.SANDOCK_API_KEY,
-  image: "vikadata/sandagent:latest",
+  image: "ghcr.io/vikadata/sandagent:latest",
   skipBootstrap: true,
   workdir: "/workspace",
   sandboxId: "cached-sandbox-id", // from your cache
@@ -102,7 +102,7 @@ const sandagent = createSandAgent({
   sandbox: new SandockSandbox({
     apiKey: process.env.SANDOCK_API_KEY,
     workdir: "/workspace",
-    image: "vikadata/sandagent:latest",
+    image: "ghcr.io/vikadata/sandagent:latest",
     skipBootstrap: true,
   }),
   env: { ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY! },
@@ -135,7 +135,7 @@ Install: `npm install @sandagent/sandbox-sandock @sandagent/sdk ai`
 
 ## About skipBootstrap
 
-- **`skipBootstrap: true`**: Image already includes `sandagent run`; only upload seed files (from `templatesPath`), no runner install. Use with pre-built images like `vikadata/sandagent:latest`.
+- **`skipBootstrap: true`**: Image already includes `sandagent run`; only upload seed files (from `templatesPath`), no runner install. Use with pre-built images like `ghcr.io/vikadata/sandagent:latest`.
 - **`skipBootstrap: false`**: On attach, runs `npm install @sandagent/runner-cli@latest` in `workdir`, then uses `${workdir}/node_modules/.bin/sandagent run` for execution.
 
 ## License
