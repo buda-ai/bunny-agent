@@ -14,7 +14,6 @@ The following packages are published to npm under the `@sandagent` scope and for
 | `@sandagent/manager` | Core orchestration & interfaces |
 | `@sandagent/sandbox-sandock` | Sandock sandbox adapter |
 | `@sandagent/runner-cli` | Universal agent runner CLI |
-| `@sandagent/daemon` | Unified API gateway for sandbox services |
 
 ---
 
