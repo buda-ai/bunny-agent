@@ -25,7 +25,7 @@
   "dependencies": {
     "@mariozechner/pi-agent-core": "^0.56.1",
     "@mariozechner/pi-ai": "^0.56.1",
-    "@mariozechner/pi-coding-agent": "^0.56.1"
+    "@mariozechner/pi-coding-agent": "^0.61.0"
   },
   "devDependencies": {
     "typescript": "^5.7.3",
