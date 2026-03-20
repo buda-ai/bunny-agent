@@ -1,5 +1,13 @@
 # @sandagent/sandbox-sandock
 
+## 0.8.8
+
+### Patch Changes
+
+- Release v0.8.8
+- Updated dependencies
+  - @sandagent/manager@0.8.8
+
 ## 0.8.7
 
 ### Patch Changes
