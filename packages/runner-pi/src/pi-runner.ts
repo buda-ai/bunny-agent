@@ -5,7 +5,7 @@ import {
   type AgentSessionEvent,
   AuthStorage,
   createAgentSession,
-  InMemoryAuthStorage
+  InMemoryAuthStorage,
   SessionManager,
 } from "@mariozechner/pi-coding-agent";
 import { SandagentResourceLoader } from "./sandagent-resource-loader.js";
