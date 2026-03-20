@@ -84,6 +84,9 @@ importers:
       '@openai/codex-sdk':
         specifier: ^0.110.0
         version: 0.110.0
+      '@sandagent/runner-core':
+        specifier: workspace:*
+        version: link:../../packages/runner-core
       dotenv:
         specifier: ^17.3.1
         version: 17.3.1
@@ -97,9 +100,6 @@ importers:
       '@sandagent/runner-codex':
         specifier: workspace:*
         version: link:../../packages/runner-codex
-      '@sandagent/runner-core':
-        specifier: workspace:*
-        version: link:../../packages/runner-core
       '@sandagent/runner-gemini':
         specifier: workspace:*
         version: link:../../packages/runner-gemini
