@@ -1,12 +1,10 @@
 import { appendFileSync, existsSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
-import type { AgentEvent } from "@mariozechner/pi-agent-core";
 import { getModel, type Usage } from "@mariozechner/pi-ai";
 import {
   type AgentSessionEvent,
   AuthStorage,
   createAgentSession,
-  InMemoryAuthStorageBackend,
   ModelRegistry,
   SessionManager,
 } from "@mariozechner/pi-coding-agent";
@@ -446,9 +444,6 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
               yield `data: ${JSON.stringify({ type: "tool-input-start", toolCallId: event.toolCallId, toolName: event.toolName, dynamic: true, providerExecuted: true })}\n\n`;
               yield `data: ${JSON.stringify({ type: "tool-input-available", toolCallId: event.toolCallId, toolName: event.toolName, input: event.args, dynamic: true, providerExecuted: true })}\n\n`;
             } else if (event.type === "tool_execution_end") {
-              // Pi tools return results in { content: [{type:"text",text:"..."}], details:{} }
-              // format.  Extract the plain text so the UI and downstream SDK
-              // receive a readable string instead of a raw JSON object.
               const output = extractToolResultText(event.result);
               yield `data: ${JSON.stringify({ type: "tool-output-available", toolCallId: event.toolCallId, output, isError: event.isError, dynamic: true, providerExecuted: true })}\n\n`;
             } else if (event.type === "agent_end") {
