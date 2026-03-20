@@ -5,7 +5,7 @@ import {
   type AgentSessionEvent,
   AuthStorage,
   createAgentSession,
-  InMemoryAuthStorage,
+  ModelRegistry,
   SessionManager,
 } from "@mariozechner/pi-coding-agent";
 import { SandagentResourceLoader } from "./sandagent-resource-loader.js";
@@ -372,7 +372,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           }
         } catch (e) {
           // Fallback to raw string if parsing fails
-        }_e
+        }
 
         const promptPromise = session.prompt(
           promptText,
