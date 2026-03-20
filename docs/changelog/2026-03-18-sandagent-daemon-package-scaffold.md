@@ -141,6 +141,7 @@ Prepared a pull request for the initial daemon package scaffold, expanded it int
 
 - Added standalone and embedded streaming tests for the `/api/coding/run` route and the Next.js adapter.
 - Updated the git exec negative test to assert the current unsupported-subcommand error path.
+- Fixed Biome issues in the coding route tests by organizing imports, formatting assertions, and replacing the throw-only async generator mock.
 
 ### `packages/sdk/src/provider/sandagent-daemon-provider.ts`
 
