@@ -1,6 +1,6 @@
 {
   "name": "@sandagent/runner-cli",
-  "version": "0.8.7",
+  "version": "0.8.8",
   "description": "SandAgent Runner CLI - Like gemini-cli or claude-code, runs in your local terminal with AI SDK UI streaming",
   "type": "module",
   "bin": {
