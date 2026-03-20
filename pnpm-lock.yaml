@@ -101,6 +101,9 @@ importers:
       '@sandagent/runner-codex':
         specifier: workspace:*
         version: link:../../packages/runner-codex
+      '@sandagent/runner-core':
+        specifier: workspace:*
+        version: link:../../packages/runner-core
       '@sandagent/runner-gemini':
         specifier: workspace:*
         version: link:../../packages/runner-gemini
