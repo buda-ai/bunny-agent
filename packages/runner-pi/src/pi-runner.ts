@@ -1,13 +1,11 @@
 import { appendFileSync, existsSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
-import type { AgentEvent } from "@mariozechner/pi-agent-core";
 import { getModel, type Usage } from "@mariozechner/pi-ai";
 import {
   type AgentSessionEvent,
   AuthStorage,
   createAgentSession,
-  InMemoryAuthStorageBackend,
-  ModelRegistry,
+  InMemoryAuthStorage
   SessionManager,
 } from "@mariozechner/pi-coding-agent";
 import { SandagentResourceLoader } from "./sandagent-resource-loader.js";
@@ -374,7 +372,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           }
         } catch (e) {
           // Fallback to raw string if parsing fails
-        }
+        }_e
 
         const promptPromise = session.prompt(
           promptText,
@@ -444,23 +442,10 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
               }
             } else if (event.type === "tool_execution_start") {
               yield `data: ${JSON.stringify({ type: "tool-input-start", toolCallId: event.toolCallId, toolName: event.toolName, dynamic: true, providerExecuted: true })}\n\n`;
-              // We do not yield tool-input-available yet because it might be an invalid tool
-            } else if (event.type === "tool_execution_error") {
-              // Not directly used by Pi currently but handle it if emitted
-              yield `data: ${JSON.stringify({ type: "tool-input-error", toolCallId: event.toolCallId, toolName: event.toolName, errorText: "Tool execution failed" })}\n\n`;
-              yield `data: ${JSON.stringify({ type: "tool-output-error", toolCallId: event.toolCallId, errorText: "Tool execution failed" })}\n\n`;
+              yield `data: ${JSON.stringify({ type: "tool-input-available", toolCallId: event.toolCallId, toolName: event.toolName, input: event.args, dynamic: true, providerExecuted: true })}\n\n`;
             } else if (event.type === "tool_execution_end") {
               const output = extractToolResultText(event.result);
-              
-              // If it's a known invalid tool from AI SDK / Pi, handle it as an error
-              if (event.isError && output.includes("Model tried to call unavailable tool")) {
-                yield `data: ${JSON.stringify({ type: "tool-input-error", toolCallId: event.toolCallId, toolName: event.toolName, input: event.args, dynamic: true, errorText: output })}\n\n`;
-                yield `data: ${JSON.stringify({ type: "tool-output-error", toolCallId: event.toolCallId, errorText: output, dynamic: true })}\n\n`;
-              } else {
-                // If it successfully executed (or failed due to tool logic), first available input, then output
-                yield `data: ${JSON.stringify({ type: "tool-input-available", toolCallId: event.toolCallId, toolName: event.toolName, input: event.args, dynamic: true, providerExecuted: true })}\n\n`;
-                yield `data: ${JSON.stringify({ type: "tool-output-available", toolCallId: event.toolCallId, output, isError: event.isError, dynamic: true, providerExecuted: true })}\n\n`;
-              }
+              yield `data: ${JSON.stringify({ type: "tool-output-available", toolCallId: event.toolCallId, output, isError: event.isError, dynamic: true, providerExecuted: true })}\n\n`;
             } else if (event.type === "agent_end") {
               if (aborted) {
                 yield* finishError("Run aborted by signal.");
