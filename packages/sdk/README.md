@@ -170,7 +170,7 @@ import { SandockSandbox } from "@sandagent/sandbox-sandock";
 
 const sandbox = new SandockSandbox({
   apiKey: process.env.SANDOCK_API_KEY,   // Get yours at https://sandock.ai
-  image: "ghcr.io/vikadata/sandagent:latest",     // Pre-built image (fast startup)
+  image: "vikadata/sandagent:0.1.0",     // Pre-built image (fast startup)
   skipBootstrap: true,
   workdir: "/workspace",
   env: { ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY! },
@@ -186,7 +186,7 @@ const sandagent = createSandAgent({ sandbox, cwd: sandbox.getWorkdir() });
 | Sandock Option | Description |
 |----------------|-------------|
 | `apiKey` | Your Sandock API key ([sandock.ai](https://sandock.ai)) |
-| `image` | Docker image — use `ghcr.io/vikadata/sandagent:latest` for pre-built, or `sandockai/sandock-code:latest` |
+| `image` | Docker image — use `vikadata/sandagent:0.1.0` for pre-built, or `sandockai/sandock-code:latest` |
 | `skipBootstrap` | `true` when using pre-built image (skips npm install inside sandbox) |
 | `volumes` | Named volumes for persistent workspace & session storage |
 | `keep` | `true` (default) keeps sandbox alive ~30 min after execution |
