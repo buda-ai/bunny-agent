@@ -22,8 +22,8 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc && pnpm bundle",
-    "bundle": "esbuild src/cli.ts --bundle --platform=node --format=esm --outfile=dist/bundle.mjs",
+    "build": "pnpm clean && tsc --emitDeclarationOnly && pnpm bundle",
+    "bundle": "esbuild src/index.ts src/nextjs.ts --bundle --platform=node --format=esm --outdir=dist && esbuild src/cli.ts --bundle --platform=node --format=esm --outfile=dist/bundle.mjs",
     "dev": "tsc --watch",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit",
