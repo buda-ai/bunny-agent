@@ -72,6 +72,11 @@ export interface SandockSandboxOptions {
    * After this duration, the sandbox will be automatically terminated.
    */
   maxLifetimeSeconds?: number;
+
+  /**
+   * Auto-delete interval in minutes. -1 = never auto-delete.
+   */
+  autoDeleteInterval?: number;
 }
 
 /**
@@ -94,6 +99,7 @@ export class SandockSandbox implements SandboxAdapter {
   private readonly env: Record<string, string>;
   private readonly name?: string;
   private readonly maxLifetimeSeconds?: number;
+  private readonly autoDeleteInterval?: number;
 
   /** Current handle for the sandbox instance; also holds optional existing sandbox id to attach to (before attach) */
   private currentHandle: SandboxHandle | null = null;
@@ -127,6 +133,7 @@ export class SandockSandbox implements SandboxAdapter {
     this.name = options.name;
     this._sandboxId = options.sandboxId ?? null;
     this.maxLifetimeSeconds = options.maxLifetimeSeconds;
+    this.autoDeleteInterval = options.autoDeleteInterval;
   }
 
   /**
@@ -290,12 +297,14 @@ export class SandockSandbox implements SandboxAdapter {
       volumes?: Array<{ volumeId: string; mountPath: string }>;
       title?: string;
       activeDeadlineSeconds?: number;
+      autoDeleteInterval?: number;
     } = {
       image: this.image,
       memory: this.memoryLimitMb,
       cpu: this.cpuShares,
       title: this.name,
       activeDeadlineSeconds: this.maxLifetimeSeconds,
+      autoDeleteInterval: this.autoDeleteInterval,
     };
     if (volumeMounts.length > 0) {
       createOptions.volumes = volumeMounts.map((v) => ({
