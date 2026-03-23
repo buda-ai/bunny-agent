@@ -21,6 +21,8 @@ RUN for i in 1 2 3; do \
     git \
     curl \
     sudo \
+    python3 \
+    python3-pip \
     && rm -rf /var/lib/apt/lists/* \
     && break || sleep 5; \
     done
@@ -64,7 +66,8 @@ RUN echo '#!/usr/bin/env node' > /usr/local/bin/sandagent && \
     echo 'import("/opt/sandagent/node_modules/@sandagent/runner-cli/dist/bundle.mjs")' >> /usr/local/bin/sandagent && \
     chmod +x /usr/local/bin/sandagent
 
-# Set environment variables
+# Install global CLI tools for agent use
+RUN npm install -g brave-search-cli
 ENV NODE_PATH=/opt/sandagent/node_modules
 ENV PATH=/usr/local/bin:$PATH
 

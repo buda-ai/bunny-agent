@@ -22,6 +22,8 @@ RUN for i in 1 2 3; do \
     curl \
     sudo \
     tmux \
+    python3 \
+    python3-pip \
     && rm -rf /var/lib/apt/lists/* \
     && break || sleep 5; \
     done
@@ -50,7 +52,7 @@ RUN mkdir -p /opt/sandagent && \
 ENV PLAYWRIGHT_BROWSERS_PATH=/opt/sandagent/pw-browsers
 RUN cd /opt/sandagent && npx playwright install --with-deps chromium
 
-RUN npm install simple-git -g
+RUN npm install simple-git brave-search-cli -g
 
 # Create init script to copy deps to workspace on startup
 RUN echo '#!/bin/bash\n\
