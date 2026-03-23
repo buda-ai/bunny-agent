@@ -16,9 +16,6 @@
  *   sandagent-manager info               - Show environment and configuration
  */
 
-import * as fs from "node:fs";
-import * as path from "node:path";
-import { parseArgs } from "node:util";
 import { infoCommand } from "./commands/info.js";
 import { listCommand } from "./commands/list.js";
 import { runCommand } from "./commands/run.js";

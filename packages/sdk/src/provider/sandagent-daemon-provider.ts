@@ -4,8 +4,7 @@ import type {
   LanguageModelV3StreamPart,
   LanguageModelV3StreamResult,
 } from "@ai-sdk/provider";
-import { SandAgentLanguageModel } from "./sandagent-language-model";
-import type { SandAgentModelId, SandAgentProviderSettings } from "./types";
+import type { SandAgentModelId } from "./types";
 
 export interface DaemonProviderSettings {
   /** Base URL of the sandagent-daemon, e.g. "http://localhost:3080" */

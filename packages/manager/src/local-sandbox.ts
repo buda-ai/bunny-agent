@@ -308,10 +308,12 @@ class LocalSandboxHandle implements SandboxHandle {
       throw spawnError;
     }
 
-    // Buffer stderr from the start so we have it when process exits with non-zero
+    // Buffer stderr for error reporting; also mirror to the parent process so
+    // subprocess diagnostics (e.g. [sandagent:pi] skill load) are visible on success.
     const stderrChunks: Buffer[] = [];
     child.stderr.on("data", (chunk: Buffer) => {
       stderrChunks.push(chunk);
+      process.stderr.write(chunk);
     });
 
     try {

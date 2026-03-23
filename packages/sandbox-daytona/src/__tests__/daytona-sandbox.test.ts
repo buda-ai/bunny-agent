@@ -22,7 +22,7 @@ vi.mock("@daytonaio/sdk", () => {
       deleteSession: vi.fn().mockResolvedValue(undefined),
       getSessionCommandLogs: vi
         .fn()
-        .mockImplementation((sessionId, cmdId, callback) => {
+        .mockImplementation((_sessionId, _cmdId, callback) => {
           // Mock streaming logs
           callback("test output\n");
           return Promise.resolve();

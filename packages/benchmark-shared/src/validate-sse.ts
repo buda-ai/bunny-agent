@@ -30,7 +30,7 @@ export function validateSSEFormat(output: string): SSEValidationResult {
         errors.push(`Event missing 'type' field: ${jsonStr}`);
       }
       events.push(event);
-    } catch (err) {
+    } catch (_err) {
       errors.push(`Invalid JSON: ${jsonStr}`);
     }
   }

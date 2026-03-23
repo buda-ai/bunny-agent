@@ -31,7 +31,7 @@ export abstract class BaseRunner implements RunnerHandler {
       );
       if (modelArgIndex === -1) {
         // Find the position of '--' separator
-        const separatorIndex = defaultArgs.findIndex((arg) => arg === "--");
+        const separatorIndex = defaultArgs.indexOf("--");
         if (separatorIndex !== -1) {
           // Insert before '--' separator
           defaultArgs.splice(separatorIndex, 0, "--model", model);
@@ -110,7 +110,7 @@ export abstract class BaseRunner implements RunnerHandler {
    * Extract common JSON fields
    * Used by runners that output JSON format
    */
-  // biome-ignore lint/suspicious/noExplicitAny: <explanation>
+  // biome-ignore lint/suspicious/noExplicitAny: runner JSON payloads vary in shape
   protected extractFromJsonFields(json: any): string | null {
     if (!json) {
       return null;
