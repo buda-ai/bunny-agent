@@ -1,5 +1,6 @@
+import { existsSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { isAbsolute, join, resolve } from "node:path";
 import type {
   LoadExtensionsResult,
   PathMetadata,
@@ -14,6 +15,42 @@ import {
   DefaultResourceLoader,
   loadSkills,
 } from "@mariozechner/pi-coding-agent";
+
+const LOG_PREFIX = "[sandagent:pi]";
+
+function logSkillLoad(
+  cwd: string,
+  agentDir: string,
+  skillPaths: string[],
+  result: { skills: Skill[]; diagnostics: ResourceDiagnostic[] },
+): void {
+  const lines: string[] = [
+    `${LOG_PREFIX} loadSkills`,
+    `  cwd: ${cwd}`,
+    `  agentDir: ${agentDir}`,
+    `  extra skillPaths (${skillPaths.length}):`,
+  ];
+  for (const raw of skillPaths) {
+    const abs = isAbsolute(raw) ? raw : resolve(cwd, raw);
+    lines.push(
+      `    ${raw} -> ${abs} (exists: ${existsSync(abs) ? "yes" : "no"})`,
+    );
+  }
+  lines.push(`  loaded skills: ${result.skills.length}`);
+  if (result.skills.length > 0) {
+    lines.push(
+      `  skill names: ${result.skills.map((s) => s.name).join(", ")}`,
+    );
+  }
+  if (result.diagnostics.length > 0) {
+    lines.push(`  diagnostics (${result.diagnostics.length}):`);
+    for (const d of result.diagnostics) {
+      const pathPart = d.path !== undefined ? ` path=${d.path}` : "";
+      lines.push(`    [${d.type}] ${d.message}${pathPart}`);
+    }
+  }
+  console.error(lines.join("\n"));
+}
 
 export interface SandagentResourceLoaderOptions {
   cwd?: string;
@@ -54,12 +91,19 @@ export class SandagentResourceLoader implements ResourceLoader {
 
   getSkills(): { skills: Skill[]; diagnostics: ResourceDiagnostic[] } {
     if (!this.cachedSkills) {
-      // Load skills with additional skillPaths
       this.cachedSkills = loadSkills({
         cwd: this.cwd,
         agentDir: this.agentDir,
         skillPaths: this.skillPaths,
       });
+      if (this.skillPaths.length > 0) {
+        logSkillLoad(
+          this.cwd,
+          this.agentDir,
+          this.skillPaths,
+          this.cachedSkills,
+        );
+      }
     }
     return this.cachedSkills;
   }

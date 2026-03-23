@@ -99,6 +99,11 @@ export function createSandAgent(
   ): LanguageModelV3 => {
     const runnerKind = getRunnerKindForModel(modelId);
 
+    const mergedSkillPaths =
+      options.skillPaths !== undefined
+        ? options.skillPaths
+        : defaultOptions.skillPaths;
+
     const runner: RunnerSpec = {
       kind: runnerKind,
       model: modelId,
@@ -108,7 +113,9 @@ export function createSandAgent(
       ...((options.systemPrompt ?? defaultOptions.systemPrompt)
         ? { systemPrompt: options.systemPrompt ?? defaultOptions.systemPrompt }
         : {}),
-      ...(options.skillPaths ? { skillPaths: options.skillPaths } : {}),
+      ...(mergedSkillPaths && mergedSkillPaths.length > 0
+        ? { skillPaths: mergedSkillPaths }
+        : {}),
     };
 
     const mergedOptions = {
@@ -126,7 +133,7 @@ export function createSandAgent(
     } as SandAgentProviderSettings & { runner: RunnerSpec };
 
     logger.debug(
-      `[sandagent] Creating model: ${modelId} with runner: ${runner.kind}${runner.runnerType ? ` (runnerType: ${runner.runnerType})` : ""}`,
+      `[sandagent] Creating model: ${modelId} with runner: ${runner.kind}${runner.runnerType ? ` (runnerType: ${runner.runnerType})` : ""}${runner.skillPaths?.length ? ` skillPaths=${runner.skillPaths.length}` : ""}`,
     );
 
     return new SandAgentLanguageModel({

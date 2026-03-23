@@ -10,6 +10,8 @@ import {
 } from "@mariozechner/pi-coding-agent";
 import { SandagentResourceLoader } from "./sandagent-resource-loader.js";
 
+const LOG_PREFIX = "[sandagent:pi]";
+
 export interface PiRunnerOptions {
   model?: string;
   systemPrompt?: string;
@@ -287,6 +289,12 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
         ? new SandagentResourceLoader({ cwd, skillPaths: options.skillPaths })
         : undefined;
 
+      if (options.skillPaths && options.skillPaths.length > 0) {
+        console.error(
+          `${LOG_PREFIX} runner: cwd=${cwd} skillPaths=${JSON.stringify(options.skillPaths)}`,
+        );
+      }
+
       // createAgentSession only calls reload() when it creates its own
       // DefaultResourceLoader.  When we supply our own SandagentResourceLoader
       // we must reload it ourselves so that skills and extensions on disk are
@@ -303,10 +311,10 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
         resourceLoader,
       });
 
+      // Keep Pi's _rebuildSystemPrompt output (tools + skills); a generic prompt here
+      // would strip <available_skills> from skillPaths / SKILL.md.
       if (options.systemPrompt != null && options.systemPrompt !== "") {
         session.agent.setSystemPrompt(options.systemPrompt);
-      } else {
-        session.agent.setSystemPrompt("You are a helpful coding assistant.");
       }
 
       const eventQueue: AgentSessionEvent[] = [];
