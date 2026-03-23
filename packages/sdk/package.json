@@ -1,6 +1,6 @@
 {
   "name": "@sandagent/sdk",
-  "version": "0.8.10",
+  "version": "0.9.0",
   "description": "SandAgent SDK - AI Provider and React hooks for building AI agents",
   "type": "module",
   "sideEffects": false,
