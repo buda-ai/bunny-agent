@@ -90,6 +90,11 @@ class MockSession {
 const createdSessions: MockSession[] = [];
 let nextSessionBehavior: "normal" | "pending" | "tool_error" = "normal";
 
+/** When set, `createAgentSession` seeds `agent.state.systemPrompt` (simulates Pi after _rebuildSystemPrompt). */
+const mockPiAgentState = vi.hoisted(() => ({
+  baseSystemPrompt: undefined as string | undefined,
+}));
+
 vi.mock("@mariozechner/pi-coding-agent", () => ({
   AuthStorage: {
     create: vi.fn().mockReturnValue({}),
@@ -109,6 +114,9 @@ vi.mock("@mariozechner/pi-coding-agent", () => ({
   createAgentSession: vi.fn().mockImplementation(async () => {
     const session = new MockSession();
     session.setBehavior(nextSessionBehavior);
+    if (mockPiAgentState.baseSystemPrompt !== undefined) {
+      session.agent.state = { systemPrompt: mockPiAgentState.baseSystemPrompt };
+    }
     createdSessions.push(session);
     return { session };
   }),
@@ -191,6 +199,7 @@ describe("createPiRunner", () => {
   beforeEach(() => {
     createdSessions.length = 0;
     nextSessionBehavior = "normal";
+    mockPiAgentState.baseSystemPrompt = undefined;
   });
 
   it("streams text/tool events and finishes", async () => {
@@ -237,6 +246,34 @@ describe("createPiRunner", () => {
   it("throws for invalid model format", () => {
     expect(() => createPiRunner({ model: "gemini-2.5-pro" })).toThrow(
       "Invalid pi model",
+    );
+  });
+
+  it("merges CLI systemPrompt with Pi base prompt from agent state", async () => {
+    mockPiAgentState.baseSystemPrompt = "PI_BASE_WITH_SKILLS";
+    const runner = createPiRunner({
+      model: "google:gemini-2.5-pro",
+      systemPrompt: "HOST_APP_RULES",
+    });
+    for await (const _ of runner.run("hi")) {
+      break;
+    }
+    expect(createdSessions[0].agent.setSystemPrompt).toHaveBeenCalledWith(
+      "PI_BASE_WITH_SKILLS\n\n---\n\nHOST_APP_RULES",
+    );
+  });
+
+  it("sets only CLI systemPrompt when Pi base is empty", async () => {
+    mockPiAgentState.baseSystemPrompt = "";
+    const runner = createPiRunner({
+      model: "google:gemini-2.5-pro",
+      systemPrompt: "HOST_ONLY",
+    });
+    for await (const _ of runner.run("hi")) {
+      break;
+    }
+    expect(createdSessions[0].agent.setSystemPrompt).toHaveBeenCalledWith(
+      "HOST_ONLY",
     );
   });
 
