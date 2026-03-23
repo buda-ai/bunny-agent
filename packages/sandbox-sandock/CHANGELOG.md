@@ -1,5 +1,61 @@
 # @sandagent/sandbox-sandock
 
+## 0.8.10
+
+### Patch Changes
+
+- Release v0.9.0
+- Updated dependencies
+  - @sandagent/manager@0.8.10
+
+## 0.8.9
+
+### Patch Changes
+
+- Release v0.8.9
+- Updated dependencies
+  - @sandagent/manager@0.8.9
+
+## 0.8.8
+
+### Patch Changes
+
+- Release v0.8.8
+- Updated dependencies
+  - @sandagent/manager@0.8.8
+
+## 0.8.7
+
+### Patch Changes
+
+- Release v0.8.7
+- Updated dependencies
+  - @sandagent/manager@0.8.7
+
+## 0.8.6
+
+### Patch Changes
+
+- Release v0.8.6
+- Updated dependencies
+  - @sandagent/manager@0.8.6
+
+## 0.8.5
+
+### Patch Changes
+
+- Release v0.8.5
+- Updated dependencies
+  - @sandagent/manager@0.8.5
+
+## 0.8.4
+
+### Patch Changes
+
+- Release v0.8.4
+- Updated dependencies
+  - @sandagent/manager@0.8.4
+
 ## 0.8.3
 
 ### Patch Changes

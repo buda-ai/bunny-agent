@@ -32,15 +32,30 @@ jobs:
       - name: Extract version from tag
         id: version
         run: |
-          # Resolve the exact tag pointing at the triggering commit so we get the
-          # canonical semver string even when head_branch carries unexpected values.
-          TAG=$(git tag --points-at HEAD | grep -E '^v[0-9]+\.[0-9]+\.[0-9]' | sort -V | tail -1)
-          if [ -z "${TAG}" ]; then
-            # Fall back to the head_branch value reported by the workflow_run event
-            TAG="${{ github.event.workflow_run.head_branch }}"
+          # Use the head_branch from the triggering workflow_run event as the primary
+          # source of truth (it is the git tag that triggered "Release on Tag").
+          TAG="${{ github.event.workflow_run.head_branch }}"
+
+          # Cross-check: if a semver tag points at HEAD, prefer that (handles edge
+          # cases where head_branch contains unexpected values).
+          GIT_TAG=$(git tag --points-at HEAD | grep -E '^v[0-9]+\.[0-9]+\.[0-9]' | sort -V | tail -1)
+          if [ -n "${GIT_TAG}" ]; then
+            TAG="${GIT_TAG}"
           fi
-          # Strip the leading 'v' prefix if present (e.g. v1.2.3 → 1.2.3)
+
+          # Strip the leading 'v' prefix (e.g. v1.2.3 → 1.2.3)
           VERSION="${TAG#v}"
+
+          # Validate: version must be a non-empty semver string (X.Y.Z[...]).
+          # If it is empty or malformed the build would silently push only the
+          # "latest" tag with an invalid/empty version tag – fail loudly instead.
+          if ! echo "${VERSION}" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]'; then
+            echo "::error::Could not determine a valid semver version from tag '${TAG}'." \
+              "Expected format: v<MAJOR>.<MINOR>.<PATCH>. Aborting to prevent pushing" \
+              "an untagged image."
+            exit 1
+          fi
+
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "Detected version: ${VERSION} (from tag: ${TAG})"

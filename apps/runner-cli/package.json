@@ -1,6 +1,6 @@
 {
   "name": "@sandagent/runner-cli",
-  "version": "0.8.3",
+  "version": "0.8.10",
   "description": "SandAgent Runner CLI - Like gemini-cli or claude-code, runs in your local terminal with AI SDK UI streaming",
   "type": "module",
   "bin": {
@@ -55,11 +55,11 @@
     "@mariozechner/pi-ai": "^0.61.0",
     "@mariozechner/pi-coding-agent": "^0.61.0",
     "@openai/codex-sdk": "^0.110.0",
-    "@sandagent/runner-core": "workspace:*",
     "dotenv": "^17.3.1",
     "zod": "^4.0.0"
   },
   "devDependencies": {
+    "@sandagent/runner-core": "workspace:*",
     "@sandagent/runner-claude": "workspace:*",
     "@sandagent/runner-codex": "workspace:*",
     "@sandagent/runner-gemini": "workspace:*",
