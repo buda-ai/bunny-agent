@@ -1,6 +1,6 @@
 {
   "name": "@sandagent/daemon",
-  "version": "0.9.2",
+  "version": "0.9.3",
   "description": "SandAgent Daemon - Unified API gateway for sandbox services (file, git, volumes)",
   "type": "module",
   "bin": {
