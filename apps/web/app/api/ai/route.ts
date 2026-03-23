@@ -223,6 +223,11 @@ export async function POST(request: Request) {
         verbose: true,
         artifactProcessors: [artifactProcessor],
         resume,
+        // Passed to RunnerSpec via createSandAgent merge (not only sandagent(model, { skillPaths }))
+        skillPaths: [
+          "/Users/zhengxu/vika/kapps/apps/buda/agent-templates/system-skills",
+          "/Users/zhengxu/vika/kapps/apps/buda/agent-templates/company-templates/entire-company/finance-agent/.agents/skills",
+        ],
       };
       const sandagent = createSandAgent(sandagentOptions);
 

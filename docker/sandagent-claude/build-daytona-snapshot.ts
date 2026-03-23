@@ -143,7 +143,7 @@ async function main() {
             });
             console.log("  Deleted via CLI. Waiting for sync...");
             await new Promise((resolve) => setTimeout(resolve, 3000));
-          } catch (cliError: unknown) {
+          } catch (_cliError: unknown) {
             console.error(`  ❌ CLI fallback also failed`);
             console.error(
               "  Try deleting manually from: https://app.daytona.io/dashboard/snapshots",
@@ -177,7 +177,7 @@ async function main() {
       stdio: "pipe",
       env: { ...process.env, DAYTONA_API_KEY: apiKey },
     });
-  } catch (error) {
+  } catch (_error) {
     console.log("  (login may have already been configured)");
   }
 
@@ -228,7 +228,7 @@ async function main() {
       env.DOCKER_HOST = dockerHost;
     }
 
-    const output = execSync(pushCmd, {
+    const _output = execSync(pushCmd, {
       stdio: "inherit",
       env,
       timeout: 10 * 60 * 1000, // 10 minutes timeout

@@ -21,8 +21,8 @@ export async function downloadGaiaDataset(
  * Load GAIA tasks
  */
 export async function loadGaiaTasks(
-  dataset = "validation",
-  options?: { level?: GaiaLevel },
+  _dataset = "validation",
+  _options?: { level?: GaiaLevel },
 ): Promise<GaiaTask[]> {
   throw new Error("Not implemented - use @sandagent/benchmark-cli for now");
 }

@@ -207,7 +207,7 @@ export function createCodexRunner(options: CodexRunnerOptions): CodexRunner {
             }
           }
         }
-      } catch (e) {
+      } catch (_e) {
         // Fallback to string
       }
 

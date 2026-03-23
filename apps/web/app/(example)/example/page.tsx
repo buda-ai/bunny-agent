@@ -74,11 +74,9 @@ const templates = [
 
 function ChatMessage({
   message,
-  messages,
   chatBody,
 }: {
   message: UIMessage;
-  messages: UIMessage[];
   chatBody?: Record<string, unknown>;
 }) {
   const isUser = message.role === "user";
@@ -259,7 +257,6 @@ function HomeContent() {
               <ChatMessage
                 key={message.id}
                 message={message}
-                messages={messages}
                 chatBody={{ template: selectedTemplate, ...clientConfig }}
               />
             ))

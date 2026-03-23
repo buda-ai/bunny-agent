@@ -4,18 +4,11 @@
  * Compare benchmark results across multiple agent runners
  */
 
-import {
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  readFileSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type {
   AgentRunner,
   BenchmarkReport,
-  BenchmarkResult,
   ComparisonResult,
   ComparisonSummary,
   GaiaLevel,

@@ -14,7 +14,7 @@ describe("Signal Integration Tests", () => {
       getWorkdir: vi.fn().mockReturnValue("/workspace"),
       getSandboxId: vi.fn().mockReturnValue(null),
       getVolumes: vi.fn().mockReturnValue(null),
-      exec: vi.fn((command: string[], opts) => {
+      exec: vi.fn((_command: string[], opts) => {
         // Capture the signal that was passed
         execSignalReceived = opts?.signal;
 
