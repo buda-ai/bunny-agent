@@ -5,7 +5,7 @@ import {
 } from "../claude-runner.js";
 
 // Helper to generate random strings for property-like testing
-function randomString(length: number): string {
+function _randomString(length: number): string {
   const chars =
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
   let result = "";
@@ -16,7 +16,7 @@ function randomString(length: number): string {
 }
 
 // Helper to generate UUID-like strings
-function randomUUID(): string {
+function _randomUUID(): string {
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;
     const v = c === "x" ? r : (r & 0x3) | 0x8;
@@ -198,7 +198,7 @@ describe("AbortSignal Support", () => {
     });
 
     const controller = new AbortController();
-    const signal = controller.signal;
+    const _signal = controller.signal;
 
     // Should not throw when signal is passed
     const result = runner.run("Test with signal");
@@ -241,7 +241,7 @@ describe("AbortSignal Support", () => {
     });
 
     const controller = new AbortController();
-    const signal = controller.signal;
+    const _signal = controller.signal;
 
     const chunks: string[] = [];
     let chunkCount = 0;
@@ -274,7 +274,7 @@ describe("AbortSignal Support", () => {
     });
 
     const controller = new AbortController();
-    const signal = controller.signal;
+    const _signal = controller.signal;
 
     const chunks: string[] = [];
     let chunkCount = 0;
@@ -305,7 +305,7 @@ describe("AbortSignal Support", () => {
     const signal = controller.signal;
 
     // Track listener count (this is a proxy test since we can't directly inspect listeners)
-    const initialListenerCount = signal.addEventListener.length;
+    const _initialListenerCount = signal.addEventListener.length;
 
     const chunks: string[] = [];
     for await (const chunk of runner.run("Test listener cleanup")) {
@@ -461,7 +461,7 @@ describe("Query Natural Completion", () => {
 
     // Verify order: finish comes before [DONE]
     const finishIndex = chunks.findIndex((c) => c.includes('"type":"finish"'));
-    const doneIndex = chunks.findIndex((c) => c === "data: [DONE]\n\n");
+    const doneIndex = chunks.indexOf("data: [DONE]\n\n");
     expect(finishIndex).toBeLessThan(doneIndex);
   });
 

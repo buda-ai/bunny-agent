@@ -69,7 +69,7 @@ export function buildUserMessage(userInput: string): SDKUserMessage {
         });
       }
     }
-  } catch (e) {
+  } catch (_e) {
     // Fallback to string
   }
 
@@ -395,7 +395,7 @@ function setupAbortHandler(
  * Output format: "text"
  * Only outputs the final result text (like Claude Code CLI --output-format text)
  */
-async function* runWithTextOutput(
+async function* _runWithTextOutput(
   sdk: ClaudeAgentSDKModule,
   options: ClaudeRunnerOptions,
   userInput: string | AsyncIterable<SDKUserMessage>,
@@ -430,7 +430,7 @@ async function* runWithTextOutput(
  * Output format: "json"
  * Only outputs the final result as a single JSON object (like Claude Code CLI --output-format json)
  */
-async function* runWithJSONOutput(
+async function* _runWithJSONOutput(
   sdk: ClaudeAgentSDKModule,
   options: ClaudeRunnerOptions,
   userInput: string | AsyncIterable<SDKUserMessage>,
@@ -462,7 +462,7 @@ async function* runWithJSONOutput(
  * Output format: "stream-json"
  * Outputs each SDK message as a JSON object per line (like Claude Code CLI --output-format stream-json)
  */
-async function* runWithStreamJSONOutput(
+async function* _runWithStreamJSONOutput(
   sdk: ClaudeAgentSDKModule,
   options: ClaudeRunnerOptions,
   userInput: string | AsyncIterable<SDKUserMessage>,

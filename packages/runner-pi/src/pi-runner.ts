@@ -378,7 +378,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
               }
             }
           }
-        } catch (e) {
+        } catch (_e) {
           // Fallback to raw string if parsing fails
         }
 

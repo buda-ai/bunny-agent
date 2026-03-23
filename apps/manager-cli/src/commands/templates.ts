@@ -4,8 +4,6 @@
  * List available agent templates.
  */
 
-import * as fs from "node:fs";
-import * as path from "node:path";
 import { parseArgs } from "node:util";
 
 export async function templatesCommand(args: string[]): Promise<void> {

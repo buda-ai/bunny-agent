@@ -271,7 +271,7 @@ export class DaytonaSandbox implements SandboxAdapter {
 
         // If sandbox exists, it's already initialized (files are in volume)
         // Only initialize if we're creating a new sandbox
-      } catch (error) {
+      } catch (_error) {
         // get() throws if not found, create new sandbox with the name
         console.log(
           `[Daytona] Sandbox "${sandboxName}" not found, creating new one`,

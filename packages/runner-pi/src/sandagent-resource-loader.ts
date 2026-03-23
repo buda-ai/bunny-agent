@@ -38,9 +38,7 @@ function logSkillLoad(
   }
   lines.push(`  loaded skills: ${result.skills.length}`);
   if (result.skills.length > 0) {
-    lines.push(
-      `  skill names: ${result.skills.map((s) => s.name).join(", ")}`,
-    );
+    lines.push(`  skill names: ${result.skills.map((s) => s.name).join(", ")}`);
   }
   if (result.diagnostics.length > 0) {
     lines.push(`  diagnostics (${result.diagnostics.length}):`);

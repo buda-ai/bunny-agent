@@ -21,7 +21,7 @@
 
 import "dotenv/config";
 import { execSync } from "child_process";
-import { existsSync, readFileSync } from "fs";
+import { existsSync } from "fs";
 import { join } from "path";
 
 // Parse command line arguments
@@ -148,7 +148,7 @@ async function main() {
     console.log("");
     console.log("You can now use this template in SandAgent:");
     console.log(`   template: "${alias}"`);
-  } catch (error: unknown) {
+  } catch (_error: unknown) {
     console.error("");
     console.error("❌ Failed to build template");
     process.exit(1);
