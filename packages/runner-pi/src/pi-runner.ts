@@ -311,10 +311,15 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
         resourceLoader,
       });
 
-      // Keep Pi's _rebuildSystemPrompt output (tools + skills); a generic prompt here
-      // would strip <available_skills> from skillPaths / SKILL.md.
+      // Append CLI --system-prompt to Pi's built-in prompt (from _rebuildSystemPrompt:
+      // tools, skills from skillPaths, etc.). Replacing entirely would strip skills.
       if (options.systemPrompt != null && options.systemPrompt !== "") {
-        session.agent.setSystemPrompt(options.systemPrompt);
+        const existing = session.agent.state.systemPrompt ?? "";
+        session.agent.setSystemPrompt(
+          existing
+            ? `${existing}\n\n---\n\n${options.systemPrompt}`
+            : options.systemPrompt,
+        );
       }
 
       const eventQueue: AgentSessionEvent[] = [];
