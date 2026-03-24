@@ -46,9 +46,17 @@ RUN mkdir -p /opt/sandagent/node_modules && \
     npm install --no-audit --no-fund @anthropic-ai/claude-agent-sdk playwright && \
     rm package.json package-lock.json && npm cache clean --force
 
-# Install Playwright Chromium browser and system dependencies
+# Install Playwright Chromium browser and system dependencies.
+# Refresh apt keys before Playwright's apt-get (buildx+QEMU amd64 on arm64 hosts).
 ENV PLAYWRIGHT_BROWSERS_PATH=/opt/sandagent/pw-browsers
-RUN cd /opt/sandagent && npx playwright install --with-deps chromium
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends --reinstall \
+      ca-certificates \
+      debian-archive-keyring \
+      gnupg \
+    && rm -rf /var/lib/apt/lists/* \
+    && cd /opt/sandagent \
+    && DEBIAN_FRONTEND=noninteractive npx playwright install --with-deps chromium
 
 # Copy local-built runner and daemon bundles into place
 RUN mkdir -p /opt/sandagent/node_modules/@sandagent/runner-cli/dist \

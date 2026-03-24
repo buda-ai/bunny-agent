@@ -49,9 +49,18 @@ RUN mkdir -p /opt/sandagent && \
     npm cache clean --force && \
     chown -R agent:agent /opt/sandagent
 
-# Install Playwright Chromium browser and system dependencies
+# Install Playwright Chromium browser and system dependencies.
+# Refresh apt signing keys before Playwright runs apt-get again: under buildx+QEMU
+# (linux/amd64 on Apple Silicon), apt can fail with "invalid signature" without this.
 ENV PLAYWRIGHT_BROWSERS_PATH=/opt/sandagent/pw-browsers
-RUN cd /opt/sandagent && npx playwright install --with-deps chromium
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends --reinstall \
+      ca-certificates \
+      debian-archive-keyring \
+      gnupg \
+    && rm -rf /var/lib/apt/lists/* \
+    && cd /opt/sandagent \
+    && DEBIAN_FRONTEND=noninteractive npx playwright install --with-deps chromium
 
 RUN npm install simple-git brave-search-cli -g
 
