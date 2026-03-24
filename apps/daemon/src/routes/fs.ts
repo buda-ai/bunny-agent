@@ -204,3 +204,50 @@ export async function fsCopy(state: AppState, body: MoveCopyBody) {
   await fs.copyFile(from, to);
   return ok({ path: to });
 }
+
+// --- Upload types ---
+
+export interface UploadedFile {
+  fieldname: string;
+  filename: string;
+  path: string;
+  size: number;
+}
+
+export interface UploadResult {
+  files: UploadedFile[];
+}
+
+/**
+ * Handle multipart/form-data file upload.
+ * Expects form field "path" for target directory and one or more "file" parts.
+ */
+export async function fsUpload(
+  state: AppState,
+  parts: {
+    fields: Record<string, string>;
+    files: Array<{ filename: string; data: Buffer }>;
+  },
+) {
+  const volume = parts.fields.volume;
+  const targetDir = parts.fields.path ?? ".";
+  const createDirs = parts.fields.create_dirs !== "false";
+
+  const root = resolveVolumeRoot(state, volume);
+  const dir = resolveUnderRoot(root, targetDir);
+
+  if (createDirs) await ensureDir(dir);
+
+  const results: UploadedFile[] = [];
+  for (const file of parts.files) {
+    const target = resolveUnderRoot(root, path.join(targetDir, file.filename));
+    await fs.writeFile(target, file.data);
+    results.push({
+      fieldname: "file",
+      filename: file.filename,
+      path: target,
+      size: file.data.length,
+    });
+  }
+  return ok({ files: results });
+}

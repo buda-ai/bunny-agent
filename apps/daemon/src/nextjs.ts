@@ -14,13 +14,20 @@
  * Requests to /api/daemon/api/coding/run → daemon /api/coding/run (NDJSON stream)
  */
 
+import { parseMultipart } from "./multipart.js";
 import { DaemonRouter } from "./router.js";
 import { codingRunStream, type RunRequest } from "./routes/coding.js";
+import { fsUpload } from "./routes/fs.js";
+import { AppError, type AppState, fail } from "./utils.js";
 
 export function createNextHandler(opts: { root: string; prefix?: string }) {
   const router = new DaemonRouter({ root: opts.root });
   const env = process.env as Record<string, string>;
   const prefix = opts.prefix ?? "/api/daemon";
+  const state: AppState = {
+    root: opts.root,
+    volumesRoot: `${opts.root}/volumes`,
+  };
 
   return async (req: Request): Promise<Response> => {
     const url = new URL(req.url);
@@ -34,6 +41,27 @@ export function createNextHandler(opts: { root: string; prefix?: string }) {
     if (method === "POST" && pathname === "/api/coding/run") {
       const body = (await req.json().catch(() => ({}))) as RunRequest;
       return codingRunStream(body, env);
+    }
+
+    // Multipart upload: /api/fs/upload
+    if (method === "POST" && pathname === "/api/fs/upload") {
+      try {
+        const ct = req.headers.get("content-type") ?? "";
+        if (!ct.includes("multipart/form-data")) {
+          return Response.json(
+            fail("content-type must be multipart/form-data"),
+            { status: 400 },
+          );
+        }
+        const raw = Buffer.from(await req.arrayBuffer());
+        const parts = parseMultipart(ct, raw);
+        const result = await fsUpload(state, parts);
+        return Response.json(result);
+      } catch (err) {
+        const status = err instanceof AppError ? err.status : 500;
+        const msg = err instanceof Error ? err.message : String(err);
+        return Response.json(fail(msg), { status });
+      }
     }
 
     // Standard JSON routes
