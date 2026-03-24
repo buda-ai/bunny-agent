@@ -40,11 +40,18 @@ export function resolveUnderRoot(root: string, raw: string): string {
   const normalizedRoot = path.resolve(root);
   const normalized = path.normalize(raw);
   // Reject absolute paths that are outside root
-  if (path.isAbsolute(normalized) && !normalized.startsWith(normalizedRoot + path.sep) && normalized !== normalizedRoot) {
+  if (
+    path.isAbsolute(normalized) &&
+    !normalized.startsWith(normalizedRoot + path.sep) &&
+    normalized !== normalizedRoot
+  ) {
     throw new AppError(400, `invalid path: ${raw}`);
   }
   const resolved = path.resolve(normalizedRoot, normalized.replace(/^\/+/, ""));
-  if (resolved !== normalizedRoot && !resolved.startsWith(normalizedRoot + path.sep)) {
+  if (
+    resolved !== normalizedRoot &&
+    !resolved.startsWith(normalizedRoot + path.sep)
+  ) {
     throw new AppError(400, `path traversal rejected: ${raw}`);
   }
   return resolved;

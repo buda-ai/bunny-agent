@@ -31,8 +31,15 @@ export function createDaemon(config: DaemonConfig): http.Server {
 
       // Streaming: /api/coding/run
       if (method === "POST" && pathname === "/api/coding/run") {
-        const body = safeJsonParse(await readBody(req)) as Record<string, unknown>;
-        return sandagentRun(body as unknown as Parameters<typeof sandagentRun>[0], res, env);
+        const body = safeJsonParse(await readBody(req)) as Record<
+          string,
+          unknown
+        >;
+        return sandagentRun(
+          body as unknown as Parameters<typeof sandagentRun>[0],
+          res,
+          env,
+        );
       }
 
       // Multipart upload: /api/fs/upload
@@ -66,8 +73,17 @@ export function createDaemon(config: DaemonConfig): http.Server {
         params = Object.fromEntries(url.searchParams);
       } else {
         const ct = req.headers["content-type"] ?? "";
-        if (ct.includes("multipart/form-data") || ct.includes("application/x-www-form-urlencoded")) {
-          sendJson(res, 400, fail(`Endpoint ${pathname} expects JSON body (content-type: application/json)`));
+        if (
+          ct.includes("multipart/form-data") ||
+          ct.includes("application/x-www-form-urlencoded")
+        ) {
+          sendJson(
+            res,
+            400,
+            fail(
+              `Endpoint ${pathname} expects JSON body (content-type: application/json)`,
+            ),
+          );
           return;
         }
         params = safeJsonParse(await readBody(req));
@@ -94,7 +110,11 @@ export function createDaemon(config: DaemonConfig): http.Server {
   });
 }
 
-function sendJson(res: http.ServerResponse, status: number, body: unknown): void {
+function sendJson(
+  res: http.ServerResponse,
+  status: number,
+  body: unknown,
+): void {
   res.writeHead(status, { "Content-Type": "application/json" });
   res.end(JSON.stringify(body));
 }
