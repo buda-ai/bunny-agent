@@ -1,5 +1,5 @@
 # SandAgent Image (vikadata/sandagent)
-# Pre-installs runner-cli and @anthropic-ai/claude-agent-sdk
+# Pre-installs runner-cli, @sandagent/daemon (HTTP API), and @anthropic-ai/claude-agent-sdk
 # Compatible with both Daytona Snapshots and E2B custom templates
 #
 # E2B: Use Template.fromDockerfile() to parse this Dockerfile
@@ -43,14 +43,24 @@ RUN mkdir -p /opt/sandagent && \
     npm install --no-audit --no-fund \
     @anthropic-ai/claude-agent-sdk \
     @sandagent/runner-cli@${RUNNER_CLI_VERSION} \
+    @sandagent/daemon@${RUNNER_CLI_VERSION} \
     playwright && \
     rm package.json package-lock.json && \
     npm cache clean --force && \
     chown -R agent:agent /opt/sandagent
 
-# Install Playwright Chromium browser and system dependencies
+# Install Playwright Chromium browser and system dependencies.
+# Refresh apt signing keys before Playwright runs apt-get again: under buildx+QEMU
+# (linux/amd64 on Apple Silicon), apt can fail with "invalid signature" without this.
 ENV PLAYWRIGHT_BROWSERS_PATH=/opt/sandagent/pw-browsers
-RUN cd /opt/sandagent && npx playwright install --with-deps chromium
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends --reinstall \
+      ca-certificates \
+      debian-archive-keyring \
+      gnupg \
+    && rm -rf /var/lib/apt/lists/* \
+    && cd /opt/sandagent \
+    && DEBIAN_FRONTEND=noninteractive npx playwright install --with-deps chromium
 
 RUN npm install simple-git brave-search-cli -g
 
@@ -69,7 +79,12 @@ RUN echo '#!/usr/bin/env node' > /usr/local/bin/sandagent && \
     echo 'import("/opt/sandagent/node_modules/@sandagent/runner-cli/dist/bundle.mjs")' >> /usr/local/bin/sandagent && \
     chmod +x /usr/local/bin/sandagent
 
-# Entrypoint: copy /skills into ~/.claude/skills (real dirs so SDK loads them; symlinks may not be followed)
+# sandagent-daemon: HTTP gateway (fs, git, volumes, /api/coding/run)
+RUN echo '#!/usr/bin/env node' > /usr/local/bin/sandagent-daemon && \
+    echo 'import("/opt/sandagent/node_modules/@sandagent/daemon/dist/bundle.mjs")' >> /usr/local/bin/sandagent-daemon && \
+    chmod +x /usr/local/bin/sandagent-daemon
+
+# Entrypoint: copy /skills, start daemon + CDP, then exec CMD
 RUN printf '%s\n' \
     '#!/bin/bash' \
     'mkdir -p "$HOME/.claude/skills"' \
@@ -77,12 +92,17 @@ RUN printf '%s\n' \
     '  cp -r /skills/. "$HOME/.claude/skills/"' \
     '  echo "Copied /skills to $HOME/.claude/skills"' \
     'fi' \
+    'sandagent-daemon &' \
+    'start-cdp' \
     'exec "$@"' > /usr/local/bin/sandagent-entrypoint && \
     chmod +x /usr/local/bin/sandagent-entrypoint
 
 # Set environment variables
 ENV NODE_PATH=/opt/sandagent/node_modules
 ENV PATH=/usr/local/bin:$PATH
+ENV SANDAGENT_ROOT=/workspace
+ENV SANDAGENT_DAEMON_HOST=0.0.0.0
+ENV SANDAGENT_DAEMON_PORT=3080
 
 # Suppress D-Bus errors in headless Chromium (no bus in containers)
 ENV DBUS_SESSION_BUS_ADDRESS=/dev/null
@@ -128,8 +148,9 @@ USER agent
 # Copy /skills into ~/.claude/skills at startup, then keep container running (for Daytona)
 ENTRYPOINT ["/usr/local/bin/sandagent-entrypoint"]
 
-# Expose CDP websocket port
+# Expose sandagent-daemon HTTP (healthz, fs, git, coding) and CDP (browser automation)
+EXPOSE 3080
 EXPOSE 9222
 
-# Keep container running (for Daytona), start CDP browser
-CMD ["bash", "-c", "start-cdp; sleep infinity"]
+# Keep container alive (daemon + CDP started by entrypoint)
+CMD ["sleep", "infinity"]

@@ -16,11 +16,13 @@ RUN corepack enable && corepack prepare pnpm@10.11.0 --activate && pnpm --versio
 # Copy full repo so pnpm workspace resolves (context = repo root)
 COPY . .
 
-# Install and build only runner chain (manager used by runner-claude types; runner-cli bundles runner-claude)
+# Install and build runner chain + daemon (daemon bundles runner-core)
 RUN pnpm install --frozen-lockfile && \
     pnpm --filter @sandagent/manager build && \
+    pnpm --filter @sandagent/runner-core build && \
     pnpm --filter @sandagent/runner-claude build && \
-    pnpm --filter @sandagent/runner-cli build
+    pnpm --filter @sandagent/runner-cli build && \
+    pnpm --filter @sandagent/daemon build
 
 # -----------------------------------------------------------------------------
 # Stage 2: runtime image with local bundle + claude-agent-sdk from npm
@@ -44,13 +46,23 @@ RUN mkdir -p /opt/sandagent/node_modules && \
     npm install --no-audit --no-fund @anthropic-ai/claude-agent-sdk playwright && \
     rm package.json package-lock.json && npm cache clean --force
 
-# Install Playwright Chromium browser and system dependencies
+# Install Playwright Chromium browser and system dependencies.
+# Refresh apt keys before Playwright's apt-get (buildx+QEMU amd64 on arm64 hosts).
 ENV PLAYWRIGHT_BROWSERS_PATH=/opt/sandagent/pw-browsers
-RUN cd /opt/sandagent && npx playwright install --with-deps chromium
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends --reinstall \
+      ca-certificates \
+      debian-archive-keyring \
+      gnupg \
+    && rm -rf /var/lib/apt/lists/* \
+    && cd /opt/sandagent \
+    && DEBIAN_FRONTEND=noninteractive npx playwright install --with-deps chromium
 
-# Copy local-built runner bundle into place
-RUN mkdir -p /opt/sandagent/node_modules/@sandagent/runner-cli/dist
+# Copy local-built runner and daemon bundles into place
+RUN mkdir -p /opt/sandagent/node_modules/@sandagent/runner-cli/dist \
+    /opt/sandagent/node_modules/@sandagent/daemon/dist
 COPY --from=builder /build/apps/runner-cli/dist/bundle.mjs /opt/sandagent/node_modules/@sandagent/runner-cli/dist/bundle.mjs
+COPY --from=builder /build/apps/daemon/dist/bundle.mjs /opt/sandagent/node_modules/@sandagent/daemon/dist/bundle.mjs
 
 # Init script (copy deps to workspace when needed)
 RUN echo '#!/bin/bash\n\
@@ -61,16 +73,35 @@ if [ ! -d "/workspace/node_modules/@sandagent" ]; then\n\
 fi\n\
 exec "$@"' > /usr/local/bin/sandagent-init && chmod +x /usr/local/bin/sandagent-init
 
-# sandagent command
+# sandagent + sandagent-daemon commands
 RUN echo '#!/usr/bin/env node' > /usr/local/bin/sandagent && \
     echo 'import("/opt/sandagent/node_modules/@sandagent/runner-cli/dist/bundle.mjs")' >> /usr/local/bin/sandagent && \
     chmod +x /usr/local/bin/sandagent
+RUN echo '#!/usr/bin/env node' > /usr/local/bin/sandagent-daemon && \
+    echo 'import("/opt/sandagent/node_modules/@sandagent/daemon/dist/bundle.mjs")' >> /usr/local/bin/sandagent-daemon && \
+    chmod +x /usr/local/bin/sandagent-daemon
 
 # Install global CLI tools for agent use
 RUN npm install -g brave-search-cli
 
+# Entrypoint: copy /skills, start daemon + CDP, then exec CMD
+RUN printf '%s\n' \
+    '#!/bin/bash' \
+    'mkdir -p "$HOME/.claude/skills"' \
+    'if [ -d /skills ] && [ -n "$(ls -A /skills 2>/dev/null)" ]; then' \
+    '  cp -r /skills/. "$HOME/.claude/skills/"' \
+    '  echo "Copied /skills to $HOME/.claude/skills"' \
+    'fi' \
+    'sandagent-daemon &' \
+    'start-cdp' \
+    'exec "$@"' > /usr/local/bin/sandagent-entrypoint && \
+    chmod +x /usr/local/bin/sandagent-entrypoint
+
 ENV NODE_PATH=/opt/sandagent/node_modules
 ENV PATH=/usr/local/bin:$PATH
+ENV SANDAGENT_ROOT=/workspace
+ENV SANDAGENT_DAEMON_HOST=0.0.0.0
+ENV SANDAGENT_DAEMON_PORT=3080
 
 # Suppress D-Bus errors in headless Chromium (no bus in containers)
 ENV DBUS_SESSION_BUS_ADDRESS=/dev/null
@@ -108,7 +139,8 @@ nginx\n\
 echo "CDP available on 0.0.0.0:9222 (nginx proxy rewriting Host to localhost)"' > /usr/local/bin/start-cdp && \
     chmod +x /usr/local/bin/start-cdp
 
-# Expose CDP websocket port
+EXPOSE 3080
 EXPOSE 9222
 
-CMD ["bash", "-c", "start-cdp; sleep infinity"]
+ENTRYPOINT ["/usr/local/bin/sandagent-entrypoint"]
+CMD ["sleep", "infinity"]
