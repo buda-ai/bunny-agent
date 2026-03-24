@@ -19,6 +19,10 @@ sandbox container                   ← production
 
 The same `@sandagent/daemon` package works in both modes — Next.js embed for local development, standalone HTTP server for production containers.
 
+### SandAgent container image (`vikadata/sandagent`)
+
+The Dockerfiles under `docker/sandagent-claude/` (`Dockerfile`, `Dockerfile.local`, `Dockerfile.template`) install `@sandagent/daemon` and start **`sandagent-daemon`** in the background when the container starts (alongside the existing CDP / `sandagent` CLI setup). The HTTP API listens on **`0.0.0.0:3080`** by default (`EXPOSE 3080`). Override with `SANDAGENT_DAEMON_HOST`, `SANDAGENT_DAEMON_PORT`, and `SANDAGENT_ROOT` if needed.
+
 ---
 
 ## Architecture

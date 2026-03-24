@@ -1,5 +1,5 @@
 # SandAgent Image (vikadata/sandagent)
-# Pre-installs runner-cli and @anthropic-ai/claude-agent-sdk
+# Pre-installs runner-cli, @sandagent/daemon (HTTP API), and @anthropic-ai/claude-agent-sdk
 # Compatible with both Daytona Snapshots and E2B custom templates
 #
 # E2B: Use Template.fromDockerfile() to parse this Dockerfile
@@ -42,6 +42,7 @@ RUN mkdir -p /opt/sandagent && \
     npm install --no-audit --no-fund \
     @anthropic-ai/claude-agent-sdk \
     @sandagent/runner-cli@${RUNNER_CLI_VERSION} \
+    @sandagent/daemon@${RUNNER_CLI_VERSION} \
     playwright && \
     rm package.json package-lock.json && \
     npm cache clean --force && \
@@ -66,10 +67,17 @@ RUN echo '#!/usr/bin/env node' > /usr/local/bin/sandagent && \
     echo 'import("/opt/sandagent/node_modules/@sandagent/runner-cli/dist/bundle.mjs")' >> /usr/local/bin/sandagent && \
     chmod +x /usr/local/bin/sandagent
 
+RUN echo '#!/usr/bin/env node' > /usr/local/bin/sandagent-daemon && \
+    echo 'import("/opt/sandagent/node_modules/@sandagent/daemon/dist/bundle.mjs")' >> /usr/local/bin/sandagent-daemon && \
+    chmod +x /usr/local/bin/sandagent-daemon
+
 # Install global CLI tools for agent use
 RUN npm install -g brave-search-cli
 ENV NODE_PATH=/opt/sandagent/node_modules
 ENV PATH=/usr/local/bin:$PATH
+ENV SANDAGENT_ROOT=/workspace
+ENV SANDAGENT_DAEMON_HOST=0.0.0.0
+ENV SANDAGENT_DAEMON_PORT=3080
 
 # Suppress D-Bus errors in headless Chromium (no bus in containers)
 ENV DBUS_SESSION_BUS_ADDRESS=/dev/null
@@ -113,8 +121,7 @@ echo "CDP available on 0.0.0.0:9222 (nginx proxy rewriting Host to localhost)"' 
 # Switch to agent user
 USER agent
 
-# Expose CDP websocket port
+EXPOSE 3080
 EXPOSE 9222
 
-# Keep container running (for Daytona), start CDP browser
-CMD ["bash", "-c", "start-cdp; sleep infinity"]
+CMD ["bash", "-c", "sandagent-daemon & start-cdp; sleep infinity"]
