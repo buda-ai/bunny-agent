@@ -7,6 +7,14 @@ const host = process.env.SANDAGENT_DAEMON_HOST ?? "0.0.0.0";
 const port = Number(process.env.SANDAGENT_DAEMON_PORT ?? "3080");
 const root = process.env.SANDAGENT_ROOT ?? "/agent";
 
+// Safety net: never let the daemon crash on unhandled errors
+process.on("uncaughtException", (err) => {
+  console.error("Uncaught exception (ignored, server continues):", err);
+});
+process.on("unhandledRejection", (reason) => {
+  console.error("Unhandled rejection (ignored, server continues):", reason);
+});
+
 async function main() {
   await ensureDir(root);
   const server = createDaemon({ host, port, root });

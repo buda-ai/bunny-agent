@@ -36,13 +36,22 @@ export function resolveVolumeRoot(state: AppState, volume?: string): string {
  */
 export function resolveUnderRoot(root: string, raw: string): string {
   if (!raw.trim()) throw new AppError(400, "empty path");
+  // Normalize root to strip trailing slashes for consistent comparison
+  const normalizedRoot = path.resolve(root);
   const normalized = path.normalize(raw);
-  // Reject absolute paths and traversal
-  if (path.isAbsolute(normalized) && !normalized.startsWith(root)) {
+  // Reject absolute paths that are outside root
+  if (
+    path.isAbsolute(normalized) &&
+    !normalized.startsWith(normalizedRoot + path.sep) &&
+    normalized !== normalizedRoot
+  ) {
     throw new AppError(400, `invalid path: ${raw}`);
   }
-  const resolved = path.resolve(root, normalized.replace(/^\/+/, ""));
-  if (!resolved.startsWith(root)) {
+  const resolved = path.resolve(normalizedRoot, normalized.replace(/^\/+/, ""));
+  if (
+    resolved !== normalizedRoot &&
+    !resolved.startsWith(normalizedRoot + path.sep)
+  ) {
     throw new AppError(400, `path traversal rejected: ${raw}`);
   }
   return resolved;

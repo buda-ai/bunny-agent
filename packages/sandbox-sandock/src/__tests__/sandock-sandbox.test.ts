@@ -92,6 +92,7 @@ describe("SandockSandbox", () => {
         memoryLimitMb: 1024,
         cpuShares: 512,
         keep: false,
+        command: ["/bin/sh", "-c", "echo hello"],
       });
       expect(sandbox).toBeInstanceOf(SandockSandbox);
     });
@@ -126,6 +127,43 @@ describe("SandockSandbox", () => {
       const sandbox = new SandockSandbox();
       const handle = await sandbox.attach();
       expect(handle).toBeDefined();
+    });
+
+    it("should pass command option to Sandock API when provided", async () => {
+      const { createSandockClient } = await import("sandock");
+      const mockCreateClient = createSandockClient as ReturnType<typeof vi.fn>;
+      const sandbox = new SandockSandbox({
+        command: ["/bin/sh", "-c", "echo hello"],
+      });
+      await sandbox.attach();
+      // The client is created in the constructor, get the returned mock
+      const mockClient = mockCreateClient.mock.results[
+        mockCreateClient.mock.results.length - 1
+      ].value as {
+        sandbox: { create: ReturnType<typeof vi.fn> };
+      };
+      expect(mockClient.sandbox.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          command: ["/bin/sh", "-c", "echo hello"],
+        }),
+      );
+    });
+
+    it("should not pass command to Sandock API when not provided", async () => {
+      const { createSandockClient } = await import("sandock");
+      const mockCreateClient = createSandockClient as ReturnType<typeof vi.fn>;
+      const sandbox = new SandockSandbox();
+      await sandbox.attach();
+      const mockClient = mockCreateClient.mock.results[
+        mockCreateClient.mock.results.length - 1
+      ].value as {
+        sandbox: { create: ReturnType<typeof vi.fn> };
+      };
+      expect(mockClient.sandbox.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          command: undefined,
+        }),
+      );
     });
   });
 
