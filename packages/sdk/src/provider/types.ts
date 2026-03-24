@@ -1,5 +1,5 @@
 import type { LanguageModelV3StreamPart } from "@ai-sdk/provider";
-import type { SandAgentOptions } from "@sandagent/manager";
+import type { SandAgentOptions, SandboxAdapter } from "@sandagent/manager";
 
 /**
  * Artifact Processor result
@@ -78,9 +78,16 @@ export type SandAgentRunnerType =
 
 /**
  * AI Provider specific settings that extend SandAgentOptions.
+ * Use either a local `sandbox` or HTTP `daemonUrl`.
  */
 export interface SandAgentProviderSettings
-  extends Omit<SandAgentOptions, "runner" | "sandboxId"> {
+  extends Omit<SandAgentOptions, "runner" | "sandboxId" | "sandbox"> {
+  /** Required for local SandAgent unless `daemonUrl` is set. */
+  sandbox?: SandboxAdapter;
+  /**
+   * Base URL of sandagent-daemon (e.g. {@link DEFAULT_SANDAGENT_DAEMON_URL} for local default).
+   */
+  daemonUrl?: string;
   /**
    * Which runner implementation to use: claude (default), pi, codex, gemini, opencode.
    * Maps to `sandagent run --runner <runnerType>`.
@@ -102,6 +109,8 @@ export interface SandAgentProviderSettings
   systemPrompt?: string;
   /** Additional skill paths (files or directories) for pi runner */
   skillPaths?: string[];
+  /** Allowed tools for the runner (undefined = template defaults). */
+  allowedTools?: string[];
 }
 
 /**
@@ -117,3 +126,6 @@ export function getRunnerKindForModel(
 ): "claude-agent-sdk" {
   return "claude-agent-sdk";
 }
+
+/** Default local sandagent-daemon base URL (`http://127.0.0.1:3080`). Pass as `daemonUrl` when needed. */
+export const DEFAULT_SANDAGENT_DAEMON_URL = "http://127.0.0.1:3080";

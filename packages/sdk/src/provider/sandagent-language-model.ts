@@ -14,11 +14,8 @@ import type {
   SharedV3Warning,
 } from "@ai-sdk/provider";
 import { type Message, type RunnerSpec, SandAgent } from "@sandagent/manager";
-import type {
-  Logger,
-  SandAgentModelId,
-  SandAgentProviderSettings,
-} from "./types";
+import { getProviderLogger } from "./logging";
+import type { Logger, SandAgentModelId, SandAgentProviderSettings } from "./types";
 
 /**
  * Options for creating a SandAgent language model instance.
@@ -42,27 +39,15 @@ function formatErrorForLog(error: unknown): string {
   return String(error);
 }
 
-function getLogger(settings: SandAgentProviderSettings): Logger {
-  if (settings.logger === false) {
-    return {
-      debug: () => {},
-      info: () => {},
-      warn: () => {},
-      error: () => {},
-    };
-  }
-
-  if (settings.logger) {
-    return settings.logger;
-  }
-
-  const isVerbose = settings.verbose ?? false;
-  return {
-    debug: (msg) => isVerbose && console.debug(msg),
-    info: (msg) => isVerbose && console.info(msg),
-    warn: (msg) => console.warn(msg),
-    error: (msg) => console.error(msg),
-  };
+function getLastUserTextFromMessages(messages: Message[]): string {
+  const lastUser = [...messages].reverse().find((m) => m.role === "user");
+  if (!lastUser) return "";
+  const c = lastUser.content;
+  if (typeof c === "string") return c;
+  return c
+    .filter((p): p is { type: "text"; text: string } => p.type === "text")
+    .map((p) => p.text)
+    .join("\n");
 }
 
 function createEmptyUsage(): LanguageModelV3Usage {
@@ -87,7 +72,7 @@ function createEmptyUsage(): LanguageModelV3Usage {
  */
 export class SandAgentLanguageModel implements LanguageModelV3 {
   readonly specificationVersion = "v3" as const;
-  readonly provider = "sandagent";
+  readonly provider: string;
   readonly modelId: string;
   readonly supportedUrls: Record<string, RegExp[]> = {
     "image/*": [/.*/],
@@ -101,7 +86,10 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
   constructor(modelOptions: SandAgentLanguageModelOptions) {
     this.modelId = modelOptions.id;
     this.options = modelOptions.options;
-    this.logger = getLogger(modelOptions.options);
+    this.logger = getProviderLogger(modelOptions.options);
+    this.provider = modelOptions.options.daemonUrl
+      ? "sandagent-daemon"
+      : "sandagent";
   }
 
   async doGenerate(
@@ -206,23 +194,42 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
     const { prompt, abortSignal } = options;
     const messages = this.convertPromptToMessages(prompt);
 
+    this.resetStreamState();
+
     this.logger.debug(
       `[sandagent] Starting stream with ${messages.length} messages`,
     );
 
+    const daemonUrl = this.options.daemonUrl;
+
+    if (daemonUrl) {
+      const bytesStream = await this.openDaemonByteStream(
+        daemonUrl,
+        messages,
+        abortSignal,
+      );
+      return this.buildStreamResult(bytesStream, messages);
+    }
+
     const sandbox = this.options.sandbox;
+    if (!sandbox) {
+      throw new Error(
+        "SandAgent language model requires a sandbox when no daemon URL is set",
+      );
+    }
+
     const sandboxEnv = sandbox.getEnv?.() ?? {};
     const sandboxWorkdir =
       this.options.cwd ?? sandbox.getWorkdir?.() ?? "/workspace";
 
     const agent = new SandAgent({
-      sandbox: this.options.sandbox,
+      sandbox,
       runner: this.options.runner,
       env: { ...sandboxEnv, ...this.options.env },
     });
 
     try {
-      const stream = await agent.stream({
+      const bytesStream = await agent.stream({
         messages,
         workspace: {
           path: sandboxWorkdir,
@@ -230,110 +237,158 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
         resume: this.options.resume,
         signal: abortSignal,
       });
-
-      const self = this;
-      const reader = stream.getReader();
-
-      if (!reader) {
-        throw new Error("Response body is not readable");
-      }
-
-      const outputStream = new ReadableStream<LanguageModelV3StreamPart>({
-        async start(controller) {
-          try {
-            let buffer = "";
-
-            while (true) {
-              const { done, value } = await reader.read();
-
-              if (done) {
-                if (buffer.trim()) {
-                  const parts = self.parseSSEBuffer(buffer);
-                  for (const part of parts) {
-                    controller.enqueue(part);
-                  }
-                }
-                controller.close();
-                break;
-              }
-
-              const text = new TextDecoder().decode(value);
-              buffer += text;
-
-              const lines = buffer.split("\n");
-              buffer = lines.pop() ?? "";
-
-              let foundDone = false;
-              for (const line of lines) {
-                if (line.startsWith("data: ")) {
-                  const data = line.slice(6);
-
-                  if (data === "[DONE]") {
-                    foundDone = true;
-                    continue;
-                  }
-                  try {
-                    const parts = self.parseSSEData(data);
-                    for (const part of parts) {
-                      controller.enqueue(part);
-
-                      if (self.sessionId) {
-                        const sessionId: string = self.sessionId;
-
-                        if (self.options.artifactProcessors?.length) {
-                          for (const processor of self.options
-                            .artifactProcessors) {
-                            Promise.resolve()
-                              .then(() => processor.onChange(part, sessionId))
-                              .catch((e) => {
-                                self.logger.error(
-                                  `[sandagent] Artifact processor error: ${e}`,
-                                );
-                              });
-                          }
-                        }
-                      }
-                    }
-                  } catch (e) {
-                    self.logger.error(
-                      `[sandagent] Failed to parse SSE data: ${e}`,
-                    );
-                  }
-                }
-              }
-
-              if (foundDone) {
-                controller.close();
-                return;
-              }
-            }
-          } catch (error) {
-            if (error instanceof Error && error.name === "AbortError") {
-              self.logger.info("[sandagent] Stream aborted by user");
-            } else {
-              self.logger.error(
-                `[sandagent] Stream error: ${formatErrorForLog(error)}`,
-              );
-            }
-            controller.error(error);
-          }
-        },
-
-        cancel() {
-          reader.cancel();
-        },
-      });
-
-      return {
-        stream: outputStream,
-        request: {
-          body: JSON.stringify({ messages }),
-        },
-      };
+      return this.buildStreamResult(bytesStream, messages);
     } catch (error) {
       await agent.destroy().catch(() => {});
       throw error;
     }
+  }
+
+  private resetStreamState(): void {
+    this.sessionId = undefined;
+    this.toolNameMap = new Map();
+  }
+
+  private async openDaemonByteStream(
+    daemonUrl: string,
+    messages: Message[],
+    abortSignal: AbortSignal | undefined,
+  ): Promise<ReadableStream<Uint8Array>> {
+    const runner = this.options.runner;
+    const cwd = this.options.cwd ?? "/workspace";
+    const body = {
+      runner: runner.runnerType ?? "claude",
+      model: this.modelId,
+      userInput: getLastUserTextFromMessages(messages),
+      cwd,
+      resume: this.options.resume,
+      systemPrompt: this.options.systemPrompt ?? runner.systemPrompt,
+      maxTurns: this.options.maxTurns ?? runner.maxTurns,
+      allowedTools: runner.allowedTools ?? this.options.allowedTools,
+      skillPaths: runner.skillPaths ?? this.options.skillPaths,
+    };
+
+    const url = `${daemonUrl.replace(/\/$/, "")}/api/coding/run`;
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: abortSignal,
+    });
+
+    if (!response.ok || !response.body) {
+      throw new Error(
+        `daemon error: ${response.status} ${response.statusText}`,
+      );
+    }
+
+    return response.body;
+  }
+
+  private buildStreamResult(
+    bytesStream: ReadableStream<Uint8Array>,
+    messages: Message[],
+  ): LanguageModelV3StreamResult {
+    const reader = bytesStream.getReader();
+
+    return {
+      stream: this.createLanguageModelStreamFromSseReader(reader),
+      request: {
+        body: JSON.stringify({ messages }),
+      },
+    };
+  }
+
+  private createLanguageModelStreamFromSseReader(
+    reader: ReadableStreamDefaultReader<Uint8Array>,
+  ): ReadableStream<LanguageModelV3StreamPart> {
+    const self = this;
+
+    return new ReadableStream<LanguageModelV3StreamPart>({
+      async start(controller) {
+        try {
+          let buffer = "";
+
+          while (true) {
+            const { done, value } = await reader.read();
+
+            if (done) {
+              if (buffer.trim()) {
+                const parts = self.parseSSEBuffer(buffer);
+                for (const part of parts) {
+                  controller.enqueue(part);
+                }
+              }
+              controller.close();
+              break;
+            }
+
+            const text = new TextDecoder().decode(value);
+            buffer += text;
+
+            const lines = buffer.split("\n");
+            buffer = lines.pop() ?? "";
+
+            let foundDone = false;
+            for (const line of lines) {
+              if (line.startsWith("data: ")) {
+                const data = line.slice(6);
+
+                if (data === "[DONE]") {
+                  foundDone = true;
+                  continue;
+                }
+                try {
+                  const parts = self.parseSSEData(data);
+                  for (const part of parts) {
+                    controller.enqueue(part);
+
+                    if (self.sessionId) {
+                      const sessionId: string = self.sessionId;
+
+                      if (self.options.artifactProcessors?.length) {
+                        for (const processor of self.options
+                          .artifactProcessors) {
+                          Promise.resolve()
+                            .then(() => processor.onChange(part, sessionId))
+                            .catch((e) => {
+                              self.logger.error(
+                                `[sandagent] Artifact processor error: ${e}`,
+                              );
+                            });
+                        }
+                      }
+                    }
+                  }
+                } catch (e) {
+                  self.logger.error(
+                    `[sandagent] Failed to parse SSE data: ${e}`,
+                  );
+                }
+              }
+            }
+
+            if (foundDone) {
+              controller.close();
+              return;
+            }
+          }
+        } catch (error) {
+          if (error instanceof Error && error.name === "AbortError") {
+            self.logger.info("[sandagent] Stream aborted by user");
+          } else {
+            self.logger.error(
+              `[sandagent] Stream error: ${formatErrorForLog(error)}`,
+            );
+          }
+          controller.error(error);
+        }
+      },
+
+      cancel() {
+        reader.cancel();
+      },
+    });
   }
 
   private parseSSEBuffer(buffer: string): LanguageModelV3StreamPart[] {

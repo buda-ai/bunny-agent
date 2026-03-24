@@ -270,29 +270,29 @@ const sandagent = createSandAgent({
 const model = sandagent("claude-sonnet-4-20250514");
 ```
 
-#### `createSandAgentDaemon` — daemon HTTP transport (local dev / buda embed)
+#### Daemon HTTP transport (same provider)
 
-Use this when `sandagent-daemon` is running — either as a standalone process in a container, or embedded in a Next.js app via `createNextHandler`.
+When `sandagent-daemon` is running (standalone or embedded in Next.js via `createNextHandler`), pass **`daemonUrl`** (use `DEFAULT_SANDAGENT_DAEMON_URL` for the usual local `http://127.0.0.1:3080` base).
 
 ```typescript
-import { createSandAgentDaemon } from "@sandagent/sdk";
+import { createSandAgent } from "@sandagent/sdk";
 
-const sandagent = createSandAgentDaemon({
-  daemonUrl: "http://localhost:3080",  // or /api/daemon when embedded in Next.js
-  runner: "claude",                    // claude · pi · gemini · codex · opencode
+const sandagent = createSandAgent({
+  daemonUrl: "http://localhost:3080", // or your embedded base path
+  runnerType: "claude",
   cwd: "/workspace",
 });
 
 const model = sandagent("claude-sonnet-4-20250514");
 ```
 
-Both return the same `LanguageModelV3` interface — swap transports without changing any other code.
+Sandbox and daemon transports both use `createSandAgent` and the same `LanguageModelV3` surface.
 
 ### Exports
 
 | Entry Point | Exports |
 |-------------|---------|
-| `@sandagent/sdk` | `createSandAgent`, `createSandAgentDaemon`, `LocalSandbox`, `SandAgentLanguageModel`, `submitAnswer` |
+| `@sandagent/sdk` | `createSandAgent`, `LocalSandbox`, `SandAgentLanguageModel`, `submitAnswer`, `DEFAULT_SANDAGENT_DAEMON_URL` |
 | `@sandagent/sdk/react` | `useSandAgentChat`, `useArtifacts`, `useWriteTool`, `useAskUserQuestion` |
 
 ---
