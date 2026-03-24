@@ -15,7 +15,7 @@ const RUNNER_BUNDLE_PATH = path.join(
   MONOREPO_ROOT,
   "apps/runner-cli/dist/bundle.mjs",
 );
-const SANDBOX_IMAGE = process.env.SANDBOX_IMAGE ?? "vikadata/sandagent:0.2.15";
+const SANDBOX_IMAGE = process.env.SANDBOX_IMAGE ?? "vikadata/sandagent:latest";
 
 export interface CreateSandboxParams {
   SANDBOX_PROVIDER?: string;
