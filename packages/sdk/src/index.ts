@@ -50,10 +50,9 @@ export type {
 // Provider exports
 export {
   createSandAgent,
+  DEFAULT_SANDAGENT_DAEMON_URL,
   SandAgentLanguageModel,
   submitAnswer,
 } from "./provider";
-export type { DaemonProviderSettings } from "./provider/sandagent-daemon-provider";
-export { createSandAgentDaemon } from "./provider/sandagent-daemon-provider";
 
 export const VERSION = "0.1.0";

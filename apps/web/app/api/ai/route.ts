@@ -1,5 +1,6 @@
 import {
   createSandAgent,
+  DEFAULT_SANDAGENT_DAEMON_URL,
   type SandAgentProviderSettings,
 } from "@sandagent/sdk";
 import {
@@ -218,6 +219,7 @@ export async function POST(request: Request) {
 
       const sandagentOptions: SandAgentProviderSettings = {
         sandbox,
+        daemonUrl: DEFAULT_SANDAGENT_DAEMON_URL,
         cwd: sandbox.getWorkdir?.() || "/sandagent",
         runnerType,
         verbose: true,

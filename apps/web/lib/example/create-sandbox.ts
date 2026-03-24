@@ -15,7 +15,7 @@ const RUNNER_BUNDLE_PATH = path.join(
   MONOREPO_ROOT,
   "apps/runner-cli/dist/bundle.mjs",
 );
-const SANDBOX_IMAGE = process.env.SANDBOX_IMAGE ?? "vikadata/sandagent:0.2.15";
+const SANDBOX_IMAGE = process.env.SANDBOX_IMAGE ?? "vikadata/sandagent:latest";
 
 export interface CreateSandboxParams {
   SANDBOX_PROVIDER?: string;
@@ -35,6 +35,7 @@ export interface CreateSandboxParams {
   CLAUDE_CODE_SKIP_BEDROCK_AUTH?: string;
   OPENAI_API_KEY?: string;
   OPENAI_BASE_URL?: string;
+  GEMINI_API_KEY?: string;
   GEMINI_BASE_URL?: string;
   AWS_REGION?: string;
   template?: string;
@@ -101,6 +102,7 @@ async function buildSandbox(
     CLAUDE_CODE_SKIP_BEDROCK_AUTH,
     OPENAI_API_KEY,
     OPENAI_BASE_URL,
+    GEMINI_API_KEY,
     GEMINI_BASE_URL,
     template = "default",
     env: extraEnv = {},
@@ -120,6 +122,7 @@ async function buildSandbox(
     CLAUDE_CODE_SKIP_BEDROCK_AUTH,
     OPENAI_API_KEY,
     OPENAI_BASE_URL,
+    GEMINI_API_KEY,
     GEMINI_BASE_URL,
     inherit: extraEnv,
   });

@@ -29,3 +29,4 @@ export type {
   StreamWriter,
   SubmitAnswerParams,
 } from "./types";
+export { DEFAULT_SANDAGENT_DAEMON_URL } from "./types";

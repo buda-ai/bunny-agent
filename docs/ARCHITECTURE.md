@@ -70,10 +70,10 @@
 │           └── spawns runner-cli inside sandbox
 │               └── sandbox: E2B / Sandock / Local / Daytona
 │
-└── createSandAgentDaemon({ daemonUrl })  ← daemon HTTP transport
+└── createSandAgent({ sandbox, daemonUrl })  ← daemon HTTP inside sandbox
     │
-    └── fetch POST /api/sandagent/run
-        └── apps/daemon
+    └── streamCodingRunFromSandbox (curl POST /api/coding/run in VM)
+        └── apps/daemon (@sandagent/daemon)
             └── runner-core
 ```
 
@@ -129,8 +129,7 @@ apps/
 
 packages/
 ├── runner-core     → runner-claude, runner-pi, runner-gemini, runner-codex, runner-opencode
-├── sdk             → manager  (createSandAgent)
-│                   → [no dep] (createSandAgentDaemon — just fetch)
+├── sdk             → manager  (createSandAgent; daemon path uses fetch only)
 ├── manager         → (no deps, defines Runner + SandboxAdapter interfaces)
 ├── runner-claude   → @anthropic-ai/claude-agent-sdk
 ├── runner-pi       → @mariozechner/pi-coding-agent
