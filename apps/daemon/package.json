@@ -23,8 +23,9 @@
   ],
   "scripts": {
     "build": "pnpm clean && tsc --emitDeclarationOnly && pnpm bundle",
-    "bundle": "esbuild src/index.ts src/nextjs.ts --bundle --platform=node --format=esm --outdir=dist && esbuild src/cli.ts --bundle --platform=node --format=esm --outfile=dist/bundle.mjs",
-    "dev": "tsc --watch",
+    "bundle": "node scripts/build.mjs",
+    "dev": "pnpm build && node dist/bundle.mjs",
+    "dev:watch": "tsc --watch",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit",
     "lint": "echo 'no lint configured'",
