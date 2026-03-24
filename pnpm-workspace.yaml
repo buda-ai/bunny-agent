@@ -1,7 +1,6 @@
 packages:
   - packages/*
   - apps/*
-  - "!apps/web.bak"
   - docker/sandagent-claude
 ignoredBuiltDependencies:
   - '@biomejs/biome'

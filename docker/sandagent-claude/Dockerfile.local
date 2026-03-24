@@ -1,71 +1,53 @@
-# SandAgent Image — build from local monorepo (no npm publish).
-# Runtime matches docker/sandagent-claude/Dockerfile except runner-cli + daemon
-# are installed from `pnpm deploy` of this repo instead of the npm registry.
+# SandAgent Image - build from local monorepo (no npm publish)
+# Copies and builds runner-cli + runner-claude from repo; only installs claude-agent-sdk from npm.
 #
 # Build from repo root (use .dockerignore at repo root to exclude node_modules, .git, etc.):
 #   docker build -f docker/sandagent-claude/Dockerfile.local -t vikadata/sandagent:local .
-#
-# If Docker Hub is unreachable (EOF / timeout), pull the base image first (`docker pull node:20-slim`)
-# or override: --build-arg NODE_IMAGE=node:20-bookworm-slim
-
-ARG NODE_IMAGE=node:20-slim
 
 # -----------------------------------------------------------------------------
-# Stage 1: install filtered workspace, build, deploy production trees for runner-cli + daemon
+# Stage 1: build runner-cli bundle from local source
 # -----------------------------------------------------------------------------
-FROM ${NODE_IMAGE} AS builder
+FROM node:20-slim AS builder
 
 WORKDIR /build
 
 RUN corepack enable && corepack prepare pnpm@10.11.0 --activate && pnpm --version
 
+# Copy full repo so pnpm workspace resolves (context = repo root)
 COPY . .
 
-RUN pnpm install --frozen-lockfile \
-    --filter "@sandagent/runner-cli..." \
-    --filter "@sandagent/daemon..." && \
-    pnpm --filter @sandagent/runner-cli... run build && \
-    pnpm --filter @sandagent/daemon run build
-
-RUN pnpm --filter @sandagent/runner-cli deploy --prod --legacy /deploy-runner && \
-    pnpm --filter @sandagent/daemon deploy --prod --legacy /deploy-daemon && \
-    rm -rf /build/node_modules
+# Install and build runner chain + daemon (daemon bundles runner-core)
+RUN pnpm install --frozen-lockfile && \
+    pnpm --filter @sandagent/manager build && \
+    pnpm --filter @sandagent/runner-core build && \
+    pnpm --filter @sandagent/runner-claude build && \
+    pnpm --filter @sandagent/runner-cli build && \
+    pnpm --filter @sandagent/daemon build
 
 # -----------------------------------------------------------------------------
-# Stage 2: same runtime as Dockerfile — COPY deploy outputs instead of npm install @sandagent/*
+# Stage 2: runtime image with local bundle + claude-agent-sdk from npm
 # -----------------------------------------------------------------------------
-FROM ${NODE_IMAGE}
+FROM node:20-slim
 
 LABEL org.opencontainers.image.title="sandagent"
 LABEL org.opencontainers.image.description="SandAgent with Claude Agent SDK (local runner build)"
-LABEL org.opencontainers.image.version="local"
+LABEL org.opencontainers.image.version="0.1.0"
 
 RUN for i in 1 2 3; do \
-    apt-get update && apt-get install -y \
-    git \
-    curl \
-    sudo \
-    tmux \
-    python3 \
-    python3-pip \
-    && rm -rf /var/lib/apt/lists/* \
-    && break || sleep 5; \
+    apt-get update && apt-get install -y git curl python3 python3-pip && rm -rf /var/lib/apt/lists/* && break || sleep 5; \
     done
 
-RUN useradd -m -d /agent -s /bin/bash agent && \
-    echo "agent ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
-
-RUN mkdir -p /workspace && chown agent:agent /workspace
+RUN mkdir -p /workspace && chmod 777 /workspace
 WORKDIR /workspace
 
-# Playwright only at top level (matches Dockerfile’s use of playwright for browsers); @sandagent/* from deploy COPY.
-RUN mkdir -p /opt/sandagent && \
-    cd /opt/sandagent && \
-    npm init -y && \
-    npm install --no-audit --no-fund playwright && \
-    rm package.json package-lock.json && \
-    npm cache clean --force
+# Install only runtime dep (runner code is in bundle)
+RUN mkdir -p /opt/sandagent/node_modules && \
+    cd /opt/sandagent && npm init -y && \
+    npm install --no-audit --no-fund @anthropic-ai/claude-agent-sdk playwright && \
+    rm package.json package-lock.json && npm cache clean --force
 
+# Install Playwright Chromium browser and system dependencies.
+# Refresh apt keys before Playwright's apt-get (buildx+QEMU amd64 on arm64 hosts).
 ENV PLAYWRIGHT_BROWSERS_PATH=/opt/sandagent/pw-browsers
 RUN apt-get update && \
     apt-get install -y --no-install-recommends --reinstall \
@@ -76,31 +58,33 @@ RUN apt-get update && \
     && cd /opt/sandagent \
     && DEBIAN_FRONTEND=noninteractive npx playwright install --with-deps chromium
 
-RUN mkdir -p /opt/sandagent/node_modules/@sandagent
-COPY --from=builder /deploy-runner/ /opt/sandagent/node_modules/@sandagent/runner-cli/
-COPY --from=builder /deploy-daemon/ /opt/sandagent/node_modules/@sandagent/daemon/
+# Copy local-built runner and daemon bundles into place
+RUN mkdir -p /opt/sandagent/node_modules/@sandagent/runner-cli/dist \
+    /opt/sandagent/node_modules/@sandagent/daemon/dist
+COPY --from=builder /build/apps/runner-cli/dist/bundle.mjs /opt/sandagent/node_modules/@sandagent/runner-cli/dist/bundle.mjs
+COPY --from=builder /build/apps/daemon/dist/bundle.mjs /opt/sandagent/node_modules/@sandagent/daemon/dist/bundle.mjs
 
-RUN chown -R agent:agent /opt/sandagent
-
-RUN npm install simple-git brave-search-cli -g
-
+# Init script (copy deps to workspace when needed)
 RUN echo '#!/bin/bash\n\
 if [ ! -d "/workspace/node_modules/@sandagent" ]; then\n\
   echo "Copying sandagent dependencies to workspace..."\n\
   mkdir -p /workspace/node_modules\n\
   cp -r /opt/sandagent/node_modules/* /workspace/node_modules/\n\
 fi\n\
-exec "$@"' > /usr/local/bin/sandagent-init && \
-    chmod +x /usr/local/bin/sandagent-init
+exec "$@"' > /usr/local/bin/sandagent-init && chmod +x /usr/local/bin/sandagent-init
 
+# sandagent + sandagent-daemon commands
 RUN echo '#!/usr/bin/env node' > /usr/local/bin/sandagent && \
     echo 'import("/opt/sandagent/node_modules/@sandagent/runner-cli/dist/bundle.mjs")' >> /usr/local/bin/sandagent && \
     chmod +x /usr/local/bin/sandagent
-
 RUN echo '#!/usr/bin/env node' > /usr/local/bin/sandagent-daemon && \
     echo 'import("/opt/sandagent/node_modules/@sandagent/daemon/dist/bundle.mjs")' >> /usr/local/bin/sandagent-daemon && \
     chmod +x /usr/local/bin/sandagent-daemon
 
+# Install global CLI tools for agent use
+RUN npm install -g brave-search-cli
+
+# Entrypoint: copy /skills, start daemon + CDP, then exec CMD
 RUN printf '%s\n' \
     '#!/bin/bash' \
     'mkdir -p "$HOME/.claude/skills"' \
@@ -119,8 +103,12 @@ ENV SANDAGENT_ROOT=/workspace
 ENV SANDAGENT_DAEMON_HOST=0.0.0.0
 ENV SANDAGENT_DAEMON_PORT=3080
 
+# Suppress D-Bus errors in headless Chromium (no bus in containers)
 ENV DBUS_SESSION_BUS_ADDRESS=/dev/null
 
+# Create CDP (Chrome DevTools Protocol) startup script
+# Use nginx to proxy and rewrite Host header to localhost,
+# bypassing Chromium's Host header security check
 RUN for i in 1 2 3; do \
     apt-get update && apt-get install -y nginx && \
     rm -rf /var/lib/apt/lists/* && break || sleep 5; \
@@ -147,11 +135,9 @@ for i in $(seq 1 30); do\n\
   if curl -s http://127.0.0.1:9223/json/version > /dev/null 2>&1; then break; fi\n\
   sleep 0.5\n\
 done\n\
-sudo nginx\n\
+nginx\n\
 echo "CDP available on 0.0.0.0:9222 (nginx proxy rewriting Host to localhost)"' > /usr/local/bin/start-cdp && \
     chmod +x /usr/local/bin/start-cdp
-
-USER agent
 
 EXPOSE 3080
 EXPOSE 9222

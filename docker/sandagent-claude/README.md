@@ -82,17 +82,6 @@ Or from repo root:
 docker build -f docker/sandagent-claude/Dockerfile.local -t vikadata/sandagent:local .
 ```
 
-#### Troubleshooting: `node:20-slim` / Docker Hub `EOF` or timeout
-
-The build must fetch `node:20-slim` metadata from Docker Hub. A network drop shows as `failed to do request: Head ... EOF`.
-
-1. Retry the build, or pull the base image first: `docker pull node:20-slim`
-2. Configure a **registry mirror** in Docker Desktop (Settings → Docker Engine → `registry-mirrors`) if Hub is slow from your network.
-3. Override the base image:  
-   `make image-local NODE_IMAGE=node:20-bookworm-slim IMAGE_TAG=local`  
-   or:  
-   `docker build --build-arg NODE_IMAGE=node:20-bookworm-slim -f docker/sandagent-claude/Dockerfile.local -t vikadata/sandagent:local .`
-
 ## Setup
 
 1. Copy `.env.example` to `.env`.

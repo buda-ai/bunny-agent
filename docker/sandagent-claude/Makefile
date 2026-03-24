@@ -61,7 +61,6 @@ help:
 	@echo ""
 	@echo "Options:"
 	@echo "  IMAGE_TAG=x.y.z    Image version tag (default: $(IMAGE_TAG))"
-	@echo "  NODE_IMAGE=img      Base image for image-local (default: $(NODE_IMAGE))"
 	@echo "  TEMPLATE=name      Include template (e.g., researcher, coder, analyst)"
 	@echo "  CPU=n              CPU cores (default: $(CPU))"
 	@echo "  MEMORY=n           Memory in GB (default: $(MEMORY))"
@@ -219,14 +218,10 @@ image: check-docker
 
 # Build from local monorepo (runner-cli + runner-claude from repo, no npm publish)
 # Context = repo root. Result: $(IMAGE_NAME):$(IMAGE_TAG) e.g. vikadata/sandagent:0.1.0
-# NODE_IMAGE: base image for Dockerfile.local (default node:20-slim). Override if Docker Hub fails.
-NODE_IMAGE ?= node:20-slim
 REPO_ROOT := $(MAKEFILE_DIR)/../..
 image-local: check-docker
 	@echo "Building image from local repo (Dockerfile.local)..."
-	@docker build --platform=linux/amd64 \
-		--build-arg NODE_IMAGE="$(NODE_IMAGE)" \
-		-f "$(MAKEFILE_DIR)/Dockerfile.local" -t "$(FULL_IMAGE)" "$(REPO_ROOT)"
+	@docker build --platform=linux/amd64 -f "$(MAKEFILE_DIR)/Dockerfile.local" -t "$(FULL_IMAGE)" "$(REPO_ROOT)"
 	@echo "✅ Done. Image: $(FULL_IMAGE)"
 
 image-local-push: image-local
