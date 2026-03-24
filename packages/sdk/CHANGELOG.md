@@ -1,5 +1,13 @@
 # @sandagent/sdk
 
+## 0.9.3
+
+### Patch Changes
+
+- Release v0.9.3
+- Updated dependencies
+  - @sandagent/manager@0.9.3
+
 ## 0.9.2
 
 ### Patch Changes
