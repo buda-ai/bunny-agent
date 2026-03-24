@@ -55,7 +55,7 @@ export class SandAgent {
     cmd.push("--model", this.runner.model);
 
     // Add workspace path
-    const workspacePath = input.workspace?.path ?? "/workspace";
+    const workspacePath = input.workspace?.path ?? "/agent";
     cmd.push("--cwd", workspacePath);
 
     // Add optional system prompt
@@ -228,7 +228,7 @@ export class SandAgent {
    */
   async uploadFiles(
     files: Array<{ path: string; content: Uint8Array | string }>,
-    targetDir = "/workspace",
+    targetDir = "/agent",
   ): Promise<void> {
     const handle = await this.ensureAttached();
     await handle.upload(files, targetDir);

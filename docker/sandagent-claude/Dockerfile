@@ -33,8 +33,8 @@ RUN useradd -m -d /agent -s /bin/bash agent && \
     echo "agent ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
 # Create directories with proper permissions
-RUN mkdir -p /workspace && chown agent:agent /workspace
-WORKDIR /workspace
+RUN mkdir -p /agent && chown agent:agent /agent
+WORKDIR /agent
 
 # Pre-install dependencies to /opt/sandagent (won't be overwritten by volume mount)
 RUN mkdir -p /opt/sandagent && \
@@ -66,10 +66,10 @@ RUN npm install simple-git brave-search-cli -g
 
 # Create init script to copy deps to workspace on startup
 RUN echo '#!/bin/bash\n\
-if [ ! -d "/workspace/node_modules/@sandagent" ]; then\n\
+if [ ! -d "/agent/node_modules/@sandagent" ]; then\n\
   echo "Copying sandagent dependencies to workspace..."\n\
-  mkdir -p /workspace/node_modules\n\
-  cp -r /opt/sandagent/node_modules/* /workspace/node_modules/\n\
+  mkdir -p /agent/node_modules\n\
+  cp -r /opt/sandagent/node_modules/* /agent/node_modules/\n\
 fi\n\
 exec "$@"' > /usr/local/bin/sandagent-init && \
     chmod +x /usr/local/bin/sandagent-init
@@ -100,7 +100,7 @@ RUN printf '%s\n' \
 # Set environment variables
 ENV NODE_PATH=/opt/sandagent/node_modules
 ENV PATH=/usr/local/bin:$PATH
-ENV SANDAGENT_ROOT=/workspace
+ENV SANDAGENT_ROOT=/agent
 ENV SANDAGENT_DAEMON_HOST=0.0.0.0
 ENV SANDAGENT_DAEMON_PORT=3080
 

@@ -121,7 +121,7 @@ export class SandockSandbox implements SandboxAdapter {
     });
 
     this.image = options.image ?? "sandockai/sandock-code:latest";
-    this.workdir = options.workdir ?? "/workspace";
+    this.workdir = options.workdir ?? "/agent";
     this.memoryLimitMb = options.memoryLimitMb;
     this.cpuShares = options.cpuShares;
     this.keep = options.keep ?? true;
