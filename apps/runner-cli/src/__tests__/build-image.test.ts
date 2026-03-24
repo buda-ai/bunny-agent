@@ -80,7 +80,7 @@ describe("buildImage", () => {
     expect(content).toContain("FROM node:20-slim");
     expect(content).toContain("@sandagent/runner-cli");
     expect(content).toContain(
-      'CMD ["bash", "-c", "start-cdp; sleep infinity"]',
+      'CMD ["bash", "-c", "sandagent-daemon & start-cdp; sleep infinity"]',
     );
   });
 
