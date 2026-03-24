@@ -84,7 +84,7 @@ RUN echo '#!/usr/bin/env node' > /usr/local/bin/sandagent-daemon && \
     echo 'import("/opt/sandagent/node_modules/@sandagent/daemon/dist/bundle.mjs")' >> /usr/local/bin/sandagent-daemon && \
     chmod +x /usr/local/bin/sandagent-daemon
 
-# Entrypoint: copy /skills into ~/.claude/skills (real dirs so SDK loads them; symlinks may not be followed)
+# Entrypoint: copy /skills, start daemon + CDP, then exec CMD
 RUN printf '%s\n' \
     '#!/bin/bash' \
     'mkdir -p "$HOME/.claude/skills"' \
@@ -92,6 +92,8 @@ RUN printf '%s\n' \
     '  cp -r /skills/. "$HOME/.claude/skills/"' \
     '  echo "Copied /skills to $HOME/.claude/skills"' \
     'fi' \
+    'sandagent-daemon &' \
+    'start-cdp' \
     'exec "$@"' > /usr/local/bin/sandagent-entrypoint && \
     chmod +x /usr/local/bin/sandagent-entrypoint
 
@@ -150,5 +152,5 @@ ENTRYPOINT ["/usr/local/bin/sandagent-entrypoint"]
 EXPOSE 3080
 EXPOSE 9222
 
-# Start daemon HTTP API in background, then CDP; keep container alive (Daytona / E2B)
-CMD ["bash", "-c", "sandagent-daemon & start-cdp; sleep infinity"]
+# Keep container alive (daemon + CDP started by entrypoint)
+CMD ["sleep", "infinity"]

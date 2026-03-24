@@ -84,6 +84,19 @@ RUN echo '#!/usr/bin/env node' > /usr/local/bin/sandagent-daemon && \
 # Install global CLI tools for agent use
 RUN npm install -g brave-search-cli
 
+# Entrypoint: copy /skills, start daemon + CDP, then exec CMD
+RUN printf '%s\n' \
+    '#!/bin/bash' \
+    'mkdir -p "$HOME/.claude/skills"' \
+    'if [ -d /skills ] && [ -n "$(ls -A /skills 2>/dev/null)" ]; then' \
+    '  cp -r /skills/. "$HOME/.claude/skills/"' \
+    '  echo "Copied /skills to $HOME/.claude/skills"' \
+    'fi' \
+    'sandagent-daemon &' \
+    'start-cdp' \
+    'exec "$@"' > /usr/local/bin/sandagent-entrypoint && \
+    chmod +x /usr/local/bin/sandagent-entrypoint
+
 ENV NODE_PATH=/opt/sandagent/node_modules
 ENV PATH=/usr/local/bin:$PATH
 ENV SANDAGENT_ROOT=/workspace
@@ -129,4 +142,5 @@ echo "CDP available on 0.0.0.0:9222 (nginx proxy rewriting Host to localhost)"' 
 EXPOSE 3080
 EXPOSE 9222
 
-CMD ["bash", "-c", "sandagent-daemon & start-cdp; sleep infinity"]
+ENTRYPOINT ["/usr/local/bin/sandagent-entrypoint"]
+CMD ["sleep", "infinity"]
