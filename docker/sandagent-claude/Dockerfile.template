@@ -32,8 +32,8 @@ RUN useradd -m -d /home/agent -s /bin/bash agent && \
     echo "agent ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
 # Create directories with proper permissions
-RUN mkdir -p /agent && chown agent:agent /agent
-WORKDIR /agent
+RUN mkdir -p /workspace && chown agent:agent /workspace
+WORKDIR /workspace
 
 # Pre-install dependencies to /opt/sandagent (won't be overwritten by volume mount)
 RUN mkdir -p /opt/sandagent && \
@@ -62,10 +62,10 @@ RUN apt-get update && \
 
 # Create init script to copy deps to workspace on startup
 RUN echo '#!/bin/bash\n\
-if [ ! -d "/agent/node_modules/@sandagent" ]; then\n\
+if [ ! -d "/workspace/node_modules/@sandagent" ]; then\n\
   echo "Copying sandagent dependencies to workspace..."\n\
-  mkdir -p /agent/node_modules\n\
-  cp -r /opt/sandagent/node_modules/* /agent/node_modules/\n\
+  mkdir -p /workspace/node_modules\n\
+  cp -r /opt/sandagent/node_modules/* /workspace/node_modules/\n\
 fi\n\
 exec "$@"' > /usr/local/bin/sandagent-init && \
     chmod +x /usr/local/bin/sandagent-init
