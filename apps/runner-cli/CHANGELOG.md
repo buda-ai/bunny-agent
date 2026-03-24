@@ -1,5 +1,11 @@
 # @sandagent/runner-cli
 
+## 0.9.8
+
+### Patch Changes
+
+- Release v0.9.8
+
 ## 0.9.7
 
 ### Patch Changes
