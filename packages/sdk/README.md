@@ -270,29 +270,28 @@ const sandagent = createSandAgent({
 const model = sandagent("claude-sonnet-4-20250514");
 ```
 
-#### `createSandAgentDaemon` — daemon HTTP transport (local dev / buda embed)
+#### Daemon HTTP transport (same provider)
 
-Use this when `sandagent-daemon` is running — either as a standalone process in a container, or embedded in a Next.js app via `createNextHandler`.
+**With any sandbox adapter** (E2B, Sandock, `LocalSandbox`, etc.): pass **`sandbox` + `daemonUrl`**. The URL is resolved **inside** the sandbox (the `vikadata/sandagent` image starts `sandagent-daemon` on port 3080). The SDK always streams via `streamCodingRunFromSandbox` (`curl -N` in the sandbox, including `LocalSandbox`), not `fetch` from your server.
 
 ```typescript
-import { createSandAgentDaemon } from "@sandagent/sdk";
+import { createSandAgent, DEFAULT_SANDAGENT_DAEMON_URL } from "@sandagent/sdk";
 
-const sandagent = createSandAgentDaemon({
-  daemonUrl: "http://localhost:3080",  // or /api/daemon when embedded in Next.js
-  runner: "claude",                    // claude · pi · gemini · codex · opencode
+const sandagent = createSandAgent({
+  sandbox: mySandboxAdapter,
+  daemonUrl: DEFAULT_SANDAGENT_DAEMON_URL, // http://127.0.0.1:3080 inside the container
+  runnerType: "claude",
   cwd: "/workspace",
 });
-
-const model = sandagent("claude-sonnet-4-20250514");
 ```
 
-Both return the same `LanguageModelV3` interface — swap transports without changing any other code.
+Omit `daemonUrl` to use the **CLI runner** in the same sandbox. `createSandAgent` always requires a `sandbox` adapter.
 
 ### Exports
 
 | Entry Point | Exports |
 |-------------|---------|
-| `@sandagent/sdk` | `createSandAgent`, `createSandAgentDaemon`, `LocalSandbox`, `SandAgentLanguageModel`, `submitAnswer` |
+| `@sandagent/sdk` | `createSandAgent`, `LocalSandbox`, `SandAgentLanguageModel`, `submitAnswer`, `DEFAULT_SANDAGENT_DAEMON_URL` |
 | `@sandagent/sdk/react` | `useSandAgentChat`, `useArtifacts`, `useWriteTool`, `useAskUserQuestion` |
 
 ---

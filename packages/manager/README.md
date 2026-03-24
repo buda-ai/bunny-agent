@@ -4,7 +4,7 @@
 >
 > `@sandagent/manager` works by spawning `sandagent run` CLI inside a sandbox via `exec()`. This approach is being superseded by **`@sandagent/daemon`** — a unified HTTP gateway that runs inside the sandbox and exposes the same capabilities over a clean REST API.
 >
-> **Prefer `createSandAgentDaemon()` from `@sandagent/sdk`** for new integrations.
+> **Prefer `createSandAgent` with an explicit `daemonUrl` from `@sandagent/sdk`** when using the HTTP daemon.
 >
 > This package remains supported for sandboxes that only provide `exec()` capability (E2B, Daytona, etc.) and has no planned removal date.
 

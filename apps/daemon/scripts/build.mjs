@@ -1,4 +1,12 @@
-import * as esbuild from "esbuild";
+import { createRequire } from "node:module";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+// Resolve from apps/daemon (not only scripts/), so `node scripts/build.mjs` always finds the package.
+const require = createRequire(
+  join(dirname(fileURLToPath(import.meta.url)), "..", "package.json"),
+);
+const esbuild = require("esbuild");
 
 // Banner: polyfill `require` in ESM context so CJS dependencies
 // that call require("os"), require("path"), etc. work correctly.

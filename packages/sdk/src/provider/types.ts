@@ -1,5 +1,5 @@
 import type { LanguageModelV3StreamPart } from "@ai-sdk/provider";
-import type { SandAgentOptions } from "@sandagent/manager";
+import type { SandAgentOptions, SandboxAdapter } from "@sandagent/manager";
 
 /**
  * Artifact Processor result
@@ -78,9 +78,19 @@ export type SandAgentRunnerType =
 
 /**
  * AI Provider specific settings that extend SandAgentOptions.
+ * Requires a `sandbox`. Optional `daemonUrl` streams via sandagent-daemon
+ * **inside** that sandbox; without it, the CLI runner is used in the sandbox.
  */
 export interface SandAgentProviderSettings
-  extends Omit<SandAgentOptions, "runner" | "sandboxId"> {
+  extends Omit<SandAgentOptions, "runner" | "sandboxId" | "sandbox"> {
+  /** Required. All transports run relative to this adapter. */
+  sandbox: SandboxAdapter;
+  /**
+   * sandagent-daemon base URL **inside** the sandbox (e.g. SandAgent image:
+   * `http://127.0.0.1:3080`). When set, the SDK uses `streamCodingRunFromSandbox`
+   * instead of the CLI runner.
+   */
+  daemonUrl?: string;
   /**
    * Which runner implementation to use: claude (default), pi, codex, gemini, opencode.
    * Maps to `sandagent run --runner <runnerType>`.
@@ -102,6 +112,8 @@ export interface SandAgentProviderSettings
   systemPrompt?: string;
   /** Additional skill paths (files or directories) for pi runner */
   skillPaths?: string[];
+  /** Allowed tools for the runner (undefined = template defaults). */
+  allowedTools?: string[];
 }
 
 /**
@@ -117,3 +129,9 @@ export function getRunnerKindForModel(
 ): "claude-agent-sdk" {
   return "claude-agent-sdk";
 }
+
+/**
+ * Default sandagent-daemon base URL inside the SandAgent Docker image / local
+ * daemon (`http://127.0.0.1:3080`). Pass as `daemonUrl` with a `sandbox`.
+ */
+export const DEFAULT_SANDAGENT_DAEMON_URL = "http://127.0.0.1:3080";

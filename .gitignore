@@ -16,6 +16,9 @@ pids
 *.seed
 *.pid.lock
 
+# Local sandagent-daemon data (default SANDAGENT_ROOT when unset)
+.sandagent-daemon/
+
 # Benchmark
 packages/benchmark/.gaia-cache
 # packages/benchmark/benchmark-results

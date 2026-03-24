@@ -6,8 +6,9 @@ import type {
 } from "@ai-sdk/provider";
 import { NoSuchModelError } from "@ai-sdk/provider";
 import type { RunnerSpec } from "@sandagent/manager";
+import { getProviderLogger } from "./logging";
 import { SandAgentLanguageModel } from "./sandagent-language-model";
-import type { Logger, SandAgentModelId } from "./types";
+import type { SandAgentModelId } from "./types";
 import { getRunnerKindForModel, type SandAgentProviderSettings } from "./types";
 
 export type { SandAgentProviderSettings } from "./types";
@@ -36,29 +37,6 @@ export interface SandAgentProvider extends ProviderV3 {
   imageModel(modelId: string): ImageModelV3;
 }
 
-function getLogger(settings: Partial<SandAgentProviderSettings>): Logger {
-  if (settings.logger === false) {
-    return {
-      debug: () => {},
-      info: () => {},
-      warn: () => {},
-      error: () => {},
-    };
-  }
-
-  if (settings.logger) {
-    return settings.logger;
-  }
-
-  const isVerbose = settings.verbose ?? false;
-  return {
-    debug: (msg) => isVerbose && console.debug(msg),
-    info: (msg) => isVerbose && console.info(msg),
-    warn: (msg) => console.warn(msg),
-    error: (msg) => console.error(msg),
-  };
-}
-
 /**
  * Creates a SandAgent provider instance with the specified configuration.
  *
@@ -84,12 +62,12 @@ function getLogger(settings: Partial<SandAgentProviderSettings>): Logger {
 export function createSandAgent(
   defaultOptions: SandAgentProviderSettings,
 ): SandAgentProvider {
-  const logger = getLogger(defaultOptions);
+  const logger = getProviderLogger(defaultOptions);
 
   if (!defaultOptions.sandbox) {
     throw new Error(
-      "SandAgent provider requires a sandbox adapter. " +
-        "Please provide one, e.g.: new E2BSandbox({ apiKey: 'xxx' })",
+      "Provide a `sandbox` adapter (e.g. E2BSandbox, LocalSandbox). " +
+        "Optional `daemonUrl` selects in-sandbox HTTP to sandagent-daemon (e.g. `http://127.0.0.1:3080`); omit it to use the CLI runner in the sandbox.",
     );
   }
 
@@ -104,6 +82,11 @@ export function createSandAgent(
         ? options.skillPaths
         : defaultOptions.skillPaths;
 
+    const mergedAllowedTools =
+      options.allowedTools !== undefined
+        ? options.allowedTools
+        : defaultOptions.allowedTools;
+
     const runner: RunnerSpec = {
       kind: runnerKind,
       model: modelId,
@@ -115,6 +98,9 @@ export function createSandAgent(
         : {}),
       ...(mergedSkillPaths && mergedSkillPaths.length > 0
         ? { skillPaths: mergedSkillPaths }
+        : {}),
+      ...(mergedAllowedTools !== undefined
+        ? { allowedTools: mergedAllowedTools }
         : {}),
     };
 
