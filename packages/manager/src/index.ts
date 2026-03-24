@@ -1,7 +1,7 @@
+export { streamCodingRunFromSandbox } from "./coding-run.js";
 export type { RunnerEnvParams, RunnerType } from "./env.js";
 // Env helpers
 export { buildRunnerEnv } from "./env.js";
-export { streamCodingRunFromSandbox } from "./coding-run.js";
 export type { LocalSandboxOptions } from "./local-sandbox.js";
 
 // Default sandbox adapter (built-in)

@@ -21,7 +21,11 @@ import {
   streamCodingRunFromSandbox,
 } from "@sandagent/manager";
 import { getProviderLogger } from "./logging";
-import type { Logger, SandAgentModelId, SandAgentProviderSettings } from "./types";
+import type {
+  Logger,
+  SandAgentModelId,
+  SandAgentProviderSettings,
+} from "./types";
 
 /**
  * Options for creating a SandAgent language model instance.
