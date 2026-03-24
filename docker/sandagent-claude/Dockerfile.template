@@ -96,7 +96,7 @@ RUN printf '%s\n' \
     chmod +x /usr/local/bin/sandagent-entrypoint
 ENV NODE_PATH=/opt/sandagent/node_modules
 ENV PATH=/usr/local/bin:$PATH
-ENV SANDAGENT_ROOT=/workspace
+ENV SANDAGENT_ROOT=/agent
 ENV SANDAGENT_DAEMON_HOST=0.0.0.0
 ENV SANDAGENT_DAEMON_PORT=3080
 

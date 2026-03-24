@@ -100,7 +100,7 @@ RUN printf '%s\n' \
 # Set environment variables
 ENV NODE_PATH=/opt/sandagent/node_modules
 ENV PATH=/usr/local/bin:$PATH
-ENV SANDAGENT_ROOT=/workspace
+ENV SANDAGENT_ROOT=/agent
 ENV SANDAGENT_DAEMON_HOST=0.0.0.0
 ENV SANDAGENT_DAEMON_PORT=3080
 
