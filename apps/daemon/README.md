@@ -325,6 +325,55 @@ Response: `application/x-ndjson` chunked stream — each line is an AI SDK UI me
 | POST | `/api/fs/remove` | `{"path":"tmp","recursive":true}` |
 | POST | `/api/fs/move` | `{"from":"a.txt","to":"b.txt"}` |
 | POST | `/api/fs/copy` | `{"from":"a.txt","to":"b.txt"}` |
+| POST | `/api/fs/upload` | `multipart/form-data` — see below |
+
+#### `POST /api/fs/upload`
+
+Upload one or more files via `multipart/form-data`.
+
+Form fields:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `path` | string | No | Target directory (default: `.`) |
+| `volume` | string | No | Volume name for multi-tenant isolation |
+| `create_dirs` | string | No | Create parent dirs (default: `"true"`) |
+| `file` | file | Yes | One or more files to upload |
+
+Example:
+
+```bash
+# Upload a single file
+curl -X POST http://localhost:3080/api/fs/upload \
+  -F "path=uploads" \
+  -F "file=@local-file.txt"
+
+# Upload multiple files
+curl -X POST http://localhost:3080/api/fs/upload \
+  -F "path=data" \
+  -F "file=@report.csv" \
+  -F "file=@image.png"
+
+# Upload to a specific volume
+curl -X POST http://localhost:3080/api/fs/upload \
+  -F "path=docs" \
+  -F "volume=vol-001" \
+  -F "file=@readme.md"
+```
+
+Response:
+
+```json
+{
+  "ok": true,
+  "data": {
+    "files": [
+      { "fieldname": "file", "filename": "report.csv", "path": "/workspace/data/report.csv", "size": 1234 }
+    ]
+  },
+  "error": null
+}
+```
 
 All fs endpoints accept optional `volume` for multi-tenant isolation.
 
