@@ -28,12 +28,12 @@ import {
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
-import { DEFAULT_RUNNER } from "@/lib/runner";
 import { AskUserQuestionUI } from "./claude-tools/AskUserQuestionUI";
 import { STORAGE_KEY } from "./settings/page";
 
 const REQUIRED_KEYS = ["E2B_API_KEY"];
 
+/** Matches /api/ai: in development the server defaults to local daemon unless opted out. */
 const templates = [
   { id: "default", name: "Default", description: "General-purpose assistant" },
   { id: "coder", name: "Coder", description: "Software development" },
@@ -150,18 +150,8 @@ function HomeContent() {
       const saved = localStorage.getItem(STORAGE_KEY);
       const config = saved ? JSON.parse(saved) : {};
       setClientConfig(config);
-      const hasClaudeAuth =
-        !!config.ANTHROPIC_API_KEY ||
-        !!config.AWS_BEARER_TOKEN_BEDROCK ||
-        !!config.ANTHROPIC_AUTH_TOKEN ||
-        !!config.LITELLM_MASTER_KEY ||
-        (config.CLAUDE_CODE_USE_BEDROCK === "1" &&
-          !!config.ANTHROPIC_BEDROCK_BASE_URL);
-      const runner = (config.RUNNER ?? DEFAULT_RUNNER).toLowerCase();
-      const hasPiAuth = runner === "pi" && !!config.OPENAI_API_KEY;
-      const hasApiKey = hasClaudeAuth || hasPiAuth;
-      const allRequiredSet =
-        REQUIRED_KEYS.every((key) => !!config[key]) && hasApiKey;
+      // LLM goes through sandagent-daemon; only sandbox keys matter for Ready.
+      const allRequiredSet = REQUIRED_KEYS.every((key) => !!config[key]);
       setConfigReady(allRequiredSet);
     } catch {
       setConfigReady(false);

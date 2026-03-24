@@ -78,14 +78,17 @@ export type SandAgentRunnerType =
 
 /**
  * AI Provider specific settings that extend SandAgentOptions.
- * Use either a local `sandbox` or HTTP `daemonUrl`.
+ * Requires a `sandbox`. Optional `daemonUrl` streams via sandagent-daemon
+ * **inside** that sandbox; without it, the CLI runner is used in the sandbox.
  */
 export interface SandAgentProviderSettings
   extends Omit<SandAgentOptions, "runner" | "sandboxId" | "sandbox"> {
-  /** Required for local SandAgent unless `daemonUrl` is set. */
-  sandbox?: SandboxAdapter;
+  /** Required. All transports run relative to this adapter. */
+  sandbox: SandboxAdapter;
   /**
-   * Base URL of sandagent-daemon (e.g. {@link DEFAULT_SANDAGENT_DAEMON_URL} for local default).
+   * sandagent-daemon base URL **inside** the sandbox (e.g. SandAgent image:
+   * `http://127.0.0.1:3080`). When set, the SDK uses `streamCodingRunFromSandbox`
+   * instead of the CLI runner.
    */
   daemonUrl?: string;
   /**
@@ -127,5 +130,8 @@ export function getRunnerKindForModel(
   return "claude-agent-sdk";
 }
 
-/** Default local sandagent-daemon base URL (`http://127.0.0.1:3080`). Pass as `daemonUrl` when needed. */
+/**
+ * Default sandagent-daemon base URL inside the SandAgent Docker image / local
+ * daemon (`http://127.0.0.1:3080`). Pass as `daemonUrl` with a `sandbox`.
+ */
 export const DEFAULT_SANDAGENT_DAEMON_URL = "http://127.0.0.1:3080";

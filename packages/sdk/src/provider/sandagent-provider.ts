@@ -64,11 +64,10 @@ export function createSandAgent(
 ): SandAgentProvider {
   const logger = getProviderLogger(defaultOptions);
 
-  if (!defaultOptions.sandbox && !defaultOptions.daemonUrl) {
+  if (!defaultOptions.sandbox) {
     throw new Error(
-      "Provide either a sandbox adapter or a daemon URL. " +
-        "For HTTP streaming: set `daemonUrl` on the provider (e.g. `DEFAULT_SANDAGENT_DAEMON_URL`). " +
-        "For in-process runs: pass a `sandbox` (for example `new E2BSandbox({ apiKey: '...' })`).",
+      "Provide a `sandbox` adapter (e.g. E2BSandbox, LocalSandbox). " +
+        "Optional `daemonUrl` selects in-sandbox HTTP to sandagent-daemon (e.g. `http://127.0.0.1:3080`); omit it to use the CLI runner in the sandbox.",
     );
   }
 

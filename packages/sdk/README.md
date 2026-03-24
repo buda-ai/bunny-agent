@@ -272,21 +272,20 @@ const model = sandagent("claude-sonnet-4-20250514");
 
 #### Daemon HTTP transport (same provider)
 
-When `sandagent-daemon` is running (standalone or embedded in Next.js via `createNextHandler`), pass **`daemonUrl`** (use `DEFAULT_SANDAGENT_DAEMON_URL` for the usual local `http://127.0.0.1:3080` base).
+**With any sandbox adapter** (E2B, Sandock, `LocalSandbox`, etc.): pass **`sandbox` + `daemonUrl`**. The URL is resolved **inside** the sandbox (the `vikadata/sandagent` image starts `sandagent-daemon` on port 3080). The SDK always streams via `streamCodingRunFromSandbox` (`curl -N` in the sandbox, including `LocalSandbox`), not `fetch` from your server.
 
 ```typescript
-import { createSandAgent } from "@sandagent/sdk";
+import { createSandAgent, DEFAULT_SANDAGENT_DAEMON_URL } from "@sandagent/sdk";
 
 const sandagent = createSandAgent({
-  daemonUrl: "http://localhost:3080", // or your embedded base path
+  sandbox: mySandboxAdapter,
+  daemonUrl: DEFAULT_SANDAGENT_DAEMON_URL, // http://127.0.0.1:3080 inside the container
   runnerType: "claude",
   cwd: "/workspace",
 });
-
-const model = sandagent("claude-sonnet-4-20250514");
 ```
 
-Sandbox and daemon transports both use `createSandAgent` and the same `LanguageModelV3` surface.
+Omit `daemonUrl` to use the **CLI runner** in the same sandbox. `createSandAgent` always requires a `sandbox` adapter.
 
 ### Exports
 

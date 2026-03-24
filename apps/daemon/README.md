@@ -411,7 +411,7 @@ GET /healthz
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `SANDAGENT_DAEMON_PORT` | `3080` | Listen port |
-| `SANDAGENT_ROOT` | `/workspace` | Filesystem root |
+| `SANDAGENT_ROOT` | `./.sandagent-daemon` (under cwd) | Daemon filesystem root; Docker images set e.g. `/workspace` |
 | `ANTHROPIC_API_KEY` | — | For claude runner |
 | `GEMINI_API_KEY` | — | For gemini / pi runner |
 | `OPENAI_API_KEY` | — | For codex runner |

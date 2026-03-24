@@ -785,6 +785,7 @@ class SandockHandle implements SandboxHandle {
     }
   }
 
+
   async readFile(filePath: string): Promise<string> {
     const result = await this.client.fs.read(this.sandboxId, filePath);
     // Sandock fs.read returns { success: true, data: { path: string, content: string } }

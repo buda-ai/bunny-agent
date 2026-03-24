@@ -70,10 +70,10 @@
 │           └── spawns runner-cli inside sandbox
 │               └── sandbox: E2B / Sandock / Local / Daytona
 │
-└── createSandAgent({ daemonUrl })  ← daemon HTTP transport
+└── createSandAgent({ sandbox, daemonUrl })  ← daemon HTTP inside sandbox
     │
-    └── fetch POST /api/coding/run
-        └── apps/daemon
+    └── streamCodingRunFromSandbox (curl POST /api/coding/run in VM)
+        └── apps/daemon (@sandagent/daemon)
             └── runner-core
 ```
 

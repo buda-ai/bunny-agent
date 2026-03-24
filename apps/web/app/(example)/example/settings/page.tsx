@@ -210,6 +210,16 @@ const ENV_CONFIGS: EnvConfig[] = [
     placeholder: "https://generativelanguage.googleapis.com",
   },
   {
+    name: "Gemini API Key (Pi runner)",
+    key: "GEMINI_API_KEY",
+    description:
+      "Optional. Google AI Studio / Gemini API key for Pi when using google:gemini-* models. Get one at https://aistudio.google.com/app/apikey",
+    required: false,
+    category: "api",
+    placeholder: "AIza...",
+    isSecret: true,
+  },
+  {
     name: "Google Search Engine ID",
     key: "GOOGLE_SEARCH_ENGINE_ID",
     description:
@@ -217,6 +227,15 @@ const ENV_CONFIGS: EnvConfig[] = [
     required: false,
     category: "api",
     placeholder: "012345678901234567890:abc...",
+  },
+  {
+    name: "Daemon URL",
+    key: "DAEMON_URL",
+    description:
+      "Optional. Defaults to http://127.0.0.1:3080 when empty. LLM keys are configured on the daemon, not here.",
+    required: false,
+    category: "api",
+    placeholder: "http://127.0.0.1:3080",
   },
 ];
 

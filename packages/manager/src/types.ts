@@ -25,6 +25,21 @@ export interface ExecOptions {
 }
 
 /**
+ * JSON body for sandagent-daemon `POST /api/coding/run` (same shape as apps/daemon).
+ */
+export interface SandAgentCodingRunBody {
+  runner?: string;
+  model?: string;
+  userInput: string;
+  systemPrompt?: string;
+  maxTurns?: number;
+  allowedTools?: string[];
+  resume?: string;
+  skillPaths?: string[];
+  cwd?: string;
+}
+
+/**
  * Represents a handle to an active sandbox instance
  */
 export interface SandboxHandle {

@@ -13,7 +13,13 @@ import type {
   SharedV3ProviderMetadata,
   SharedV3Warning,
 } from "@ai-sdk/provider";
-import { type Message, type RunnerSpec, SandAgent } from "@sandagent/manager";
+import {
+  type Message,
+  type RunnerSpec,
+  SandAgent,
+  type SandAgentCodingRunBody,
+  streamCodingRunFromSandbox,
+} from "@sandagent/manager";
 import { getProviderLogger } from "./logging";
 import type { Logger, SandAgentModelId, SandAgentProviderSettings } from "./types";
 
@@ -37,6 +43,31 @@ function formatErrorForLog(error: unknown): string {
     return parts.join(" | cause: ");
   }
   return String(error);
+}
+
+/** Bridge async iterable (sandbox exec / curl) to Web ReadableStream for SSE parsing. */
+function asyncIterableToReadableStream(
+  iterable: AsyncIterable<Uint8Array>,
+): ReadableStream<Uint8Array> {
+  const iterator = iterable[Symbol.asyncIterator]();
+  return new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      while (true) {
+        const { done, value } = await iterator.next();
+        if (done) {
+          controller.close();
+          return;
+        }
+        if (value.byteLength > 0) {
+          controller.enqueue(value);
+          return;
+        }
+      }
+    },
+    async cancel(reason) {
+      await iterator.return?.(reason);
+    },
+  });
 }
 
 function getLastUserTextFromMessages(messages: Message[]): string {
@@ -200,22 +231,30 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
       `[sandagent] Starting stream with ${messages.length} messages`,
     );
 
-    const daemonUrl = this.options.daemonUrl;
-
-    if (daemonUrl) {
-      const bytesStream = await this.openDaemonByteStream(
-        daemonUrl,
-        messages,
-        abortSignal,
-      );
-      return this.buildStreamResult(bytesStream, messages);
-    }
-
     const sandbox = this.options.sandbox;
     if (!sandbox) {
       throw new Error(
-        "SandAgent language model requires a sandbox when no daemon URL is set",
+        "SandAgent language model requires a sandbox adapter (set `sandbox` on the provider).",
       );
+    }
+
+    const daemonUrl = this.options.daemonUrl;
+
+    if (daemonUrl) {
+      const handle = await sandbox.attach();
+      const body = this.buildCodingRunBody(messages, handle.getWorkdir());
+      const execOpts = {
+        cwd: this.options.cwd ?? handle.getWorkdir(),
+        signal: abortSignal,
+      };
+      const iterable = streamCodingRunFromSandbox(
+        handle,
+        daemonUrl,
+        body,
+        execOpts,
+      );
+      const bytesStream = asyncIterableToReadableStream(iterable);
+      return this.buildStreamResult(bytesStream, messages);
     }
 
     const sandboxEnv = sandbox.getEnv?.() ?? {};
@@ -249,14 +288,13 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
     this.toolNameMap = new Map();
   }
 
-  private async openDaemonByteStream(
-    daemonUrl: string,
+  private buildCodingRunBody(
     messages: Message[],
-    abortSignal: AbortSignal | undefined,
-  ): Promise<ReadableStream<Uint8Array>> {
+    cwdFallback: string,
+  ): SandAgentCodingRunBody {
     const runner = this.options.runner;
-    const cwd = this.options.cwd ?? "/workspace";
-    const body = {
+    const cwd = this.options.cwd ?? cwdFallback;
+    return {
       runner: runner.runnerType ?? "claude",
       model: this.modelId,
       userInput: getLastUserTextFromMessages(messages),
@@ -267,22 +305,6 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
       allowedTools: runner.allowedTools ?? this.options.allowedTools,
       skillPaths: runner.skillPaths ?? this.options.skillPaths,
     };
-
-    const url = `${daemonUrl.replace(/\/$/, "")}/api/coding/run`;
-    const response = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-      signal: abortSignal,
-    });
-
-    if (!response.ok || !response.body) {
-      throw new Error(
-        `daemon error: ${response.status} ${response.statusText}`,
-      );
-    }
-
-    return response.body;
   }
 
   private buildStreamResult(
