@@ -70,6 +70,8 @@ export async function fsList(state: AppState, q: ListQuery) {
         path: fullPath,
         is_dir: e.isDirectory(),
         size: stat?.isFile() ? stat.size : 0,
+        created_at: stat?.birthtime?.toISOString() ?? null,
+        modified_at: stat?.mtime?.toISOString() ?? null,
       };
     }),
   );
