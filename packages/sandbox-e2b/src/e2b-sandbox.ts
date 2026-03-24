@@ -56,7 +56,7 @@ export interface E2BSandboxOptions {
    * Working directory for the agent inside the sandbox.
    * Will be created if it doesn't exist.
    *
-   * @default '/agent'
+   * @default '/workspace'
    */
   workdir?: string;
 }
@@ -104,7 +104,7 @@ export class E2BSandbox implements SandboxAdapter {
     this.templatesPath = options.templatesPath;
     this.name = options.name;
     this.env = options.env ?? {};
-    this.workdir = options.workdir ?? "/agent";
+    this.workdir = options.workdir ?? "/workspace";
   }
 
   /** Default E2B templates that don't have pre-installed dependencies */
@@ -412,7 +412,7 @@ class E2BHandle implements SandboxHandle {
     instance: Sandbox,
     sandboxId: string,
     sandboxEnv: Record<string, string> = {},
-    workdir = "/agent",
+    workdir = "/workspace",
   ) {
     this.instance = instance;
     this._sandboxId = sandboxId;

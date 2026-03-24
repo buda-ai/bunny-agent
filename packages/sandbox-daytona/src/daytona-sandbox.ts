@@ -67,7 +67,7 @@ export interface DaytonaSandboxOptions {
    * Working directory for the agent inside the sandbox.
    * Will be created if it doesn't exist.
    *
-   * @default '/agent'
+   * @default '/workspace'
    */
   workdir?: string;
 }
@@ -111,7 +111,7 @@ export class DaytonaSandbox implements SandboxAdapter {
     this.name = options.name;
     this.snapshot = options.snapshot;
     this.env = options.env ?? {};
-    this.workdir = options.workdir ?? "/agent";
+    this.workdir = options.workdir ?? "/workspace";
   }
 
   /**
@@ -479,7 +479,7 @@ class DaytonaHandle implements SandboxHandle {
     sandbox: Sandbox,
     sandboxId: string,
     sandboxEnv: Record<string, string> = {},
-    workdir = "/agent",
+    workdir = "/workspace",
   ) {
     this.sandbox = sandbox;
     this._sandboxId = sandboxId;
