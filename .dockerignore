@@ -1,4 +1,9 @@
 # Used when building from repo root (e.g. Dockerfile.local)
+# Backup copy of apps/web — often contains huge .next / turbopack caches; never needed in the image.
+apps/web.bak
+# Next.js / Turbopack caches anywhere in the tree (root `.next` alone may not match nested paths on all Docker versions)
+**/.next
+**/.turbo
 node_modules
 **/node_modules
 .git
@@ -17,6 +22,4 @@ packages/*/dist
 **/*.test.ts
 **/*.spec.ts
 benchmark-results
-.next
 coverage
-. turbo

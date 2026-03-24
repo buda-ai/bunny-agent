@@ -4,7 +4,8 @@ You are working on the SandAgent project - a framework that turns powerful codin
 
 ## Critical Rules
 
-1. **English Only**: All code, comments, documentation, commit messages, MUST be in English
+1. **Code & docs language**: Code, comments, documentation, and commit messages MUST be in English (shared convention for the repo).
+2. **Chat with the user**: Explanations and discussion may use any language the user prefers; there is no requirement to reply in English only.
 3. **Code Quality**: Follow TypeScript best practices and existing code style
 4. **Testing**: Write tests for new features when appropriate
 5. **Documentation**: Update relevant docs when adding features
@@ -147,7 +148,6 @@ pnpm add -w some-package
 
 ## Important Notes
 
-- **Never use Chinese** in any output
 - Follow existing patterns in the codebase
 - Update tests when changing functionality
 - Keep dependencies minimal
@@ -162,4 +162,4 @@ pnpm add -w some-package
 
 ---
 
-**Remember: All communication, code, and documentation must be in English only.**
+**Remember:** Keep **code, docs, and commit messages** in English. **Conversational** replies may follow the user’s language preference.
