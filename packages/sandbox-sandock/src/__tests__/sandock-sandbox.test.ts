@@ -137,7 +137,9 @@ describe("SandockSandbox", () => {
       });
       await sandbox.attach();
       // The client is created in the constructor, get the returned mock
-      const mockClient = mockCreateClient.mock.results[mockCreateClient.mock.results.length - 1].value as {
+      const mockClient = mockCreateClient.mock.results[
+        mockCreateClient.mock.results.length - 1
+      ].value as {
         sandbox: { create: ReturnType<typeof vi.fn> };
       };
       expect(mockClient.sandbox.create).toHaveBeenCalledWith(
@@ -152,7 +154,9 @@ describe("SandockSandbox", () => {
       const mockCreateClient = createSandockClient as ReturnType<typeof vi.fn>;
       const sandbox = new SandockSandbox();
       await sandbox.attach();
-      const mockClient = mockCreateClient.mock.results[mockCreateClient.mock.results.length - 1].value as {
+      const mockClient = mockCreateClient.mock.results[
+        mockCreateClient.mock.results.length - 1
+      ].value as {
         sandbox: { create: ReturnType<typeof vi.fn> };
       };
       expect(mockClient.sandbox.create).toHaveBeenCalledWith(
