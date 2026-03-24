@@ -21,11 +21,15 @@
 
 ## Web example app (`apps/web`)
 
-- **`POST /api/ai`**: Passes `sandbox` + `daemonUrl: DEFAULT_SANDAGENT_DAEMON_URL` so the SDK hits sandagent-daemon **inside** the E2B/sandbox VM, not the Next.js host.
+- **`POST /api/ai`**: Passes `daemonUrl: DEFAULT_SANDAGENT_DAEMON_URL` for all adapters; local dev should run `sandagent-daemon` on port 3080 (e.g. `pnpm --filter @sandagent/daemon bundle`).
 
 ## `@sandagent/manager` dist
 
 - Run `pnpm --filter @sandagent/manager build` after type changes; `SandboxHandle.runCoding` was removed in favor of always using `streamCodingRunFromSandbox`.
+
+## SDK follow-up
+
+- `sandagent-language-model.ts`: daemon path uses `sandbox.getEnv?.() ?? {}` (same as non-daemon branch) instead of `typeof … === "function"`.
 
 ## Sandbox required (`SandAgentLanguageModel`)
 

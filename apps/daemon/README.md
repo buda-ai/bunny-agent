@@ -23,6 +23,10 @@ The same `@sandagent/daemon` package works in both modes — Next.js embed for l
 
 The Dockerfiles under `docker/sandagent-claude/` (`Dockerfile`, `Dockerfile.local`, `Dockerfile.template`) install `@sandagent/daemon` and start **`sandagent-daemon`** in the background when the container starts (alongside the existing CDP / `sandagent` CLI setup). The HTTP API listens on **`0.0.0.0:3080`** by default (`EXPOSE 3080`). Override with `SANDAGENT_DAEMON_HOST`, `SANDAGENT_DAEMON_PORT`, and `SANDAGENT_ROOT` if needed.
 
+### Runner environment
+
+`POST /api/coding/run` starts the runner with the daemon process **`process.env`**. Configure API keys and runner settings on the daemon (or container image env), not via per-request HTTP headers from `@sandagent/manager`.
+
 ---
 
 ## Architecture

@@ -28,22 +28,21 @@ export async function* streamCodingRunFromSandbox(
   const reqPath = joinSandboxPath(workdir, reqName);
   const url = `${daemonBaseUrl.replace(/\/$/, "")}/api/coding/run`;
 
+  const curlArgs = [
+    "curl",
+    "-sS",
+    "-N",
+    "-X",
+    "POST",
+    url,
+    "-H",
+    "Content-Type: application/json",
+    "--data-binary",
+    `@${reqPath}`,
+  ];
+
   try {
-    yield* handle.exec(
-      [
-        "curl",
-        "-sS",
-        "-N",
-        "-X",
-        "POST",
-        url,
-        "-H",
-        "Content-Type: application/json",
-        "--data-binary",
-        `@${reqPath}`,
-      ],
-      opts,
-    );
+    yield* handle.exec(curlArgs, opts);
   } finally {
     try {
       for await (const _ of handle.exec(["rm", "-f", reqPath], {
