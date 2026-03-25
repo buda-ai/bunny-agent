@@ -11,6 +11,8 @@ export interface RunRequest {
   resume?: string;
   skillPaths?: string[];
   cwd?: string;
+  /** Inline runner env (string map); same keys override. */
+  env?: Record<string, string>;
 }
 
 /**
@@ -52,9 +54,7 @@ export async function sandagentRun(
     const msg = err instanceof Error ? err.message : String(err);
     // Keep output format consistent with runner-cli (SSE `data:` events),
     // so the SDK can parse errors uniformly.
-    res.write(
-      `data: ${JSON.stringify({ type: "error", errorText: msg })}\n\n`,
-    );
+    res.write(`data: ${JSON.stringify({ type: "error", errorText: msg })}\n\n`);
     res.write(
       `data: ${JSON.stringify({ type: "finish", finishReason: "error" })}\n\n`,
     );

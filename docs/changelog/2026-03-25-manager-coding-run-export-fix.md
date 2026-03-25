@@ -36,3 +36,14 @@
   no longer depends on `probeSandagentDaemonHealth` being re-exported.
 - Updated SDK `SandAgentLanguageModel.doGenerate()` to actually surface
   `type:"error"` stream parts into UI content + `finishReason=error`.
+- Per-request runner env: optional **`env`** on `POST /api/coding/run` JSON only
+  (merged after daemon `process.env` via `mergeCodingRunProcessEnv` in the daemon).
+- `streamCodingRunFromSandbox` serializes `body` as-is; **`ExecOptions.env` is not
+  used** (runner keys go in `SandAgentCodingRunBody.env`). SDK daemon path builds
+  `body.env` from sandbox + provider env. Removed `codingRunHeaders` /
+  `inheritSandboxEnv`; curl argv is Content-Type + `--data-binary @file` only.
+- `SANDBOX_CODING_RUN_TMP_DIR` lives in `coding-run.ts`. Removed unused
+  `runner-env-file.ts` and legacy `runner-env-header.ts` (base64 header helpers);
+  daemon owns coding-run env merge.
+- `@sandagent/daemon` no longer depends on `@sandagent/manager`; coding-run env merge
+  lives in `apps/daemon/src/coding-run-env.ts` (`mergeCodingRunProcessEnv`).

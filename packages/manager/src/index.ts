@@ -4,6 +4,7 @@ export { buildRunnerEnv } from "./env.js";
 export {
   buildDefaultCodingRunExec,
   buildDefaultDaemonCodingRunExecCommand,
+  SANDBOX_CODING_RUN_TMP_DIR,
   streamCodingRunFromSandbox,
 } from "./coding-run.js";
 export type { DaemonCodingRunExecParams } from "./coding-run.js";

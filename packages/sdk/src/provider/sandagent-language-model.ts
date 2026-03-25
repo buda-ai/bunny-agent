@@ -260,7 +260,12 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
 
     if (daemonUrl) {
       const handle = await sandbox.attach();
-      const body = this.buildCodingRunBody(messages, handle.getWorkdir());
+      const sandboxEnv = sandbox.getEnv?.() ?? {};
+      const runnerEnv = { ...sandboxEnv, ...this.options.env };
+      const body: SandAgentCodingRunBody = {
+        ...this.buildCodingRunBody(messages, handle.getWorkdir()),
+        ...(Object.keys(runnerEnv).length > 0 ? { env: runnerEnv } : {}),
+      };
       const execOpts = {
         cwd: this.options.cwd ?? handle.getWorkdir(),
         signal: abortSignal,

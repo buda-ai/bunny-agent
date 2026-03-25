@@ -24,12 +24,21 @@ const SANDBOX_IMAGE = process.env.SANDBOX_IMAGE ?? "vikadata/sandagent:0.9.9";
  * ENTRYPOINT sandagent-entrypoint + CMD ["sleep", "infinity"].
  * Set SANDOCK_CONTAINER_SLEEP_SEC=1800 (or another duration) if you need a
  * numeric `sleep` instead of `infinity`.
+ * Override the entrypoint binary with SANDOCK_SANDAGENT_ENTRYPOINT if your image
+ * installs it elsewhere.
+ *
+ * LLM keys in `SandockSandbox({ env: baseEnv })` are sent to the Sandock API as
+ * container `env` so sandagent-daemon sees the same variables as shell `exec`
+ * (not only the curl child process).
  */
-const SANDOCK_SLEEP_ARG =
-  process.env.SANDOCK_CONTAINER_SLEEP_SEC ?? "infinity";
+const SANDOCK_SLEEP_ARG = process.env.SANDOCK_CONTAINER_SLEEP_SEC ?? "infinity";
+
+const SANDAGENT_SANDOCK_ENTRYPOINT =
+  process.env.SANDOCK_SANDAGENT_ENTRYPOINT?.trim() ||
+  "/usr/local/bin/sandagent-entrypoint";
 
 const SANDAGENT_SANDOCK_COMMAND = [
-  "/usr/local/bin/sandagent-entrypoint",
+  SANDAGENT_SANDOCK_ENTRYPOINT,
   "sleep",
   SANDOCK_SLEEP_ARG,
 ] as const;
@@ -153,7 +162,7 @@ async function buildSandbox(
     GEMINI_BASE_URL,
     inherit: extraEnv,
   });
-
+  console.log("DEFAULT_SANDAGENT_DAEMON_URL", JSON.stringify(baseEnv, null, 2));
   if (SANDBOX_PROVIDER === "daytona" && DAYTONA_API_KEY) {
     const { DaytonaSandbox } = await import("@sandagent/sandbox-daytona");
     const opts: DaytonaSandboxOptions & { snapshot?: string } = {

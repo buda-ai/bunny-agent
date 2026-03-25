@@ -232,8 +232,9 @@ class LocalSandboxHandle implements SandboxHandle {
 
     const cwd = opts.cwd ? path.resolve(this.workDir, opts.cwd) : this.workDir;
     const timeout = opts.timeout ?? this.defaultTimeout;
+    const baseInherit = { ...process.env, ...this.env, ...opts.env };
     const env = buildRunnerEnv({
-      inherit: { ...process.env, ...this.env, ...opts.env },
+      inherit: baseInherit,
     });
 
     console.log(`[LocalSandbox] Executing command: ${command.join(" ")}`);

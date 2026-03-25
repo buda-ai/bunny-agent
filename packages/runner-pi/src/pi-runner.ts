@@ -229,7 +229,9 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
     // Auto-register: use <PROVIDER>_BASE_URL or fallback to OPENAI_BASE_URL
     const baseUrlEnvKey = `${provider.toUpperCase().replace(/-/g, "_")}_BASE_URL`;
     const apiKeyEnvKey = `${provider.toUpperCase().replace(/-/g, "_")}_API_KEY`;
-    const baseUrl = process.env[baseUrlEnvKey] ?? process.env.OPENAI_BASE_URL;
+    const baseUrl =
+      getEnvValue(options.env, baseUrlEnvKey) ??
+      getEnvValue(options.env, "OPENAI_BASE_URL");
     if (!baseUrl) {
       throw new Error(
         `Pi runner: model "${modelSpec}" not found in built-in catalog. ` +

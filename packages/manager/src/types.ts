@@ -16,7 +16,11 @@ export interface Volume {
 export interface ExecOptions {
   /** Working directory for the command */
   cwd?: string;
-  /** Environment variables */
+  /**
+   * Environment variables for normal `exec` (merged into the subprocess env).
+   * Not used by {@link streamCodingRunFromSandbox} — put runner vars in
+   * {@link SandAgentCodingRunBody.env} instead.
+   */
   env?: Record<string, string>;
   /** Timeout in milliseconds */
   timeout?: number;
@@ -37,6 +41,11 @@ export interface SandAgentCodingRunBody {
   resume?: string;
   skillPaths?: string[];
   cwd?: string;
+  /**
+   * Extra env vars merged into the runner subprocess env (after daemon `process.env`).
+   * String keys and string values only; invalid entries are dropped by the daemon.
+   */
+  env?: Record<string, string>;
 }
 
 /**

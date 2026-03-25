@@ -6,6 +6,9 @@ import type {
 
 // NOTE: daemon health probing moved to `@sandagent/sandbox-sandock`.
 
+/** Temp directory for the coding-run JSON uploaded before `curl`. */
+export const SANDBOX_CODING_RUN_TMP_DIR = "/tmp";
+
 export interface DaemonCodingRunExecParams {
   url: string;
   reqPath: string;
@@ -24,11 +27,10 @@ function normalizeDaemonBaseUrl(daemonBaseUrl: string): string {
  * Build argv for `curl` POST to sandagent-daemon `/api/coding/run`.
  *
  * Always passes `--fail` so HTTP 4xx/5xx produce a non-zero exit and stderr.
- * `opts` is accepted for API stability; it does not change argv.
+ * Runner credentials belong in the JSON body `env`, not headers.
  */
 export function buildDefaultDaemonCodingRunExecCommand(
   params: DaemonCodingRunExecParams,
-  _opts?: ExecOptions,
 ): string[] {
   return [
     "curl",
@@ -48,15 +50,11 @@ export function buildDefaultDaemonCodingRunExecCommand(
 export function buildDefaultCodingRunExec(
   daemonBaseUrl: string,
   reqPath: string,
-  opts?: ExecOptions,
 ): string[] {
-  return buildDefaultDaemonCodingRunExecCommand(
-    {
-      url: `${normalizeDaemonBaseUrl(daemonBaseUrl)}/api/coding/run`,
-      reqPath,
-    },
-    opts,
-  );
+  return buildDefaultDaemonCodingRunExecCommand({
+    url: `${normalizeDaemonBaseUrl(daemonBaseUrl)}/api/coding/run`,
+    reqPath,
+  });
 }
 
 // daemon health probe removed (see note above)
@@ -64,6 +62,12 @@ export function buildDefaultCodingRunExec(
 /**
  * Default daemon LLM proxy: write the JSON body into the sandbox, then stream
  * `curl -N POST …/api/coding/run` stdout. Requires `curl` in the sandbox image.
+ *
+ * Runner credentials and API keys belong in {@link SandAgentCodingRunBody.env} on
+ * `body` (serialized into the POST JSON). {@link ExecOptions.env} is ignored here.
+ *
+ * The JSON file is written under {@link SANDBOX_CODING_RUN_TMP_DIR}, not the sandbox
+ * workdir, and removed after the curl finishes.
  */
 export async function* streamCodingRunFromSandbox(
   handle: SandboxHandle,
@@ -72,20 +76,30 @@ export async function* streamCodingRunFromSandbox(
   opts?: ExecOptions,
 ): AsyncIterable<Uint8Array> {
   const workdir = opts?.cwd ?? handle.getWorkdir();
+  const tmpDir = SANDBOX_CODING_RUN_TMP_DIR;
+
+  const { cwd: optCwd, signal, timeout } = opts ?? {};
+
   const reqName = `.sandagent-coding-req-${Date.now()}-${Math.random().toString(36).slice(2, 10)}.json`;
   const payload = new TextEncoder().encode(JSON.stringify(body));
 
-  await handle.upload([{ path: reqName, content: payload }], workdir);
+  await handle.upload([{ path: reqName, content: payload }], tmpDir);
 
-  const reqPath = joinSandboxPath(workdir, reqName);
-  const curlArgs = buildDefaultCodingRunExec(daemonBaseUrl, reqPath, opts);
+  const reqPath = joinSandboxPath(tmpDir, reqName);
+
+  const curlArgs = buildDefaultCodingRunExec(daemonBaseUrl, reqPath);
 
   try {
-    yield* handle.exec(curlArgs, opts);
+    yield* handle.exec(curlArgs, {
+      cwd: optCwd ?? workdir,
+      signal,
+      timeout,
+    });
   } finally {
     try {
-      for await (const _ of handle.exec(["rm", "-f", reqPath], {
-        cwd: workdir,
+      const paths = [reqPath];
+      for await (const _ of handle.exec(["rm", "-f", ...paths], {
+        cwd: tmpDir,
       })) {
         // drain
       }

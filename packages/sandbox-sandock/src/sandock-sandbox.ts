@@ -630,24 +630,6 @@ class SandockHandle implements SandboxHandle {
       "[Sandock] Environment variables:",
       Object.keys(envWithNodePath),
     );
-    console.log(
-      "[Sandock] ANTHROPIC_API_KEY present:",
-      !!envWithNodePath.ANTHROPIC_API_KEY,
-    );
-    console.log(
-      "[Sandock] AWS_BEARER_TOKEN_BEDROCK present:",
-      !!envWithNodePath.AWS_BEARER_TOKEN_BEDROCK,
-    );
-    console.log(
-      "[Sandock] CLAUDE_CODE_USE_BEDROCK:",
-      envWithNodePath.CLAUDE_CODE_USE_BEDROCK || "NOT SET",
-    );
-    if (envWithNodePath.ANTHROPIC_API_KEY) {
-      console.log(
-        "[Sandock] ANTHROPIC_API_KEY prefix:",
-        envWithNodePath.ANTHROPIC_API_KEY.substring(0, 10) + "...",
-      );
-    }
 
     return {
       async *[Symbol.asyncIterator](): AsyncIterator<Uint8Array> {
@@ -765,7 +747,7 @@ class SandockHandle implements SandboxHandle {
               resolveWait?.();
             },
             onError: (err: unknown) => {
-              console.log("SHELL ERROR:", err);
+              console.log("[Sandock] SHELL ERROR:", err);
               // Only set error if:
               // 1. We haven't received any output (process failed before communicating)
               // 2. The stream isn't already done
