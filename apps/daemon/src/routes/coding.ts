@@ -50,7 +50,15 @@ export async function sandagentRun(
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    res.write(`${JSON.stringify({ error: msg })}\n`);
+    // Keep output format consistent with runner-cli (SSE `data:` events),
+    // so the SDK can parse errors uniformly.
+    res.write(
+      `data: ${JSON.stringify({ type: "error", errorText: msg })}\n\n`,
+    );
+    res.write(
+      `data: ${JSON.stringify({ type: "finish", finishReason: "error" })}\n\n`,
+    );
+    res.write(`data: [DONE]\n\n`);
   } finally {
     res.end();
   }
@@ -88,7 +96,11 @@ export function codingRunStream(
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         controller.enqueue(
-          new TextEncoder().encode(`${JSON.stringify({ error: msg })}\n`),
+          new TextEncoder().encode(
+            `data: ${JSON.stringify({ type: "error", errorText: msg })}\n\n` +
+              `data: ${JSON.stringify({ type: "finish", finishReason: "error" })}\n\n` +
+              `data: [DONE]\n\n`,
+          ),
         );
       } finally {
         controller.close();

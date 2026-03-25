@@ -4,6 +4,7 @@ import { E2BSandbox } from "@sandagent/sandbox-e2b";
 import { SandockSandbox } from "@sandagent/sandbox-sandock";
 import {
   buildRunnerEnv,
+  DEFAULT_SANDAGENT_DAEMON_URL,
   LocalSandbox,
   type SandboxAdapter,
 } from "@sandagent/sdk";
@@ -15,7 +16,33 @@ const RUNNER_BUNDLE_PATH = path.join(
   MONOREPO_ROOT,
   "apps/runner-cli/dist/bundle.mjs",
 );
-const SANDBOX_IMAGE = process.env.SANDBOX_IMAGE ?? "vikadata/sandagent:latest";
+const SANDBOX_IMAGE = process.env.SANDBOX_IMAGE ?? "vikadata/sandagent:0.9.9";
+
+/**
+ * Sandock on Kubernetes replaces Docker ENTRYPOINT with a shell keep-alive, so
+ * we pass the image entrypoint explicitly. Args mirror Dockerfile:
+ * ENTRYPOINT sandagent-entrypoint + CMD ["sleep", "infinity"].
+ * Set SANDOCK_CONTAINER_SLEEP_SEC=1800 (or another duration) if you need a
+ * numeric `sleep` instead of `infinity`.
+ */
+const SANDOCK_SLEEP_ARG =
+  process.env.SANDOCK_CONTAINER_SLEEP_SEC ?? "infinity";
+
+const SANDAGENT_SANDOCK_COMMAND = [
+  "/usr/local/bin/sandagent-entrypoint",
+  "sleep",
+  SANDOCK_SLEEP_ARG,
+] as const;
+
+function sandockImageNeedsSandagentEntrypoint(image: string): boolean {
+  const i = image.toLowerCase();
+  return (
+    i.includes("vikadata/sandagent") ||
+    i.includes("/sandagent:") ||
+    i.endsWith("/sandagent") ||
+    i === "sandagent"
+  );
+}
 
 export interface CreateSandboxParams {
   SANDBOX_PROVIDER?: string;
@@ -146,22 +173,25 @@ async function buildSandbox(
 
   if (SANDBOX_PROVIDER === "sandock" && SANDOCK_API_KEY) {
     const cachedId = getCachedSandboxId(cacheKey);
+    const image = params.SANDBOX_IMAGE ?? SANDBOX_IMAGE;
     return new SandockSandbox({
       apiKey: SANDOCK_API_KEY,
-      image: params.SANDBOX_IMAGE ?? SANDBOX_IMAGE,
+      image,
       skipBootstrap: true,
-      templatesPath: path.join(TEMPLATES_PATH, template),
-      volumes: [
-        { volumeName: sandboxName, volumeMountPath: "/workspace" },
-        {
-          volumeName: `${sandboxName}-claude-session`,
-          volumeMountPath: "/root/.claude",
-        },
-      ],
+      // templatesPath: path.join(TEMPLATES_PATH, template),
+      volumes: [{ volumeName: sandboxName, volumeMountPath: "/agent" }],
       env: baseEnv,
-      workdir: "/workspace",
+      workdir: "/agent",
       name: sandboxName,
       sandboxId: cachedId,
+      ...(sandockImageNeedsSandagentEntrypoint(image)
+        ? {
+            command: [...SANDAGENT_SANDOCK_COMMAND],
+            readinessProbeBaseUrl: DEFAULT_SANDAGENT_DAEMON_URL,
+            readinessProbeMaxWaitMs: 60_000,
+            daemonUrl: DEFAULT_SANDAGENT_DAEMON_URL,
+          }
+        : {}),
     });
   }
 
