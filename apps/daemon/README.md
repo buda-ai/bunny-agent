@@ -25,12 +25,7 @@ The Dockerfiles under `docker/sandagent-claude/` (`Dockerfile`, `Dockerfile.loca
 
 ### Runner environment
 
-`POST /api/coding/run` starts the runner with an env object built as:
-
-1. The daemon process **`process.env`** (container / image env), then
-2. Optional **`env`** in the request body: JSON object of string key → string value (invalid keys or non-string values are dropped).
-
-**Do not put API keys in HTTP headers** (including base64): that is trivially reversible. Pass them only in the JSON **`env`** field on `POST /api/coding/run`. `streamCodingRunFromSandbox` posts that body as-is (`ExecOptions.env` is not used for daemon coding run). The daemon does not merge `x-sandagent-runner-env` for coding run.
+`POST /api/coding/run` starts the runner with the daemon process **`process.env`**. Configure API keys and runner settings on the daemon (or container image env), not via per-request HTTP headers from `@sandagent/manager`.
 
 ---
 

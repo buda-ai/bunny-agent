@@ -1,3 +1,4 @@
+export { streamCodingRunFromSandbox } from "./coding-run.js";
 export type { RunnerEnvParams, RunnerType } from "./env.js";
 // Env helpers
 export { buildRunnerEnv } from "./env.js";
