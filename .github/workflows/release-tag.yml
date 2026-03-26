@@ -45,40 +45,46 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      # If no changeset files exist, generate a patch bump for all
-      # fixed-group packages so that `changeset version` has something to apply.
-      - name: Create auto-changeset if none exist
+      # Set all fixed-group package versions to exactly match the git tag (e.g. v0.9.12 → 0.9.12).
+      # This replaces the old auto-changeset + `changeset version` approach which only applied
+      # a patch bump (+1) from the current version and could publish the wrong version number.
+      - name: Set exact version from tag
         shell: bash
         run: |
-          count=0
-          if [ -d .changeset ]; then
-            count=$(find .changeset -maxdepth 1 -name '*.md' ! -name 'README.md' | wc -l)
-          fi
-          if [ "$count" -eq 0 ]; then
-            echo "No pending changesets found — generating patch changeset for fixed packages"
-            node - <<'EOF'
-          const fs = require("fs");
-          const raw = fs.readFileSync(".changeset/config.json", "utf8");
-          const config = JSON.parse(raw);
-          const fixedGroups = Array.isArray(config.fixed) ? config.fixed : [];
-          const pkgs = Array.isArray(fixedGroups[0]) ? fixedGroups[0] : [];
-          if (pkgs.length === 0) {
-            console.error("No fixed-group packages found in .changeset/config.json — skipping");
-            process.exit(0);
-          }
-          const bumps = pkgs.map((p) => `"${p}": patch`).join("\n");
-          const tag = process.env.GITHUB_REF_NAME || "unknown";
-          const content = `---\n${bumps}\n---\n\nRelease ${tag}\n`;
-          fs.writeFileSync(".changeset/auto-release.md", content);
-          console.log("Created .changeset/auto-release.md");
-          EOF
-          else
-            echo "Found $count pending changeset(s), skipping auto-generation"
-          fi
+          export TAG_VERSION="${GITHUB_REF_NAME#v}"
+          echo "Setting fixed-group packages to version: $TAG_VERSION"
+          node - <<'SCRIPT'
+          const fs = require('fs');
+          const path = require('path');
+          const tagVersion = process.env.TAG_VERSION;
+          if (!tagVersion) { console.error('TAG_VERSION environment variable is not set. This value is derived from GITHUB_REF_NAME and should be automatically available in the workflow context.'); process.exit(1); }
+          const config = JSON.parse(fs.readFileSync('.changeset/config.json', 'utf8'));
+          const fixedPkgs = new Set((config.fixed || []).flat());
+          ['packages', 'apps'].forEach(dir => {
+            if (!fs.existsSync(dir)) return;
+            fs.readdirSync(dir).forEach(subdir => {
+              const pkgPath = path.join(dir, subdir, 'package.json');
+              if (!fs.existsSync(pkgPath)) return;
+              try {
+                const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+                if (fixedPkgs.has(pkg.name)) {
+                  console.log(`  ${pkg.name}: ${pkg.version} -> ${tagVersion}`);
+                  pkg.version = tagVersion;
+                  fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
+                }
+              } catch (err) { console.warn(`Skipping ${pkgPath}: ${err.message}`); }
+            });
+          });
+          SCRIPT
 
-      # Apply all pending changesets: bumps package.json versions and writes CHANGELOGs
-      - name: Apply version bumps
-        run: pnpm changeset version
+      # Remove any leftover changeset files so they are not carried into the Version PR.
+      - name: Clean up pending changesets
+        shell: bash
+        run: |
+          if [ -d .changeset ]; then
+            find .changeset -maxdepth 1 -name '*.md' ! -name 'README.md' -delete
+            echo "Cleaned up pending changeset files"
+          fi
 
       # Publish only the fixed set of packages to npm.
       # Per-package npm tags (e.g. @sandagent/sdk@x.y.z) are not created here;
@@ -108,7 +114,7 @@ jobs:
 
             This PR was automatically created by the **Release on Tag** workflow.
 
-            It contains the `package.json` version bumps and `CHANGELOG.md` updates
+            It contains the `package.json` version bumps
             that were applied and published to npm when tag `${{ github.ref_name }}` was pushed.
 
             Please review and merge to keep the repository in sync.
