@@ -22,7 +22,13 @@ export default defineConfig([
     dts: true,
     splitting: true,
     sourcemap: true,
-    external: ["react", "react-dom", "@ai-sdk/react", "ai"],
+    external: [
+      "react",
+      "react-dom",
+      "@ai-sdk/react",
+      "ai",
+      "@sandagent/manager",
+    ],
     esbuildOptions(options) {
       options.banner = {
         js: '"use client";',

@@ -291,8 +291,8 @@ Omit `daemonUrl` to use the **CLI runner** in the same sandbox. `createSandAgent
 
 | Entry Point | Exports |
 |-------------|---------|
-| `@sandagent/sdk` | `createSandAgent`, `LocalSandbox`, `SandAgentLanguageModel`, `submitAnswer`, `DEFAULT_SANDAGENT_DAEMON_URL` |
-| `@sandagent/sdk/react` | `useSandAgentChat`, `useArtifacts`, `useWriteTool`, `useAskUserQuestion` |
+| `@sandagent/sdk` | `createSandAgent`, `LocalSandbox`, `SandAgentLanguageModel`, `submitAnswer`, `DEFAULT_SANDAGENT_DAEMON_URL` (re-exported from `@sandagent/manager`) |
+| `@sandagent/sdk/react` | `useSandAgentChat`, `useArtifacts`, `useWriteTool`, `useAskUserQuestion`, `DEFAULT_SANDAGENT_DAEMON_URL` (re-exported from `@sandagent/manager`) |
 
 ---
 
