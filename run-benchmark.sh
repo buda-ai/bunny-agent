@@ -8,6 +8,8 @@
 #   --model <name>      Model to use (overrides default)
 #   --runs <n>          Number of runs per config (default: 1)
 #   --dataset <name>    Dataset: smoking, gaia (default: smoking)
+#   --transport <mode>  Smoking: cli (default) | daemon (Sandock + in-sandbox daemon)
+#   --daemon-url <url>  Optional in-sandbox daemon base URL
 #
 # Examples:
 #   ./run-benchmark.sh --runner pi --runs 3
@@ -15,6 +17,7 @@
 #   ./run-benchmark.sh --runs 3  # Test both runners
 #   ./run-benchmark.sh --runner codex --model "gpt-5.2"
 #   ./run-benchmark.sh --runner gemini --model "gemini-2.5-flash"
+#   ./run-benchmark.sh --transport daemon --runner pi
 
 set -e
 
@@ -43,6 +46,8 @@ RUNNER="both"
 RUNS=1
 DATASET="smoking"
 MODEL=""
+TRANSPORT="cli"
+DAEMON_URL_FLAG=""
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -63,6 +68,14 @@ while [[ $# -gt 0 ]]; do
       DATASET="$2"
       shift 2
       ;;
+    --transport)
+      TRANSPORT="$2"
+      shift 2
+      ;;
+    --daemon-url)
+      DAEMON_URL_FLAG="$2"
+      shift 2
+      ;;
     --help|-h)
       echo "Usage: ./run-benchmark.sh [options]"
       echo ""
@@ -71,6 +84,8 @@ while [[ $# -gt 0 ]]; do
       echo "  --model <name>      Model to use"
       echo "  --runs <n>          Number of runs (default: 1)"
       echo "  --dataset <name>    Dataset: smoking, gaia (default: smoking)"
+      echo "  --transport <mode>  Smoking: cli | daemon — Sandock + in-sandbox daemon (default: cli)"
+      echo "  --daemon-url <url>  Optional daemon base URL"
       echo ""
       echo "Default Models:"
       echo "  Pi:     $DEFAULT_PI_MODEL"
@@ -91,6 +106,11 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+if [ "$TRANSPORT" = "sandock" ]; then
+  echo "⚠️  --transport sandock is deprecated; using daemon (Sandock + in-sandbox daemon)"
+  TRANSPORT="daemon"
+fi
 
 # Check if benchmark-sandagent is built
 if [ ! -f "packages/benchmark-sandagent/dist/cli.js" ]; then
@@ -114,6 +134,7 @@ echo "=============================="
 echo "Runner: $RUNNER"
 echo "Runs: $RUNS"
 echo "Dataset: $DATASET"
+echo "Transport: $TRANSPORT"
   if [ -n "$MODEL" ]; then
     echo "Model: $MODEL"
   else
@@ -133,6 +154,11 @@ echo "Dataset: $DATASET"
 fi
 echo ""
 
+BENCH_EXTRA=(--transport "$TRANSPORT")
+if [ -n "$DAEMON_URL_FLAG" ]; then
+  BENCH_EXTRA+=(--daemon-url "$DAEMON_URL_FLAG")
+fi
+
 # Function to run benchmark
 run_benchmark() {
   local runner=$1
@@ -146,7 +172,7 @@ run_benchmark() {
     AI_MODEL="$model" \
     OPENAI_API_KEY="$OPENAI_API_KEY" \
     OPENAI_BASE_URL="$OPENAI_BASE_URL" \
-    node "$PROJECT_ROOT/packages/benchmark-sandagent/dist/cli.js" run --runner pi
+    node "$PROJECT_ROOT/packages/benchmark-sandagent/dist/cli.js" run --runner pi "${BENCH_EXTRA[@]}"
   elif [ "$runner" = "claude" ]; then
     PROJECT_ROOT="$PROJECT_ROOT" \
     AI_MODEL="$model" \
@@ -157,21 +183,21 @@ run_benchmark() {
     CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS="$CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS" \
     CLAUDE_CODE_USE_BEDROCK="$CLAUDE_CODE_USE_BEDROCK" \
     CLAUDE_CODE_SKIP_BEDROCK_AUTH="$CLAUDE_CODE_SKIP_BEDROCK_AUTH" \
-    node "$PROJECT_ROOT/packages/benchmark-sandagent/dist/cli.js" run --runner claude
+    node "$PROJECT_ROOT/packages/benchmark-sandagent/dist/cli.js" run --runner claude "${BENCH_EXTRA[@]}"
   elif [ "$runner" = "codex" ]; then
     PROJECT_ROOT="$PROJECT_ROOT" \
     AI_MODEL="$model" \
     OPENAI_API_KEY="$OPENAI_API_KEY" \
     CODEX_API_KEY="${CODEX_API_KEY:-$OPENAI_API_KEY}" \
     OPENAI_BASE_URL="$OPENAI_BASE_URL" \
-    node "$PROJECT_ROOT/packages/benchmark-sandagent/dist/cli.js" run --runner codex
+    node "$PROJECT_ROOT/packages/benchmark-sandagent/dist/cli.js" run --runner codex "${BENCH_EXTRA[@]}"
   elif [ "$runner" = "gemini" ]; then
     PROJECT_ROOT="$PROJECT_ROOT" \
     AI_MODEL="$model" \
     GEMINI_API_KEY="$GEMINI_API_KEY" \
     GOOGLE_API_KEY="${GOOGLE_API_KEY:-}" \
     GOOGLE_GEMINI_BASE_URL="${GOOGLE_GEMINI_BASE_URL:-$GEMINI_BASE_URL}" \
-    node "$PROJECT_ROOT/packages/benchmark-sandagent/dist/cli.js" run --runner gemini
+    node "$PROJECT_ROOT/packages/benchmark-sandagent/dist/cli.js" run --runner gemini "${BENCH_EXTRA[@]}"
   fi
   
   echo ""

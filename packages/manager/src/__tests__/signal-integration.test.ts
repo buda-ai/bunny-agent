@@ -54,7 +54,6 @@ describe("Signal Integration Tests", () => {
     const agent = new SandAgent({
       sandbox: mockSandbox,
       runner: {
-        kind: "claude-agent-sdk",
         model: "claude-3-5-sonnet-20241022",
       },
     });
@@ -76,7 +75,6 @@ describe("Signal Integration Tests", () => {
     const agent = new SandAgent({
       sandbox: mockSandbox,
       runner: {
-        kind: "claude-agent-sdk",
         model: "claude-3-5-sonnet-20241022",
       },
     });
@@ -114,7 +112,6 @@ describe("Signal Integration Tests", () => {
     const agent = new SandAgent({
       sandbox: mockSandbox,
       runner: {
-        kind: "claude-agent-sdk",
         model: "claude-3-5-sonnet-20241022",
       },
     });
@@ -134,7 +131,6 @@ describe("Signal Integration Tests", () => {
     const agent = new SandAgent({
       sandbox: mockSandbox,
       runner: {
-        kind: "claude-agent-sdk",
         model: "claude-3-5-sonnet-20241022",
       },
     });

@@ -28,10 +28,6 @@ importers:
         version: 1.6.1(@types/node@20.19.33)(lightningcss@1.30.2)
 
   apps/daemon:
-    dependencies:
-      '@sandagent/manager':
-        specifier: workspace:*
-        version: link:../../packages/manager
     devDependencies:
       '@sandagent/runner-core':
         specifier: workspace:*
@@ -269,6 +265,12 @@ importers:
       '@sandagent/benchmark-shared':
         specifier: workspace:*
         version: link:../benchmark-shared
+      '@sandagent/manager':
+        specifier: workspace:*
+        version: link:../manager
+      '@sandagent/sandbox-sandock':
+        specifier: workspace:*
+        version: link:../sandbox-sandock
       chalk:
         specifier: ^5.3.0
         version: 5.6.2

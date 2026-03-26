@@ -1,5 +1,17 @@
 # @sandagent/manager
 
+## 0.9.9-beta.2
+
+### Patch Changes
+
+- Add `isSandagentDaemonHealthy` for in-sandbox `/healthz` checks via `SandboxHandle.exec` (curl `-w '%{http_code}'`, true only for HTTP 200; connect/max-time caps; default single attempt and ~4s timeout).
+
+## 0.9.9-beta.1
+
+### Patch Changes
+
+- test runner env
+
 ## 0.9.9-beta.0
 
 ### Patch Changes

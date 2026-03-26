@@ -272,7 +272,7 @@ const model = sandagent("claude-sonnet-4-20250514");
 
 #### Daemon HTTP transport (same provider)
 
-**With any sandbox adapter** (E2B, Sandock, `LocalSandbox`, etc.): pass **`sandbox` + `daemonUrl`**. The URL is resolved **inside** the sandbox (the `vikadata/sandagent` image starts `sandagent-daemon` on port 3080). The SDK always streams via `streamCodingRunFromSandbox` (`curl -N` in the sandbox, including `LocalSandbox`), not `fetch` from your server.
+**With any sandbox adapter** (E2B, Sandock, `LocalSandbox`, etc.): pass **`sandbox` + `daemonUrl`**. The URL is resolved **inside** the sandbox (the `vikadata/sandagent` image starts `sandagent-daemon` on port 3080). The SDK streams via `streamCodingRunFromSandbox` (`curl -N` in the sandbox, including `LocalSandbox`), not `fetch` from your server. It does **not** call `/healthz` for you — use `isSandagentDaemonHealthy` from `@sandagent/sdk` when you want a probe before setting `daemonUrl` (e.g. to fall back to the CLI runner).
 
 ```typescript
 import { createSandAgent, DEFAULT_SANDAGENT_DAEMON_URL } from "@sandagent/sdk";

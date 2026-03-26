@@ -1,5 +1,17 @@
 # @sandagent/runner-cli
 
+## 0.9.9-beta.2
+
+### Patch Changes
+
+- test runner
+
+## 0.9.9-beta.1
+
+### Patch Changes
+
+- test runner env
+
 ## 0.9.9-beta.0
 
 ### Patch Changes

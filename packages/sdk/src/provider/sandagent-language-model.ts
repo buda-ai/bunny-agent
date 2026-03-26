@@ -21,7 +21,11 @@ import {
   streamCodingRunFromSandbox,
 } from "@sandagent/manager";
 import { getProviderLogger } from "./logging";
-import type { Logger, SandAgentModelId, SandAgentProviderSettings } from "./types";
+import type {
+  Logger,
+  SandAgentModelId,
+  SandAgentProviderSettings,
+} from "./types";
 
 /**
  * Options for creating a SandAgent language model instance.
@@ -395,8 +399,7 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
                     const sessionId: string = self.sessionId;
 
                     if (self.options.artifactProcessors?.length) {
-                      for (const processor of self.options
-                        .artifactProcessors) {
+                      for (const processor of self.options.artifactProcessors) {
                         Promise.resolve()
                           .then(() => processor.onChange(part, sessionId))
                           .catch((e) => {
@@ -412,7 +415,9 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
                 // daemon /api/coding/run may emit plain text lines; ignore non-JSON fragments.
                 const msg = e instanceof Error ? e.message : String(e);
                 if (!msg.includes("Unexpected token")) {
-                  self.logger.error(`[sandagent] Failed to parse stream data: ${e}`);
+                  self.logger.error(
+                    `[sandagent] Failed to parse stream data: ${e}`,
+                  );
                 }
               }
             }
@@ -445,9 +450,7 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
     const lines = buffer.split("\n");
 
     for (const line of lines) {
-      const candidate = line.startsWith("data: ")
-        ? line.slice(6)
-        : line.trim();
+      const candidate = line.startsWith("data: ") ? line.slice(6) : line.trim();
       if (!candidate || candidate === "[DONE]") continue;
       try {
         const parsedParts = this.parseSSEData(candidate);

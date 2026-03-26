@@ -9,7 +9,7 @@ import type { RunnerSpec } from "@sandagent/manager";
 import { getProviderLogger } from "./logging";
 import { SandAgentLanguageModel } from "./sandagent-language-model";
 import type { SandAgentModelId } from "./types";
-import { getRunnerKindForModel, type SandAgentProviderSettings } from "./types";
+import type { SandAgentProviderSettings } from "./types";
 
 export type { SandAgentProviderSettings } from "./types";
 
@@ -67,7 +67,7 @@ export function createSandAgent(
   if (!defaultOptions.sandbox) {
     throw new Error(
       "Provide a `sandbox` adapter (e.g. E2BSandbox, LocalSandbox). " +
-        "Optional `daemonUrl` selects in-sandbox HTTP to sandagent-daemon (e.g. `http://127.0.0.1:3080`); omit it to use the CLI runner in the sandbox.",
+        "Optional `daemonUrl` uses in-sandbox HTTP to sandagent-daemon (no automatic `/healthz` probe). Use `isSandagentDaemonHealthy` from `@sandagent/sdk` if you want to probe and omit `daemonUrl` for CLI fallback. Omit `daemonUrl` to always use CLI.",
     );
   }
 
@@ -75,8 +75,6 @@ export function createSandAgent(
     modelId: SandAgentModelId,
     options: Partial<SandAgentProviderSettings> = {},
   ): LanguageModelV3 => {
-    const runnerKind = getRunnerKindForModel(modelId);
-
     const mergedSkillPaths =
       options.skillPaths !== undefined
         ? options.skillPaths
@@ -88,7 +86,6 @@ export function createSandAgent(
         : defaultOptions.allowedTools;
 
     const runner: RunnerSpec = {
-      kind: runnerKind,
       model: modelId,
       runnerType: options.runnerType ?? defaultOptions.runnerType,
       outputFormat: "stream",
@@ -119,7 +116,7 @@ export function createSandAgent(
     } as SandAgentProviderSettings & { runner: RunnerSpec };
 
     logger.debug(
-      `[sandagent] Creating model: ${modelId} with runner: ${runner.kind}${runner.runnerType ? ` (runnerType: ${runner.runnerType})` : ""}${runner.skillPaths?.length ? ` skillPaths=${runner.skillPaths.length}` : ""}`,
+      `[sandagent] Creating model: ${modelId}${runner.runnerType ? ` (runnerType: ${runner.runnerType})` : ""}${runner.skillPaths?.length ? ` skillPaths=${runner.skillPaths.length}` : ""}`,
     );
 
     return new SandAgentLanguageModel({

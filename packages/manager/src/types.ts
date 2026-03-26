@@ -158,8 +158,6 @@ export type OutputFormat = "text" | "json" | "stream-json" | "stream";
  * Specification for the agent runner
  */
 export interface RunnerSpec {
-  /** The type of runner to use */
-  kind: "claude-agent-sdk";
   /** The model to use */
   model: string;
   /**

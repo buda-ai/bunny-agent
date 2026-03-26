@@ -44,7 +44,6 @@ export interface LocalSandboxOptions {
  * const agent = new SandAgent({
  *   sandbox,
  *   runner: {
- *     kind: "claude-agent-sdk",
  *     model: "claude-sonnet-4-20250514",
  *   },
  * });

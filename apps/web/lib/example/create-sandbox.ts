@@ -4,7 +4,6 @@ import { E2BSandbox } from "@sandagent/sandbox-e2b";
 import { SandockSandbox } from "@sandagent/sandbox-sandock";
 import {
   buildRunnerEnv,
-  DEFAULT_SANDAGENT_DAEMON_URL,
   LocalSandbox,
   type SandboxAdapter,
 } from "@sandagent/sdk";
@@ -16,7 +15,8 @@ const RUNNER_BUNDLE_PATH = path.join(
   MONOREPO_ROOT,
   "apps/runner-cli/dist/bundle.mjs",
 );
-const SANDBOX_IMAGE = process.env.SANDBOX_IMAGE ?? "vikadata/sandagent:0.9.9";
+const SANDBOX_IMAGE =
+  process.env.SANDBOX_IMAGE ?? "vikadata/sandagent:0.9.9-beta.2";
 
 /**
  * Sandock on Kubernetes replaces Docker ENTRYPOINT with a shell keep-alive, so
@@ -30,6 +30,11 @@ const SANDBOX_IMAGE = process.env.SANDBOX_IMAGE ?? "vikadata/sandagent:0.9.9";
  * LLM keys in `SandockSandbox({ env: baseEnv })` are sent to the Sandock API as
  * container `env` so sandagent-daemon sees the same variables as shell `exec`
  * (not only the curl child process).
+ *
+ * Sandock + sandagent image: the entrypoint command is always applied when the
+ * image name matches {@link sandockImageNeedsSandagentEntrypoint}. `useSandagentDaemon`
+ * only affects sandbox cache key and (in the web app) whether `/api/ai` probes
+ * `/healthz` and passes `daemonUrl` for HTTP transport, or omits it for CLI.
  */
 const SANDOCK_SLEEP_ARG = process.env.SANDOCK_CONTAINER_SLEEP_SEC ?? "infinity";
 
@@ -78,11 +83,22 @@ export interface CreateSandboxParams {
   SANDBOX_IMAGE?: string;
   env?: Record<string, string>;
   localWorkdir?: string;
+  /**
+   * Sandock: include in sandbox cache key; web API also uses this to pass provider `daemonUrl`.
+   * Entrypoint command for sandagent images is chosen from the image name, not this flag.
+   */
+  useSandagentDaemon?: boolean;
 }
 
 // --- Server-side sandbox ID cache (30 min TTL) ------------------------------
 const SANDBOX_ID_TTL_MS = 30 * 60 * 1000;
 const sandboxIdCache = new Map<string, { id: string; expiresAt: number }>();
+
+function sandboxCacheKey(params: CreateSandboxParams): string {
+  const t = params.template ?? "default";
+  const daemon = params.useSandagentDaemon ? "-daemon" : "";
+  return `sandagent-${t}${daemon}`;
+}
 
 function getCachedSandboxId(key: string): string | undefined {
   const entry = sandboxIdCache.get(key);
@@ -99,8 +115,7 @@ function setCachedSandboxId(key: string, id: string): void {
 }
 
 export function evictSandbox(params: CreateSandboxParams): void {
-  const key = `sandagent-${params.template ?? "default"}`;
-  sandboxIdCache.delete(key);
+  sandboxIdCache.delete(sandboxCacheKey(params));
 }
 
 /** Build sandbox and attach. */
@@ -112,8 +127,7 @@ export async function getOrCreateSandbox(
 
   const sandboxId = sandbox.getHandle?.()?.getSandboxId?.();
   if (sandboxId) {
-    const key = `sandagent-${params.template ?? "default"}`;
-    setCachedSandboxId(key, sandboxId);
+    setCachedSandboxId(sandboxCacheKey(params), sandboxId);
   }
 
   return sandbox;
@@ -145,7 +159,6 @@ async function buildSandbox(
   } = params;
 
   const sandboxName = `sandagent-${template}`;
-  const cacheKey = `sandagent-${template}`;
   const baseEnv = buildRunnerEnv({
     runnerType,
     ANTHROPIC_API_KEY,
@@ -162,7 +175,6 @@ async function buildSandbox(
     GEMINI_BASE_URL,
     inherit: extraEnv,
   });
-  console.log("DEFAULT_SANDAGENT_DAEMON_URL", JSON.stringify(baseEnv, null, 2));
   if (SANDBOX_PROVIDER === "daytona" && DAYTONA_API_KEY) {
     const { DaytonaSandbox } = await import("@sandagent/sandbox-daytona");
     const opts: DaytonaSandboxOptions & { snapshot?: string } = {
@@ -181,6 +193,7 @@ async function buildSandbox(
   }
 
   if (SANDBOX_PROVIDER === "sandock" && SANDOCK_API_KEY) {
+    const cacheKey = sandboxCacheKey(params);
     const cachedId = getCachedSandboxId(cacheKey);
     const image = params.SANDBOX_IMAGE ?? SANDBOX_IMAGE;
     return new SandockSandbox({
@@ -194,12 +207,7 @@ async function buildSandbox(
       name: sandboxName,
       sandboxId: cachedId,
       ...(sandockImageNeedsSandagentEntrypoint(image)
-        ? {
-            command: [...SANDAGENT_SANDOCK_COMMAND],
-            readinessProbeBaseUrl: DEFAULT_SANDAGENT_DAEMON_URL,
-            readinessProbeMaxWaitMs: 60_000,
-            daemonUrl: DEFAULT_SANDAGENT_DAEMON_URL,
-          }
+        ? { command: [...SANDAGENT_SANDOCK_COMMAND] }
         : {}),
     });
   }

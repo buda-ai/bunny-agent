@@ -1,5 +1,20 @@
 # @sandagent/sandbox-sandock
 
+## 0.9.9-beta.2
+
+### Patch Changes
+
+- Remove attach-time daemon readiness wait and options `readinessProbeBaseUrl`, `readinessProbeMaxWaitMs`, and `daemonUrl` (SDK probes health after attach instead).
+- @sandagent/manager@0.9.9-beta.2
+
+## 0.9.9-beta.1
+
+### Patch Changes
+
+- test runner env
+- Updated dependencies
+  - @sandagent/manager@0.9.9-beta.1
+
 ## 0.9.9-beta.0
 
 ### Patch Changes

@@ -7,10 +7,6 @@ import type {
   Volume,
 } from "@sandagent/manager";
 import { createSandockClient, type SandockClient } from "sandock";
-import {
-  buildDaemonHealthzUrl,
-  probeSandagentDaemonHealth,
-} from "./daemon-health.js";
 
 /** Single volume mount configuration (name → get/create by name; mountPath inside container) */
 export interface SandockVolumeConfig {
@@ -88,24 +84,6 @@ export interface SandockSandboxOptions {
    * If omitted, the default creation behavior is preserved.
    */
   command?: string[];
-
-  /**
-   * Base URL for polling sandagent-daemon readiness (`{readinessProbeBaseUrl}/healthz`)
-   * after sandbox creation. When set, {@link attach} will wait for the daemon to be healthy.
-   */
-  readinessProbeBaseUrl?: string;
-
-  /**
-   * Max total time to wait for daemon health when {@link readinessProbeBaseUrl} is set
-   * (default 60000 ms).
-   */
-  readinessProbeMaxWaitMs?: number;
-
-  /**
-   * Base URL used by SDK routing (daemon-http transport). When set, the SDK will call
-   * `{daemonUrl}/api/coding/run` via `streamCodingRunFromSandbox`.
-   */
-  daemonUrl?: string;
 }
 
 /**
@@ -130,13 +108,9 @@ export class SandockSandbox implements SandboxAdapter {
   private readonly maxLifetimeSeconds?: number;
   private readonly autoDeleteInterval?: number;
   private readonly command?: string[];
-  private readonly readinessProbeBaseUrl?: string;
-  private readonly readinessProbeMaxWaitMs: number;
-  private readonly daemonUrl?: string;
 
   /** Current handle for the sandbox instance; also holds optional existing sandbox id to attach to (before attach) */
   private currentHandle: SandockHandle | null = null;
-  private daemonReadyPromise: Promise<void> | null = null;
   private _sandboxId: string | null = null;
 
   constructor(options: SandockSandboxOptions = {}) {
@@ -169,34 +143,6 @@ export class SandockSandbox implements SandboxAdapter {
     this.maxLifetimeSeconds = options.maxLifetimeSeconds;
     this.autoDeleteInterval = options.autoDeleteInterval;
     this.command = options.command;
-    this.readinessProbeBaseUrl = options.readinessProbeBaseUrl;
-    this.readinessProbeMaxWaitMs = options.readinessProbeMaxWaitMs ?? 60_000;
-    this.daemonUrl = options.daemonUrl;
-  }
-
-  /**
-   * sandagent-daemon base URL inside the VM (for SDK routing).
-   */
-  getDaemonBaseUrl(): string | undefined {
-    return this.daemonUrl && this.daemonUrl.length > 0
-      ? this.daemonUrl
-      : undefined;
-  }
-
-  /**
-   * `daemon-http` when a daemon URL is configured; otherwise CLI `sandagent run` only.
-   */
-  getRunnerTransport(): "cli" | "daemon-http" {
-    return this.getDaemonBaseUrl() ? "daemon-http" : "cli";
-  }
-
-  /**
-   * True when attach-time init polls `/healthz` (readiness probe configured).
-   */
-  get attachIncludesDaemonHealthWait(): boolean {
-    return Boolean(
-      this.readinessProbeBaseUrl && this.readinessProbeBaseUrl.length > 0,
-    );
   }
 
   /**
@@ -239,74 +185,10 @@ export class SandockSandbox implements SandboxAdapter {
     if (this.currentHandle) return this.currentHandle;
     const existing = await this.tryAttachExisting();
     if (existing) {
-      if (this.attachIncludesDaemonHealthWait) {
-        await this.ensureDaemonReady(existing);
-      }
       return existing;
     }
 
-    const created = await this.createAndAttachNew();
-    if (this.attachIncludesDaemonHealthWait) {
-      await this.ensureDaemonReady(created);
-    }
-    return created;
-  }
-
-  private async ensureDaemonReady(handle: SandockHandle): Promise<void> {
-    if (!this.attachIncludesDaemonHealthWait) return;
-    if (this.daemonReadyPromise) {
-      await this.daemonReadyPromise;
-      return;
-    }
-    const p = this.waitForSandagentDaemonIfConfigured(handle);
-    this.daemonReadyPromise = p;
-    try {
-      await p;
-    } catch (err) {
-      this.daemonReadyPromise = null;
-      throw err;
-    }
-  }
-
-  private async waitForSandagentDaemonIfConfigured(
-    handle: SandockHandle,
-  ): Promise<void> {
-    const base = this.readinessProbeBaseUrl;
-    if (!base) return;
-
-    const maxWaitMs = this.readinessProbeMaxWaitMs;
-    const deadline = Date.now() + maxWaitMs;
-    const delayBetweenMs = 1000;
-    let attempt = 0;
-    const healthzUrl = buildDaemonHealthzUrl(base);
-
-    while (Date.now() < deadline) {
-      attempt += 1;
-      const remaining = deadline - Date.now();
-      if (remaining <= 0) break;
-
-      try {
-        await probeSandagentDaemonHealth(handle, base, {
-          cwd: handle.getWorkdir(),
-          maxAttempts: 1,
-          timeout: Math.min(15_000, Math.max(1000, remaining)),
-        });
-        console.log(
-          `[Sandock] sandagent-daemon is healthy (attempt ${attempt}, ${base})`,
-        );
-        return;
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        console.log(
-          `[Sandock] sandagent-daemon not ready yet (attempt ${attempt}): ${msg}`,
-        );
-        await new Promise((r) => setTimeout(r, delayBetweenMs));
-      }
-    }
-
-    throw new Error(
-      `sandagent-daemon did not become healthy within ${maxWaitMs}ms (${healthzUrl})`,
-    );
+    return await this.createAndAttachNew();
   }
 
   /** Try to attach to existing sandbox by _sandboxId; on failure clear id and return null. */
@@ -626,10 +508,6 @@ class SandockHandle implements SandboxHandle {
 
     // Debug: log environment variables being passed to sandbox
     console.log("[Sandock] Executing command:", command.join(" "));
-    console.log(
-      "[Sandock] Environment variables:",
-      Object.keys(envWithNodePath),
-    );
 
     return {
       async *[Symbol.asyncIterator](): AsyncIterator<Uint8Array> {

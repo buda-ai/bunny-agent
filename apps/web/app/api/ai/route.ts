@@ -1,6 +1,7 @@
 import {
   createSandAgent,
   DEFAULT_SANDAGENT_DAEMON_URL,
+  isSandagentDaemonHealthy,
   type SandAgentProviderSettings,
 } from "@sandagent/sdk";
 import {
@@ -50,7 +51,12 @@ export async function POST(request: Request) {
     SANDOCK_API_KEY,
     DAYTONA_API_KEY,
     SANDBOX_PROVIDER = "e2b",
+    /** When true, provider may pass `daemonUrl` after an in-sandbox `/healthz` probe; otherwise CLI runner. */
+    USE_SANDAGENT_DAEMON,
   } = body;
+
+  const useSandagentDaemon =
+    USE_SANDAGENT_DAEMON === true || process.env.SANDAGENT_USE_DAEMON === "1";
 
   const signal = request.signal;
 
@@ -165,8 +171,12 @@ export async function POST(request: Request) {
     CLAUDE_CODE_SKIP_BEDROCK_AUTH,
     OPENAI_API_KEY,
     OPENAI_BASE_URL,
+    GEMINI_API_KEY,
     GEMINI_BASE_URL,
     template,
+    ...(SANDBOX_PROVIDER === "sandock"
+      ? { useSandagentDaemon: useSandagentDaemon }
+      : {}),
   };
 
   const sandbox = await getOrCreateSandbox(sandboxParams);
@@ -217,9 +227,22 @@ export async function POST(request: Request) {
         writer,
       });
 
+      let daemonUrl: string | undefined;
+      if (useSandagentDaemon) {
+        const handle = await sandbox.attach();
+        const daemonOk = await isSandagentDaemonHealthy(
+          handle,
+          DEFAULT_SANDAGENT_DAEMON_URL,
+          { cwd: handle.getWorkdir(), signal },
+        );
+        if (daemonOk) {
+          daemonUrl = DEFAULT_SANDAGENT_DAEMON_URL;
+        }
+      }
+
       const sandagentOptions: SandAgentProviderSettings = {
         sandbox,
-        daemonUrl: DEFAULT_SANDAGENT_DAEMON_URL,
+        ...(daemonUrl ? { daemonUrl } : {}),
         cwd: sandbox.getWorkdir?.() || "/sandagent",
         runnerType,
         verbose: true,

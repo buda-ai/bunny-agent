@@ -1,5 +1,20 @@
 # @sandagent/sdk
 
+## 0.9.9-beta.2
+
+### Patch Changes
+
+- `daemonUrl` no longer triggers an automatic `/healthz` probe on each stream; use `isSandagentDaemonHealthy` (re-exported from `@sandagent/sdk`) in your app when you want readiness checks or CLI fallback.
+- @sandagent/manager@0.9.9-beta.2
+
+## 0.9.9-beta.1
+
+### Patch Changes
+
+- test runner env
+- Updated dependencies
+  - @sandagent/manager@0.9.9-beta.1
+
 ## 0.9.9-beta.0
 
 ### Patch Changes
