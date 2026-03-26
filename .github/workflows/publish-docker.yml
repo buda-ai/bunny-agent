@@ -6,6 +6,12 @@ on:
       - "Release on Tag"
     types:
       - completed
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to build (e.g., v1.0.0)'
+        required: true
+        type: string
 
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 
@@ -17,8 +23,8 @@ jobs:
       contents: read
     # Only run when the Release workflow succeeded AND was triggered by a semver tag (v*.*.*)
     if: >-
-      github.event.workflow_run.conclusion == 'success' &&
-      startsWith(github.event.workflow_run.head_branch, 'v')
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && startsWith(github.event.workflow_run.head_branch, 'v'))
 
     steps:
       - name: Checkout Repo
@@ -26,7 +32,7 @@ jobs:
         with:
           # Check out the exact version tag. The job-level 'if' already
           # ensures head_branch is a v*.*.* tag (trusted maintainer ref).
-          ref: refs/tags/${{ github.event.workflow_run.head_branch }}
+          ref: refs/tags/${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.event.workflow_run.head_branch }}
           fetch-depth: 0
 
       - name: Extract version from tag
@@ -34,7 +40,7 @@ jobs:
         run: |
           # Use the head_branch from the triggering workflow_run event as the primary
           # source of truth (it is the git tag that triggered "Release on Tag").
-          TAG="${{ github.event.workflow_run.head_branch }}"
+          TAG="${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.event.workflow_run.head_branch }}"
 
           # Cross-check: if a semver tag points at HEAD, prefer that (handles edge
           # cases where head_branch contains unexpected values).
