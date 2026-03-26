@@ -1,11 +1,5 @@
 # @sandagent/manager
 
-## 0.9.9
-
-### Patch Changes
-
-- Release v0.9.10
-
 ## 0.9.8
 
 ### Patch Changes
