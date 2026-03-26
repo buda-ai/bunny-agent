@@ -1,5 +1,13 @@
 # @sandagent/sdk
 
+## 0.9.9-beta.3
+
+### Patch Changes
+
+- test daemon
+- Updated dependencies
+  - @sandagent/manager@0.9.9-beta.3
+
 ## 0.9.9-beta.2
 
 ### Patch Changes

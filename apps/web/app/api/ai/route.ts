@@ -56,7 +56,11 @@ export async function POST(request: Request) {
   } = body;
 
   const useSandagentDaemon =
-    USE_SANDAGENT_DAEMON === true || process.env.SANDAGENT_USE_DAEMON === "1";
+    USE_SANDAGENT_DAEMON === true ||
+    USE_SANDAGENT_DAEMON === 1 ||
+    USE_SANDAGENT_DAEMON === "1" ||
+    USE_SANDAGENT_DAEMON === "true" ||
+    process.env.SANDAGENT_USE_DAEMON === "1";
 
   const signal = request.signal;
 
@@ -174,9 +178,7 @@ export async function POST(request: Request) {
     GEMINI_API_KEY,
     GEMINI_BASE_URL,
     template,
-    ...(SANDBOX_PROVIDER === "sandock"
-      ? { useSandagentDaemon: useSandagentDaemon }
-      : {}),
+    useSandagentDaemon,
   };
 
   const sandbox = await getOrCreateSandbox(sandboxParams);

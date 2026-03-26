@@ -237,6 +237,16 @@ const ENV_CONFIGS: EnvConfig[] = [
     category: "api",
     placeholder: "http://127.0.0.1:3080",
   },
+  {
+    name: "Use SandAgent daemon",
+    key: "USE_SANDAGENT_DAEMON",
+    description:
+      "When On, the example probes in-sandbox http://127.0.0.1:3080/healthz and streams coding runs through sandagent-daemon (HTTP) when healthy; otherwise the CLI runner is used. Matches SDK useSandagentDaemon / server SANDAGENT_USE_DAEMON=1.",
+    required: false,
+    category: "api",
+    placeholder: "Off — CLI runner in sandbox",
+    options: [{ value: "1", label: "On — daemon HTTP (in-sandbox)" }],
+  },
 ];
 
 export const STORAGE_KEY = "sandagent-config";

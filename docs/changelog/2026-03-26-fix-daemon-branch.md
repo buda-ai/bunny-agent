@@ -6,6 +6,7 @@
 - **`@sandagent/sdk`**: With `daemonUrl`, streams use `streamCodingRunFromSandbox` only — **no** automatic `/healthz` on each request. Apps call `isSandagentDaemonHealthy` when they want readiness checks or CLI fallback.
 - **`@sandagent/sandbox-sandock`**: Removed attach-time daemon readiness (`daemon-health.ts`, `waitForSandagentDaemonIfConfigured`, related options and helpers).
 - **`apps/web`**: Example API probes daemon before passing `daemonUrl` when `USE_SANDAGENT_DAEMON`; sandbox creation comments updated.
+- **`apps/web` settings**: Added **Use SandAgent daemon** (`USE_SANDAGENT_DAEMON` On/Off) next to Daemon URL; request body accepts string `"1"` / `"true"` from localStorage. **`/api/ai`** passes `useSandagentDaemon` into sandbox params for all providers (not only Sandock) so E2B/Daytona cache keys match daemon vs CLI mode.
 
 ## benchmark-sandagent smoking
 
