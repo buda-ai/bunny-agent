@@ -6,6 +6,7 @@ export {
   SANDBOX_CODING_RUN_TMP_DIR,
   streamCodingRunFromSandbox,
 } from "./coding-run.js";
+export { DEFAULT_SANDAGENT_DAEMON_URL } from "./constants.js";
 export type { IsSandagentDaemonHealthyOptions } from "./daemon-health.js";
 export { isSandagentDaemonHealthy } from "./daemon-health.js";
 export type { RunnerEnvParams, RunnerType } from "./env.js";

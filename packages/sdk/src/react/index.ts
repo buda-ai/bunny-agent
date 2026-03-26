@@ -1,5 +1,7 @@
 "use client";
 
+export { DEFAULT_SANDAGENT_DAEMON_URL } from "@sandagent/manager";
+
 // Types
 export type {
   // Artifact types

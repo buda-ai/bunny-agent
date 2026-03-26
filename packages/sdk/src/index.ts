@@ -29,6 +29,7 @@ export type {
 // Re-export env helpers
 export {
   buildRunnerEnv,
+  DEFAULT_SANDAGENT_DAEMON_URL,
   isSandagentDaemonHealthy,
   LocalSandbox,
 } from "@sandagent/manager";
@@ -55,7 +56,6 @@ export type {
 // Provider exports
 export {
   createSandAgent,
-  DEFAULT_SANDAGENT_DAEMON_URL,
   SandAgentLanguageModel,
   submitAnswer,
 } from "./provider";
