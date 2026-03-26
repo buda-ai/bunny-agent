@@ -15,7 +15,6 @@
  * Requests to /api/daemon/api/coding/run    → daemon /api/coding/run (NDJSON stream)
  */
 
-import * as nodePath from "node:path";
 import { parseMultipart } from "./multipart.js";
 import { DaemonRouter } from "./router.js";
 import { codingRunStream, type RunRequest } from "./routes/coding.js";
@@ -72,10 +71,9 @@ export function createNextHandler(opts: { root: string; prefix?: string }) {
         const filePath = url.searchParams.get("path");
         const volume = url.searchParams.get("volume") ?? undefined;
         if (!filePath) {
-          return Response.json(
-            fail("path query parameter is required"),
-            { status: 400 },
-          );
+          return Response.json(fail("path query parameter is required"), {
+            status: 400,
+          });
         }
         const { path: resolvedPath, buffer } = await fsDownload(state, {
           path: filePath,

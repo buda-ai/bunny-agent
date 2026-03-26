@@ -1,5 +1,4 @@
 import * as http from "node:http";
-import * as nodePath from "node:path";
 import { URL } from "node:url";
 import { parseMultipart } from "./multipart.js";
 import { DaemonRouter } from "./router.js";
