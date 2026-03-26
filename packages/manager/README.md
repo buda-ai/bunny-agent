@@ -40,7 +40,6 @@ import { E2BSandbox } from '@sandagent/sandbox-e2b';
 const agent = new SandAgent({
   sandbox: new E2BSandbox({ apiKey: 'xxx' }),
   runner: {
-    kind: 'claude-agent-sdk',
     model: 'claude-sonnet-4-20250514',
     outputFormat: 'stream',
   },
@@ -130,7 +129,6 @@ Specification for the runner to execute inside the sandbox:
 
 ```typescript
 interface RunnerSpec {
-  kind: 'claude-agent-sdk' | string;
   model: string;
   systemPrompt?: string;
   maxTurns?: number;

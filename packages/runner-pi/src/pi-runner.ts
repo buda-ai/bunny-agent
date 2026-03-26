@@ -16,6 +16,12 @@ export interface PiRunnerOptions {
   model?: string;
   systemPrompt?: string;
   cwd?: string;
+  /**
+   * Runner configuration (API keys, base URLs, etc.). Read via {@link getEnvValue} and
+   * auth helpers; not merged into `process.env`. Pi bash subprocesses inherit the host
+   * `process.env` only — body-only vars are not visible to shell tools unless the host
+   * already exports them.
+   */
   env?: Record<string, string>;
   abortController?: AbortController;
   /**
@@ -155,7 +161,6 @@ function getUsageFromAgentEndMessages(
   }
   return undefined;
 }
-
 /**
  * Extract error message from agent_end messages (e.g. 401 auth errors, model errors).
  * Pi agent sets stopReason:"error" and errorMessage on the assistant message.
@@ -218,6 +223,13 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
   }
   const { provider, modelName } = parseModelSpec(modelSpec.trim());
   const cwd = options.cwd || process.cwd();
+  const apiKeyEnvKey = `${provider.toUpperCase().replace(/-/g, "_")}_API_KEY`;
+  /** Raw key from caller env map (e.g. daemon body); avoids relying on `process.env` for that provider. */
+  const inlineApiKey =
+    typeof options.env?.[apiKeyEnvKey] === "string" &&
+    options.env[apiKeyEnvKey].length > 0
+      ? options.env[apiKeyEnvKey]
+      : undefined;
 
   // Build a ModelRegistry, auto-registering unknown models using env-based config
   const modelRegistry = new ModelRegistry(AuthStorage.create());
@@ -228,17 +240,19 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
   if (model == null) {
     // Auto-register: use <PROVIDER>_BASE_URL or fallback to OPENAI_BASE_URL
     const baseUrlEnvKey = `${provider.toUpperCase().replace(/-/g, "_")}_BASE_URL`;
-    const apiKeyEnvKey = `${provider.toUpperCase().replace(/-/g, "_")}_API_KEY`;
-    const baseUrl = process.env[baseUrlEnvKey] ?? process.env.OPENAI_BASE_URL;
+    const baseUrl =
+      getEnvValue(options.env, baseUrlEnvKey) ??
+      getEnvValue(options.env, "OPENAI_BASE_URL");
     if (!baseUrl) {
       throw new Error(
         `Pi runner: model "${modelSpec}" not found in built-in catalog. ` +
           `Set ${baseUrlEnvKey} (or OPENAI_BASE_URL) to auto-register it.`,
       );
     }
+    // Pi resolves `apiKey` via resolveConfigValue: env var name → process.env, else literal.
     modelRegistry.registerProvider(provider, {
       baseUrl,
-      apiKey: apiKeyEnvKey,
+      apiKey: inlineApiKey ?? apiKeyEnvKey,
       api: "openai-completions",
       models: [
         {
@@ -264,255 +278,264 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
 
   return {
     async *run(userInput: string): AsyncIterable<string> {
-      const resume = options.sessionId?.trim();
-      const sessionManager = await (async (): Promise<
-        ReturnType<typeof SessionManager.create>
-      > => {
-        if (resume !== undefined && resume !== "") {
-          if (resume.includes("/")) {
-            return SessionManager.open(resume);
-          }
-          const sessions = await SessionManager.list(cwd);
-          const found = sessions.find((s) => s.id === resume);
-          return found
-            ? SessionManager.open(found.path)
-            : SessionManager.create(cwd);
-        }
-        // Always start a fresh session when no explicit resume is requested.
-        // Using continueRecent() would load stale session data from previous
-        // runs, which can confuse the LLM context and cause errors such as
-        // "Model tried to call unavailable tool 'bash'. No tools are available."
-        return SessionManager.create(cwd);
-      })();
-
-      const resourceLoader = options.skillPaths
-        ? new SandagentResourceLoader({ cwd, skillPaths: options.skillPaths })
-        : undefined;
-
-      if (options.skillPaths && options.skillPaths.length > 0) {
-        console.error(
-          `${LOG_PREFIX} runner: cwd=${cwd} skillPaths=${JSON.stringify(options.skillPaths)}`,
-        );
+      if (inlineApiKey !== undefined) {
+        modelRegistry.authStorage.setRuntimeApiKey(provider, inlineApiKey);
       }
-
-      // createAgentSession only calls reload() when it creates its own
-      // DefaultResourceLoader.  When we supply our own SandagentResourceLoader
-      // we must reload it ourselves so that skills and extensions on disk are
-      // picked up before the session is built.
-      if (resourceLoader) {
-        await resourceLoader.reload();
-      }
-
-      const { session } = await createAgentSession({
-        cwd,
-        model,
-        sessionManager,
-        modelRegistry,
-        resourceLoader,
-      });
-
-      // Append CLI --system-prompt to Pi's built-in prompt (from _rebuildSystemPrompt:
-      // tools, skills from skillPaths, etc.). Replacing entirely would strip skills.
-      if (options.systemPrompt != null && options.systemPrompt !== "") {
-        const existing = session.agent.state.systemPrompt ?? "";
-        session.agent.setSystemPrompt(
-          existing
-            ? `${existing}\n\n---\n\n${options.systemPrompt}`
-            : options.systemPrompt,
-        );
-      }
-
-      const eventQueue: AgentSessionEvent[] = [];
-      let isComplete = false;
-      let aborted = false;
-      let wakeConsumer: (() => void) | null = null;
-
-      const notify = () => {
-        wakeConsumer?.();
-        wakeConsumer = null;
-      };
-
-      const unsubscribe = session.subscribe((e) => {
-        eventQueue.push(e);
-        if (e.type === "agent_end") {
-          isComplete = true;
-        }
-        notify();
-      });
-
-      const abortSignal = options.abortController?.signal;
-      const abortHandler = () => {
-        aborted = true;
-        isComplete = true;
-        void session.abort();
-        notify();
-      };
-
-      if (abortSignal) {
-        abortSignal.addEventListener("abort", abortHandler);
-        if (abortSignal.aborted) {
-          abortHandler();
-        }
-      }
-
       try {
-        traceRawMessage(cwd, null, true);
-
-        let promptText = userInput;
-        let images:
-          | Array<{ type: "image"; data: string; mimeType: string }>
-          | undefined;
-
-        // Try to parse userInput as a JSON array of parts (if passed from sandagent SDK)
-        try {
-          if (userInput.startsWith("[") && userInput.endsWith("]")) {
-            const parsed = JSON.parse(userInput);
-            if (Array.isArray(parsed)) {
-              promptText = parsed
-                .filter((p) => p.type === "text")
-                .map((p) => p.text)
-                .join("\n");
-
-              const imageParts = parsed.filter((p) => p.type === "image");
-              if (imageParts.length > 0) {
-                images = imageParts.map((p) => ({
-                  type: "image",
-                  data: p.data,
-                  mimeType: p.mimeType,
-                }));
-              }
+        const resume = options.sessionId?.trim();
+        const sessionManager = await (async (): Promise<
+          ReturnType<typeof SessionManager.create>
+        > => {
+          if (resume !== undefined && resume !== "") {
+            if (resume.includes("/")) {
+              return SessionManager.open(resume);
             }
+            const sessions = await SessionManager.list(cwd);
+            const found = sessions.find((s) => s.id === resume);
+            return found
+              ? SessionManager.open(found.path)
+              : SessionManager.create(cwd);
           }
-        } catch (_e) {
-          // Fallback to raw string if parsing fails
+          // Always start a fresh session when no explicit resume is requested.
+          // Using continueRecent() would load stale session data from previous
+          // runs, which can confuse the LLM context and cause errors such as
+          // "Model tried to call unavailable tool 'bash'. No tools are available."
+          return SessionManager.create(cwd);
+        })();
+
+        const resourceLoader = options.skillPaths
+          ? new SandagentResourceLoader({ cwd, skillPaths: options.skillPaths })
+          : undefined;
+
+        if (options.skillPaths && options.skillPaths.length > 0) {
+          console.error(
+            `${LOG_PREFIX} runner: cwd=${cwd} skillPaths=${JSON.stringify(options.skillPaths)}`,
+          );
         }
 
-        const promptPromise = session.prompt(
-          promptText,
-          images ? { images } : undefined,
-        );
+        // createAgentSession only calls reload() when it creates its own
+        // DefaultResourceLoader.  When we supply our own SandagentResourceLoader
+        // we must reload it ourselves so that skills and extensions on disk are
+        // picked up before the session is built.
+        if (resourceLoader) {
+          await resourceLoader.reload();
+        }
 
-        const messageId = `msg_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-        const textId = `text_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-        let hasStarted = false;
-        let hasTextStarted = false;
-        let hasFinished = false;
+        const { session } = await createAgentSession({
+          cwd,
+          model,
+          sessionManager,
+          modelRegistry,
+          resourceLoader,
+        });
 
-        const ensureStartEvent = async function* () {
-          if (!hasStarted) {
-            yield `data: ${JSON.stringify({ type: "start", messageId })}\n\n`;
-            yield `data: ${JSON.stringify({
-              type: "message-metadata",
-              messageMetadata: { sessionId: session.sessionId },
-            })}\n\n`;
-            hasStarted = true;
-          }
+        // Append CLI --system-prompt to Pi's built-in prompt (from _rebuildSystemPrompt:
+        // tools, skills from skillPaths, etc.). Replacing entirely would strip skills.
+        if (options.systemPrompt != null && options.systemPrompt !== "") {
+          const existing = session.agent.state.systemPrompt ?? "";
+          session.agent.setSystemPrompt(
+            existing
+              ? `${existing}\n\n---\n\n${options.systemPrompt}`
+              : options.systemPrompt,
+          );
+        }
+
+        const eventQueue: AgentSessionEvent[] = [];
+        let isComplete = false;
+        let aborted = false;
+        let wakeConsumer: (() => void) | null = null;
+
+        const notify = () => {
+          wakeConsumer?.();
+          wakeConsumer = null;
         };
 
-        const finishSuccess = async function* (usage?: Usage) {
-          if (hasTextStarted) {
-            yield `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`;
+        const unsubscribe = session.subscribe((e) => {
+          eventQueue.push(e);
+          if (e.type === "agent_end") {
+            isComplete = true;
           }
-          const finishPayload: {
-            type: "finish";
-            finishReason: string;
-            messageMetadata?: { usage: Record<string, number> };
-          } = { type: "finish", finishReason: "stop" };
-          if (usage != null) {
-            finishPayload.messageMetadata = {
-              usage: usageToMessageMetadata(usage),
-            };
-          }
-          yield `data: ${JSON.stringify(finishPayload)}\n\n`;
-          yield "data: [DONE]\n\n";
-          hasFinished = true;
+          notify();
+        });
+
+        const abortSignal = options.abortController?.signal;
+        const abortHandler = () => {
+          aborted = true;
+          isComplete = true;
+          void session.abort();
+          notify();
         };
 
-        const finishError = async function* (errorText: string) {
-          for (const chunk of emitStreamError(errorText)) {
-            yield chunk;
+        if (abortSignal) {
+          abortSignal.addEventListener("abort", abortHandler);
+          if (abortSignal.aborted) {
+            abortHandler();
           }
-          hasFinished = true;
-        };
+        }
 
-        while (!isComplete || eventQueue.length > 0) {
-          while (eventQueue.length > 0) {
-            const event = eventQueue.shift()!;
-            traceRawMessage(cwd, event);
+        try {
+          traceRawMessage(cwd, null, true);
 
-            yield* ensureStartEvent();
+          let promptText = userInput;
+          let images:
+            | Array<{ type: "image"; data: string; mimeType: string }>
+            | undefined;
 
-            if (event.type === "message_update") {
-              if (event.assistantMessageEvent.type === "text_delta") {
-                const delta = event.assistantMessageEvent.delta;
-                if (delta) {
-                  if (!hasTextStarted) {
-                    yield `data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`;
-                    hasTextStarted = true;
+          // Try to parse userInput as a JSON array of parts (if passed from sandagent SDK)
+          try {
+            if (userInput.startsWith("[") && userInput.endsWith("]")) {
+              const parsed = JSON.parse(userInput);
+              if (Array.isArray(parsed)) {
+                promptText = parsed
+                  .filter((p) => p.type === "text")
+                  .map((p) => p.text)
+                  .join("\n");
+
+                const imageParts = parsed.filter((p) => p.type === "image");
+                if (imageParts.length > 0) {
+                  images = imageParts.map((p) => ({
+                    type: "image",
+                    data: p.data,
+                    mimeType: p.mimeType,
+                  }));
+                }
+              }
+            }
+          } catch (_e) {
+            // Fallback to raw string if parsing fails
+          }
+
+          const promptPromise = session.prompt(
+            promptText,
+            images ? { images } : undefined,
+          );
+
+          const messageId = `msg_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+          const textId = `text_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+          let hasStarted = false;
+          let hasTextStarted = false;
+          let hasFinished = false;
+
+          const ensureStartEvent = async function* () {
+            if (!hasStarted) {
+              yield `data: ${JSON.stringify({ type: "start", messageId })}\n\n`;
+              yield `data: ${JSON.stringify({
+                type: "message-metadata",
+                messageMetadata: { sessionId: session.sessionId },
+              })}\n\n`;
+              hasStarted = true;
+            }
+          };
+
+          const finishSuccess = async function* (usage?: Usage) {
+            if (hasTextStarted) {
+              yield `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`;
+            }
+            const finishPayload: {
+              type: "finish";
+              finishReason: string;
+              messageMetadata?: { usage: Record<string, number> };
+            } = { type: "finish", finishReason: "stop" };
+            if (usage != null) {
+              finishPayload.messageMetadata = {
+                usage: usageToMessageMetadata(usage),
+              };
+            }
+            yield `data: ${JSON.stringify(finishPayload)}\n\n`;
+            yield "data: [DONE]\n\n";
+            hasFinished = true;
+          };
+
+          const finishError = async function* (errorText: string) {
+            for (const chunk of emitStreamError(errorText)) {
+              yield chunk;
+            }
+            hasFinished = true;
+          };
+
+          while (!isComplete || eventQueue.length > 0) {
+            while (eventQueue.length > 0) {
+              const event = eventQueue.shift()!;
+              traceRawMessage(cwd, event);
+
+              yield* ensureStartEvent();
+
+              if (event.type === "message_update") {
+                if (event.assistantMessageEvent.type === "text_delta") {
+                  const delta = event.assistantMessageEvent.delta;
+                  if (delta) {
+                    if (!hasTextStarted) {
+                      yield `data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`;
+                      hasTextStarted = true;
+                    }
+                    yield `data: ${JSON.stringify({ type: "text-delta", id: textId, delta })}\n\n`;
                   }
-                  yield `data: ${JSON.stringify({ type: "text-delta", id: textId, delta })}\n\n`;
                 }
-              }
-            } else if (event.type === "tool_execution_start") {
-              yield `data: ${JSON.stringify({ type: "tool-input-start", toolCallId: event.toolCallId, toolName: event.toolName, dynamic: true, providerExecuted: true })}\n\n`;
-              yield `data: ${JSON.stringify({ type: "tool-input-available", toolCallId: event.toolCallId, toolName: event.toolName, input: event.args, dynamic: true, providerExecuted: true })}\n\n`;
-            } else if (event.type === "tool_execution_end") {
-              const output = extractToolResultText(event.result);
-              yield `data: ${JSON.stringify({ type: "tool-output-available", toolCallId: event.toolCallId, output, isError: event.isError, dynamic: true, providerExecuted: true })}\n\n`;
-            } else if (event.type === "agent_end") {
-              if (aborted) {
-                yield* finishError("Run aborted by signal.");
-              } else {
-                const errorMsg = getErrorFromAgentEndMessages(event.messages);
-                if (errorMsg) {
-                  yield* finishError(errorMsg);
+              } else if (event.type === "tool_execution_start") {
+                yield `data: ${JSON.stringify({ type: "tool-input-start", toolCallId: event.toolCallId, toolName: event.toolName, dynamic: true, providerExecuted: true })}\n\n`;
+                yield `data: ${JSON.stringify({ type: "tool-input-available", toolCallId: event.toolCallId, toolName: event.toolName, input: event.args, dynamic: true, providerExecuted: true })}\n\n`;
+              } else if (event.type === "tool_execution_end") {
+                const output = extractToolResultText(event.result);
+                yield `data: ${JSON.stringify({ type: "tool-output-available", toolCallId: event.toolCallId, output, isError: event.isError, dynamic: true, providerExecuted: true })}\n\n`;
+              } else if (event.type === "agent_end") {
+                if (aborted) {
+                  yield* finishError("Run aborted by signal.");
                 } else {
-                  const usage = getUsageFromAgentEndMessages(event.messages);
-                  yield* finishSuccess(usage);
+                  const errorMsg = getErrorFromAgentEndMessages(event.messages);
+                  if (errorMsg) {
+                    yield* finishError(errorMsg);
+                  } else {
+                    const usage = getUsageFromAgentEndMessages(event.messages);
+                    yield* finishSuccess(usage);
+                  }
                 }
               }
             }
+
+            if (aborted && !hasFinished) {
+              yield* ensureStartEvent();
+              yield* finishError("Run aborted by signal.");
+              break;
+            }
+
+            if (!isComplete && eventQueue.length === 0) {
+              await new Promise<void>((resolve) => {
+                wakeConsumer = resolve;
+              });
+            }
           }
 
-          if (aborted && !hasFinished) {
+          if (hasFinished) {
+            return;
+          }
+
+          try {
+            await promptPromise;
+          } catch (error) {
+            if (!hasFinished) {
+              yield* ensureStartEvent();
+              const message =
+                error instanceof Error ? error.message : "Pi agent run failed.";
+              yield* finishError(message);
+            }
+            return;
+          }
+
+          if (!hasFinished && session.agent.state.error) {
             yield* ensureStartEvent();
-            yield* finishError("Run aborted by signal.");
-            break;
+            yield* finishError(session.agent.state.error);
           }
-
-          if (!isComplete && eventQueue.length === 0) {
-            await new Promise<void>((resolve) => {
-              wakeConsumer = resolve;
-            });
+        } finally {
+          if (abortSignal) {
+            abortSignal.removeEventListener("abort", abortHandler);
           }
-        }
-
-        if (hasFinished) {
-          return;
-        }
-
-        try {
-          await promptPromise;
-        } catch (error) {
-          if (!hasFinished) {
-            yield* ensureStartEvent();
-            const message =
-              error instanceof Error ? error.message : "Pi agent run failed.";
-            yield* finishError(message);
-          }
-          return;
-        }
-
-        if (!hasFinished && session.agent.state.error) {
-          yield* ensureStartEvent();
-          yield* finishError(session.agent.state.error);
+          unsubscribe();
+          session.dispose();
         }
       } finally {
-        if (abortSignal) {
-          abortSignal.removeEventListener("abort", abortHandler);
+        if (inlineApiKey !== undefined) {
+          modelRegistry.authStorage.removeRuntimeApiKey(provider);
         }
-        unsubscribe();
-        session.dispose();
       }
     },
   };

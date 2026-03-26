@@ -110,7 +110,7 @@ export class SandockSandbox implements SandboxAdapter {
   private readonly command?: string[];
 
   /** Current handle for the sandbox instance; also holds optional existing sandbox id to attach to (before attach) */
-  private currentHandle: SandboxHandle | null = null;
+  private currentHandle: SandockHandle | null = null;
   private _sandboxId: string | null = null;
 
   constructor(options: SandockSandboxOptions = {}) {
@@ -184,12 +184,15 @@ export class SandockSandbox implements SandboxAdapter {
   async attach(): Promise<SandboxHandle> {
     if (this.currentHandle) return this.currentHandle;
     const existing = await this.tryAttachExisting();
-    if (existing) return existing;
-    return this.createAndAttachNew();
+    if (existing) {
+      return existing;
+    }
+
+    return await this.createAndAttachNew();
   }
 
   /** Try to attach to existing sandbox by _sandboxId; on failure clear id and return null. */
-  private async tryAttachExisting(): Promise<SandboxHandle | null> {
+  private async tryAttachExisting(): Promise<SandockHandle | null> {
     const id = this._sandboxId;
     if (!id) return null;
     try {
@@ -227,7 +230,7 @@ export class SandockSandbox implements SandboxAdapter {
   }
 
   /** Create a new sandbox, initialize it, and set as current handle. */
-  private async createAndAttachNew(): Promise<SandboxHandle> {
+  private async createAndAttachNew(): Promise<SandockHandle> {
     const volumeMounts = await this.resolveVolumeMounts();
     const { sandboxId } = await this.createAndStartSandbox(volumeMounts);
     const handle = new SandockHandle(
@@ -505,28 +508,6 @@ class SandockHandle implements SandboxHandle {
 
     // Debug: log environment variables being passed to sandbox
     console.log("[Sandock] Executing command:", command.join(" "));
-    console.log(
-      "[Sandock] Environment variables:",
-      Object.keys(envWithNodePath),
-    );
-    console.log(
-      "[Sandock] ANTHROPIC_API_KEY present:",
-      !!envWithNodePath.ANTHROPIC_API_KEY,
-    );
-    console.log(
-      "[Sandock] AWS_BEARER_TOKEN_BEDROCK present:",
-      !!envWithNodePath.AWS_BEARER_TOKEN_BEDROCK,
-    );
-    console.log(
-      "[Sandock] CLAUDE_CODE_USE_BEDROCK:",
-      envWithNodePath.CLAUDE_CODE_USE_BEDROCK || "NOT SET",
-    );
-    if (envWithNodePath.ANTHROPIC_API_KEY) {
-      console.log(
-        "[Sandock] ANTHROPIC_API_KEY prefix:",
-        envWithNodePath.ANTHROPIC_API_KEY.substring(0, 10) + "...",
-      );
-    }
 
     return {
       async *[Symbol.asyncIterator](): AsyncIterator<Uint8Array> {
@@ -644,7 +625,7 @@ class SandockHandle implements SandboxHandle {
               resolveWait?.();
             },
             onError: (err: unknown) => {
-              console.log("SHELL ERROR:", err);
+              console.log("[Sandock] SHELL ERROR:", err);
               // Only set error if:
               // 1. We haven't received any output (process failed before communicating)
               // 2. The stream isn't already done

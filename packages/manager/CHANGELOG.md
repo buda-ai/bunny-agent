@@ -4,7 +4,31 @@
 
 ### Patch Changes
 
-- Release v0.9.11
+- Stable release; align fixed-group packages at `0.9.10`.
+
+## 0.9.9-beta.3
+
+### Patch Changes
+
+- test daemon
+
+## 0.9.9-beta.2
+
+### Patch Changes
+
+- Add `isSandagentDaemonHealthy` for in-sandbox `/healthz` checks via `SandboxHandle.exec` (curl `-w '%{http_code}'`, true only for HTTP 200; connect/max-time caps; default single attempt and ~4s timeout).
+
+## 0.9.9-beta.1
+
+### Patch Changes
+
+- test runner env
+
+## 0.9.9-beta.0
+
+### Patch Changes
+
+- test coding run
 
 ## 0.9.9
 

@@ -1,29 +1,36 @@
+# syntax=docker/dockerfile:1
 # SandAgent Image (vikadata/sandagent)
 # Pre-installs runner-cli, @sandagent/daemon (HTTP API), and @anthropic-ai/claude-agent-sdk
 # Compatible with both Daytona Snapshots and E2B custom templates
 #
 # E2B: Use Template.fromDockerfile() to parse this Dockerfile
 # Daytona: Use daytona snapshot push or daytona snapshot create --dockerfile
+#
+# Build with BuildKit (default in Docker 23+): enables apt cache mounts for faster rebuilds.
+# First build is still slow: `playwright install --with-deps chromium` pulls many .deb packages.
 
 FROM node:20-slim
 
 # Version of @sandagent/runner-cli to install.
 # Override at build time: docker build --build-arg RUNNER_CLI_VERSION=1.2.3 ...
-ARG RUNNER_CLI_VERSION=latest
+ARG RUNNER_CLI_VERSION=0.9.9-beta.2
 
 LABEL org.opencontainers.image.title="sandagent"
 LABEL org.opencontainers.image.description="SandAgent with Claude Agent SDK pre-installed"
 LABEL org.opencontainers.image.version="$RUNNER_CLI_VERSION"
 
-# Install common tools (with retry for network issues)
-RUN for i in 1 2 3; do \
-    apt-get update && apt-get install -y \
+# Install common tools + nginx (CDP proxy). Apt cache mounts speed up repeated local builds.
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    for i in 1 2 3; do \
+    apt-get update && apt-get install -y --no-install-recommends \
     git \
     curl \
     sudo \
     tmux \
     python3 \
     python3-pip \
+    nginx \
     && rm -rf /var/lib/apt/lists/* \
     && break || sleep 5; \
     done
@@ -53,7 +60,9 @@ RUN mkdir -p /opt/sandagent && \
 # Refresh apt signing keys before Playwright runs apt-get again: under buildx+QEMU
 # (linux/amd64 on Apple Silicon), apt can fail with "invalid signature" without this.
 ENV PLAYWRIGHT_BROWSERS_PATH=/opt/sandagent/pw-browsers
-RUN apt-get update && \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt-get update && \
     apt-get install -y --no-install-recommends --reinstall \
       ca-certificates \
       debian-archive-keyring \
@@ -110,11 +119,6 @@ ENV DBUS_SESSION_BUS_ADDRESS=/dev/null
 # Create CDP (Chrome DevTools Protocol) startup script
 # Use nginx to proxy and rewrite Host header to localhost,
 # bypassing Chromium's Host header security check
-RUN for i in 1 2 3; do \
-    apt-get update && apt-get install -y nginx && \
-    rm -rf /var/lib/apt/lists/* && break || sleep 5; \
-    done
-
 RUN echo 'server {\n\
     listen 9222;\n\
     location / {\n\

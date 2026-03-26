@@ -1,9 +1,17 @@
-export { streamCodingRunFromSandbox } from "./coding-run.js";
+export type { DaemonCodingRunExecParams } from "./coding-run.js";
+export {
+  buildCodingRunShellScript,
+  buildDefaultCodingRunExec,
+  buildDefaultDaemonCodingRunExecCommand,
+  SANDBOX_CODING_RUN_TMP_DIR,
+  streamCodingRunFromSandbox,
+} from "./coding-run.js";
+export type { IsSandagentDaemonHealthyOptions } from "./daemon-health.js";
+export { isSandagentDaemonHealthy } from "./daemon-health.js";
 export type { RunnerEnvParams, RunnerType } from "./env.js";
 // Env helpers
 export { buildRunnerEnv } from "./env.js";
 export type { LocalSandboxOptions } from "./local-sandbox.js";
-
 // Default sandbox adapter (built-in)
 export { LocalSandbox } from "./local-sandbox.js";
 export { SandAgent } from "./sand-agent.js";

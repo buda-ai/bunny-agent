@@ -15,6 +15,7 @@
  * Requests to /api/daemon/api/coding/run    → daemon /api/coding/run (NDJSON stream)
  */
 
+import { mergeCodingRunProcessEnv } from "./coding-run-env.js";
 import { parseMultipart } from "./multipart.js";
 import { DaemonRouter } from "./router.js";
 import { codingRunStream, type RunRequest } from "./routes/coding.js";
@@ -41,7 +42,8 @@ export function createNextHandler(opts: { root: string; prefix?: string }) {
     // Streaming: /api/coding/run → NDJSON stream
     if (method === "POST" && pathname === "/api/coding/run") {
       const body = (await req.json().catch(() => ({}))) as RunRequest;
-      return codingRunStream(body, env);
+      const mergedEnv = mergeCodingRunProcessEnv(env, body);
+      return codingRunStream(body, mergedEnv);
     }
 
     // Multipart upload: /api/fs/upload

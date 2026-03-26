@@ -78,8 +78,11 @@ export type SandAgentRunnerType =
 
 /**
  * AI Provider specific settings that extend SandAgentOptions.
- * Requires a `sandbox`. Optional `daemonUrl` streams via sandagent-daemon
- * **inside** that sandbox; without it, the CLI runner is used in the sandbox.
+ * Requires a `sandbox`. Optional `daemonUrl` streams via sandagent-daemon HTTP
+ * (`POST /api/coding/run`) inside the sandbox. The SDK does **not** probe `/healthz`
+ * on each request — call `isSandagentDaemonHealthy` (re-exported from
+ * `@sandagent/sdk`) when you want to check readiness and omit `daemonUrl` to fall
+ * back to the CLI runner, or set `daemonUrl` and handle HTTP errors yourself.
  */
 export interface SandAgentProviderSettings
   extends Omit<SandAgentOptions, "runner" | "sandboxId" | "sandbox"> {
@@ -87,8 +90,8 @@ export interface SandAgentProviderSettings
   sandbox: SandboxAdapter;
   /**
    * sandagent-daemon base URL **inside** the sandbox (e.g. SandAgent image:
-   * `http://127.0.0.1:3080`). When set, the SDK uses `streamCodingRunFromSandbox`
-   * instead of the CLI runner.
+   * `http://127.0.0.1:3080`). When set, the SDK uses HTTP streaming only (no
+   * automatic health probe or CLI fallback).
    */
   daemonUrl?: string;
   /**
@@ -120,15 +123,6 @@ export interface SandAgentProviderSettings
  * Model identifier: user passes whatever the runner expects (e.g. Claude model id, Pi model id).
  */
 export type SandAgentModelId = string;
-
-/**
- * Determine the runner kind based on model ID (for future multi-runner support).
- */
-export function getRunnerKindForModel(
-  _modelId: SandAgentModelId,
-): "claude-agent-sdk" {
-  return "claude-agent-sdk";
-}
 
 /**
  * Default sandagent-daemon base URL inside the SandAgent Docker image / local
