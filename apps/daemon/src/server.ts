@@ -1,10 +1,11 @@
 import * as http from "node:http";
+import * as nodePath from "node:path";
 import { URL } from "node:url";
 import { parseMultipart } from "./multipart.js";
 import { DaemonRouter } from "./router.js";
 import { sandagentRun } from "./routes/coding.js";
-import { fsUpload } from "./routes/fs.js";
-import { AppError, type AppState, fail } from "./utils.js";
+import { fsDownload, fsUpload } from "./routes/fs.js";
+import { AppError, type AppState, fail, guessMimeType } from "./utils.js";
 
 export interface DaemonConfig {
   host: string;
@@ -58,6 +59,35 @@ export function createDaemon(config: DaemonConfig): http.Server {
           const result = await fsUpload(state, parts);
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify(result));
+        } catch (err) {
+          const status = err instanceof AppError ? err.status : 500;
+          const msg = err instanceof Error ? err.message : String(err);
+          res.writeHead(status, { "Content-Type": "application/json" });
+          res.end(JSON.stringify(fail(msg)));
+        }
+        return;
+      }
+
+      // Binary file download: /api/fs/download?path=...
+      if (method === "GET" && pathname === "/api/fs/download") {
+        try {
+          const filePath = url.searchParams.get("path");
+          const volume = url.searchParams.get("volume") ?? undefined;
+          if (!filePath) {
+            res.writeHead(400, { "Content-Type": "application/json" });
+            res.end(JSON.stringify(fail("path query parameter is required")));
+            return;
+          }
+          const { path: resolvedPath, buffer } = await fsDownload(state, {
+            path: filePath,
+            volume,
+          });
+          const mimeType = guessMimeType(resolvedPath);
+          res.writeHead(200, {
+            "Content-Type": mimeType,
+            "Content-Length": buffer.length,
+          });
+          res.end(buffer);
         } catch (err) {
           const status = err instanceof AppError ? err.status : 500;
           const msg = err instanceof Error ? err.message : String(err);

@@ -9,16 +9,18 @@
  *   export const GET = handler;
  *   export const POST = handler;
  *
- * Requests to /api/daemon/healthz      → daemon /healthz
- * Requests to /api/daemon/api/fs/read  → daemon /api/fs/read
- * Requests to /api/daemon/api/coding/run → daemon /api/coding/run (NDJSON stream)
+ * Requests to /api/daemon/healthz           → daemon /healthz
+ * Requests to /api/daemon/api/fs/read       → daemon /api/fs/read
+ * Requests to /api/daemon/api/fs/download   → daemon /api/fs/download (binary)
+ * Requests to /api/daemon/api/coding/run    → daemon /api/coding/run (NDJSON stream)
  */
 
+import * as nodePath from "node:path";
 import { parseMultipart } from "./multipart.js";
 import { DaemonRouter } from "./router.js";
 import { codingRunStream, type RunRequest } from "./routes/coding.js";
-import { fsUpload } from "./routes/fs.js";
-import { AppError, type AppState, fail } from "./utils.js";
+import { fsDownload, fsUpload } from "./routes/fs.js";
+import { AppError, type AppState, fail, guessMimeType } from "./utils.js";
 
 export function createNextHandler(opts: { root: string; prefix?: string }) {
   const router = new DaemonRouter({ root: opts.root });
@@ -57,6 +59,36 @@ export function createNextHandler(opts: { root: string; prefix?: string }) {
         const parts = parseMultipart(ct, raw);
         const result = await fsUpload(state, parts);
         return Response.json(result);
+      } catch (err) {
+        const status = err instanceof AppError ? err.status : 500;
+        const msg = err instanceof Error ? err.message : String(err);
+        return Response.json(fail(msg), { status });
+      }
+    }
+
+    // Binary file download: /api/fs/download?path=...
+    if (method === "GET" && pathname === "/api/fs/download") {
+      try {
+        const filePath = url.searchParams.get("path");
+        const volume = url.searchParams.get("volume") ?? undefined;
+        if (!filePath) {
+          return Response.json(
+            fail("path query parameter is required"),
+            { status: 400 },
+          );
+        }
+        const { path: resolvedPath, buffer } = await fsDownload(state, {
+          path: filePath,
+          volume,
+        });
+        const mimeType = guessMimeType(resolvedPath);
+        return new Response(buffer, {
+          status: 200,
+          headers: {
+            "Content-Type": mimeType,
+            "Content-Length": String(buffer.length),
+          },
+        });
       } catch (err) {
         const status = err instanceof AppError ? err.status : 500;
         const msg = err instanceof Error ? err.message : String(err);
