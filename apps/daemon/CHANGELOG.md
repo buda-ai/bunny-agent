@@ -1,5 +1,11 @@
 # @sandagent/daemon
 
+## 0.9.12
+
+### Patch Changes
+
+- Release v0.9.12
+
 ## 0.9.11
 
 ### Patch Changes
