@@ -229,15 +229,6 @@ const ENV_CONFIGS: EnvConfig[] = [
     placeholder: "012345678901234567890:abc...",
   },
   {
-    name: "Daemon URL",
-    key: "DAEMON_URL",
-    description:
-      "Optional. Defaults to http://127.0.0.1:3080 when empty. LLM keys are configured on the daemon, not here.",
-    required: false,
-    category: "api",
-    placeholder: "http://127.0.0.1:3080",
-  },
-  {
     name: "Use SandAgent daemon",
     key: "USE_SANDAGENT_DAEMON",
     description:
