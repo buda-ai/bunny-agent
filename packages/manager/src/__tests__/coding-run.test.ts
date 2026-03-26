@@ -28,7 +28,7 @@ describe("coding-run", () => {
     expect(script).toContain("trap 'rm -f \"$REQ\"' EXIT INT TERM");
     expect(script).toContain("curl --fail -sS -N -X POST");
     expect(script).toContain("http://127.0.0.1:3080/api/coding/run");
-    expect(script).toContain("--data-binary @\"$REQ\"");
+    expect(script).toContain('--data-binary @"$REQ"');
     expect(script).toMatch(/^REQ='/);
   });
 });

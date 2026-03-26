@@ -6,8 +6,8 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { getAllSmokingTests } from "@sandagent/benchmark-shared";
 import {
-  executeSmokingBenchmark,
   type BenchmarkTransport,
+  executeSmokingBenchmark,
   type SmokingRunOptions,
 } from "./run-benchmark-smoking.js";
 
@@ -72,11 +72,7 @@ async function saveResults(
   const filename = `sandagent-${transport}-${runner}-${modelSlug}-${dateStr}-${timeStr}.json`;
 
   const root = process.env.PROJECT_ROOT || join(process.cwd(), "../..");
-  const filepath = join(
-    root,
-    "benchmark-results/sandagent/smoking",
-    filename,
-  );
+  const filepath = join(root, "benchmark-results/sandagent/smoking", filename);
 
   writeFileSync(filepath, JSON.stringify(report, null, 2));
   console.log(`💾 Results saved to: ${filepath}\n`);

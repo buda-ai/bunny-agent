@@ -2,9 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { isSandagentDaemonHealthy } from "../daemon-health.js";
 import type { SandboxHandle } from "../types.js";
 
-function mockHandle(
-  execImpl: () => AsyncIterable<Uint8Array>,
-): SandboxHandle {
+function mockHandle(execImpl: () => AsyncIterable<Uint8Array>): SandboxHandle {
   return {
     getSandboxId: () => "mock",
     getVolumes: () => null,

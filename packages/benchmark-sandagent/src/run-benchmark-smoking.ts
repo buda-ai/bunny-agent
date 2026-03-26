@@ -264,7 +264,8 @@ export async function executeSmokingBenchmark(
 
   const daemonBase =
     options.daemonUrl ??
-    process.env.SANDAGENT_DAEMON_URL ?? process.env.DAEMON_URL ??
+    process.env.SANDAGENT_DAEMON_URL ??
+    process.env.DAEMON_URL ??
     DEFAULT_IN_SANDBOX_DAEMON_URL;
 
   let sandockHandle: SandboxHandle | null = null;

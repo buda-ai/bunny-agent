@@ -9,7 +9,7 @@
 import { downloadGaiaDataset } from "@sandagent/benchmark-shared";
 import { Command } from "commander";
 import { compareResults } from "./compare.js";
-import { runBenchmark, type BenchmarkTransport } from "./runner.js";
+import { type BenchmarkTransport, runBenchmark } from "./runner.js";
 import type { SandAgentRunner } from "./types.js";
 
 const program = new Command();
