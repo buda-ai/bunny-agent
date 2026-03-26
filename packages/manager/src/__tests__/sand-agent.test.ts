@@ -55,7 +55,6 @@ describe("SandAgent", () => {
       const agent = new SandAgent({
         sandbox,
         runner: {
-          kind: "claude-agent-sdk",
           model: "claude-sonnet-4-20250514",
         },
       });
@@ -73,7 +72,6 @@ describe("SandAgent", () => {
       const agent = new SandAgent({
         sandbox,
         runner: {
-          kind: "claude-agent-sdk",
           model: "claude-sonnet-4-20250514",
         },
       });
@@ -93,7 +91,6 @@ describe("SandAgent", () => {
       const agent = new SandAgent({
         sandbox,
         runner: {
-          kind: "claude-agent-sdk",
           model: "claude-sonnet-4-20250514",
         },
       });
@@ -114,7 +111,6 @@ describe("SandAgent", () => {
       const agent = new SandAgent({
         sandbox,
         runner: {
-          kind: "claude-agent-sdk",
           model: "claude-sonnet-4-20250514",
         },
       });
@@ -143,7 +139,6 @@ describe("SandAgent", () => {
       const agent = new SandAgent({
         sandbox,
         runner: {
-          kind: "claude-agent-sdk",
           model: "claude-sonnet-4-20250514",
         },
       });
@@ -166,7 +161,6 @@ describe("SandAgent", () => {
       const agent = new SandAgent({
         sandbox,
         runner: {
-          kind: "claude-agent-sdk",
           model: "claude-sonnet-4-20250514",
         },
       });
@@ -184,7 +178,6 @@ describe("SandAgent", () => {
       const agent = new SandAgent({
         sandbox,
         runner: {
-          kind: "claude-agent-sdk",
           model: "claude-sonnet-4-20250514",
         },
       });
@@ -207,7 +200,6 @@ describe("SandAgent", () => {
       const agent = new SandAgent({
         sandbox,
         runner: {
-          kind: "claude-agent-sdk",
           model: "claude-sonnet-4-20250514",
         },
       });
@@ -228,7 +220,6 @@ describe("SandAgent", () => {
       const agent = new SandAgent({
         sandbox,
         runner: {
-          kind: "claude-agent-sdk",
           model: "claude-sonnet-4-20250514",
         },
       });
@@ -246,7 +237,6 @@ describe("SandAgent", () => {
       const agent = new SandAgent({
         sandbox,
         runner: {
-          kind: "claude-agent-sdk",
           model: "claude-sonnet-4-20250514",
         },
       });
@@ -270,7 +260,6 @@ describe("SandAgent", () => {
       const agent = new SandAgent({
         sandbox,
         runner: {
-          kind: "claude-agent-sdk",
           model: "claude-sonnet-4-20250514",
         },
       });
@@ -300,7 +289,6 @@ describe("SandAgent", () => {
       const agent = new SandAgent({
         sandbox,
         runner: {
-          kind: "claude-agent-sdk",
           model: "claude-sonnet-4-20250514",
         },
       });
@@ -350,7 +338,6 @@ describe("SandAgent", () => {
       const agent = new SandAgent({
         sandbox,
         runner: {
-          kind: "claude-agent-sdk",
           model: "claude-sonnet-4-20250514",
         },
       });

@@ -20,13 +20,18 @@
  */
 
 export type {
+  IsSandagentDaemonHealthyOptions,
   LocalSandboxOptions,
   RunnerEnvParams,
   RunnerType,
 } from "@sandagent/manager";
 // Re-export LocalSandbox for convenience
 // Re-export env helpers
-export { buildRunnerEnv, LocalSandbox } from "@sandagent/manager";
+export {
+  buildRunnerEnv,
+  isSandagentDaemonHealthy,
+  LocalSandbox,
+} from "@sandagent/manager";
 export type {
   ArtifactProcessor,
   ArtifactResult,

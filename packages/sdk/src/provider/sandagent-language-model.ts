@@ -117,6 +117,7 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
   private readonly logger: Logger;
   private sessionId: string | undefined;
   private toolNameMap: Map<string, string> = new Map();
+  private legacyTextPartCounter = 0;
 
   constructor(modelOptions: SandAgentLanguageModelOptions) {
     this.modelId = modelOptions.id;
@@ -201,6 +202,23 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
             warnings.push(...value.warnings);
             break;
           }
+          case "error": {
+            // `value.error` type comes from AI SDK and can be `{}`-shaped.
+            // Convert it to a readable string safely.
+            const message =
+              value.error instanceof Error
+                ? value.error.message
+                : typeof value.error === "string"
+                  ? value.error
+                  : value.error
+                    ? String(value.error)
+                    : "Unknown error";
+
+            // Surface errors as assistant text + mark finishReason=error.
+            content.push({ type: "text", text: message });
+            finishReason = { unified: "error", raw: "error" };
+            break;
+          }
           case "finish": {
             finishReason = value.finishReason;
             usage = value.usage;
@@ -246,7 +264,12 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
 
     if (daemonUrl) {
       const handle = await sandbox.attach();
-      const body = this.buildCodingRunBody(messages, handle.getWorkdir());
+      const sandboxEnv = sandbox.getEnv?.() ?? {};
+      const runnerEnv = { ...sandboxEnv, ...this.options.env };
+      const body: SandAgentCodingRunBody = {
+        ...this.buildCodingRunBody(messages, handle.getWorkdir()),
+        ...(Object.keys(runnerEnv).length > 0 ? { env: runnerEnv } : {}),
+      };
       const execOpts = {
         cwd: this.options.cwd ?? handle.getWorkdir(),
         signal: abortSignal,
@@ -290,6 +313,7 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
   private resetStreamState(): void {
     this.sessionId = undefined;
     this.toolNameMap = new Map();
+    this.legacyTextPartCounter = 0;
   }
 
   private buildCodingRunBody(
@@ -357,38 +381,42 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
 
             let foundDone = false;
             for (const line of lines) {
-              if (line.startsWith("data: ")) {
-                const data = line.slice(6);
+              const candidate = line.startsWith("data: ")
+                ? line.slice(6)
+                : line.trim();
+              if (!candidate) continue;
+              if (candidate === "[DONE]") {
+                foundDone = true;
+                continue;
+              }
 
-                if (data === "[DONE]") {
-                  foundDone = true;
-                  continue;
-                }
-                try {
-                  const parts = self.parseSSEData(data);
-                  for (const part of parts) {
-                    controller.enqueue(part);
+              try {
+                const parts = self.parseSSEData(candidate);
+                for (const part of parts) {
+                  controller.enqueue(part);
 
-                    if (self.sessionId) {
-                      const sessionId: string = self.sessionId;
+                  if (self.sessionId) {
+                    const sessionId: string = self.sessionId;
 
-                      if (self.options.artifactProcessors?.length) {
-                        for (const processor of self.options
-                          .artifactProcessors) {
-                          Promise.resolve()
-                            .then(() => processor.onChange(part, sessionId))
-                            .catch((e) => {
-                              self.logger.error(
-                                `[sandagent] Artifact processor error: ${e}`,
-                              );
-                            });
-                        }
+                    if (self.options.artifactProcessors?.length) {
+                      for (const processor of self.options.artifactProcessors) {
+                        Promise.resolve()
+                          .then(() => processor.onChange(part, sessionId))
+                          .catch((e) => {
+                            self.logger.error(
+                              `[sandagent] Artifact processor error: ${e}`,
+                            );
+                          });
                       }
                     }
                   }
-                } catch (e) {
+                }
+              } catch (e) {
+                // daemon /api/coding/run may emit plain text lines; ignore non-JSON fragments.
+                const msg = e instanceof Error ? e.message : String(e);
+                if (!msg.includes("Unexpected token")) {
                   self.logger.error(
-                    `[sandagent] Failed to parse SSE data: ${e}`,
+                    `[sandagent] Failed to parse stream data: ${e}`,
                   );
                 }
               }
@@ -422,19 +450,13 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
     const lines = buffer.split("\n");
 
     for (const line of lines) {
-      if (line.startsWith("data: ")) {
-        const data = line.slice(6);
-
-        if (data === "[DONE]") {
-          continue;
-        }
-
-        try {
-          const parsedParts = this.parseSSEData(data);
-          parts.push(...parsedParts);
-        } catch (e) {
-          this.logger.error(`[sandagent] Failed to parse SSE data: ${e}`);
-        }
+      const candidate = line.startsWith("data: ") ? line.slice(6) : line.trim();
+      if (!candidate || candidate === "[DONE]") continue;
+      try {
+        const parsedParts = this.parseSSEData(candidate);
+        parts.push(...parsedParts);
+      } catch {
+        // ignore trailing non-JSON lines on stream close
       }
     }
 
@@ -444,9 +466,43 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
   private parseSSEData(data: string): LanguageModelV3StreamPart[] {
     const parts: LanguageModelV3StreamPart[] = [];
     const parsed = JSON.parse(data) as Record<string, unknown>;
+    const parsedType =
+      typeof parsed.type === "string" ? parsed.type : undefined;
 
-    switch (parsed.type) {
+    // daemon NDJSON errors may arrive as: {"error":"..."} (without type)
+    if (!parsedType && typeof parsed.error === "string") {
+      return [
+        {
+          type: "error",
+          error: new Error(parsed.error),
+        },
+      ];
+    }
+
+    switch (parsedType) {
       case "start": {
+        break;
+      }
+
+      // Backward-compatible NDJSON chunk from daemon tests/mock runners.
+      case "text": {
+        const text = typeof parsed.text === "string" ? parsed.text : "";
+        if (text.length > 0) {
+          const id = `legacy-text-${++this.legacyTextPartCounter}`;
+          parts.push(
+            {
+              type: "text-start",
+              id,
+              providerMetadata: {
+                sandagent: {
+                  sessionId: this.sessionId,
+                } as unknown as SharedV3ProviderMetadata,
+              },
+            },
+            { type: "text-delta", id, delta: text },
+            { type: "text-end", id },
+          );
+        }
         break;
       }
 
@@ -545,7 +601,11 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
       case "error": {
         parts.push({
           type: "error",
-          error: new Error(parsed.errorText as string),
+          error: new Error(
+            (parsed.errorText as string) ||
+              (parsed.error as string) ||
+              "Unknown stream error",
+          ),
         });
         break;
       }

@@ -13,10 +13,11 @@ vi.mock("@sandagent/runner-core", () => ({
         throw new Error("runner exploded");
       })();
     }
-    // Return an async iterable that yields two NDJSON lines
+    // Return an async iterable that yields SSE-style chunks.
     return (async function* () {
-      yield `${JSON.stringify({ type: "text", text: `echo: ${opts.userInput}` })}\n`;
-      yield `${JSON.stringify({ type: "finish" })}\n`;
+      yield `data: ${JSON.stringify({ type: "text", text: `echo: ${opts.userInput}` })}\n\n`;
+      yield `data: ${JSON.stringify({ type: "finish", finishReason: "stop" })}\n\n`;
+      yield `data: [DONE]\n\n`;
     })();
   }),
 }));
@@ -53,15 +54,21 @@ describe("POST /api/coding/run (standalone server)", () => {
     expect(res.headers.get("content-type")).toBe("application/x-ndjson");
 
     const text = await res.text();
-    const lines = text.trim().split("\n");
-    expect(lines.length).toBe(2);
+    const dataLines = text
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l.startsWith("data: "));
+    const payloads = dataLines.map((l) => l.slice("data: ".length));
 
-    const first = JSON.parse(lines[0]);
+    const first = JSON.parse(payloads[0]);
     expect(first.type).toBe("text");
     expect(first.text).toBe("echo: hello");
 
-    const second = JSON.parse(lines[1]);
-    expect(second.type).toBe("finish");
+    const finish = JSON.parse(payloads[1]);
+    expect(finish.type).toBe("finish");
+    expect(finish.finishReason).toBe("stop");
+
+    expect(payloads[payloads.length - 1]).toBe("[DONE]");
   });
 
   it("returns error for missing userInput", async () => {
@@ -82,9 +89,15 @@ describe("codingRunStream (Web Response)", () => {
     expect(res.headers.get("content-type")).toBe("application/x-ndjson");
 
     const text = await res.text();
-    const lines = text.trim().split("\n");
-    expect(lines.length).toBe(2);
-    expect(JSON.parse(lines[0]).text).toBe("echo: test");
+    const dataLines = text
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l.startsWith("data: "));
+    const payloads = dataLines.map((l) => l.slice("data: ".length));
+
+    expect(JSON.parse(payloads[0]).text).toBe("echo: test");
+    expect(JSON.parse(payloads[1]).type).toBe("finish");
+    expect(payloads[payloads.length - 1]).toBe("[DONE]");
   });
 });
 
@@ -151,7 +164,7 @@ describe("createNextHandler", () => {
 });
 
 describe("coding/run error handling", () => {
-  it("streams error JSON when runner throws (standalone)", async () => {
+  it("streams error SSE when runner throws (standalone)", async () => {
     const res = await fetch(`${BASE}/api/coding/run`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -160,15 +173,35 @@ describe("coding/run error handling", () => {
 
     expect(res.status).toBe(200);
     const text = await res.text();
-    const parsed = JSON.parse(text.trim());
-    expect(parsed.error).toBe("runner exploded");
+    const dataLines = text
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l.startsWith("data: "));
+    const payloads = dataLines.map((l) => l.slice("data: ".length));
+
+    const err = JSON.parse(payloads[0]);
+    expect(err.type).toBe("error");
+    expect(err.errorText).toBe("runner exploded");
+
+    const finish = JSON.parse(payloads[1]);
+    expect(finish.type).toBe("finish");
+    expect(finish.finishReason).toBe("error");
+
+    expect(payloads[payloads.length - 1]).toBe("[DONE]");
   });
 
-  it("streams error JSON when runner throws (web response)", async () => {
+  it("streams error SSE when runner throws (web response)", async () => {
     const res = codingRunStream({ userInput: "__THROW__" }, {});
     const text = await res.text();
-    const parsed = JSON.parse(text.trim());
-    expect(parsed.error).toBe("runner exploded");
+    const dataLines = text
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l.startsWith("data: "));
+    const payloads = dataLines.map((l) => l.slice("data: ".length));
+
+    const err = JSON.parse(payloads[0]);
+    expect(err.type).toBe("error");
+    expect(err.errorText).toBe("runner exploded");
   });
 });
 

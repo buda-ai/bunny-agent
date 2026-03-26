@@ -1,5 +1,11 @@
 # @sandagent/runner-pi
 
+## 0.6.4-beta.0
+
+### Patch Changes
+
+- test daemon
+
 ## 0.6.3
 
 ### Patch Changes
@@ -8,7 +14,7 @@
 
   If a model is not found in the built-in pi-ai catalog, automatically
   register it using ModelRegistry with the provider's base URL from env
-  (e.g. OPENAI_BASE_URL for openai:_, ANTHROPIC_BASE_URL for anthropic:_).
+  (e.g. OPENAI*BASE_URL for openai:*, ANTHROPIC*BASE_URL for anthropic:*).
 
   This allows using any OpenAI-compatible endpoint with arbitrary model
   names like `openai:gemini-3.1-pro` or `anthropic:gemini-3.1-pro`.

@@ -4,9 +4,36 @@
 
 ### Patch Changes
 
-- Release v0.9.11
+- Stable release; align fixed-group packages at `0.9.10`.
 - Updated dependencies
   - @sandagent/manager@0.9.10
+
+## 0.9.9-beta.3
+
+### Patch Changes
+
+- Updated dependencies
+  - @sandagent/manager@0.9.9-beta.3
+
+## 0.9.9-beta.2
+
+### Patch Changes
+
+- @sandagent/manager@0.9.9-beta.2
+
+## 0.9.9-beta.1
+
+### Patch Changes
+
+- Updated dependencies
+  - @sandagent/manager@0.9.9-beta.1
+
+## 0.9.9-beta.0
+
+### Patch Changes
+
+- Updated dependencies
+  - @sandagent/manager@0.9.9-beta.0
 
 ## 0.9.9
 

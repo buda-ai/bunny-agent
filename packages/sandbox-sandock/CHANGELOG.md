@@ -4,9 +4,40 @@
 
 ### Patch Changes
 
-- Release v0.9.11
+- Stable release; align fixed-group packages at `0.9.10`.
 - Updated dependencies
   - @sandagent/manager@0.9.10
+
+## 0.9.9-beta.3
+
+### Patch Changes
+
+- test daemon
+- Updated dependencies
+  - @sandagent/manager@0.9.9-beta.3
+
+## 0.9.9-beta.2
+
+### Patch Changes
+
+- Remove attach-time daemon readiness wait and options `readinessProbeBaseUrl`, `readinessProbeMaxWaitMs`, and `daemonUrl` (SDK probes health after attach instead).
+- @sandagent/manager@0.9.9-beta.2
+
+## 0.9.9-beta.1
+
+### Patch Changes
+
+- test runner env
+- Updated dependencies
+  - @sandagent/manager@0.9.9-beta.1
+
+## 0.9.9-beta.0
+
+### Patch Changes
+
+- test coding run
+- Updated dependencies
+  - @sandagent/manager@0.9.9-beta.0
 
 ## 0.9.9
 
