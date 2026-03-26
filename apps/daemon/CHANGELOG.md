@@ -1,5 +1,11 @@
 # @sandagent/daemon
 
+## 0.9.10
+
+### Patch Changes
+
+- Stable release; align fixed-group packages at `0.9.10`.
+
 ## 0.9.9-beta.3
 
 ### Patch Changes
@@ -19,11 +25,6 @@
 ### Patch Changes
 
 - test coding run
-## 0.9.10
-
-### Patch Changes
-
-- Release v0.9.11
 
 ## 0.9.9
 

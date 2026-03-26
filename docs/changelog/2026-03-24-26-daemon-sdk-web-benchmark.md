@@ -118,3 +118,10 @@ Removed attach-time daemon readiness (`daemon-health.ts`, `waitForSandagentDaemo
 ## Docker (`docker/sandagent-claude/Dockerfile`)
 
 - BuildKit **apt cache mounts** on apt steps; **nginx** folded into the first apt layer to drop an extra apt cycle.
+
+---
+
+## Changeset fixed group at `0.9.10` (2026-03-26)
+
+- Verified `.changeset/config.json` **fixed** packages (`@sandagent/daemon`, `manager`, `runner-cli`, `sandbox-e2b`, `sandbox-sandock`, `sandbox-daytona`, `sdk`) all at **`0.9.10`** in `package.json`.
+- Normalized each package `CHANGELOG.md`: **`## 0.9.10`** is the newest section (removed duplicate mid-file blocks and erroneous “Release v0.9.11” lines).
