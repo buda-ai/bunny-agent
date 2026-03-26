@@ -86,6 +86,21 @@ export async function fsRead(state: AppState, q: PathQuery) {
   return ok({ path: target, content });
 }
 
+/**
+ * Read a file as raw binary Buffer (for serving images, PDFs, etc.).
+ * Unlike fsRead which returns UTF-8 text inside JSON, this returns { path, buffer }
+ * so the HTTP layer can stream the raw bytes with the correct Content-Type.
+ */
+export async function fsDownload(
+  state: AppState,
+  q: PathQuery,
+): Promise<{ path: string; buffer: Buffer }> {
+  const root = resolveVolumeRoot(state, q.volume);
+  const target = resolveUnderRoot(root, q.path);
+  const buffer = await fs.readFile(target);
+  return { path: target, buffer };
+}
+
 export async function fsStat(state: AppState, q: PathQuery) {
   const root = resolveVolumeRoot(state, q.volume);
   const target = resolveUnderRoot(root, q.path);
