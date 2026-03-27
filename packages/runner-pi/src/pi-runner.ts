@@ -411,10 +411,29 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           );
 
           const messageId = `msg_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-          const textId = `text_${Date.now()}_${Math.random().toString(36).slice(2)}`;
           let hasStarted = false;
-          let hasTextStarted = false;
           let hasFinished = false;
+
+          /** Fresh id for each assistant text segment so the UI keeps tool/text order as separate parts. */
+          const newTextPartId = () =>
+            `text_${Date.now()}_${Math.random().toString(36).slice(2)}_${Math.random().toString(36).slice(2)}`;
+
+          let activeTextPartId: string | null = null;
+          let textStreamOpen = false;
+
+          const endTextStreamIfOpen = function* (): Generator<string, void, unknown> {
+            if (textStreamOpen && activeTextPartId != null) {
+              yield `data: ${JSON.stringify({ type: "text-end", id: activeTextPartId })}\n\n`;
+              textStreamOpen = false;
+              activeTextPartId = null;
+            }
+          };
+
+          const beginTextStream = function* (): Generator<string, void, unknown> {
+            activeTextPartId = newTextPartId();
+            yield `data: ${JSON.stringify({ type: "text-start", id: activeTextPartId })}\n\n`;
+            textStreamOpen = true;
+          };
 
           const ensureStartEvent = async function* () {
             if (!hasStarted) {
@@ -428,9 +447,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           };
 
           const finishSuccess = async function* (usage?: Usage) {
-            if (hasTextStarted) {
-              yield `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`;
-            }
+            yield* endTextStreamIfOpen();
             const finishPayload: {
               type: "finish";
               finishReason: string;
@@ -460,18 +477,40 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
 
               yield* ensureStartEvent();
 
-              if (event.type === "message_update") {
-                if (event.assistantMessageEvent.type === "text_delta") {
-                  const delta = event.assistantMessageEvent.delta;
-                  if (delta) {
-                    if (!hasTextStarted) {
-                      yield `data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`;
-                      hasTextStarted = true;
-                    }
-                    yield `data: ${JSON.stringify({ type: "text-delta", id: textId, delta })}\n\n`;
+              if (event.type === "message_start") {
+                const msg = (
+                  event as {
+                    message?: { role?: string };
                   }
+                ).message;
+                if (msg?.role === "assistant") {
+                  yield* endTextStreamIfOpen();
+                }
+              } else if (event.type === "message_update") {
+                const sub = event.assistantMessageEvent as {
+                  type: string;
+                  delta?: string;
+                };
+                if (sub.type === "text_start") {
+                  yield* endTextStreamIfOpen();
+                  yield* beginTextStream();
+                } else if (sub.type === "text_delta") {
+                  const delta = sub.delta;
+                  if (delta) {
+                    if (!textStreamOpen) {
+                      yield* beginTextStream();
+                    }
+                    yield `data: ${JSON.stringify({
+                      type: "text-delta",
+                      id: activeTextPartId,
+                      delta,
+                    })}\n\n`;
+                  }
+                } else if (sub.type === "toolcall_start") {
+                  yield* endTextStreamIfOpen();
                 }
               } else if (event.type === "tool_execution_start") {
+                yield* endTextStreamIfOpen();
                 yield `data: ${JSON.stringify({ type: "tool-input-start", toolCallId: event.toolCallId, toolName: event.toolName, dynamic: true, providerExecuted: true })}\n\n`;
                 yield `data: ${JSON.stringify({ type: "tool-input-available", toolCallId: event.toolCallId, toolName: event.toolName, input: event.args, dynamic: true, providerExecuted: true })}\n\n`;
               } else if (event.type === "tool_execution_end") {

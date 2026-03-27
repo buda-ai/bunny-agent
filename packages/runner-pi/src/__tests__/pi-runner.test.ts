@@ -8,7 +8,11 @@ class MockSession {
   agent = { state: {}, setSystemPrompt: vi.fn() };
   sessionId = "mock-session-id";
   private listeners: Listener[] = [];
-  private behavior: "normal" | "pending" | "tool_error" = "normal";
+  private behavior:
+    | "normal"
+    | "pending"
+    | "tool_error"
+    | "text_tool_text_with_boundaries" = "normal";
 
   subscribe(fn: Listener): () => void {
     this.listeners.push(fn);
@@ -17,7 +21,13 @@ class MockSession {
     };
   }
 
-  setBehavior(behavior: "normal" | "pending" | "tool_error"): void {
+  setBehavior(
+    behavior:
+      | "normal"
+      | "pending"
+      | "tool_error"
+      | "text_tool_text_with_boundaries",
+  ): void {
     this.behavior = behavior;
   }
 
@@ -45,6 +55,43 @@ class MockSession {
           details: {},
         },
         isError: true,
+      });
+      this.emit({ type: "agent_end", messages: [] });
+      return;
+    }
+
+    if (this.behavior === "text_tool_text_with_boundaries") {
+      this.emit({
+        type: "message_update",
+        assistantMessageEvent: { type: "text_start" },
+      });
+      this.emit({
+        type: "message_update",
+        assistantMessageEvent: { type: "text_delta", delta: "before tool" },
+      });
+      this.emit({
+        type: "message_update",
+        assistantMessageEvent: { type: "toolcall_start" },
+      });
+      this.emit({
+        type: "tool_execution_start",
+        toolCallId: "tool_2",
+        toolName: "bash",
+        args: { command: "echo hi" },
+      });
+      this.emit({
+        type: "tool_execution_end",
+        toolCallId: "tool_2",
+        toolName: "bash",
+        result: { content: [{ type: "text", text: "hi" }], details: {} },
+      });
+      this.emit({
+        type: "message_update",
+        assistantMessageEvent: { type: "text_start" },
+      });
+      this.emit({
+        type: "message_update",
+        assistantMessageEvent: { type: "text_delta", delta: "after tool" },
       });
       this.emit({ type: "agent_end", messages: [] });
       return;
@@ -88,7 +135,11 @@ class MockSession {
 }
 
 const createdSessions: MockSession[] = [];
-let nextSessionBehavior: "normal" | "pending" | "tool_error" = "normal";
+let nextSessionBehavior:
+  | "normal"
+  | "pending"
+  | "tool_error"
+  | "text_tool_text_with_boundaries" = "normal";
 
 /** When set, `createAgentSession` seeds `agent.state.systemPrompt` (simulates Pi after _rebuildSystemPrompt). */
 const mockPiAgentState = vi.hoisted(() => ({
@@ -304,6 +355,28 @@ describe("createPiRunner", () => {
     expect(chunks.some((c) => c.includes('"type":"error"'))).toBe(true);
     expect(chunks.some((c) => c.includes('"type":"finish"'))).toBe(true);
     expect(chunks.some((c) => c.includes("[DONE]"))).toBe(true);
+  });
+
+  it("creates separate text parts for text before and after tool", async () => {
+    nextSessionBehavior = "text_tool_text_with_boundaries";
+    const runner = createPiRunner({ model: "google:gemini-2.5-pro" });
+    const chunks: string[] = [];
+
+    for await (const chunk of runner.run("text tool text")) {
+      chunks.push(chunk);
+    }
+
+    const textStartChunks = chunks.filter((c) => c.includes('"type":"text-start"'));
+    const ids = textStartChunks.map((chunk) => {
+      const parsed = JSON.parse(chunk.replace(/^data: /, "").trim()) as {
+        id: string;
+      };
+      return parsed.id;
+    });
+
+    expect(ids.length).toBeGreaterThanOrEqual(2);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(chunks.some((c) => c.includes('"type":"tool-input-start"'))).toBe(true);
   });
 });
 
