@@ -421,7 +421,11 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           let activeTextPartId: string | null = null;
           let textStreamOpen = false;
 
-          const endTextStreamIfOpen = function* (): Generator<string, void, unknown> {
+          const endTextStreamIfOpen = function* (): Generator<
+            string,
+            void,
+            unknown
+          > {
             if (textStreamOpen && activeTextPartId != null) {
               yield `data: ${JSON.stringify({ type: "text-end", id: activeTextPartId })}\n\n`;
               textStreamOpen = false;
@@ -429,7 +433,11 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
             }
           };
 
-          const beginTextStream = function* (): Generator<string, void, unknown> {
+          const beginTextStream = function* (): Generator<
+            string,
+            void,
+            unknown
+          > {
             activeTextPartId = newTextPartId();
             yield `data: ${JSON.stringify({ type: "text-start", id: activeTextPartId })}\n\n`;
             textStreamOpen = true;

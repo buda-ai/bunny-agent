@@ -366,7 +366,9 @@ describe("createPiRunner", () => {
       chunks.push(chunk);
     }
 
-    const textStartChunks = chunks.filter((c) => c.includes('"type":"text-start"'));
+    const textStartChunks = chunks.filter((c) =>
+      c.includes('"type":"text-start"'),
+    );
     const ids = textStartChunks.map((chunk) => {
       const parsed = JSON.parse(chunk.replace(/^data: /, "").trim()) as {
         id: string;
@@ -376,7 +378,9 @@ describe("createPiRunner", () => {
 
     expect(ids.length).toBeGreaterThanOrEqual(2);
     expect(new Set(ids).size).toBe(ids.length);
-    expect(chunks.some((c) => c.includes('"type":"tool-input-start"'))).toBe(true);
+    expect(chunks.some((c) => c.includes('"type":"tool-input-start"'))).toBe(
+      true,
+    );
   });
 });
 
