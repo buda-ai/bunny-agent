@@ -15,8 +15,7 @@ const RUNNER_BUNDLE_PATH = path.join(
   MONOREPO_ROOT,
   "apps/runner-cli/dist/bundle.mjs",
 );
-const SANDBOX_IMAGE =
-  process.env.SANDBOX_IMAGE ?? "vikadata/sandagent:0.9.9-beta.2";
+const SANDBOX_IMAGE = process.env.SANDBOX_IMAGE ?? "vikadata/sandagent:0.9.12";
 
 /**
  * Sandock on Kubernetes replaces Docker ENTRYPOINT with a shell keep-alive, so
