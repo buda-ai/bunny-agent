@@ -74,6 +74,7 @@ interface ParsedRunArgs {
   allowedTools?: string[];
   resume?: string;
   skillPaths?: string[];
+  yolo?: boolean;
   userInput: string;
 }
 
@@ -97,6 +98,7 @@ function parseRunArgs(): ParsedRunArgs {
       "allowed-tools": { type: "string", short: "a" },
       "skill-path": { type: "string", multiple: true },
       resume: { type: "string" },
+      "yolo": { type: "boolean" },
       help: { type: "boolean", short: "h" },
     },
     allowPositionals: true,
@@ -143,6 +145,7 @@ function parseRunArgs(): ParsedRunArgs {
     allowedTools: values["allowed-tools"]?.split(",").map((t) => t.trim()),
     skillPaths: values["skill-path"] as string[] | undefined,
     resume: values.resume,
+    yolo: values["yolo"],
     userInput,
   };
 }
@@ -306,6 +309,7 @@ async function main(): Promise<void> {
         allowedTools: args.allowedTools,
         skillPaths: args.skillPaths,
         resume: args.resume,
+        yolo: args.yolo,
       });
       break;
     }
