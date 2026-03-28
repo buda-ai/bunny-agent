@@ -5,8 +5,12 @@ import * as path from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 // Mock runner-core before importing server/nextjs
+// Track createRunner calls for assertion
+const createRunnerCalls: Array<Record<string, unknown>> = [];
+
 vi.mock("@sandagent/runner-core", () => ({
-  createRunner: vi.fn((opts: { userInput: string }) => {
+  createRunner: vi.fn((opts: { userInput: string; yolo?: boolean }) => {
+    createRunnerCalls.push(opts);
     if (opts.userInput === "__THROW__") {
       // biome-ignore lint/correctness/useYield: throw-only generator simulates immediate runner failure
       return (async function* () {
@@ -267,5 +271,36 @@ describe("path safety edge cases", () => {
       content: "x",
     });
     expect(r.ok).toBe(false);
+  });
+});
+
+describe("yolo flag", () => {
+  it("passes yolo=true to createRunner via standalone server", async () => {
+    const before = createRunnerCalls.length;
+    await fetch(`${BASE}/api/coding/run`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userInput: "yolo test", runner: "claude", yolo: true }),
+    });
+    const call = createRunnerCalls[before];
+    expect(call.yolo).toBe(true);
+  });
+
+  it("passes yolo=undefined when not set", async () => {
+    const before = createRunnerCalls.length;
+    await fetch(`${BASE}/api/coding/run`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userInput: "no yolo", runner: "claude" }),
+    });
+    const call = createRunnerCalls[before];
+    expect(call.yolo).toBeUndefined();
+  });
+
+  it("passes yolo=true via codingRunStream (web response)", async () => {
+    const before = createRunnerCalls.length;
+    await codingRunStream({ userInput: "web yolo", yolo: true }, {}).text();
+    const call = createRunnerCalls[before];
+    expect(call.yolo).toBe(true);
   });
 });
