@@ -166,7 +166,10 @@ function createCanUseToolCallback(
             status: "pending",
             toolName,
             input,
-            questions: toolName === "AskUserQuestion" ? (input as Record<string, unknown>)?.questions : undefined,
+            questions:
+              toolName === "AskUserQuestion"
+                ? (input as Record<string, unknown>)?.questions
+                : undefined,
             answers: {},
           }),
         );
@@ -364,7 +367,7 @@ function createSDKOptions(options: ClaudeRunnerOptions): Options {
     resume: options.resume,
     settingSources: ["project", "user"],
     canUseTool: createCanUseToolCallback(options),
-    permissionMode: (isRoot || options.yolo) ? "bypassPermissions" : "default",
+    permissionMode: isRoot || options.yolo ? "bypassPermissions" : "default",
     allowDangerouslySkipPermissions: !isRoot && !!options.yolo,
     includePartialMessages: options.includePartialMessages,
   };

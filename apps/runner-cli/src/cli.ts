@@ -98,7 +98,7 @@ function parseRunArgs(): ParsedRunArgs {
       "allowed-tools": { type: "string", short: "a" },
       "skill-path": { type: "string", multiple: true },
       resume: { type: "string" },
-      "yolo": { type: "boolean" },
+      yolo: { type: "boolean" },
       help: { type: "boolean", short: "h" },
     },
     allowPositionals: true,

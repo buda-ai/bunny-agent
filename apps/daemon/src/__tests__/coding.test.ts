@@ -280,7 +280,11 @@ describe("yolo flag", () => {
     await fetch(`${BASE}/api/coding/run`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userInput: "yolo test", runner: "claude", yolo: true }),
+      body: JSON.stringify({
+        userInput: "yolo test",
+        runner: "claude",
+        yolo: true,
+      }),
     });
     const call = createRunnerCalls[before];
     expect(call.yolo).toBe(true);
