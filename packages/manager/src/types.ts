@@ -178,11 +178,11 @@ export interface RunnerSpec {
   /** Additional skill paths (files or directories) for pi runner */
   skillPaths?: string[];
   /**
-   * When true, skip all tool approval checks (bypass permissions mode). Default: false (approval required).
-   * When true, runner pauses before executing any tool and waits for approval
+   * When true, skip all tool approval checks (bypass permissions).
+   * When false (default), runner pauses before executing any tool and waits for approval
    * via the .sandagent/approvals/{toolUseID}.json file mechanism.
    */
-  yolo?: boolean; // When true, skip all tool approval (bypass permissions)
+  yolo?: boolean;
 }
 
 /**

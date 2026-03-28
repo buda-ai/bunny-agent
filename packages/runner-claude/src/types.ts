@@ -24,8 +24,8 @@ export interface BaseRunnerOptions {
   /** Output format for streaming responses */
   outputFormat?: OutputFormat;
   /**
-   * Require user approval before each tool call.
-   * When true, pauses before any tool and waits for approval file.
+   * When true, bypass all tool approval (skip permission checks).
+   * When false (default), pauses before any tool and waits for approval file.
    */
-  yolo?: boolean; // When true, bypass all tool approval
+  yolo?: boolean;
 }
