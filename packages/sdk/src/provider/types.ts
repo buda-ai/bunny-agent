@@ -117,6 +117,8 @@ export interface SandAgentProviderSettings
   skillPaths?: string[];
   /** Allowed tools for the runner (undefined = template defaults). */
   allowedTools?: string[];
+  /** Skip tool approval checks (bypass permissions). */
+  yolo?: boolean;
 }
 
 /**

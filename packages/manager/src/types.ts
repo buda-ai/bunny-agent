@@ -46,6 +46,8 @@ export interface SandAgentCodingRunBody {
    * String keys and string values only; invalid entries are dropped by the daemon.
    */
   env?: Record<string, string>;
+  /** Skip tool approval checks (bypass permissions). */
+  yolo?: boolean;
 }
 
 /**
