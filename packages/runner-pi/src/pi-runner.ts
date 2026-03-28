@@ -332,19 +332,12 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
 
         // Append CLI --system-prompt to Pi's built-in prompt (from _rebuildSystemPrompt:
         // tools, skills from skillPaths, etc.). Replacing entirely would strip skills.
-        const extraPrompt = [
-          options.systemPrompt,
-          !options.yolo
-            ? "IMPORTANT: Before executing ANY tool call, you MUST first use AskUserQuestion to ask the user for approval. Show the tool name and key parameters, and wait for their confirmation before proceeding."
-            : undefined,
-        ]
-          .filter(Boolean)
-          .join("\n\n---\n\n");
-
-        if (extraPrompt) {
+        if (options.systemPrompt != null && options.systemPrompt !== "") {
           const existing = session.agent.state.systemPrompt ?? "";
           session.agent.setSystemPrompt(
-            existing ? `${existing}\n\n---\n\n${extraPrompt}` : extraPrompt,
+            existing
+              ? `${existing}\n\n---\n\n${options.systemPrompt}`
+              : options.systemPrompt,
           );
         }
 
