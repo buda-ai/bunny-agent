@@ -80,6 +80,10 @@ export class SandAgent {
       cmd.push("--allowed-tools", this.runner.allowedTools.join(","));
     }
 
+    if (this.runner.yolo) {
+      cmd.push("--yolo");
+    }
+
     // Add resume parameter for multi-turn conversation
     if (input.resume) {
       cmd.push("--resume", input.resume);

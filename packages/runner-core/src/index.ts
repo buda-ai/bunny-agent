@@ -12,6 +12,7 @@ export interface RunnerCoreOptions extends BaseRunnerOptions {
   cwd?: string;
   env?: Record<string, string>;
   abortController?: AbortController;
+  yolo?: boolean;
 }
 
 /**
@@ -31,6 +32,7 @@ export function createRunner(
     maxTurns: options.maxTurns,
     allowedTools: options.allowedTools,
     resume: options.resume,
+    yolo: options.yolo,
     env,
     abortController,
   };

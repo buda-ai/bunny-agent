@@ -46,6 +46,8 @@ export interface SandAgentCodingRunBody {
    * String keys and string values only; invalid entries are dropped by the daemon.
    */
   env?: Record<string, string>;
+  /** Skip tool approval checks (bypass permissions). */
+  yolo?: boolean;
 }
 
 /**
@@ -175,6 +177,12 @@ export interface RunnerSpec {
   outputFormat?: OutputFormat;
   /** Additional skill paths (files or directories) for pi runner */
   skillPaths?: string[];
+  /**
+   * When true, skip all tool approval checks (bypass permissions).
+   * When false (default), runner pauses before executing any tool and waits for approval
+   * via the .sandagent/approvals/{toolUseID}.json file mechanism.
+   */
+  yolo?: boolean;
 }
 
 /**

@@ -332,6 +332,7 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
       maxTurns: this.options.maxTurns ?? runner.maxTurns,
       allowedTools: runner.allowedTools ?? this.options.allowedTools,
       skillPaths: runner.skillPaths ?? this.options.skillPaths,
+      yolo: this.options.yolo,
     };
   }
 

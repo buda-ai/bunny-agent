@@ -11,6 +11,8 @@ export interface RunRequest {
   resume?: string;
   skillPaths?: string[];
   cwd?: string;
+  /** Skip tool approval checks (bypass permissions). */
+  yolo?: boolean;
   /** Inline runner env (string map); same keys override. */
   env?: Record<string, string>;
 }
@@ -43,6 +45,7 @@ export async function sandagentRun(
       resume: req.resume,
       skillPaths: req.skillPaths,
       cwd: req.cwd ?? process.env.SANDAGENT_ROOT ?? "/workspace",
+      yolo: req.yolo,
       env,
       abortController,
     });
@@ -87,6 +90,7 @@ export function codingRunStream(
           resume: req.resume,
           skillPaths: req.skillPaths,
           cwd: req.cwd ?? process.env.SANDAGENT_ROOT ?? "/workspace",
+          yolo: req.yolo,
           env,
           abortController,
         });
