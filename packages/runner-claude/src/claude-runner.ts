@@ -139,15 +139,15 @@ function createCanUseToolCallback(
   ) => {
     const { toolUseID } = options;
 
-    // Only intercept AskUserQuestion tool
-    if (toolName !== "AskUserQuestion") {
+    // If yolo mode, only intercept AskUserQuestion (skip approval for all other tools)
+    if (claudeOptions.yolo && toolName !== "AskUserQuestion") {
       return {
         behavior: "allow",
         updatedInput: input as Record<string, unknown>,
       };
     }
 
-    // Build approval file path: {cwd}/.sandagent/approvals/{toolUseID}.json
+    // Non-yolo: intercept all tools. AskUserQuestion always intercepted.
     const cwd = claudeOptions.cwd || process.cwd();
 
     try {
@@ -156,6 +156,24 @@ function createCanUseToolCallback(
 
       const approvalDir = path.join(cwd, ".sandagent", "approvals");
       const approvalFile = path.join(approvalDir, `${toolUseID}.json`);
+
+      // Write pending file so frontend knows a tool is waiting for approval
+      fs.mkdirSync(approvalDir, { recursive: true });
+      if (!fs.existsSync(approvalFile)) {
+        fs.writeFileSync(
+          approvalFile,
+          JSON.stringify({
+            status: "pending",
+            toolName,
+            input,
+            questions:
+              toolName === "AskUserQuestion"
+                ? (input as Record<string, unknown>)?.questions
+                : undefined,
+            answers: {},
+          }),
+        );
+      }
 
       // Poll for answers (60 second timeout) — must wait for file like "looking for file"
       const timeout = Date.now() + 60000;
@@ -349,8 +367,8 @@ function createSDKOptions(options: ClaudeRunnerOptions): Options {
     resume: options.resume,
     settingSources: ["project", "user"],
     canUseTool: createCanUseToolCallback(options),
-    permissionMode: isRoot ? "default" : "bypassPermissions",
-    allowDangerouslySkipPermissions: !isRoot,
+    permissionMode: isRoot || options.yolo ? "bypassPermissions" : "default",
+    allowDangerouslySkipPermissions: !isRoot && !!options.yolo,
     includePartialMessages: options.includePartialMessages,
   };
 }

@@ -35,6 +35,7 @@ export interface PiRunnerOptions {
   sessionId?: string;
   /** Additional skill paths (files or directories) */
   skillPaths?: string[];
+  yolo?: boolean;
 }
 
 export interface PiRunner {

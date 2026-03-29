@@ -23,4 +23,9 @@ export interface BaseRunnerOptions {
   resume?: string;
   /** Output format for streaming responses */
   outputFormat?: OutputFormat;
+  /**
+   * When true, bypass all tool approval (skip permission checks).
+   * When false (default), pauses before any tool and waits for approval file.
+   */
+  yolo?: boolean;
 }
