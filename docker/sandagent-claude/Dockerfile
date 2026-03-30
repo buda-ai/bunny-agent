@@ -13,7 +13,7 @@ FROM node:20-slim
 
 # Version of @sandagent/runner-cli to install.
 # Override at build time: docker build --build-arg RUNNER_CLI_VERSION=1.2.3 ...
-ARG RUNNER_CLI_VERSION=0.9.9-beta.2
+ARG RUNNER_CLI_VERSION=0.9.16-beta.5
 
 LABEL org.opencontainers.image.title="sandagent"
 LABEL org.opencontainers.image.description="SandAgent with Claude Agent SDK pre-installed"
@@ -60,16 +60,14 @@ RUN mkdir -p /opt/sandagent && \
 # Refresh apt signing keys before Playwright runs apt-get again: under buildx+QEMU
 # (linux/amd64 on Apple Silicon), apt can fail with "invalid signature" without this.
 ENV PLAYWRIGHT_BROWSERS_PATH=/opt/sandagent/pw-browsers
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
-    apt-get update && \
-    apt-get install -y --no-install-recommends --reinstall \
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
       ca-certificates \
       debian-archive-keyring \
       gnupg \
-    && rm -rf /var/lib/apt/lists/* \
     && cd /opt/sandagent \
-    && DEBIAN_FRONTEND=noninteractive npx playwright install --with-deps chromium
+    && DEBIAN_FRONTEND=noninteractive npx playwright install --with-deps chromium \
+    && rm -rf /var/lib/apt/lists/*
 
 RUN npm install simple-git brave-search-cli -g
 
