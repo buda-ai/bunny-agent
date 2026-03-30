@@ -5,10 +5,93 @@ import {
   type AgentSessionEvent,
   AuthStorage,
   createAgentSession,
+  createBashTool,
   ModelRegistry,
   SessionManager,
+  type ToolDefinition,
 } from "@mariozechner/pi-coding-agent";
 import { SandagentResourceLoader } from "./sandagent-resource-loader.js";
+
+/**
+ * Scrub secret key=value pairs and bare secret values from bash output.
+ *
+ * Strategy (in order):
+ * 1. Remove `KEY=VALUE` and `KEY = VALUE` patterns so env-style lines are clean.
+ * 2. Replace any remaining occurrence of the bare value with "" so secrets
+ *    embedded mid-line (e.g. in error messages) don't leak either.
+ *
+ * Whole lines are never deleted — other content on the same line is preserved.
+ */
+function redactSecrets(text: string, secrets: Record<string, string>): string {
+  if (Object.keys(secrets).length === 0) return text;
+  let result = text;
+  for (const [k, v] of Object.entries(secrets)) {
+    // Remove KEY=VALUE and KEY = VALUE patterns (covers `env` output).
+    const keyPattern = new RegExp(`${k}\\s*=\\s*\\S*`, "g");
+    result = result.replace(keyPattern, "");
+    // Remove bare value occurrences (covers mid-line leaks).
+    if (v.length > 0) result = result.split(v).join("");
+  }
+  return result;
+}
+
+/**
+ * Build a custom "bash" ToolDefinition that:
+ * 1. Prepends `export KEY='value'` for each env entry so every bash command
+ *    has the vars available (commandPrefix approach — no process.env mutation).
+ * 2. Delegates all execution to pi's createBashTool so built-in behavior
+ *    (truncation, temp files, timeout, etc.) is fully preserved.
+ *
+ * Why customTools instead of createCodingTools(... bash.spawnHook ...):
+ * createAgentSession() only keeps tool *names* from options.tools and rebuilds
+ * the registry from built-in factories, discarding any custom options.
+ * Registering via customTools wins in AgentSession._refreshToolRegistry's
+ * Map.set loop, correctly overriding the built-in bash entry.
+ */
+function buildEnvInjectedBashTool(
+  cwd: string,
+  extraEnv: Record<string, string>,
+): ToolDefinition {
+  // spawnHook injects env at the OS spawn level — secrets never appear in
+  // the command string or shell prefix, avoiding ps/procfs leaks.
+  // This works because we register via customTools, so our BashTool instance
+  // is the one actually executed (unlike options.tools which is discarded).
+  const bashAgentTool = createBashTool(cwd, {
+    spawnHook: (ctx) => ({
+      ...ctx,
+      env: { ...ctx.env, ...extraEnv },
+    }),
+  });
+
+  return {
+    name: bashAgentTool.name,
+    label: bashAgentTool.label ?? "bash",
+    description: bashAgentTool.description,
+    // biome-ignore lint/suspicious/noExplicitAny: TypeBox schema from pi internals
+    parameters: (bashAgentTool as any).parameters,
+    async execute(toolCallId, params, signal, onUpdate) {
+      // biome-ignore lint/suspicious/noExplicitAny: delegate to pi's AgentTool execute
+      const result = await (bashAgentTool as any).execute(
+        toolCallId,
+        params,
+        signal,
+        onUpdate,
+      );
+      // Redact here — BEFORE pi stores the result in the LLM conversation history.
+      // Redacting only in the SSE event handler is too late: the LLM already saw
+      // the full output and will reproduce secrets in its text response.
+      if (result?.content && Array.isArray(result.content)) {
+        result.content = result.content.map(
+          (c: { type: string; text?: string }) =>
+            c.type === "text" && typeof c.text === "string"
+              ? { ...c, text: redactSecrets(c.text, extraEnv) }
+              : c,
+        );
+      }
+      return result;
+    },
+  };
+}
 
 const LOG_PREFIX = "[sandagent:pi]";
 
@@ -18,9 +101,7 @@ export interface PiRunnerOptions {
   cwd?: string;
   /**
    * Runner configuration (API keys, base URLs, etc.). Read via {@link getEnvValue} and
-   * auth helpers; not merged into `process.env`. Pi bash subprocesses inherit the host
-   * `process.env` only — body-only vars are not visible to shell tools unless the host
-   * already exports them.
+   * auth helpers; values are injected into bash spawn context only.
    */
   env?: Record<string, string>;
   abortController?: AbortController;
@@ -322,12 +403,18 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           await resourceLoader.reload();
         }
 
+        const customTools: ToolDefinition[] =
+          options.env && Object.keys(options.env).length > 0
+            ? [buildEnvInjectedBashTool(cwd, options.env)]
+            : [];
+
         const { session } = await createAgentSession({
           cwd,
           model,
           sessionManager,
           modelRegistry,
           resourceLoader,
+          customTools,
         });
 
         // Append CLI --system-prompt to Pi's built-in prompt (from _rebuildSystemPrompt:

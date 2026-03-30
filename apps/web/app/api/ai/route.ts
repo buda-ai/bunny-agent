@@ -179,6 +179,10 @@ export async function POST(request: Request) {
     GEMINI_BASE_URL,
     template,
     useSandagentDaemon,
+    env: {
+      AGENT_KEY: process.env.AGENT_KEY ?? "",
+      BUDA_API_URL: process.env.BUDA_API_URL ?? "",
+    },
   };
 
   const sandbox = await getOrCreateSandbox(sandboxParams);

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import path from "node:path";
 import type { DaytonaSandboxOptions } from "@sandagent/sandbox-daytona";
 import { E2BSandbox } from "@sandagent/sandbox-e2b";
@@ -15,7 +16,8 @@ const RUNNER_BUNDLE_PATH = path.join(
   MONOREPO_ROOT,
   "apps/runner-cli/dist/bundle.mjs",
 );
-const SANDBOX_IMAGE = process.env.SANDBOX_IMAGE ?? "vikadata/sandagent:0.9.12";
+const SANDBOX_IMAGE =
+  process.env.SANDBOX_IMAGE ?? "vikadata/sandagent:0.9.16-beta.3";
 
 /**
  * Sandock on Kubernetes replaces Docker ENTRYPOINT with a shell keep-alive, so
@@ -96,7 +98,24 @@ const sandboxIdCache = new Map<string, { id: string; expiresAt: number }>();
 function sandboxCacheKey(params: CreateSandboxParams): string {
   const t = params.template ?? "default";
   const daemon = params.useSandagentDaemon ? "-daemon" : "";
-  return `sandagent-${t}${daemon}`;
+  // Sandock sandboxes are cached by sandboxId for performance.
+  // If runtime env changes (e.g. AGENT_KEY / BUDA_API_URL), we MUST include
+  // an env fingerprint in the cache key; otherwise the old container keeps
+  // running with stale environment.
+  const env = params.env ?? {};
+  const fingerprintSource = {
+    sandboxProvider: params.SANDBOX_PROVIDER ?? "",
+    runnerType: params.runnerType ?? "",
+    // Only include variables that can influence skill execution.
+    AGENT_KEY: env.AGENT_KEY ?? "",
+    BUDA_API_URL: env.BUDA_API_URL ?? "",
+  };
+  const fingerprint = createHash("sha256")
+    .update(JSON.stringify(fingerprintSource))
+    .digest("hex")
+    .slice(0, 12);
+
+  return `sandagent-${t}${daemon}-${fingerprint}`;
 }
 
 function getCachedSandboxId(key: string): string | undefined {
@@ -174,6 +193,7 @@ async function buildSandbox(
     GEMINI_BASE_URL,
     inherit: extraEnv,
   });
+  console.log("baseEnv", baseEnv);
   if (SANDBOX_PROVIDER === "daytona" && DAYTONA_API_KEY) {
     const { DaytonaSandbox } = await import("@sandagent/sandbox-daytona");
     const opts: DaytonaSandboxOptions & { snapshot?: string } = {
@@ -199,7 +219,7 @@ async function buildSandbox(
       apiKey: SANDOCK_API_KEY,
       image,
       skipBootstrap: true,
-      // templatesPath: path.join(TEMPLATES_PATH, template),
+      templatesPath: path.join(TEMPLATES_PATH, template),
       volumes: [{ volumeName: sandboxName, volumeMountPath: "/agent" }],
       env: baseEnv,
       workdir: "/agent",
