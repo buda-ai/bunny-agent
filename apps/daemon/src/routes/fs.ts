@@ -8,6 +8,11 @@ import {
   resolveVolumeRoot,
 } from "../utils.js";
 
+function msToIsoOrNull(ms: number | undefined | null): string | null {
+  if (typeof ms !== "number" || !Number.isFinite(ms) || ms <= 0) return null;
+  return new Date(ms).toISOString();
+}
+
 // --- Query types ---
 
 interface PathQuery {
@@ -65,13 +70,18 @@ export async function fsList(state: AppState, q: ListQuery) {
     entries.map(async (e) => {
       const fullPath = path.join(target, e.name);
       const stat = await fs.stat(fullPath).catch(() => null);
+      const created_at =
+        stat === null
+          ? null
+          : msToIsoOrNull((stat as unknown as { birthtimeMs?: number }).birthtimeMs) ??
+            msToIsoOrNull((stat as unknown as { ctimeMs?: number }).ctimeMs);
       return {
         name: e.name,
         path: fullPath,
         is_dir: e.isDirectory(),
         size: stat?.isFile() ? stat.size : 0,
-        created_at: stat?.birthtime?.toISOString() ?? null,
-        modified_at: stat?.mtime?.toISOString() ?? null,
+        created_at,
+        modified_at: msToIsoOrNull((stat as unknown as { mtimeMs?: number }).mtimeMs),
       };
     }),
   );
