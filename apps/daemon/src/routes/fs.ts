@@ -73,15 +73,19 @@ export async function fsList(state: AppState, q: ListQuery) {
       const created_at =
         stat === null
           ? null
-          : msToIsoOrNull((stat as unknown as { birthtimeMs?: number }).birthtimeMs) ??
-            msToIsoOrNull((stat as unknown as { ctimeMs?: number }).ctimeMs);
+          : (msToIsoOrNull(
+              (stat as unknown as { birthtimeMs?: number }).birthtimeMs,
+            ) ??
+            msToIsoOrNull((stat as unknown as { ctimeMs?: number }).ctimeMs));
       return {
         name: e.name,
         path: fullPath,
         is_dir: e.isDirectory(),
         size: stat?.isFile() ? stat.size : 0,
         created_at,
-        modified_at: msToIsoOrNull((stat as unknown as { mtimeMs?: number }).mtimeMs),
+        modified_at: msToIsoOrNull(
+          (stat as unknown as { mtimeMs?: number }).mtimeMs,
+        ),
       };
     }),
   );
