@@ -80,6 +80,7 @@ export async function fsList(state: AppState, q: ListQuery) {
       return {
         name: e.name,
         path: fullPath,
+        relativePath: path.relative(root, fullPath),
         is_dir: e.isDirectory(),
         size: stat?.isFile() ? stat.size : 0,
         created_at,
