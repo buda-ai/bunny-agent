@@ -1,5 +1,42 @@
 # @sandagent/runner-cli
 
+## 0.9.16-beta.5
+
+### Patch Changes
+
+- test
+
+## 0.9.16-beta.4
+
+### Patch Changes
+
+- test
+- yes
+
+## 0.9.16-beta.3
+
+### Patch Changes
+
+- test
+
+## 0.9.16-beta.2
+
+### Patch Changes
+
+- test
+
+## 0.9.16-beta.1
+
+### Patch Changes
+
+- test-runner
+
+## 0.9.16-beta.0
+
+### Patch Changes
+
+- test env
+
 ## 0.9.12
 
 ### Patch Changes

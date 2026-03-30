@@ -145,6 +145,9 @@ let nextSessionBehavior:
 const mockPiAgentState = vi.hoisted(() => ({
   baseSystemPrompt: undefined as string | undefined,
 }));
+const mockCreateCodingToolsState = vi.hoisted(() => ({
+  lastOptions: undefined as unknown,
+}));
 
 vi.mock("@mariozechner/pi-coding-agent", () => ({
   AuthStorage: {
@@ -170,6 +173,29 @@ vi.mock("@mariozechner/pi-coding-agent", () => ({
     }
     createdSessions.push(session);
     return { session };
+  }),
+  createCodingTools: vi.fn().mockImplementation((_cwd: string, options) => {
+    mockCreateCodingToolsState.lastOptions = options;
+    return [
+      { name: "read", execute: vi.fn() },
+      { name: "bash", execute: vi.fn() },
+      { name: "edit", execute: vi.fn() },
+      { name: "write", execute: vi.fn() },
+    ];
+  }),
+  createBashTool: vi.fn().mockReturnValue({
+    name: "bash",
+    label: "bash",
+    description: "Execute a bash command",
+    parameters: {
+      type: "object",
+      properties: { command: { type: "string" } },
+      required: ["command"],
+    },
+    execute: vi.fn().mockResolvedValue({
+      content: [{ type: "text", text: "ok" }],
+      details: {},
+    }),
   }),
 }));
 
@@ -251,6 +277,7 @@ describe("createPiRunner", () => {
     createdSessions.length = 0;
     nextSessionBehavior = "normal";
     mockPiAgentState.baseSystemPrompt = undefined;
+    mockCreateCodingToolsState.lastOptions = undefined;
   });
 
   it("streams text/tool events and finishes", async () => {
@@ -381,6 +408,45 @@ describe("createPiRunner", () => {
     expect(chunks.some((c) => c.includes('"type":"tool-input-start"'))).toBe(
       true,
     );
+  });
+
+  it("registers a custom bash tool with options.env injected into exec", async () => {
+    const { createAgentSession: mockCreateAgentSession } = await import(
+      "@mariozechner/pi-coding-agent"
+    );
+    const spy = vi.mocked(mockCreateAgentSession);
+    spy.mockClear();
+
+    const runner = createPiRunner({
+      model: "google:gemini-2.5-pro",
+      env: { OPENAI_API_KEY: "test-key", BUDA_API_URL: "https://example.com" },
+    });
+
+    for await (const _ of runner.run("verify env injection")) {
+      break;
+    }
+
+    expect(spy).toHaveBeenCalled();
+    const callArgs = spy.mock.calls[0]?.[0];
+    const customTools = callArgs?.customTools ?? [];
+    const bashTool = customTools.find((t) => t.name === "bash");
+    expect(bashTool).toBeDefined();
+  });
+
+  it("does not mutate process.env when injecting runner env", async () => {
+    const key = "__PI_RUNNER_ENV_LEAK_TEST__";
+    delete process.env[key];
+    const runner = createPiRunner({
+      model: "google:gemini-2.5-pro",
+      env: { [key]: "secret" },
+    });
+
+    for await (const _ of runner.run("verify no process env mutation")) {
+      break;
+    }
+
+    // process.env must not be permanently modified
+    expect(process.env[key]).toBeUndefined();
   });
 });
 
