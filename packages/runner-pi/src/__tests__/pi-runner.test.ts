@@ -187,8 +187,15 @@ vi.mock("@mariozechner/pi-coding-agent", () => ({
     name: "bash",
     label: "bash",
     description: "Execute a bash command",
-    parameters: { type: "object", properties: { command: { type: "string" } }, required: ["command"] },
-    execute: vi.fn().mockResolvedValue({ content: [{ type: "text", text: "ok" }], details: {} }),
+    parameters: {
+      type: "object",
+      properties: { command: { type: "string" } },
+      required: ["command"],
+    },
+    execute: vi.fn().mockResolvedValue({
+      content: [{ type: "text", text: "ok" }],
+      details: {},
+    }),
   }),
 }));
 
