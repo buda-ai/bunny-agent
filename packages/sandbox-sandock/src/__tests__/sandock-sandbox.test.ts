@@ -18,6 +18,10 @@ vi.mock("sandock", () => ({
         success: true,
         data: { id: "sandbox-123", started: true },
       }),
+      get: vi.fn().mockResolvedValue({
+        success: true,
+        data: { id: "sandbox-123", status: "RUNNING" },
+      }),
       shell: vi.fn().mockImplementation(
         (
           _sandboxId: string,
@@ -164,6 +168,77 @@ describe("SandockSandbox", () => {
           command: undefined,
         }),
       );
+    });
+
+    it("should call start after STOPPED; attach when start reports started", async () => {
+      const { createSandockClient } = await import("sandock");
+      const mockCreateClient = createSandockClient as ReturnType<typeof vi.fn>;
+
+      const get = vi.fn().mockResolvedValue({
+        success: true,
+        data: { id: "reuse-1", status: "STOPPED" },
+      });
+
+      const start = vi.fn().mockResolvedValue({
+        success: true,
+        data: { id: "reuse-1", started: true },
+      });
+
+      mockCreateClient.mockReturnValueOnce({
+        sandbox: {
+          create: vi.fn().mockResolvedValue({
+            success: true,
+            data: { id: "reuse-1" },
+          }),
+          start,
+          get,
+          shell: vi.fn().mockResolvedValue({
+            success: true,
+            data: {
+              stdout: "",
+              stderr: "",
+              exitCode: 0,
+              timedOut: false,
+              durationMs: 0,
+            },
+          }),
+          stop: vi.fn().mockResolvedValue({
+            success: true,
+            data: { id: "reuse-1", stopped: true },
+          }),
+          delete: vi.fn().mockResolvedValue({
+            success: true,
+            data: { id: "reuse-1", deleted: true },
+          }),
+        },
+        fs: {
+          write: vi.fn().mockResolvedValue({ success: true, data: true }),
+          read: vi.fn(),
+          list: vi.fn(),
+          delete: vi.fn(),
+        },
+        volume: {
+          getByName: vi.fn().mockResolvedValue({
+            success: true,
+            data: { id: "volume-123", status: "ready" },
+          }),
+        },
+        DELETE: vi.fn().mockResolvedValue({
+          data: { data: { id: "reuse-1", deleted: true } },
+          error: null,
+        }),
+      });
+
+      const sandbox = new SandockSandbox({
+        sandboxId: "reuse-1",
+        timeout: 5000,
+      });
+      const handle = await sandbox.attach();
+
+      expect(start).toHaveBeenCalledWith("reuse-1");
+      expect(get.mock.calls.length).toBe(1);
+      expect(handle).toBeDefined();
+      expect(handle.getSandboxId()).toBe("reuse-1");
     });
   });
 

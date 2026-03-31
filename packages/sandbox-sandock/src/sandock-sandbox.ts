@@ -197,13 +197,28 @@ export class SandockSandbox implements SandboxAdapter {
     if (!id) return null;
     try {
       const { data } = await this.client.sandbox.get(id);
-      if (data.status !== "RUNNING") {
+      const status = data.status;
+
+      if (status === "STOPPED" || status === "PAUSED") {
+        console.log(
+          `[Sandock] Restarting existing sandbox ${id} (status: ${status})`,
+        );
+        const startResult = await this.client.sandbox.start(id);
+        if (!startResult.data.started) {
+          console.warn(
+            `[Sandock] start() did not report started for ${id}, creating new`,
+          );
+          this._sandboxId = null;
+          return null;
+        }
+      } else if (status !== "RUNNING") {
         console.warn(
-          `[Sandock] Sandbox ${id} is not running (status: ${data.status}), creating new`,
+          `[Sandock] Sandbox ${id} is not reusable (status: ${status}), creating new`,
         );
         this._sandboxId = null;
         return null;
       }
+
       const volumeMounts = await this.resolveVolumeMounts();
       const handle = new SandockHandle(
         this.client,
