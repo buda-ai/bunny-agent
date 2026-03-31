@@ -240,6 +240,79 @@ describe("SandockSandbox", () => {
       expect(handle).toBeDefined();
       expect(handle.getSandboxId()).toBe("reuse-1");
     });
+
+    it("should create a new sandbox when start() returns started false on STOPPED", async () => {
+      const { createSandockClient } = await import("sandock");
+      const mockCreateClient = createSandockClient as ReturnType<typeof vi.fn>;
+
+      const staleId = "stale-reuse";
+      const get = vi.fn().mockResolvedValue({
+        success: true,
+        data: { id: staleId, status: "STOPPED" },
+      });
+
+      const start = vi.fn().mockResolvedValue({
+        success: true,
+        data: { id: staleId, started: false },
+      });
+
+      const create = vi.fn().mockResolvedValue({
+        success: true,
+        data: { id: "sandbox-123" },
+      });
+
+      mockCreateClient.mockReturnValueOnce({
+        sandbox: {
+          create,
+          start,
+          get,
+          shell: vi.fn().mockResolvedValue({
+            success: true,
+            data: {
+              stdout: "",
+              stderr: "",
+              exitCode: 0,
+              timedOut: false,
+              durationMs: 0,
+            },
+          }),
+          stop: vi.fn().mockResolvedValue({
+            success: true,
+            data: { id: "sandbox-123", stopped: true },
+          }),
+          delete: vi.fn().mockResolvedValue({
+            success: true,
+            data: { id: "sandbox-123", deleted: true },
+          }),
+        },
+        fs: {
+          write: vi.fn().mockResolvedValue({ success: true, data: true }),
+          read: vi.fn(),
+          list: vi.fn(),
+          delete: vi.fn(),
+        },
+        volume: {
+          getByName: vi.fn().mockResolvedValue({
+            success: true,
+            data: { id: "volume-123", status: "ready" },
+          }),
+        },
+        DELETE: vi.fn().mockResolvedValue({
+          data: { data: { id: "sandbox-123", deleted: true } },
+          error: null,
+        }),
+      });
+
+      const sandbox = new SandockSandbox({
+        sandboxId: staleId,
+        timeout: 5000,
+      });
+      const handle = await sandbox.attach();
+
+      expect(start).toHaveBeenCalledWith(staleId);
+      expect(create).toHaveBeenCalled();
+      expect(handle.getSandboxId()).toBe("sandbox-123");
+    });
   });
 
   describe("SandboxHandle", () => {

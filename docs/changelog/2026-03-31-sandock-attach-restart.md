@@ -20,3 +20,8 @@ in `STOPPED` or `PAUSED` state, instead of always creating a new sandbox.
 
 This aligns Sandock behavior with Daytona-style reuse semantics and avoids
 unnecessary sandbox recreation when an existing sandbox can be resumed.
+
+## Follow-up
+
+- Unit test: when an existing sandbox is `STOPPED` but `start()` returns
+  `started: false`, `attach()` falls back to `sandbox.create()` / `start()`.
