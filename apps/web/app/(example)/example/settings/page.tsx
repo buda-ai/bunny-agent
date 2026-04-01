@@ -229,6 +229,26 @@ const ENV_CONFIGS: EnvConfig[] = [
     placeholder: "012345678901234567890:abc...",
   },
   {
+    name: "Brave Search API Key",
+    key: "BRAVE_API_KEY",
+    description:
+      "Optional. Brave Search API key for web_search tool. Free tier: 2000 queries/month. Get one at https://api-dashboard.search.brave.com/",
+    required: false,
+    category: "api",
+    placeholder: "BSA...",
+    isSecret: true,
+  },
+  {
+    name: "Tavily API Key",
+    key: "TAVILY_API_KEY",
+    description:
+      "Optional. Tavily search API key for web_search tool. Get one at https://tavily.com/",
+    required: false,
+    category: "api",
+    placeholder: "tvly-...",
+    isSecret: true,
+  },
+  {
     name: "Use SandAgent daemon",
     key: "USE_SANDAGENT_DAEMON",
     description:
