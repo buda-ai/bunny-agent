@@ -79,6 +79,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Build and push Docker image
+        id: build
         uses: docker/build-push-action@v6
         with:
           context: ./docker/sandagent-claude
@@ -90,3 +91,39 @@ jobs:
           tags: |
             vikadata/sandagent:${{ steps.version.outputs.version }}
             vikadata/sandagent:latest
+
+      - name: Write job summary
+        if: always()
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG="${{ steps.version.outputs.tag }}"
+          DIGEST="${{ steps.build.outputs.digest }}"
+          STATUS="${{ steps.build.outcome }}"
+
+          if [ "$STATUS" = "success" ]; then
+            STATUS_ICON="✅"
+          else
+            STATUS_ICON="❌"
+          fi
+
+          cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+          ## ${STATUS_ICON} Docker Image Published
+
+          | Field      | Value |
+          |------------|-------|
+          | **Image**  | \`vikadata/sandagent\` |
+          | **Version tag** | [\`${VERSION}\`](https://hub.docker.com/r/vikadata/sandagent/tags?name=${VERSION}) |
+          | **Latest tag**  | [\`latest\`](https://hub.docker.com/r/vikadata/sandagent/tags?name=latest) |
+          | **Git tag** | \`${TAG}\` |
+          | **Platforms** | \`linux/amd64\`, \`linux/arm64\` |
+          | **Digest** | \`${DIGEST}\` |
+          | **Status** | ${STATUS_ICON} \`${STATUS}\` |
+
+          ### Pull the image
+
+          \`\`\`bash
+          docker pull vikadata/sandagent:${VERSION}
+          # or
+          docker pull vikadata/sandagent:latest
+          \`\`\`
+          EOF
