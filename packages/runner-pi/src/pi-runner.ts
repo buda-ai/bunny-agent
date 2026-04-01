@@ -5,108 +5,12 @@ import {
   type AgentSessionEvent,
   AuthStorage,
   createAgentSession,
-  createBashTool,
   ModelRegistry,
   SessionManager,
   type ToolDefinition,
 } from "@mariozechner/pi-coding-agent";
 import { SandagentResourceLoader } from "./sandagent-resource-loader.js";
-
-/**
- * Scrub secret environment variables from bash output.
- *
- * Finds entries containing any secret value (>= 8 chars) and removes the
- * entire KEY=VALUE line or KEY: 'VALUE' property. Remaining bare values
- * are replaced with "***".
- */
-export function redactSecrets(
-  text: string,
-  secrets: Record<string, string>,
-): string {
-  if (Object.keys(secrets).length === 0) return text;
-  let result = text;
-
-  const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-  // Sort values by length descending so longer values match first.
-  const values = Object.values(secrets)
-    .filter((v) => v.length >= 8)
-    .sort((a, b) => b.length - a.length);
-
-  for (const v of values) {
-    const ev = escapeRegex(v);
-    // Remove entire KEY=VALUE lines where value appears (env/printenv, one entry per line)
-    result = result.replace(new RegExp(`^\\S+=.*${ev}.*$\\n?`, "gm"), "");
-    // Remove KEY: 'VALUE' or "KEY": "VALUE" entries containing this value (JSON/JS object)
-    result = result.replace(
-      new RegExp(`\\s*["']?\\w+["']?\\s*:\\s*['"][^'"]*${ev}[^'"]*['"],?`, "g"),
-      "",
-    );
-    // Scrub any remaining bare occurrences
-    result = result.split(v).join("***");
-  }
-
-  result = result.replace(/\n{3,}/g, "\n\n");
-  return result.trim();
-}
-
-/**
- * Build a custom "bash" ToolDefinition that:
- * 1. Prepends `export KEY='value'` for each env entry so every bash command
- *    has the vars available (commandPrefix approach — no process.env mutation).
- * 2. Delegates all execution to pi's createBashTool so built-in behavior
- *    (truncation, temp files, timeout, etc.) is fully preserved.
- *
- * Why customTools instead of createCodingTools(... bash.spawnHook ...):
- * createAgentSession() only keeps tool *names* from options.tools and rebuilds
- * the registry from built-in factories, discarding any custom options.
- * Registering via customTools wins in AgentSession._refreshToolRegistry's
- * Map.set loop, correctly overriding the built-in bash entry.
- */
-function buildEnvInjectedBashTool(
-  cwd: string,
-  extraEnv: Record<string, string>,
-): ToolDefinition {
-  // spawnHook injects env at the OS spawn level — secrets never appear in
-  // the command string or shell prefix, avoiding ps/procfs leaks.
-  // This works because we register via customTools, so our BashTool instance
-  // is the one actually executed (unlike options.tools which is discarded).
-  const bashAgentTool = createBashTool(cwd, {
-    spawnHook: (ctx) => ({
-      ...ctx,
-      env: { ...ctx.env, ...extraEnv },
-    }),
-  });
-
-  return {
-    name: bashAgentTool.name,
-    label: bashAgentTool.label ?? "bash",
-    description: bashAgentTool.description,
-    // biome-ignore lint/suspicious/noExplicitAny: TypeBox schema from pi internals
-    parameters: (bashAgentTool as any).parameters,
-    async execute(toolCallId, params, signal, onUpdate) {
-      // biome-ignore lint/suspicious/noExplicitAny: delegate to pi's AgentTool execute
-      const result = await (bashAgentTool as any).execute(
-        toolCallId,
-        params,
-        signal,
-        onUpdate,
-      );
-      // Redact here — BEFORE pi stores the result in the LLM conversation history.
-      // Redacting only in the SSE event handler is too late: the LLM already saw
-      // the full output and will reproduce secrets in its text response.
-      if (result?.content && Array.isArray(result.content)) {
-        result.content = result.content.map(
-          (c: { type: string; text?: string }) =>
-            c.type === "text" && typeof c.text === "string"
-              ? { ...c, text: redactSecrets(c.text, extraEnv) }
-              : c,
-        );
-      }
-      return result;
-    },
-  };
-}
+import { buildSecretAwareTools, redactSecrets } from "./tool-overrides.js";
 
 const LOG_PREFIX = "[sandagent:pi]";
 
@@ -424,7 +328,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
 
         const customTools: ToolDefinition[] =
           options.env && Object.keys(options.env).length > 0
-            ? [buildEnvInjectedBashTool(cwd, options.env)]
+            ? buildSecretAwareTools(cwd, options.env)
             : [];
 
         const { session } = await createAgentSession({
