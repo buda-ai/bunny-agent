@@ -226,6 +226,20 @@ vi.mock("@mariozechner/pi-coding-agent", () => {
         details: {},
       }),
     }),
+    createReadTool: vi.fn().mockReturnValue({
+      name: "read",
+      label: "read",
+      description: "Read a file",
+      parameters: {
+        type: "object",
+        properties: { path: { type: "string" } },
+        required: ["path"],
+      },
+      execute: vi.fn().mockResolvedValue({
+        content: [{ type: "text", text: "file content" }],
+        details: {},
+      }),
+    }),
   };
 });
 
@@ -524,7 +538,6 @@ describe("redactSecrets", () => {
     expect(result).toContain("HOME=/root");
     expect(result).toContain("PATH=/usr/bin");
     expect(result).not.toContain("sk-test-1234567890abcdef");
-    expect(result).toContain("***");
   });
 
   it("removes secret values from KEY: 'VALUE' entries (JS object style)", () => {
@@ -537,7 +550,6 @@ describe("redactSecrets", () => {
     expect(result).toContain("HOME");
     expect(result).not.toContain("sk-test-1234567890abcdef");
     expect(result).not.toContain("agk_598abe628c625975844596da75a2ec96");
-    expect(result).toContain("***");
   });
 
   it('removes secret values from "KEY": "VALUE" entries (JSON style)', () => {

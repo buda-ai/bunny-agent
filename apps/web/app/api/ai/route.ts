@@ -51,6 +51,8 @@ export async function POST(request: Request) {
     SANDOCK_API_KEY,
     DAYTONA_API_KEY,
     SANDBOX_PROVIDER = "e2b",
+    BRAVE_API_KEY,
+    TAVILY_API_KEY,
     /** When true, provider may pass `daemonUrl` after an in-sandbox `/healthz` probe; otherwise CLI runner. */
     USE_SANDAGENT_DAEMON,
   } = body;
@@ -182,6 +184,8 @@ export async function POST(request: Request) {
     env: {
       AGENT_KEY: process.env.AGENT_KEY ?? "",
       BUDA_API_URL: process.env.BUDA_API_URL ?? "",
+      ...(BRAVE_API_KEY ? { BRAVE_API_KEY } : {}),
+      ...(TAVILY_API_KEY ? { TAVILY_API_KEY } : {}),
     },
   };
 
