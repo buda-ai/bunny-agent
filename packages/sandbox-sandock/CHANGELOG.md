@@ -1,5 +1,11 @@
 # @sandagent/sandbox-sandock
 
+## 0.9.19-beta.5
+
+### Patch Changes
+
+- @sandagent/manager@0.9.19-beta.5
+
 ## 0.9.19-beta.4
 
 ### Patch Changes
