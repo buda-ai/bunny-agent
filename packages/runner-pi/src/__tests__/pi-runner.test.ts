@@ -149,68 +149,85 @@ const mockCreateCodingToolsState = vi.hoisted(() => ({
   lastOptions: undefined as unknown,
 }));
 
-vi.mock("@mariozechner/pi-coding-agent", () => ({
-  AuthStorage: {
-    create: vi.fn().mockReturnValue({}),
-  },
-  ModelRegistry: vi.fn().mockImplementation(function (this: unknown) {
-    return {
-      find: vi.fn().mockReturnValue(undefined),
-      registerProvider: vi.fn(),
-    };
-  }),
-  DefaultResourceLoader: vi.fn().mockImplementation(() => ({
-    reload: vi.fn().mockResolvedValue(undefined),
-    getSkills: vi.fn().mockReturnValue({ skills: [], diagnostics: [] }),
-    getExtensions: vi.fn().mockReturnValue({ extensions: [] }),
-    getPrompts: vi.fn().mockReturnValue({ prompts: [], diagnostics: [] }),
-    getThemes: vi.fn().mockReturnValue({ themes: [], diagnostics: [] }),
-    getAgentsFiles: vi.fn().mockReturnValue({ agentsFiles: [] }),
-    getSystemPrompt: vi.fn().mockReturnValue(undefined),
-    getAppendSystemPrompt: vi.fn().mockReturnValue([]),
-    getPathMetadata: vi.fn().mockReturnValue(new Map()),
-    extendResources: vi.fn(),
-  })),
-  loadSkills: vi.fn().mockReturnValue({ skills: [], diagnostics: [] }),
-  SessionManager: {
-    continueRecent: vi.fn().mockReturnValue({}),
-    create: vi.fn().mockReturnValue({}),
-    open: vi.fn().mockReturnValue({}),
-    list: vi.fn().mockResolvedValue([]),
-  },
-  createAgentSession: vi.fn().mockImplementation(async () => {
-    const session = new MockSession();
-    session.setBehavior(nextSessionBehavior);
-    if (mockPiAgentState.baseSystemPrompt !== undefined) {
-      session.agent.state = { systemPrompt: mockPiAgentState.baseSystemPrompt };
-    }
-    createdSessions.push(session);
-    return { session };
-  }),
-  createCodingTools: vi.fn().mockImplementation((_cwd: string, options) => {
-    mockCreateCodingToolsState.lastOptions = options;
-    return [
-      { name: "read", execute: vi.fn() },
-      { name: "bash", execute: vi.fn() },
-      { name: "edit", execute: vi.fn() },
-      { name: "write", execute: vi.fn() },
-    ];
-  }),
-  createBashTool: vi.fn().mockReturnValue({
-    name: "bash",
-    label: "bash",
-    description: "Execute a bash command",
-    parameters: {
-      type: "object",
-      properties: { command: { type: "string" } },
-      required: ["command"],
+vi.mock("@mariozechner/pi-coding-agent", () => {
+  const mockAuthStorage = {
+    setRuntimeApiKey: vi.fn(),
+    removeRuntimeApiKey: vi.fn(),
+  };
+  const mockModelRegistry = {
+    authStorage: mockAuthStorage,
+    find: vi.fn().mockReturnValue(undefined),
+    registerProvider: vi.fn(),
+  };
+  return {
+    AuthStorage: {
+      create: vi.fn().mockReturnValue(mockAuthStorage),
+      inMemory: vi.fn().mockReturnValue(mockAuthStorage),
     },
-    execute: vi.fn().mockResolvedValue({
-      content: [{ type: "text", text: "ok" }],
-      details: {},
+    ModelRegistry: Object.assign(
+      vi.fn().mockImplementation(function (this: unknown) {
+        return mockModelRegistry;
+      }),
+      {
+        create: vi.fn().mockReturnValue(mockModelRegistry),
+        inMemory: vi.fn().mockReturnValue(mockModelRegistry),
+      },
+    ),
+    DefaultResourceLoader: vi.fn().mockImplementation(() => ({
+      reload: vi.fn().mockResolvedValue(undefined),
+      getSkills: vi.fn().mockReturnValue({ skills: [], diagnostics: [] }),
+      getExtensions: vi.fn().mockReturnValue({ extensions: [] }),
+      getPrompts: vi.fn().mockReturnValue({ prompts: [], diagnostics: [] }),
+      getThemes: vi.fn().mockReturnValue({ themes: [], diagnostics: [] }),
+      getAgentsFiles: vi.fn().mockReturnValue({ agentsFiles: [] }),
+      getSystemPrompt: vi.fn().mockReturnValue(undefined),
+      getAppendSystemPrompt: vi.fn().mockReturnValue([]),
+      getPathMetadata: vi.fn().mockReturnValue(new Map()),
+      extendResources: vi.fn(),
+    })),
+    loadSkills: vi.fn().mockReturnValue({ skills: [], diagnostics: [] }),
+    SessionManager: {
+      continueRecent: vi.fn().mockReturnValue({}),
+      create: vi.fn().mockReturnValue({}),
+      open: vi.fn().mockReturnValue({}),
+      list: vi.fn().mockResolvedValue([]),
+    },
+    createAgentSession: vi.fn().mockImplementation(async () => {
+      const session = new MockSession();
+      session.setBehavior(nextSessionBehavior);
+      if (mockPiAgentState.baseSystemPrompt !== undefined) {
+        session.agent.state = {
+          systemPrompt: mockPiAgentState.baseSystemPrompt,
+        };
+      }
+      createdSessions.push(session);
+      return { session };
     }),
-  }),
-}));
+    createCodingTools: vi.fn().mockImplementation((_cwd: string, options) => {
+      mockCreateCodingToolsState.lastOptions = options;
+      return [
+        { name: "read", execute: vi.fn() },
+        { name: "bash", execute: vi.fn() },
+        { name: "edit", execute: vi.fn() },
+        { name: "write", execute: vi.fn() },
+      ];
+    }),
+    createBashTool: vi.fn().mockReturnValue({
+      name: "bash",
+      label: "bash",
+      description: "Execute a bash command",
+      parameters: {
+        type: "object",
+        properties: { command: { type: "string" } },
+        required: ["command"],
+      },
+      execute: vi.fn().mockResolvedValue({
+        content: [{ type: "text", text: "ok" }],
+        details: {},
+      }),
+    }),
+  };
+});
 
 vi.mock("@mariozechner/pi-ai", () => ({
   getModel: vi
