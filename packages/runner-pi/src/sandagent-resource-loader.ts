@@ -3,7 +3,6 @@ import { homedir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
 import type {
   LoadExtensionsResult,
-  PathMetadata,
   PromptTemplate,
   ResourceDiagnostic,
   ResourceLoader,
@@ -143,10 +142,6 @@ export class SandagentResourceLoader implements ResourceLoader {
       return [...base, this.extraAppendPrompt];
     }
     return base;
-  }
-
-  getPathMetadata(): Map<string, PathMetadata> {
-    return this.delegate.getPathMetadata();
   }
 
   extendResources(

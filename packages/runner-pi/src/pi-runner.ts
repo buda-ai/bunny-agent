@@ -329,7 +329,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
       : undefined;
 
   // Build a ModelRegistry, auto-registering unknown models using env-based config
-  const modelRegistry = new ModelRegistry(AuthStorage.create());
+  const modelRegistry = ModelRegistry.inMemory(AuthStorage.create());
   // biome-ignore lint/suspicious/noExplicitAny: getModel accepts provider string unions.
   const defaultModel = getModel(provider as any, modelName);
   // biome-ignore lint/suspicious/noExplicitAny: model type is complex

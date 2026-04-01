@@ -254,6 +254,7 @@ export async function POST(request: Request) {
         verbose: true,
         artifactProcessors: [artifactProcessor],
         resume,
+        systemPrompt: "============test============",
         // Passed to RunnerSpec via createSandAgent merge (not only sandagent(model, { skillPaths }))
         skillPaths: [
           "/Users/zhengxu/vika/kapps/apps/buda/agent-templates/system-skills",
