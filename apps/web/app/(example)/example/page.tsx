@@ -1,7 +1,7 @@
 "use client";
 
 import { useSandAgentChat } from "@sandagent/sdk/react";
-import type { DynamicToolUIPart, UIMessage } from "ai";
+import type { DynamicToolUIPart, ToolUIPart, UIMessage } from "ai";
 import {
   Conversation,
   ConversationContent,
@@ -17,6 +17,13 @@ import {
   PromptInputTextarea,
   PromptInputTools,
 } from "kui/ai-elements";
+import {
+  Tool,
+  ToolContent,
+  ToolHeader,
+  ToolInput,
+  ToolOutput,
+} from "kui/ai-elements/tool";
 import {
   AlertCircle,
   BookOpen,
@@ -116,15 +123,20 @@ function ChatMessage({
                 );
               }
               return (
-                <div
-                  key={key}
-                  className="my-2 p-3 rounded-lg border border-border bg-muted/50"
-                >
-                  <div className="text-sm font-medium">{toolPart.toolName}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {toolPart.state}
-                  </div>
-                </div>
+                <Tool key={key}>
+                  <ToolHeader
+                    title={toolPart.toolName}
+                    type={"tool-call" as ToolUIPart["type"]}
+                    state={toolPart.state as ToolUIPart["state"]}
+                  />
+                  <ToolContent>
+                    <ToolInput input={toolPart.input} />
+                    <ToolOutput
+                      output={toolPart.output}
+                      errorText={toolPart.errorText}
+                    />
+                  </ToolContent>
+                </Tool>
               );
             }
             return null;
