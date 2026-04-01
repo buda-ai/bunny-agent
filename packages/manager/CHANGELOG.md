@@ -1,5 +1,9 @@
 # @sandagent/manager
 
+## 0.9.19-beta.3
+
+## 0.9.19-beta.2
+
 ## 0.9.16-beta.5
 
 ## 0.9.16-beta.4

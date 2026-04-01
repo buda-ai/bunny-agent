@@ -39,3 +39,12 @@ export {
 export type { TodoItem, TodoStatus, TodoWriteInput } from "./todo";
 // Todo components
 export { isTodoWriteInput, TodoView } from "./todo";
+// Tool components
+export type {
+  ToolContentProps,
+  ToolHeaderProps,
+  ToolInputProps,
+  ToolOutputProps,
+  ToolProps,
+} from "./tool";
+export { Tool, ToolContent, ToolHeader, ToolInput, ToolOutput } from "./tool";

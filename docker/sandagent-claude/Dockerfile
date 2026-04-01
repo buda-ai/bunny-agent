@@ -13,7 +13,7 @@ FROM node:20-slim
 
 # Version of @sandagent/runner-cli to install.
 # Override at build time: docker build --build-arg RUNNER_CLI_VERSION=1.2.3 ...
-ARG RUNNER_CLI_VERSION=0.9.16-beta.5
+ARG RUNNER_CLI_VERSION=0.9.19-beta.3
 
 LABEL org.opencontainers.image.title="sandagent"
 LABEL org.opencontainers.image.description="SandAgent with Claude Agent SDK pre-installed"

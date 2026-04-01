@@ -13,26 +13,41 @@ import {
 import { SandagentResourceLoader } from "./sandagent-resource-loader.js";
 
 /**
- * Scrub secret key=value pairs and bare secret values from bash output.
+ * Scrub secret environment variables from bash output.
  *
- * Strategy (in order):
- * 1. Remove `KEY=VALUE` and `KEY = VALUE` patterns so env-style lines are clean.
- * 2. Replace any remaining occurrence of the bare value with "" so secrets
- *    embedded mid-line (e.g. in error messages) don't leak either.
- *
- * Whole lines are never deleted — other content on the same line is preserved.
+ * Finds entries containing any secret value (>= 8 chars) and removes the
+ * entire KEY=VALUE line or KEY: 'VALUE' property. Remaining bare values
+ * are replaced with "***".
  */
-function redactSecrets(text: string, secrets: Record<string, string>): string {
+export function redactSecrets(
+  text: string,
+  secrets: Record<string, string>,
+): string {
   if (Object.keys(secrets).length === 0) return text;
   let result = text;
-  for (const [k, v] of Object.entries(secrets)) {
-    // Remove KEY=VALUE and KEY = VALUE patterns (covers `env` output).
-    const keyPattern = new RegExp(`${k}\\s*=\\s*\\S*`, "g");
-    result = result.replace(keyPattern, "");
-    // Remove bare value occurrences (covers mid-line leaks).
-    if (v.length > 0) result = result.split(v).join("");
+
+  const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+  // Sort values by length descending so longer values match first.
+  const values = Object.values(secrets)
+    .filter((v) => v.length >= 8)
+    .sort((a, b) => b.length - a.length);
+
+  for (const v of values) {
+    const ev = escapeRegex(v);
+    // Remove entire KEY=VALUE lines where value appears (env/printenv, one entry per line)
+    result = result.replace(new RegExp(`^\\S+=.*${ev}.*$\\n?`, "gm"), "");
+    // Remove KEY: 'VALUE' or "KEY": "VALUE" entries containing this value (JSON/JS object)
+    result = result.replace(
+      new RegExp(`\\s*["']?\\w+["']?\\s*:\\s*['"][^'"]*${ev}[^'"]*['"],?`, "g"),
+      "",
+    );
+    // Scrub any remaining bare occurrences
+    result = result.split(v).join("***");
   }
-  return result;
+
+  result = result.replace(/\n{3,}/g, "\n\n");
+  return result.trim();
 }
 
 /**
@@ -591,8 +606,11 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
                   yield* endTextStreamIfOpen();
                   yield* beginTextStream();
                 } else if (sub.type === "text_delta") {
-                  const delta = sub.delta;
+                  let delta = sub.delta;
                   if (delta) {
+                    if (options.env && Object.keys(options.env).length > 0) {
+                      delta = redactSecrets(delta, options.env);
+                    }
                     if (!textStreamOpen) {
                       yield* beginTextStream();
                     }
@@ -610,7 +628,10 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
                 yield `data: ${JSON.stringify({ type: "tool-input-start", toolCallId: event.toolCallId, toolName: event.toolName, dynamic: true, providerExecuted: true })}\n\n`;
                 yield `data: ${JSON.stringify({ type: "tool-input-available", toolCallId: event.toolCallId, toolName: event.toolName, input: event.args, dynamic: true, providerExecuted: true })}\n\n`;
               } else if (event.type === "tool_execution_end") {
-                const output = extractToolResultText(event.result);
+                let output = extractToolResultText(event.result);
+                if (options.env && Object.keys(options.env).length > 0) {
+                  output = redactSecrets(output, options.env);
+                }
                 yield `data: ${JSON.stringify({ type: "tool-output-available", toolCallId: event.toolCallId, output, isError: event.isError, dynamic: true, providerExecuted: true })}\n\n`;
               } else if (event.type === "agent_end") {
                 if (aborted) {
