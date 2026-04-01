@@ -401,7 +401,11 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
         })();
 
         const resourceLoader = options.skillPaths
-          ? new SandagentResourceLoader({ cwd, skillPaths: options.skillPaths })
+          ? new SandagentResourceLoader({
+              cwd,
+              skillPaths: options.skillPaths,
+              appendSystemPrompt: options.systemPrompt,
+            })
           : undefined;
 
         if (options.skillPaths && options.skillPaths.length > 0) {
@@ -431,17 +435,6 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           resourceLoader,
           customTools,
         });
-
-        // Append CLI --system-prompt to Pi's built-in prompt (from _rebuildSystemPrompt:
-        // tools, skills from skillPaths, etc.). Replacing entirely would strip skills.
-        if (options.systemPrompt != null && options.systemPrompt !== "") {
-          const existing = session.agent.state.systemPrompt ?? "";
-          session.agent.setSystemPrompt(
-            existing
-              ? `${existing}\n\n---\n\n${options.systemPrompt}`
-              : options.systemPrompt,
-          );
-        }
 
         const eventQueue: AgentSessionEvent[] = [];
         let isComplete = false;
