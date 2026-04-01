@@ -56,6 +56,8 @@ export interface SandagentResourceLoaderOptions {
   settingsManager?: SettingsManager;
   /** Additional skill paths (files or directories) */
   skillPaths?: string[];
+  /** Extra system prompt to append (e.g. from --system-prompt CLI flag) */
+  appendSystemPrompt?: string;
 }
 
 /**
@@ -67,12 +69,14 @@ export class SandagentResourceLoader implements ResourceLoader {
   private skillPaths: string[];
   private cwd: string;
   private agentDir: string;
+  private extraAppendPrompt?: string;
   private cachedSkills?: { skills: Skill[]; diagnostics: ResourceDiagnostic[] };
 
   constructor(options: SandagentResourceLoaderOptions = {}) {
     this.cwd = options.cwd ?? process.cwd();
     this.agentDir = options.agentDir ?? join(homedir(), ".pi", "agent");
     this.skillPaths = options.skillPaths ?? [];
+    this.extraAppendPrompt = options.appendSystemPrompt;
 
     // Delegate to DefaultResourceLoader for everything except skills
     this.delegate = new DefaultResourceLoader({
@@ -131,7 +135,14 @@ export class SandagentResourceLoader implements ResourceLoader {
   }
 
   getAppendSystemPrompt(): string[] {
-    return this.delegate.getAppendSystemPrompt();
+    const base = this.delegate.getAppendSystemPrompt();
+    if (this.extraAppendPrompt) {
+      console.error(
+        `${LOG_PREFIX} getAppendSystemPrompt: appending extra prompt (${this.extraAppendPrompt.length} chars)`,
+      );
+      return [...base, this.extraAppendPrompt];
+    }
+    return base;
   }
 
   getPathMetadata(): Map<string, PathMetadata> {
