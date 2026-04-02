@@ -31,6 +31,9 @@ export interface RunnerEnvParams {
   OPENAI_BASE_URL?: string;
   GEMINI_API_KEY?: string;
   GEMINI_BASE_URL?: string;
+  /** Web search (cross-runner) */
+  BRAVE_API_KEY?: string;
+  TAVILY_API_KEY?: string;
   /**
    * Base env to merge in (lowest priority).
    * Typically `process.env` for local sandbox, or extra vars from the request.
@@ -160,6 +163,12 @@ export function buildRunnerEnv(
       applyClaudeRunnerEnv(params, env);
       break;
   }
+
+  // Web search keys (all runners) — params override process.env
+  const braveKey = params.BRAVE_API_KEY || process.env.BRAVE_API_KEY;
+  const tavilyKey = params.TAVILY_API_KEY || process.env.TAVILY_API_KEY;
+  if (braveKey) env.BRAVE_API_KEY = braveKey;
+  if (tavilyKey) env.TAVILY_API_KEY = tavilyKey;
 
   return env;
 }
