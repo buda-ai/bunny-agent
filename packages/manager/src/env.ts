@@ -164,9 +164,11 @@ export function buildRunnerEnv(
       break;
   }
 
-  // Web search keys (all runners)
-  if (params.BRAVE_API_KEY) env.BRAVE_API_KEY = params.BRAVE_API_KEY;
-  if (params.TAVILY_API_KEY) env.TAVILY_API_KEY = params.TAVILY_API_KEY;
+  // Web search keys (all runners) — params override process.env
+  const braveKey = params.BRAVE_API_KEY || process.env.BRAVE_API_KEY;
+  const tavilyKey = params.TAVILY_API_KEY || process.env.TAVILY_API_KEY;
+  if (braveKey) env.BRAVE_API_KEY = braveKey;
+  if (tavilyKey) env.TAVILY_API_KEY = tavilyKey;
 
   return env;
 }
