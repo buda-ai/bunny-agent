@@ -135,32 +135,64 @@ const tavilyProvider: WebSearchProvider = {
 };
 
 // ---------------------------------------------------------------------------
-// Provider registry & auto-detection
+// Provider registry & resolution
 // ---------------------------------------------------------------------------
 
-/** Ordered by preference: first provider with a valid key wins. */
-const ALL_PROVIDERS: WebSearchProvider[] = [braveProvider, tavilyProvider];
+/** Map of provider id → provider instance for O(1) lookup. */
+
+/** Ordered by preference for auto-detection. */
+const AUTO_DETECT_ORDER: WebSearchProvider[] = [braveProvider, tavilyProvider];
 
 function getEnv(env: Record<string, string>, key: string): string | undefined {
   const v = env[key] ?? process.env[key];
   return v && v.length > 0 ? v : undefined;
 }
 
+interface ResolvedProvider {
+  provider: WebSearchProvider;
+  apiKey: string;
+}
+
 /**
- * Resolve the best available search provider from env keys.
- * Priority: Brave (BRAVE_API_KEY) > Tavily (TAVILY_API_KEY).
- * Returns null if no provider has a configured API key.
+ * Resolve all available search providers from env keys, ordered by preference.
+ * First entry is the primary; rest are fallbacks for rate-limit/error recovery.
  */
-export function resolveSearchProvider(
+export function resolveSearchProviders(
   env: Record<string, string>,
-): { provider: WebSearchProvider; apiKey: string } | null {
-  for (const p of ALL_PROVIDERS) {
+): ResolvedProvider[] {
+  const available: ResolvedProvider[] = [];
+
+  for (const p of AUTO_DETECT_ORDER) {
     for (const key of p.envKeys) {
       const val = getEnv(env, key);
-      if (val) return { provider: p, apiKey: val };
+      if (val) {
+        available.push({ provider: p, apiKey: val });
+        break;
+      }
     }
   }
-  return null;
+
+  return available;
+}
+
+/** Convenience: resolve the primary provider (null if none available). */
+export function resolveSearchProvider(
+  env: Record<string, string>,
+): ResolvedProvider | null {
+  const all = resolveSearchProviders(env);
+  return all.length > 0 ? all[0] : null;
+}
+
+/** Check if an error is a rate-limit / quota error worth retrying with fallback. */
+function isRateLimitError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  const msg = err.message;
+  return (
+    msg.includes("429") ||
+    msg.includes("rate") ||
+    msg.includes("quota") ||
+    msg.includes("limit")
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -288,24 +320,25 @@ const webFetchSchema = {
 // ---------------------------------------------------------------------------
 
 /**
- * Build a `web_search` ToolDefinition with auto-detected provider.
+ * Build a `web_search` ToolDefinition with auto-detected provider and
+ * automatic fallback on rate-limit errors.
+ *
  * Priority: Brave (BRAVE_API_KEY) > Tavily (TAVILY_API_KEY).
- * Caller should check resolveSearchProvider() first; throws if no provider available.
+ * If the primary provider returns 429/rate-limit, retries with the next available provider.
  */
 export function buildWebSearchTool(
   env: Record<string, string>,
 ): ToolDefinition {
-  const resolved = resolveSearchProvider(env);
-  if (!resolved) {
+  const providers = resolveSearchProviders(env);
+  if (providers.length === 0) {
     throw new Error(
       "web_search: no search provider available. Set BRAVE_API_KEY or TAVILY_API_KEY.",
     );
   }
-  const { provider, apiKey } = resolved;
 
   return {
     name: "web_search",
-    label: `web search (${provider.label})`,
+    label: "web search",
     description:
       "Search the web for information. Returns titles, URLs, and snippets. " +
       "Use for documentation lookups, fact-checking, current events, or any query requiring web results.",
@@ -326,42 +359,57 @@ export function buildWebSearchTool(
       const freshness = p.freshness as string | undefined;
       const shouldFetchContent = (p.fetch_content as boolean) ?? false;
 
-      try {
-        const results = await provider.search({
-          apiKey,
-          query,
-          count,
-          country,
-          freshness,
-        });
+      // Try each provider in order; fallback on rate-limit errors
+      let lastError: unknown;
+      for (const { provider, apiKey } of providers) {
+        try {
+          const results = await provider.search({
+            apiKey,
+            query,
+            count,
+            country,
+            freshness,
+          });
 
-        if (shouldFetchContent) {
-          for (const r of results) {
-            r.content = await fetchPageContent(r.link);
+          if (shouldFetchContent) {
+            for (const r of results) {
+              r.content = await fetchPageContent(r.link);
+            }
           }
-        }
 
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: formatSearchResults(results, provider.label),
-            },
-          ],
-          details: undefined,
-        };
-      } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : String(e);
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: `Web search error (${provider.label}): ${msg}`,
-            },
-          ],
-          details: undefined,
-        };
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: formatSearchResults(results, provider.label),
+              },
+            ],
+            details: undefined,
+          };
+        } catch (e: unknown) {
+          lastError = e;
+          if (isRateLimitError(e) && providers.length > 1) {
+            console.error(
+              `[sandagent:pi] ${provider.label} rate-limited, trying next provider...`,
+            );
+            continue;
+          }
+          // Non-rate-limit error: don't fallback
+          break;
+        }
       }
+
+      const msg =
+        lastError instanceof Error ? lastError.message : String(lastError);
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: `Web search error: ${msg}`,
+          },
+        ],
+        details: undefined,
+      };
     },
   };
 }
