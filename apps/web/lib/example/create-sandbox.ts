@@ -193,7 +193,6 @@ async function buildSandbox(
     GEMINI_BASE_URL,
     inherit: extraEnv,
   });
-  console.log("baseEnv", baseEnv);
   if (SANDBOX_PROVIDER === "daytona" && DAYTONA_API_KEY) {
     const { DaytonaSandbox } = await import("@sandagent/sandbox-daytona");
     const opts: DaytonaSandboxOptions & { snapshot?: string } = {
