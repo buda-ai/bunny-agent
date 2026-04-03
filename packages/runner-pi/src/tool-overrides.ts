@@ -33,7 +33,8 @@ export function redactSecrets(
   const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
   const values = Object.values(secrets)
-    .filter((v) => v.length >= 4)
+    .filter((v) => v.length >= 8)
+    .filter((v) => !/^\//.test(v) && !/^[A-Za-z]:[/\\]/.test(v)) // exclude filesystem paths
     .sort((a, b) => b.length - a.length);
 
   for (const v of values) {
@@ -72,6 +73,17 @@ function redactResultContent(
 }
 
 /**
+ * Detect commands that would dump environment variables to stdout or a file.
+ * These are blocked to prevent secret exfiltration via env dump + file read.
+ */
+function isEnvDumpCommand(command: string): boolean {
+  // Normalize: collapse whitespace, strip leading/trailing
+  const cmd = command.replace(/\s+/g, " ").trim();
+  // Match: env, printenv, export -p, `declare -x` — optionally piped or redirected
+  return /(?:^|[|;&])\s*(?:env|printenv|export\s+-p|declare\s+-x)\b/.test(cmd);
+}
+
+/**
  * Build a custom "bash" ToolDefinition that:
  * 1. Injects env vars via spawnHook (secrets never in command string / procfs).
  * 2. Redacts secrets from output before the LLM sees them.
@@ -95,6 +107,19 @@ export function buildEnvInjectedBashTool(
     // biome-ignore lint/suspicious/noExplicitAny: TypeBox schema from pi internals
     parameters: (bashAgentTool as any).parameters,
     async execute(toolCallId, params, signal, onUpdate) {
+      const command =
+        ((params as Record<string, unknown>).command as string) ?? "";
+      if (isEnvDumpCommand(command)) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: "Command blocked: printing or redirecting environment variables is not allowed.",
+            },
+          ],
+          details: undefined,
+        };
+      }
       // biome-ignore lint/suspicious/noExplicitAny: delegate to pi's AgentTool execute
       const result = await (bashAgentTool as any).execute(
         toolCallId,
@@ -171,6 +196,10 @@ export function buildSecretAwareTools(
   if (resolveSearchProvider(secrets)) {
     tools.push(buildWebSearchTool(secrets));
   }
+
+  // if (resolveImageProvider(secrets)) {
+  //   tools.push(buildImageGenerateTool(cwd, secrets));
+  // }
 
   return tools;
 }
