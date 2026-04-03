@@ -91,9 +91,15 @@ RUN echo '#!/usr/bin/env node' > /usr/local/bin/sandagent-daemon && \
     echo 'import("/opt/sandagent/node_modules/@sandagent/daemon/dist/bundle.mjs")' >> /usr/local/bin/sandagent-daemon && \
     chmod +x /usr/local/bin/sandagent-daemon
 
-# Entrypoint: copy /skills, start daemon + CDP, then exec CMD
+# Entrypoint: run init hooks, copy /skills, start daemon + CDP, then exec CMD
 RUN printf '%s\n' \
     '#!/bin/bash' \
+    '# Run all init hooks (drop scripts into /etc/sandagent-init.d/)' \
+    'if [ -d /etc/sandagent-init.d ]; then' \
+    '  for f in /etc/sandagent-init.d/*.sh; do' \
+    '    [ -x "$f" ] && "$f"' \
+    '  done' \
+    'fi' \
     'mkdir -p "$HOME/.claude/skills"' \
     'if [ -d /skills ] && [ -n "$(ls -A /skills 2>/dev/null)" ]; then' \
     '  cp -r /skills/. "$HOME/.claude/skills/"' \
@@ -102,7 +108,8 @@ RUN printf '%s\n' \
     'sandagent-daemon &' \
     'start-cdp' \
     'exec "$@"' > /usr/local/bin/sandagent-entrypoint && \
-    chmod +x /usr/local/bin/sandagent-entrypoint
+    chmod +x /usr/local/bin/sandagent-entrypoint && \
+    mkdir -p /etc/sandagent-init.d
 
 # Set environment variables
 ENV NODE_PATH=/opt/sandagent/node_modules
@@ -133,6 +140,7 @@ RUN echo '#!/bin/bash\n\
 set -e\n\
 CHROME_BIN=$(node -e "console.log(require('"'"'playwright'"'"').chromium.executablePath())")\n\
 "$CHROME_BIN" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage --disable-software-rasterizer \\\n\
+  --window-size=1280,800 --force-device-scale-factor=1 \\\n\
   --remote-debugging-port=9223 --remote-allow-origins=* 2>/dev/null &\n\
 for i in $(seq 1 30); do\n\
   if curl -s http://127.0.0.1:9223/json/version > /dev/null 2>&1; then break; fi\n\
