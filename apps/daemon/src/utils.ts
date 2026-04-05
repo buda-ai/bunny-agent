@@ -1,5 +1,6 @@
 // Shared types and utilities
 
+import { existsSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 
@@ -26,9 +27,41 @@ export interface AppState {
  * Resolve volume root: if volume given, use volumesRoot/volume; otherwise use root.
  */
 export function resolveVolumeRoot(state: AppState, volume?: string): string {
-  if (!volume) return state.root;
-  validateVolumeName(volume);
-  return path.join(state.volumesRoot, volume);
+  const normalizedRoot = path.resolve(state.root);
+  if (!volume) return state.root;  
+  //if (!volume) return normalizedRoot;
+  const normalizedVolume = normalizeVolumeName(volume);
+  validateVolumeName(normalizedVolume);
+  const scopedVolumeRoot = path.resolve(state.volumesRoot, normalizedVolume);
+
+  const mountVolumeRoot = path.resolve(path.sep, normalizedVolume);
+  if (
+    isWellKnownMountVolume(normalizedVolume) &&
+    existsSync(mountVolumeRoot) &&
+    (volume.startsWith("/") || !existsSync(scopedVolumeRoot))
+  ) {
+    return mountVolumeRoot;
+  }
+
+  // Backward compatibility:
+  // if SANDAGENT_ROOT already points to the requested volume root
+  // (e.g. root=/agent and volume=agent), prefer root over root/volumes/agent.
+  if (
+    path.basename(normalizedRoot) === normalizedVolume &&
+    !existsSync(scopedVolumeRoot)
+  ) {
+    return normalizedRoot;
+  }
+
+  return scopedVolumeRoot;
+}
+
+function normalizeVolumeName(name: string): string {
+  return name.replace(/^\/+/, "");
+}
+
+function isWellKnownMountVolume(name: string): boolean {
+  return name === "agent" || name === "space";
 }
 
 /**
