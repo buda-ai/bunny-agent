@@ -28,8 +28,7 @@ export interface AppState {
  */
 export function resolveVolumeRoot(state: AppState, volume?: string): string {
   const normalizedRoot = path.resolve(state.root);
-  if (!volume) return state.root;  
-  //if (!volume) return normalizedRoot;
+  if (!volume) return state.root;
   const normalizedVolume = normalizeVolumeName(volume);
   validateVolumeName(normalizedVolume);
   const scopedVolumeRoot = path.resolve(state.volumesRoot, normalizedVolume);
