@@ -3,7 +3,7 @@ import { URL } from "node:url";
 import { mergeCodingRunProcessEnv } from "./coding-run-env.js";
 import { parseMultipart } from "./multipart.js";
 import { DaemonRouter } from "./router.js";
-import { sandagentRun } from "./routes/coding.js";
+// import { sandagentRun } from "./routes/coding.js";
 import { fsDownload, fsUpload } from "./routes/fs.js";
 import { AppError, type AppState, fail, guessMimeType } from "./utils.js";
 
@@ -30,19 +30,17 @@ export function createDaemon(config: DaemonConfig): http.Server {
       );
       const pathname = url.pathname;
 
-      // Streaming: /api/coding/run
-      if (method === "POST" && pathname === "/api/coding/run") {
-        const body = safeJsonParse(await readBody(req)) as Record<
-          string,
-          unknown
-        >;
-        const mergedEnv = mergeCodingRunProcessEnv(env, body);
-        return sandagentRun(
-          body as unknown as Parameters<typeof sandagentRun>[0],
-          res,
-          mergedEnv,
-        );
-      }
+     // if (method === "POST" && pathname === "/api/coding/run") {
+      //   const body = safeJsonParse(await readBody(req)) as Record<
+      //     string,
+      //     unknown
+      //   >;
+      //   return sandagentRun(
+      //     body as unknown as Parameters<typeof sandagentRun>[0],
+      //     res,
+      //     env,
+      //   );
+      // }
 
       // Multipart upload: /api/fs/upload
       if (method === "POST" && pathname === "/api/fs/upload") {

@@ -57,11 +57,14 @@ describe("fs", () => {
   });
 
   it("list", async () => {
+    await post("/api/fs/write", { path: "list-created-at.txt", content: "x" });
     const r = await get("/api/fs/list?path=.");
     expect(r.ok).toBe(true);
-    expect(r.data.some((e: { name: string }) => e.name === "hello.txt")).toBe(
-      true,
-    );
+    const entry = r.data.find(
+      (e: { name: string }) => e.name === "list-created-at.txt",
+    ) as { created_at: string | null } | undefined;
+    expect(entry).toBeTruthy();
+    expect(entry?.created_at).not.toBe("1970-01-01T00:00:00.000Z");
   });
 
   it("stat", async () => {
@@ -113,6 +116,41 @@ describe("fs", () => {
       content: "x",
     });
     expect(r.ok).toBe(false);
+  });
+
+  it("uses root directly when volume matches root basename", async () => {
+    const volume = path.basename(root);
+    const filePath = "volume-compat.txt";
+    const expectedAbsolutePath = path.join(root, filePath);
+
+    const write = await post("/api/fs/write", {
+      volume,
+      path: filePath,
+      content: "compat",
+    });
+    expect(write.ok).toBe(true);
+    expect(write.data.path).toBe(expectedAbsolutePath);
+
+    const read = await get(
+      `/api/fs/read?path=${encodeURIComponent(filePath)}&volume=${encodeURIComponent(volume)}`,
+    );
+    expect(read.ok).toBe(true);
+    expect(read.data.path).toBe(expectedAbsolutePath);
+    expect(read.data.content).toBe("compat");
+  });
+
+  it("accepts leading slash for matching volume name", async () => {
+    const volume = `/${path.basename(root)}`;
+    const filePath = "volume-leading-slash.txt";
+    const expectedAbsolutePath = path.join(root, filePath);
+
+    const write = await post("/api/fs/write", {
+      volume,
+      path: filePath,
+      content: "slash-compat",
+    });
+    expect(write.ok).toBe(true);
+    expect(write.data.path).toBe(expectedAbsolutePath);
   });
 });
 
