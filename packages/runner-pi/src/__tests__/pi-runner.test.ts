@@ -489,6 +489,74 @@ describe("createPiRunner", () => {
     // process.env must not be permanently modified
     expect(process.env[key]).toBeUndefined();
   });
+
+  it("accumulates generate_image tool usage into finish messageMetadata", async () => {
+    // Emit a generate_image tool_execution_end with details.response.usage,
+    // then agent_end with LLM usage — finish should sum both.
+    const { createAgentSession: mockCreateAgentSession } = await import(
+      "@mariozechner/pi-coding-agent"
+    );
+    vi.mocked(mockCreateAgentSession).mockImplementationOnce(async () => {
+      const session = new MockSession();
+      session.prompt = async function (_input: string) {
+        this["emit"]({
+          type: "tool_execution_start",
+          toolCallId: "img_1",
+          toolName: "generate_image",
+          args: { prompt: "a cat" },
+        });
+        this["emit"]({
+          type: "tool_execution_end",
+          toolCallId: "img_1",
+          toolName: "generate_image",
+          result: {
+            content: [{ type: "text", text: "/tmp/cat.png" }],
+            details: {
+              filePath: "/tmp/cat.png",
+              response: {
+                data: [{ b64_json: "" }],
+                usage: {
+                  total_tokens: 1404,
+                  input_tokens: 22,
+                  output_tokens: 1120,
+                },
+              },
+            },
+          },
+          isError: false,
+        });
+        this["emit"]({
+          type: "agent_end",
+          messages: [
+            {
+              role: "assistant",
+              usage: { input: 100, output: 200, cacheRead: 0, cacheWrite: 0 },
+            },
+          ],
+        });
+      };
+      createdSessions.push(session);
+      return { session } as unknown as Awaited<
+        ReturnType<typeof mockCreateAgentSession>
+      >;
+    });
+
+    const runner = createPiRunner({ model: "openai:gpt-image-1" });
+    const chunks: string[] = [];
+    for await (const chunk of runner.run("generate a cat image")) {
+      chunks.push(chunk);
+    }
+
+    const finishChunk = chunks.find((c) => c.includes('"type":"finish"'));
+    expect(finishChunk).toBeDefined();
+    const data = JSON.parse(finishChunk!.replace(/^data: /, "").trim()) as {
+      messageMetadata?: { usage?: Record<string, number> };
+    };
+
+    // LLM usage: input=100, output=200; image tool usage: input=22, output=1120
+    expect(data.messageMetadata?.usage?.input_tokens).toBe(122);
+    expect(data.messageMetadata?.usage?.output_tokens).toBe(1320);
+  });
 });
 
 it("emits isError flag when a tool execution fails", async () => {

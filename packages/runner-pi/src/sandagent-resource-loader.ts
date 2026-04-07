@@ -87,7 +87,7 @@ export class SandagentResourceLoader implements ResourceLoader {
 
   async reload(): Promise<void> {
     await this.delegate.reload();
-    this.cachedSkills = undefined; // Clear cache
+    this.cachedSkills = undefined;
   }
 
   getSkills(): { skills: Skill[]; diagnostics: ResourceDiagnostic[] } {
