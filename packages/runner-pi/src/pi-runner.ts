@@ -9,7 +9,10 @@ import {
   SessionManager,
   type ToolDefinition,
 } from "@mariozechner/pi-coding-agent";
-import { buildImageGenerateTool } from "./image-tools.js";
+import {
+  buildImageGenerateTool,
+  type ImageToolDetails,
+} from "./image-tools.js";
 import { SandagentResourceLoader } from "./sandagent-resource-loader.js";
 import { buildSecretAwareTools, redactSecrets } from "./tool-overrides.js";
 
@@ -445,6 +448,9 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           let hasStarted = false;
           let hasFinished = false;
 
+          /** Accumulated token usage from image tool calls (details.response.usage). */
+          const imageToolUsage = { input_tokens: 0, output_tokens: 0 };
+
           /** Fresh id for each assistant text segment so the UI keeps tool/text order as separate parts. */
           const newTextPartId = () =>
             `text_${Date.now()}_${Math.random().toString(36).slice(2)}_${Math.random().toString(36).slice(2)}`;
@@ -492,9 +498,19 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
               finishReason: string;
               messageMetadata?: { usage: Record<string, number> };
             } = { type: "finish", finishReason: "stop" };
-            if (usage != null) {
+            const hasImageUsage =
+              imageToolUsage.input_tokens > 0 ||
+              imageToolUsage.output_tokens > 0;
+            if (usage != null || hasImageUsage) {
+              const base = usage != null ? usageToMessageMetadata(usage) : {};
               finishPayload.messageMetadata = {
-                usage: usageToMessageMetadata(usage),
+                usage: {
+                  ...base,
+                  input_tokens:
+                    (base.input_tokens ?? 0) + imageToolUsage.input_tokens,
+                  output_tokens:
+                    (base.output_tokens ?? 0) + imageToolUsage.output_tokens,
+                },
               };
             }
             yield `data: ${JSON.stringify(finishPayload)}\n\n`;
@@ -559,6 +575,21 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
                 let output = extractToolResultText(event.result);
                 if (options.env && Object.keys(options.env).length > 0) {
                   output = redactSecrets(output, options.env);
+                }
+                // Collect token usage from image tool results (details.response.usage)
+                if (
+                  event.toolName === "generate_image" &&
+                  event.result !== null &&
+                  typeof event.result === "object"
+                ) {
+                  const details = (
+                    event.result as { details?: ImageToolDetails }
+                  ).details;
+                  const u = details?.response?.usage;
+                  if (u) {
+                    imageToolUsage.input_tokens += u.input_tokens ?? 0;
+                    imageToolUsage.output_tokens += u.output_tokens ?? 0;
+                  }
                 }
                 yield `data: ${JSON.stringify({ type: "tool-output-available", toolCallId: event.toolCallId, output, isError: event.isError, dynamic: true, providerExecuted: true })}\n\n`;
               } else if (event.type === "agent_end") {

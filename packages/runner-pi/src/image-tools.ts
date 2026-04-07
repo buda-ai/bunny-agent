@@ -2,11 +2,29 @@
  * Image generation tool for sandagent pi runner.
  *
  * Reuses the chat model's provider config (baseUrl + apiKey) — only the model ID differs.
+ * Returns filePath and the raw API response as details.
  */
 
-import { writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname, extname, join } from "node:path";
 import type { ToolDefinition } from "@mariozechner/pi-coding-agent";
+
+export interface ImageGenerationUsage {
+  total_tokens?: number;
+  input_tokens?: number;
+  input_tokens_details?: { image_tokens?: number; text_tokens?: number };
+  output_tokens?: number;
+}
+
+export interface ImageGenerationResponse {
+  data: Array<{ b64_json?: string; url?: string; revised_prompt?: string }>;
+  usage?: ImageGenerationUsage;
+}
+
+export interface ImageToolDetails {
+  filePath: string | undefined;
+  response: ImageGenerationResponse;
+}
 
 const generateImageSchema = {
   type: "object",
@@ -18,7 +36,7 @@ const generateImageSchema = {
     filename: {
       type: "string",
       description:
-        "Output filename without extension. Defaults to a timestamp-based name.",
+        "Output filename with extension, e.g. 'cat.png'. Defaults to a timestamp-based name.",
     },
     size: {
       type: "string",
@@ -37,67 +55,47 @@ const generateImageSchema = {
         "960x1728",
       ],
       description:
-        "Image dimensions. Common sizes: 1024x1024 (square), 1280x1280, 1568x1056 (landscape), " +
-        "1056x1568 (portrait), 1728x960 (wide), 960x1728 (tall). " +
-        "Custom: width and height must be multiples of 32, between 512px and 2048px.",
+        "Image dimensions. Common: 1024x1024 (square), 1280x1280, 1568x1056 (landscape), " +
+        "1056x1568 (portrait), 1728x960 (wide), 960x1728 (tall).",
     },
     quality: {
       type: "string",
       enum: ["standard", "hd"],
-      description:
-        "Image quality (OpenAI images API only). Defaults to standard.",
+      description: "Image quality (OpenAI only). Defaults to standard.",
     },
   },
   required: ["prompt"],
   additionalProperties: false,
 };
 
-async function generateImage(
-  prompt: string,
-  modelId: string,
-  size: string,
-  quality: string,
-  baseUrl: string,
-  apiKey: string,
-): Promise<{ b64: string; revisedPrompt?: string }> {
-  const url = `${baseUrl.replace(/\/$/, "")}/v1/images/generations`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: modelId,
-      prompt,
-      n: 1,
-      size,
-      quality,
-    }),
-  });
-  if (!res.ok)
-    throw new Error(
-      `Image generation failed (${res.status}): ${await res.text()}`,
-    );
-  const json = (await res.json()) as {
-    data: Array<{ b64_json?: string; url?: string; revised_prompt?: string }>;
-  };
-  const item = json.data[0];
-  if (!item) throw new Error("Provider returned no image data.");
-
-  let b64: string;
-  if (item.b64_json) {
-    b64 = item.b64_json;
-  } else if (item.url) {
-    const imgRes = await fetch(item.url);
-    if (!imgRes.ok)
-      throw new Error(`Failed to download image from URL: ${imgRes.status}`);
-    b64 = Buffer.from(await imgRes.arrayBuffer()).toString("base64");
-  } else {
-    throw new Error("Provider returned neither b64_json nor url.");
+/**
+ * Resolve b64 from an image item (b64_json or url).
+ */
+async function resolveB64(item: {
+  b64_json?: string;
+  url?: string;
+}): Promise<string | undefined> {
+  if (item.b64_json) return item.b64_json;
+  if (item.url) {
+    const res = await fetch(item.url);
+    if (res.ok) return Buffer.from(await res.arrayBuffer()).toString("base64");
   }
+  return undefined;
+}
 
-  return { b64, revisedPrompt: item.revised_prompt };
+/**
+ * Save a single image item (b64_json or url) to disk.
+ * Returns the saved file path, or undefined if no image data was available.
+ */
+export async function saveImageItem(
+  item: { b64_json?: string; url?: string },
+  filePath: string,
+): Promise<string | undefined> {
+  const b64 = await resolveB64(item);
+  if (!b64) return undefined;
+  mkdirSync(dirname(filePath), { recursive: true });
+  writeFileSync(filePath, Buffer.from(b64, "base64"));
+  return filePath;
 }
 
 export function buildImageGenerateTool(
@@ -110,14 +108,13 @@ export function buildImageGenerateTool(
     name: "generate_image",
     label: "generate image",
     description:
-      "Generate an image from a text prompt and save it as a PNG file in the current working directory. " +
-      "Returns the saved file path.",
+      "Generate an image from a text prompt. Saves the image to disk and returns the file path.",
     promptSnippet:
       "generate_image(prompt, filename?, size?, quality?) - generate an image from text",
     promptGuidelines: [
       "Use generate_image when the user asks to create, draw, or visualize something.",
       "Be descriptive in the prompt — more detail produces better results.",
-      "Provide a meaningful filename so the user can find the file easily.",
+      "Provide a filename with extension, e.g. 'cat.png'.",
     ],
     // biome-ignore lint/suspicious/noExplicitAny: plain JSON Schema compatible with TypeBox TSchema
     parameters: generateImageSchema as any,
@@ -127,35 +124,60 @@ export function buildImageGenerateTool(
       const size = (p.size as string) ?? "1024x1024";
       const quality = (p.quality as string) ?? "standard";
       const rawFilename = p.filename as string | undefined;
-      const hasExt = rawFilename && /\.[a-z]+$/i.test(rawFilename);
+
+      // Ensure filename has an extension
       const filename = rawFilename
-        ? rawFilename.replace(/[^a-zA-Z0-9_\-.]/g, "_")
+        ? extname(rawFilename)
+          ? rawFilename
+          : `${rawFilename}.png`
         : `image_${Date.now()}.png`;
-      const filePath = join(cwd, hasExt ? filename : `${filename}.png`);
+      const filePath = join(cwd, filename.replace(/[^a-zA-Z0-9_\-./]/g, "_"));
 
       try {
-        const { b64, revisedPrompt } = await generateImage(
-          prompt,
-          imageModelId,
-          size,
-          quality,
-          baseUrl,
-          apiKey,
-        );
+        const url = `${baseUrl.replace(/\/$/, "")}/v1/images/generations`;
+        const res = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            model: imageModelId,
+            prompt,
+            n: 1,
+            size,
+            quality,
+          }),
+        });
 
-        writeFileSync(filePath, Buffer.from(b64, "base64"));
-
-        const lines = [
-          `Image generated using ${imageModelId}.`,
-          `Saved to: ${filePath}`,
-        ];
-        if (revisedPrompt && revisedPrompt !== prompt) {
-          lines.push(`Revised prompt: ${revisedPrompt}`);
+        if (!res.ok) {
+          throw new Error(
+            `Image generation failed (${res.status}): ${await res.text()}`,
+          );
         }
 
+        const json = (await res.json()) as {
+          data: Array<{
+            b64_json?: string;
+            url?: string;
+            revised_prompt?: string;
+          }>;
+        };
+
+        const item = json.data?.[0] ?? {};
+        const savedPath = await saveImageItem(item, filePath);
+
         return {
-          content: [{ type: "text" as const, text: lines.join("\n") }],
-          details: undefined,
+          content: [
+            {
+              type: "text" as const,
+              text: savedPath ?? "Image generated but could not be saved.",
+            },
+          ],
+          details: {
+            filePath: savedPath,
+            response: json,
+          } satisfies ImageToolDetails,
         };
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e);
