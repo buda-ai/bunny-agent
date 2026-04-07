@@ -9,6 +9,7 @@ import {
   SessionManager,
   type ToolDefinition,
 } from "@mariozechner/pi-coding-agent";
+import { buildImageGenerateTool } from "./image-tools.js";
 import { SandagentResourceLoader } from "./sandagent-resource-loader.js";
 import { buildSecretAwareTools, redactSecrets } from "./tool-overrides.js";
 
@@ -42,7 +43,7 @@ export interface PiRunner {
   run(userInput: string): AsyncIterable<string>;
 }
 
-function parseModelSpec(model: string): {
+export function parseModelSpec(model: string): {
   provider: string;
   modelName: string;
 } {
@@ -59,6 +60,25 @@ function parseModelSpec(model: string): {
     provider: trimmed.slice(0, separator),
     modelName: trimmed.slice(separator + 1),
   };
+}
+
+/**
+ * Resolve the image model name from IMAGE_GENERATION_MODEL env var.
+ * Only returns a model name if the image provider matches the chat provider.
+ * Returns undefined if not set or provider mismatch.
+ */
+export function resolveImageModelName(
+  chatProvider: string,
+  env: Record<string, string> | undefined,
+): string | undefined {
+  const spec = env?.IMAGE_GENERATION_MODEL;
+  if (!spec) return undefined;
+  try {
+    const { provider, modelName } = parseModelSpec(spec);
+    return provider === chatProvider ? modelName : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function getEnvValue(
@@ -277,6 +297,9 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
   }
   applyModelOverrides(model, provider, options.env);
 
+  // Resolve image model from IMAGE_GENERATION_MODEL env var (same provider only)
+  const imageModelName = resolveImageModelName(provider, options.env);
+
   return {
     async *run(userInput: string): AsyncIterable<string> {
       if (inlineApiKey !== undefined) {
@@ -330,6 +353,14 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           options.env && Object.keys(options.env).length > 0
             ? buildSecretAwareTools(cwd, options.env)
             : [];
+
+        if (imageModelName) {
+          const apiKey =
+            (await modelRegistry.authStorage.getApiKey(provider)) ?? "";
+          customTools.push(
+            buildImageGenerateTool(cwd, imageModelName, model.baseUrl, apiKey),
+          );
+        }
 
         const { session } = await createAgentSession({
           cwd,
