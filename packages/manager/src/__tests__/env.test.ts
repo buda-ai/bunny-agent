@@ -55,4 +55,41 @@ describe("buildRunnerEnv", () => {
     expect(env.BRAVE_API_KEY).toBe("bsk-brave");
     expect(env.TAVILY_API_KEY).toBe("tvly-tavily");
   });
+
+  it("includes IMAGE_GENERATION_MODEL from params", () => {
+    const env = buildRunnerEnv({
+      IMAGE_GENERATION_MODEL: "openai:gpt-image-1",
+    });
+    expect(env.IMAGE_GENERATION_MODEL).toBe("openai:gpt-image-1");
+  });
+
+  it("falls back to process.env for IMAGE_GENERATION_MODEL", () => {
+    process.env.IMAGE_GENERATION_MODEL = "openai:dall-e-3";
+    const env = buildRunnerEnv({});
+    expect(env.IMAGE_GENERATION_MODEL).toBe("openai:dall-e-3");
+  });
+
+  it("params override process.env for IMAGE_GENERATION_MODEL", () => {
+    process.env.IMAGE_GENERATION_MODEL = "openai:dall-e-3";
+    const env = buildRunnerEnv({
+      IMAGE_GENERATION_MODEL: "openai:gpt-image-1",
+    });
+    expect(env.IMAGE_GENERATION_MODEL).toBe("openai:gpt-image-1");
+  });
+
+  it("omits IMAGE_GENERATION_MODEL when neither params nor process.env has it", () => {
+    delete process.env.IMAGE_GENERATION_MODEL;
+    const env = buildRunnerEnv({});
+    expect(env.IMAGE_GENERATION_MODEL).toBeUndefined();
+  });
+
+  it("includes IMAGE_GENERATION_MODEL alongside runner-specific keys", () => {
+    const env = buildRunnerEnv({
+      runnerType: "pi",
+      OPENAI_API_KEY: "sk-openai",
+      IMAGE_GENERATION_MODEL: "openai:gpt-image-1",
+    });
+    expect(env.OPENAI_API_KEY).toBe("sk-openai");
+    expect(env.IMAGE_GENERATION_MODEL).toBe("openai:gpt-image-1");
+  });
 });
