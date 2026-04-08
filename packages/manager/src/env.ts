@@ -34,6 +34,8 @@ export interface RunnerEnvParams {
   /** Web search (cross-runner) */
   BRAVE_API_KEY?: string;
   TAVILY_API_KEY?: string;
+  /** image generation */
+  IMAGE_GENERATION_MODEL?: string;
   /**
    * Base env to merge in (lowest priority).
    * Typically `process.env` for local sandbox, or extra vars from the request.
@@ -169,6 +171,13 @@ export function buildRunnerEnv(
   const tavilyKey = params.TAVILY_API_KEY || process.env.TAVILY_API_KEY;
   if (braveKey) env.BRAVE_API_KEY = braveKey;
   if (tavilyKey) env.TAVILY_API_KEY = tavilyKey;
+
+  const imageModel =
+    params.IMAGE_GENERATION_MODEL || process.env.IMAGE_GENERATION_MODEL;
+
+  if (imageModel) {
+    env.IMAGE_GENERATION_MODEL = imageModel;
+  }
 
   return env;
 }
