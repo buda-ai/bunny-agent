@@ -1,5 +1,11 @@
 # @sandagent/sdk
 
+## 0.9.26-beta.0
+
+### Patch Changes
+
+- @sandagent/manager@0.9.26-beta.0
+
 ## 0.9.19-beta.5
 
 ### Patch Changes

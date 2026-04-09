@@ -1,5 +1,7 @@
 # @sandagent/daemon
 
+## 0.9.26-beta.0
+
 ## 0.9.19-beta.5
 
 ## 0.9.19-beta.4
