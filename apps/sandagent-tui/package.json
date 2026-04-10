@@ -4,17 +4,15 @@
   "description": "SandAgent TUI — interactive coding agent",
   "type": "module",
   "bin": {
-    "sandagent-tui": "./dist/index.js"
+    "sandagent": "./dist/index.js"
   },
   "scripts": {
     "build": "tsup",
-    "dev": "tsx src/index.ts"
+    "dev": "node --import tsx/esm src/index.ts"
   },
   "dependencies": {
-    "@mariozechner/pi-tui": "0.64.0",
-    "@sandagent/runner-harness": "workspace:*",
-    "chalk": "^5.5.0",
-    "dotenv": "^16.0.0"
+    "@mariozechner/pi-coding-agent": "0.66.1",
+    "@sandagent/runner-harness": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",

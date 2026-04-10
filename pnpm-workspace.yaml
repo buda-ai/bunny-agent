@@ -6,3 +6,5 @@ ignoredBuiltDependencies:
   - '@biomejs/biome'
   - esbuild
   - sharp
+patchedDependencies:
+  '@mariozechner/pi-coding-agent@0.64.0': patches/@mariozechner__pi-coding-agent@0.64.0.patch

@@ -1,34 +1,20 @@
 #!/usr/bin/env node
-import { resolve } from "node:path";
-import { config } from "dotenv";
+import { readFileSync, existsSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
-config({ path: resolve(process.cwd(), ".env") });
-
-const args = process.argv.slice(2);
-
-function flag(name: string, defaultVal: string): string {
-  const i = args.indexOf(name);
-  return i !== -1 && args[i + 1] ? args[i + 1] : defaultVal;
+// Load .env
+const envPath = resolve(process.cwd(), ".env");
+if (existsSync(envPath)) {
+  for (const line of readFileSync(envPath, "utf8").split("\n")) {
+    const m = line.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/);
+    if (m && !process.env[m[1]])
+      process.env[m[1]] = m[2].replace(/^["']|["']$/g, "").trim();
+  }
 }
 
-const runner = flag("--runner", "claude");
-const model = args.includes("--model") ? flag("--model", "") || undefined : undefined;
-const cwd = flag("--cwd", process.cwd());
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const extensionPath = join(__dirname, "extension.js");
 
-if (args.includes("--help") || args.includes("-h")) {
-  console.log(`
-sandagent-tui — interactive coding agent
-
-Usage: sandagent-tui [options]
-
-Options:
-  --runner <name>   Runner to use: claude, pi, gemini, codex, opencode (default: claude)
-  --model  <name>   Model override (default: runner's default)
-  --cwd    <path>   Working directory (default: current directory)
-  --help            Show this help
-`);
-  process.exit(0);
-}
-
-const { App } = await import("./app.js");
-new App(runner, model, resolve(cwd)).start();
+const { main } = await import("@mariozechner/pi-coding-agent");
+await main(["-e", extensionPath, ...process.argv.slice(2)]);

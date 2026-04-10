@@ -48,6 +48,7 @@ export async function sandagentRun(
       yolo: req.yolo,
       env,
       abortController,
+      autoInject: false, // daemon manages systemPrompt/session explicitly via request body
     });
 
     for await (const chunk of stream) {
@@ -93,6 +94,7 @@ export function codingRunStream(
           yolo: req.yolo,
           env,
           abortController,
+          autoInject: false,
         });
         for await (const chunk of stream) {
           controller.enqueue(new TextEncoder().encode(chunk));

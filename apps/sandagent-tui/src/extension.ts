@@ -1,11 +1,13 @@
 /**
- * SandAgent Extension for pi TUI
- * Registers sandagent tools: web_search, web_fetch, generate_image
+ * SandAgent extension for pi TUI.
+ * Registers web_search, web_fetch, generate_image tools from runner-harness.
  */
-
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import { buildImageGenerateTool } from "@sandagent/runner-harness/image-tools";
-import { buildWebFetchTool, buildWebSearchTool } from "@sandagent/runner-harness/web-tools";
+import {
+  buildImageGenerateTool,
+  buildWebFetchTool,
+  buildWebSearchTool,
+} from "@sandagent/runner-harness/tools";
 
 export default function sandagentExtension(pi: ExtensionAPI) {
   const env = process.env as Record<string, string>;
@@ -15,13 +17,16 @@ export default function sandagentExtension(pi: ExtensionAPI) {
   try {
     pi.registerTool(buildWebSearchTool(env));
   } catch {
-    // No BRAVE_API_KEY or TAVILY_API_KEY — skip silently
+    // No search API key — DDG fallback is built-in, but buildWebSearchTool
+    // doesn't throw anymore; this catch is just safety.
   }
 
   const imageModel = env.IMAGE_GENERATION_MODEL;
   const openaiKey = env.OPENAI_API_KEY;
   const openaiBase = env.OPENAI_BASE_URL ?? "https://api.openai.com/v1";
   if (imageModel && openaiKey) {
-    pi.registerTool(buildImageGenerateTool(process.cwd(), imageModel, openaiBase, openaiKey));
+    pi.registerTool(
+      buildImageGenerateTool(process.cwd(), imageModel, openaiBase, openaiKey),
+    );
   }
 }

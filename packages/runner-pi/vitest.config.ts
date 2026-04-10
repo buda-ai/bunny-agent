@@ -1,15 +1,14 @@
 import { defineConfig } from "vitest/config";
 import { resolve } from "node:path";
 
+const harness = resolve(__dirname, "../../packages/runner-harness/src");
+
 export default defineConfig({
-  test: {
-    environment: "node",
-  },
+  test: { environment: "node" },
   resolve: {
     alias: {
-      "@sandagent/runner-harness/web-tools": resolve(__dirname, "../../packages/runner-harness/src/web-tools.ts"),
-      "@sandagent/runner-harness/image-tools": resolve(__dirname, "../../packages/runner-harness/src/image-tools.ts"),
-      "@sandagent/runner-harness": resolve(__dirname, "../../packages/runner-harness/src/index.ts"),
+      "@sandagent/runner-harness/tools": resolve(harness, "tools/index.ts"),
+      "@sandagent/runner-harness": resolve(harness, "index.ts"),
     },
   },
 });

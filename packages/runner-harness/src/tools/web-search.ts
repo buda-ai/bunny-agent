@@ -2,7 +2,7 @@
  * Web search tool — pluggable providers (Brave, Tavily).
  * Provider auto-detected from env keys; Brave preferred over Tavily.
  */
-import type { SearchResult, ToolDefinition } from "../types.js";
+import type { SearchResult, ToolDefinition } from "./types.js";
 
 export type { SearchResult };
 
@@ -66,6 +66,36 @@ const tavilyProvider: WebSearchProvider = {
 const AUTO_DETECT_ORDER = [braveProvider, tavilyProvider];
 
 // ---------------------------------------------------------------------------
+// DuckDuckGo zero-config fallback (HTML scrape, no API key)
+// ---------------------------------------------------------------------------
+
+async function duckduckgoSearch(query: string, count: number): Promise<SearchResult[]> {
+  const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+  const res = await fetch(url, { headers: { "User-Agent": BROWSER_UA, Accept: "text/html" } });
+  if (!res.ok) throw new Error(`DDG ${res.status}`);
+  const html = await res.text();
+  const results: SearchResult[] = [];
+  const linkRe = /<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g;
+  const snippetRe = /<a[^>]+class="result__snippet"[^>]*>([\s\S]*?)<\/a>/g;
+  const links: Array<{ url: string; title: string }> = [];
+  let m: RegExpExecArray | null;
+  // biome-ignore lint/suspicious/noAssignInExpressions: regex loop
+  while ((m = linkRe.exec(html)) !== null && links.length < count) {
+    const uddg = m[1].match(/uddg=([^&]+)/)?.[1];
+    const link = uddg ? decodeURIComponent(uddg) : m[1];
+    if (!link.startsWith("http")) continue;
+    links.push({ url: link, title: m[2].replace(/<[^>]+>/g, "").trim() });
+  }
+  const snippets: string[] = [];
+  // biome-ignore lint/suspicious/noAssignInExpressions: regex loop
+  while ((m = snippetRe.exec(html)) !== null) snippets.push(m[1].replace(/<[^>]+>/g, "").trim());
+  for (let i = 0; i < Math.min(links.length, count); i++) {
+    results.push({ title: links[i].title, link: links[i].url, snippet: snippets[i] ?? "" });
+  }
+  return results;
+}
+
+// ---------------------------------------------------------------------------
 // Provider resolution
 // ---------------------------------------------------------------------------
 
@@ -88,6 +118,11 @@ export function resolveSearchProviders(env: Record<string, string>): ResolvedPro
     }
   }
   return available;
+}
+
+export function resolveSearchProvider(env: Record<string, string>): ResolvedProvider | null {
+  const all = resolveSearchProviders(env);
+  return all.length > 0 ? all[0] : null;
 }
 
 function isRateLimitError(err: unknown): boolean {
@@ -147,7 +182,6 @@ function formatResults(results: SearchResult[], label: string): string {
 
 export function buildWebSearchTool(env: Record<string, string>): ToolDefinition {
   const providers = resolveSearchProviders(env);
-  if (providers.length === 0) throw new Error("web_search: no provider. Set BRAVE_API_KEY or TAVILY_API_KEY.");
 
   return {
     name: "web_search",
@@ -189,6 +223,16 @@ export function buildWebSearchTool(env: Record<string, string>): ToolDefinition 
           break;
         }
       }
+
+      // DDG zero-config fallback
+      try {
+        const results = await duckduckgoSearch(query, count);
+        if (shouldFetch) for (const r of results) r.content = await fetchPageContent(r.link);
+        return { content: [{ type: "text" as const, text: formatResults(results, "DuckDuckGo") }], details: undefined };
+      } catch (e) {
+        lastError = e;
+      }
+
       return { content: [{ type: "text" as const, text: `Web search error: ${lastError instanceof Error ? lastError.message : String(lastError)}` }], details: undefined };
     },
   };

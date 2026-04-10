@@ -61,3 +61,6 @@ export {
 } from "./provider";
 
 export const VERSION = "0.1.0";
+
+// Runner harness — createRunner, parseRunnerStream, tools, session, prompt, skills
+export * from "@sandagent/runner-harness";

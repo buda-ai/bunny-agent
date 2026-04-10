@@ -1,5 +1,5 @@
-import type { ToolDefinition } from "../types.js";
-import { fetchPageContent } from "./search.js";
+import type { ToolDefinition } from "./types.js";
+import { fetchPageContent } from "./web-search.js";
 
 export function buildWebFetchTool(): ToolDefinition {
   return {

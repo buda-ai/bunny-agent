@@ -70,16 +70,17 @@
     }
   },
   "dependencies": {
-    "@sandagent/manager": "workspace:*",
     "@ai-sdk/provider": "^3.0.8",
-    "@ai-sdk/react": "^3.0.105"
+    "@ai-sdk/react": "^3.0.105",
+    "@sandagent/manager": "workspace:*",
+    "@sandagent/runner-harness": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
-    "vitest": "^1.6.1",
     "tsup": "^8.5.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^1.6.1"
   }
 }

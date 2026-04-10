@@ -1,6 +1,14 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, extname, join } from "node:path";
-import type { ToolDefinition } from "../types.js";
+import type { ToolDefinition } from "./types.js";
+
+export interface ImageToolDetails {
+  filePath: string | undefined;
+  response: {
+    data: Array<{ b64_json?: string; url?: string; revised_prompt?: string }>;
+    usage?: { total_tokens?: number; input_tokens?: number; output_tokens?: number; input_tokens_details?: { image_tokens?: number; text_tokens?: number } };
+  };
+}
 
 async function resolveB64(item: { b64_json?: string; url?: string }): Promise<string | undefined> {
   if (item.b64_json) return item.b64_json;

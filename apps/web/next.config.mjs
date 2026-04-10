@@ -9,9 +9,6 @@ const withMDX = createMDX();
 /** @type {import('next').NextConfig} */
 const config = {
   reactStrictMode: true,
-  turbopack: {
-    root: path.resolve(__dirname, "../.."),
-  },
   transpilePackages: [
     "@sandagent/core",
     "@sandagent/sdk",
@@ -19,6 +16,7 @@ const config = {
     "@sandagent/sandbox-sandock",
     "@sandagent/sandbox-daytona",
     "kui",
+    "lucide-react",
   ],
   async rewrites() {
     return [
