@@ -1,0 +1,44 @@
+{
+  "name": "@sandagent/runner-harness",
+  "version": "0.1.1-beta.0",
+  "private": true,
+  "description": "Shared runner dispatch logic and tools for sandagent apps",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts",
+      "source": "./src/index.ts"
+    },
+    "./tools": {
+      "import": "./dist/tools/index.js",
+      "types": "./dist/tools/index.d.ts",
+      "source": "./src/tools/index.ts"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "license": "Apache-2.0",
+  "dependencies": {
+    "ai": "^6.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.0",
+    "vitest": "^1.6.1"
+  },
+  "peerDependencies": {
+    "@sandagent/runner-claude": "workspace:*",
+    "@sandagent/runner-codex": "workspace:*",
+    "@sandagent/runner-gemini": "workspace:*",
+    "@sandagent/runner-opencode": "workspace:*",
+    "@sandagent/runner-pi": "workspace:*"
+  }
+}

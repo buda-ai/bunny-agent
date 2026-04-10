@@ -12,7 +12,7 @@ import {
 import {
   buildImageGenerateTool,
   type ImageToolDetails,
-} from "./image-tools.js";
+} from "@sandagent/runner-harness/image-tools";
 import { SandagentResourceLoader } from "./sandagent-resource-loader.js";
 import { buildSecretAwareTools, redactSecrets } from "./tool-overrides.js";
 

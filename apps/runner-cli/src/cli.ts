@@ -20,6 +20,7 @@ config({ path: resolve(process.cwd(), "../../.env") });
 import { parseArgs } from "node:util";
 import { buildImage } from "./build-image.js";
 import { runAgent } from "./runner.js";
+import { tuiCommand } from "./commands/tui.js";
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -311,6 +312,10 @@ async function main(): Promise<void> {
         resume: args.resume,
         yolo: args.yolo,
       });
+      break;
+    }
+    case "tui": {
+      await tuiCommand(argsAfterPositionals(1));
       break;
     }
     case "image": {

@@ -8,9 +8,9 @@ import type {
 /**
  * TaskDrivenArtifactProcessor
  *
- * 事件驱动的 Artifact 处理器
- * 1. 从 tasks/{sessionId}/artifact.json 读取 artifact 文件列表
- * 2. onChange 时读取文件内容并通过 writer 发送
+ * Event-driven Artifact processor.
+ * 1. Reads the artifact file list from tasks/{sessionId}/artifact.json
+ * 2. On onChange, reads file contents and sends them via the writer
  */
 
 export interface ArtifactManifest {
@@ -24,12 +24,12 @@ export interface ArtifactManifest {
 
 export interface TaskDrivenArtifactProcessorOptions {
   /**
-   * Sandbox adapter，用于读取文件
+   * Sandbox adapter for reading files
    */
   sandbox: SandboxAdapter;
 
   /**
-   * 工作目录，默认为 /workspace
+   * Working directory, defaults to /workspace
    */
   workdir?: string;
 
@@ -45,7 +45,7 @@ export class TaskDrivenArtifactProcessor implements ArtifactProcessor {
   private artifactManifest: ArtifactManifest | null = null;
   private writer: StreamWriter;
   private sentArtifacts = new Map<string, string>();
-  // 队列机制：确保 onChange 顺序执行
+  // Queue mechanism: ensures onChange executes sequentially
   private processingQueue: Promise<void> = Promise.resolve();
 
   constructor(options: TaskDrivenArtifactProcessorOptions) {
@@ -55,8 +55,8 @@ export class TaskDrivenArtifactProcessor implements ArtifactProcessor {
   }
 
   /**
-   * 加载 tasks/{sessionId}/artifact.json 清单文件
-   * 只有当文件内容变化时才更新缓存并打印日志
+   * Loads the tasks/{sessionId}/artifact.json manifest file.
+   * Only updates the cache and logs when the file content changes.
    */
   private async loadManifest(sessionId: string): Promise<void> {
     try {
@@ -69,7 +69,7 @@ export class TaskDrivenArtifactProcessor implements ArtifactProcessor {
       const content = await handle.readFile(manifestPath);
       const newManifest = JSON.parse(content) as ArtifactManifest;
 
-      // 比较新旧 manifest，内容相同则直接返回缓存
+      // Compare new and old manifest; return cached result if content is the same
       if (
         this.artifactManifest &&
         JSON.stringify(newManifest) === JSON.stringify(this.artifactManifest)
@@ -77,7 +77,7 @@ export class TaskDrivenArtifactProcessor implements ArtifactProcessor {
         return;
       }
 
-      // 内容变化了，更新缓存
+      // Content changed — update cache
       this.artifactManifest = newManifest;
       console.log(
         "[ArtifactProcessor] Manifest loaded:",
@@ -89,8 +89,8 @@ export class TaskDrivenArtifactProcessor implements ArtifactProcessor {
   }
 
   /**
-   * 当收到 stream part 时触发
-   * 使用队列机制确保顺序执行，避免并发问题
+   * Called when a stream part is received.
+   * Uses a queue to ensure sequential execution and avoid concurrency issues.
    */
   onChange(part: LanguageModelV3StreamPart, sessionId: string): Promise<void> {
     if (
@@ -121,8 +121,8 @@ export class TaskDrivenArtifactProcessor implements ArtifactProcessor {
       return Promise.resolve();
     }
 
-    // 将处理任务追加到队列，确保顺序执行
-    // 使用 .then().catch() 确保即使出错也不会断掉队列
+    // Append processing task to the queue to ensure sequential execution.
+    // Use .then().catch() so errors don't break the queue.
     this.processingQueue = this.processingQueue
       .then(() => this.processArtifacts())
       .catch((e) => {
@@ -133,7 +133,7 @@ export class TaskDrivenArtifactProcessor implements ArtifactProcessor {
   }
 
   /**
-   * 实际处理 artifact 的逻辑
+   * Core artifact processing logic
    */
   private async processArtifacts(): Promise<void> {
     if (!this.artifactManifest?.artifacts?.length) {
@@ -146,10 +146,10 @@ export class TaskDrivenArtifactProcessor implements ArtifactProcessor {
       return;
     }
 
-    // 读取所有 artifact 文件内容并发送
+    // Read and send all artifact file contents
     for (const artifact of this.artifactManifest.artifacts) {
       try {
-        // 如果路径是绝对路径，直接使用；否则相对于工作目录
+        // If path is absolute use it directly; otherwise resolve relative to workdir
         const filePath = artifact.path.startsWith("/")
           ? artifact.path
           : `${this.workdir}/${artifact.path}`;
@@ -170,7 +170,7 @@ export class TaskDrivenArtifactProcessor implements ArtifactProcessor {
           continue;
         }
 
-        // 使用 writer 直接写入
+        // Write directly via writer
         this.writer.write({
           type: "data-artifact",
           id: artifactId,

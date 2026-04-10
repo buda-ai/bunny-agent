@@ -1,20 +1,19 @@
 # BaZi AI Agent Template
 
-> 🌟 AI-Powered Chinese Fortune Telling Platform  
-> 基于 AI 的中国八字命理分析平台
+> 🌟 AI-Powered Chinese Fortune Telling Platform
 
-A comprehensive Claude agent template for providing professional BaZi (八字) fortune analysis. This template combines traditional Chinese astrology wisdom with modern AI technology to deliver personalized, insightful consultations.
+A comprehensive Claude agent template for providing professional BaZi (Four Pillars) fortune analysis. This template combines traditional Chinese astrology wisdom with modern AI technology to deliver personalized, insightful consultations.
 
 ## 📋 Overview
 
-BaZi AI is a specialized Claude agent configured to act as a wise and empathetic Chinese astrology master (命理大师). It provides:
+BaZi AI is a specialized Claude agent configured to act as a wise and empathetic Chinese astrology master. It provides:
 
-- **八字排盘** (BaZi Chart Calculation) - Accurate Four Pillars calculation
-- **命理分析** (Fortune Analysis) - AI-driven deep interpretation
-- **流年运势** (Annual Fortune) - Year-by-year predictions
-- **合婚配对** (Relationship Compatibility) - BaZi matching analysis  
-- **起名建议** (Name Recommendations) - Auspicious name selection
-- **事业指导** (Career Guidance) - Career path recommendations
+- **BaZi Chart Calculation** - Accurate Four Pillars calculation
+- **Fortune Analysis** - AI-driven deep interpretation
+- **Annual Fortune** - Year-by-year predictions
+- **Relationship Compatibility** - BaZi matching analysis
+- **Name Recommendations** - Auspicious name selection
+- **Career Guidance** - Career path recommendations
 
 ## 🎯 Core Features
 
@@ -230,15 +229,15 @@ bazi-agent/
 ## 🎓 Learning Resources
 
 ### BaZi Fundamentals
-- **Four Pillars (四柱)**: Year, Month, Day, Hour stems and branches
-- **Day Master (日主)**: Core self - Heavenly Stem of Day Pillar
-- **Five Elements (五行)**: Wood, Fire, Earth, Metal, Water
-- **Yin-Yang (阴阳)**: Balance between opposing forces
-- **Luck Cycles (大运)**: 10-year periods of influence
+- **Four Pillars**: Year, Month, Day, Hour stems and branches
+- **Day Master**: Core self - Heavenly Stem of Day Pillar
+- **Five Elements**: Wood, Fire, Earth, Metal, Water
+- **Yin-Yang**: Balance between opposing forces
+- **Luck Cycles**: 10-year periods of influence
 
 ### Element Relationships
-- **Generating (相生)**: Water→Wood→Fire→Earth→Metal→Water
-- **Controlling (相克)**: Water controls Fire, Fire controls Metal, etc.
+- **Generating**: Water→Wood→Fire→Earth→Metal→Water
+- **Controlling**: Water controls Fire, Fire controls Metal, etc.
 
 ### Interpretation Keys
 - Element balance indicates life areas of strength/challenge
@@ -254,7 +253,7 @@ This template can be extended with additional skills:
 - **hidden-stems-analysis** - Deep dive into hidden stems
 - **health-recommendations** - Health insights from elements
 - **feng-shui-advisor** - Environment optimization
-- **auspicious-date-selector** - Date selection for events (择日)
+- **auspicious-date-selector** - Date selection for events
 - **annual-forecast-detailed** - Month-by-month predictions
 - **business-name-selector** - Company naming
 - **life-stage-analysis** - Age-specific guidance
@@ -270,7 +269,6 @@ Built with respect for traditional Chinese metaphysics and modern AI capabilitie
 ---
 
 **Philosophy**: 
-> "命由天定，运由己造"  
 > *Fate is given by heaven, but fortune is created by oneself.*
 
 Let ancient wisdom illuminate the path forward. 🌟✨

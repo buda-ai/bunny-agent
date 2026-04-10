@@ -14,7 +14,7 @@ import {
   buildImageGenerateTool,
   type ImageToolDetails,
   saveImageItem,
-} from "../image-tools.js";
+} from "@sandagent/runner-harness/image-tools";
 
 // Minimal stub for ExtensionContext required by tool.execute signature
 const mockCtx = {} as Parameters<

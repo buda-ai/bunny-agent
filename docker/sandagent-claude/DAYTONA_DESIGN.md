@@ -1,53 +1,53 @@
-# Daytona Snapshot 设计
+# Daytona Snapshot Design
 
-## 概述
+## Overview
 
-本文档说明 `sandagent-claude` Docker 镜像在 Daytona 平台上的设计原理，特别是如何处理 Volume 挂载和依赖管理。
+This document explains the design principles of the `sandagent-claude` Docker image on the Daytona platform, specifically how volume mounts and dependency management are handled.
 
-## 核心问题：Volume 挂载覆盖
+## Core Problem: Volume Mount Override
 
-Daytona sandbox 使用 **Volume** 来持久化 `/workspace` 目录：
+Daytona sandbox uses a **Volume** to persist the `/workspace` directory:
 
 ```
-Sandbox 创建时:
-├── /workspace/           ← Volume 挂载点（空目录）
-│   └── (用户文件持久化在这里)
-└── /opt/sandagent/       ← 镜像内容（不受 Volume 影响）
+On sandbox creation:
+├── /workspace/           ← Volume mount point (empty directory)
+│   └── (user files persisted here)
+└── /opt/sandagent/       ← Image contents (not affected by Volume)
 ```
 
-**关键点**：Volume 挂载会**完全覆盖** `/workspace` 目录，导致：
-- 镜像中预装在 `/workspace/node_modules` 的依赖会"消失"
-- 镜像中预装在 `/workspace/` 的模板文件也会"消失"
+**Key point**: Volume mounts **completely override** the `/workspace` directory, which means:
+- Dependencies pre-installed at `/workspace/node_modules` in the image will "disappear"
+- Template files pre-installed at `/workspace/` in the image will also "disappear"
 
-## 解决方案
+## Solution
 
-### 1. 依赖安装位置
+### 1. Dependency Installation Location
 
-将依赖安装到 `/opt/sandagent/node_modules`（不会被 Volume 覆盖）：
+Install dependencies to `/opt/sandagent/node_modules` (not overridden by Volume):
 
 ```dockerfile
-# 依赖安装到 /opt/sandagent（Volume-safe）
+# Install dependencies to /opt/sandagent (Volume-safe)
 RUN mkdir -p /opt/sandagent && \
     cd /opt/sandagent && \
     npm install @anthropic-ai/claude-agent-sdk @sandagent/runner-cli@latest
 
-# 设置 NODE_PATH 让 Node.js 找到依赖
+# Set NODE_PATH so Node.js can find the dependencies
 ENV NODE_PATH=/opt/sandagent/node_modules
 ```
 
-### 2. 模板文件位置
+### 2. Template File Location
 
-将模板文件复制到 `/opt/sandagent/templates`：
+Copy template files to `/opt/sandagent/templates`:
 
 ```dockerfile
-# 模板文件复制到 /opt/sandagent/templates（Volume-safe）
+# Copy template files to /opt/sandagent/templates (Volume-safe)
 COPY templates/researcher/CLAUDE.md /opt/sandagent/templates/CLAUDE.md
 COPY templates/researcher/.claude /opt/sandagent/templates/.claude
 ```
 
-### 3. sandagent 命令
+### 3. sandagent Command
 
-创建系统级命令 `/usr/local/bin/sandagent`：
+Create a system-level command at `/usr/local/bin/sandagent`:
 
 ```dockerfile
 RUN echo '#!/usr/bin/env node' > /usr/local/bin/sandagent && \
@@ -55,60 +55,60 @@ RUN echo '#!/usr/bin/env node' > /usr/local/bin/sandagent && \
     chmod +x /usr/local/bin/sandagent
 ```
 
-### 4. 运行时初始化
+### 4. Runtime Initialization
 
-代码在使用 snapshot 时，自动将模板文件从 `/opt/sandagent/templates` 复制到 `/workspace`：
+When using a snapshot, the code automatically copies template files from `/opt/sandagent/templates` to `/workspace`:
 
 ```typescript
 // packages/sandbox-daytona/src/daytona-sandbox.ts
 if (this.snapshot) {
-  // 从 /opt/sandagent/templates 复制模板到 /workspace
+  // Copy templates from /opt/sandagent/templates to /workspace
   await handle.runCommand(
     `cp -r /opt/sandagent/templates/* ${this.workdir}/`
   );
 }
 ```
 
-## 目录结构
+## Directory Structure
 
-### Snapshot 镜像内容
+### Snapshot Image Contents
 
 ```
 /
 ├── opt/
 │   └── sandagent/
-│       ├── node_modules/           # 预装依赖
+│       ├── node_modules/           # Pre-installed dependencies
 │       │   ├── @anthropic-ai/
 │       │   │   └── claude-agent-sdk/
 │       │   └── @sandagent/
 │       │       └── runner-cli/
-│       └── templates/              # 模板文件（可选）
+│       └── templates/              # Template files (optional)
 │           ├── CLAUDE.md
 │           └── .claude/
 ├── usr/
 │   └── local/
 │       └── bin/
-│           └── sandagent           # 系统命令
-└── workspace/                      # 工作目录（被 Volume 挂载）
+│           └── sandagent           # System command
+└── workspace/                      # Working directory (Volume mount)
 ```
 
-### 运行时（Volume 挂载后）
+### Runtime (after Volume mount)
 
 ```
 /
-├── opt/sandagent/                  # 来自镜像（不变）
+├── opt/sandagent/                  # From image (unchanged)
 │   ├── node_modules/
 │   └── templates/
-├── usr/local/bin/sandagent         # 来自镜像（不变）
-└── workspace/                      # 来自 Volume（持久化）
-    ├── CLAUDE.md                   # 从 /opt/sandagent/templates 复制
-    ├── .claude/                    # 从 /opt/sandagent/templates 复制
-    └── (用户创建的文件...)
+├── usr/local/bin/sandagent         # From image (unchanged)
+└── workspace/                      # From Volume (persisted)
+    ├── CLAUDE.md                   # Copied from /opt/sandagent/templates
+    ├── .claude/                    # Copied from /opt/sandagent/templates
+    └── (user-created files...)
 ```
 
-## 构建流程
+## Build Process
 
-### 基础镜像（无模板）
+### Base Image (no template)
 
 ```bash
 make build
@@ -116,22 +116,22 @@ make daytona
 # → sandagent-claude:0.1.2
 ```
 
-### 带模板的镜像
+### Image with Template
 
 ```bash
 make daytona TEMPLATE=researcher
 # → sandagent-claude-researcher:0.1.2
 ```
 
-### 构建过程
+### Build Steps
 
-1. `generate-dockerfile.sh` 生成 Dockerfile，包含模板 COPY 指令
-2. Docker 构建镜像，依赖和模板安装到 `/opt/sandagent`
-3. `daytona snapshot push` 推送镜像到 Daytona
+1. `generate-dockerfile.sh` generates a Dockerfile with template COPY instructions
+2. Docker builds the image, installing dependencies and templates to `/opt/sandagent`
+3. `daytona snapshot push` pushes the image to Daytona
 
-## 使用方式
+## Usage
 
-### 代码中使用
+### In Code
 
 ```typescript
 import { DaytonaSandbox } from "@sandagent/sandbox-daytona";
@@ -144,45 +144,45 @@ const sandbox = new DaytonaSandbox({
 });
 ```
 
-### 执行流程
+### Execution Flow
 
-1. Daytona 创建 sandbox，挂载 Volume 到 `/workspace`
-2. 代码检测到使用 snapshot
-3. 从 `/opt/sandagent/templates` 复制模板到 `/workspace`
-4. 执行 `sandagent run` 命令
+1. Daytona creates the sandbox, mounting the Volume to `/workspace`
+2. Code detects that a snapshot is being used
+3. Templates are copied from `/opt/sandagent/templates` to `/workspace`
+4. The `sandagent run` command is executed
 
-## 环境变量
+## Environment Variables
 
-| 变量 | 值 | 说明 |
-|------|-----|------|
-| `NODE_PATH` | `/opt/sandagent/node_modules` | Node.js 模块搜索路径 |
-| `PATH` | `/usr/local/bin:$PATH` | 包含 sandagent 命令 |
+| Variable | Value | Description |
+|----------|-------|-------------|
+| `NODE_PATH` | `/opt/sandagent/node_modules` | Node.js module search path |
+| `PATH` | `/usr/local/bin:$PATH` | Includes the sandagent command |
 
-## 常见问题
+## FAQ
 
-### Q: 为什么不把依赖安装到 /workspace？
+### Q: Why not install dependencies to /workspace?
 
-A: 因为 `/workspace` 是 Volume 挂载点，Volume 挂载会覆盖镜像中的内容。
+A: Because `/workspace` is the Volume mount point — the Volume mount overrides image contents at that path.
 
-### Q: 模板文件每次都会被复制吗？
+### Q: Are template files copied every time?
 
-A: 是的，每次新建 sandbox 或重启时会从 `/opt/sandagent/templates` 复制到 `/workspace`。
+A: Yes, they are copied from `/opt/sandagent/templates` to `/workspace` on each new sandbox creation or restart.
 
-### Q: 用户修改的文件会丢失吗？
+### Q: Will user-modified files be lost?
 
-A: 不会。用户在 `/workspace` 中创建/修改的文件都保存在 Volume 中，持久化保留。
+A: No. Files created or modified by the user in `/workspace` are stored in the Volume and persisted.
 
-### Q: 如何更新依赖版本？
+### Q: How do I update dependency versions?
 
-A: 修改 Dockerfile 中的版本号，重新构建镜像和 snapshot：
+A: Update the version numbers in the Dockerfile and rebuild the image and snapshot:
 ```bash
 make daytona TEMPLATE=researcher IMAGE_TAG=0.2.0 FORCE=true
 ```
 
-## 相关文件
+## Related Files
 
-- `Dockerfile` - 基础 Dockerfile
-- `Dockerfile.template` - 带占位符的模板
-- `generate-dockerfile.sh` - 生成带模板的 Dockerfile
-- `Makefile` - 构建和部署命令
-- `build-daytona-snapshot.ts` - Daytona snapshot 构建脚本
+- `Dockerfile` - Base Dockerfile
+- `Dockerfile.template` - Template with placeholders
+- `generate-dockerfile.sh` - Generates Dockerfile with template
+- `Makefile` - Build and deployment commands
+- `build-daytona-snapshot.ts` - Daytona snapshot build script

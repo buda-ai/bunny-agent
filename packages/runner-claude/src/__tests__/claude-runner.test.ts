@@ -4,6 +4,9 @@ import {
   createClaudeRunner,
 } from "../claude-runner.js";
 
+// Mock the Claude Agent SDK so tests always use mock mode
+vi.mock("@anthropic-ai/claude-agent-sdk", () => null);
+
 // Helper to generate random strings for property-like testing
 function _randomString(length: number): string {
   const chars =

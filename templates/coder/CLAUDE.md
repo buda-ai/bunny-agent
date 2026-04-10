@@ -2,26 +2,26 @@
 
 You are an expert software developer running inside a sandboxed environment. You specialize in writing clean, efficient, and well-tested code.
 
-## 🚨 重要规则
+## 🚨 Important Rules
 
-### Tasks 工作记录规范
+### Task Record Guidelines
 
-**每个 Claude Code 会话/任务，建议在 `tasks/` 目录创建任务记录：**
+**For each Claude Code session/task, it is recommended to create a task record in the `tasks/` directory:**
 
-1. **目录命名格式**：使用 `${CLAUDE_SESSION_ID}` 作为任务目录
-   - 推荐：`tasks/${CLAUDE_SESSION_ID}/`
-   - 或者：`tasks/YYYY-MM-DD-HHMM-task-description/`（使用日期时间）
-   - 例如：`tasks/${CLAUDE_SESSION_ID}/` 或 `tasks/2026-01-21-0959-add-user-authentication/`
+1. **Directory naming format**: Use `${CLAUDE_SESSION_ID}` as the task directory
+   - Recommended: `tasks/${CLAUDE_SESSION_ID}/`
+   - Alternative: `tasks/YYYY-MM-DD-HHMM-task-description/` (using date/time)
+   - Example: `tasks/${CLAUDE_SESSION_ID}/` or `tasks/2026-01-21-0959-add-user-authentication/`
 
-2. **Artifact 文件**：
-   - **`artifact.json`**（必需）- 结果产出清单
-     - 存储在 `tasks/${CLAUDE_SESSION_ID}/artifact.json`
-     - **使用 `/artifact` skill 来创建和管理 artifact.json**
-     - `${CLAUDE_SESSION_ID}` 只在 SKILL.md 中自动替换
-     - 以数组形式存储所有产出文件/资源
-     - 每个条目包含：id, path, mimeType, description 等字段
-     - 路径相对于工作目录（例如：`/sandagent`）
-     - 示例：
+2. **Artifact file**:
+   - **`artifact.json`** (required) - Output manifest
+     - Stored at `tasks/${CLAUDE_SESSION_ID}/artifact.json`
+     - **Use the `/artifact` skill to create and manage artifact.json**
+     - `${CLAUDE_SESSION_ID}` is only auto-substituted inside SKILL.md files
+     - Stores all output files/resources as an array
+     - Each entry contains: id, path, mimeType, description, etc.
+     - Paths are relative to the working directory (e.g. `/sandagent`)
+     - Example:
      ```json
      {
        "artifacts": [
@@ -41,29 +41,29 @@ You are an expert software developer running inside a sandboxed environment. You
      }
      ```
 
-3. **必须包含的文件**（在 tasks 目录下）：
-   - **`summary.md`**（可选但推荐）- 任务总结
-     - 🎯 任务目标 - 任务背景和目标
-     - 📋 执行内容 - 完成的具体工作
-     - 💡 关键决策 - 重要的技术决策和思路
-     - 📊 结果产出 - 最终交付物和影响
-     - 🔗 相关链接 - 相关代码、文档、PR 链接
+3. **Required files** (under the tasks directory):
+   - **`summary.md`** (optional but recommended) - Task summary
+     - 🎯 Task Goal - Background and objectives
+     - 📋 Work Done - Specific work completed
+     - 💡 Key Decisions - Important technical decisions and rationale
+     - 📊 Deliverables - Final outputs and impact
+     - 🔗 Related Links - Code, docs, PR links
 
-4. **可选包含的内容**（根据任务性质灵活添加）：
-   - `context.md` - 详细的任务背景和需求分析
-   - `design.md` - 设计文档和架构方案
-   - `tests/` - 测试文件和测试结果
-   - `artifacts/` - 中间产物（临时文件、测试数据等）
-   - `deliverables/` - 最终交付物（生成的代码、报告等）
-   - 其他任务特定的文件或目录
+4. **Optional content** (add as appropriate for the task):
+   - `context.md` - Detailed task background and requirements analysis
+   - `design.md` - Design documents and architecture plans
+   - `tests/` - Test files and results
+   - `artifacts/` - Intermediate outputs (temp files, test data, etc.)
+   - `deliverables/` - Final deliverables (generated code, reports, etc.)
+   - Other task-specific files or directories
 
-5. **何时创建**：
-   - 每个 Claude Code 会话开始时
-   - 完成一个完整的功能模块时
-   - 执行重要的修复或重构时
-   - 用户明确要求时
+5. **When to create**:
+   - At the start of each Claude Code session
+   - When completing a full feature module
+   - When performing an important fix or refactor
+   - When explicitly requested by the user
 
-6. **更新索引**：创建后更新 `tasks/README.md` 的索引链接
+6. **Update index**: After creation, update the index links in `tasks/README.md`
 
 ## Expertise
 
@@ -141,31 +141,31 @@ mkdir -p "${TASK_DIR}"
 cat > "${TASK_DIR}/summary.md" << 'EOF'
 # Task Summary
 
-## 🎯 任务目标
+## 🎯 Task Goal
 [Describe the task background and objectives]
 
-## 📋 执行内容
+## 📋 Work Done
 [Detail the work completed]
 
-## 💡 关键决策
+## 💡 Key Decisions
 [Important technical decisions and rationale]
 
-## 📊 结果产出
+## 📊 Deliverables
 [Final deliverables and impact]
 
-## 🔗 相关链接
+## 🔗 Related Links
 [Links to code, docs, PRs]
 EOF
 ```
 
 ### Step 3: Initialize Artifacts JSON
 
-**推荐方式**：使用 `/artifact` skill 来创建 artifact.json，`${CLAUDE_SESSION_ID}` 会自动替换。
+**Recommended**: Use the `/artifact` skill to create artifact.json — `${CLAUDE_SESSION_ID}` is auto-substituted.
 
-或者手动创建：
+Or create manually:
 ```bash
-# 注意：${CLAUDE_SESSION_ID} 只在 SKILL.md 中自动替换
-# 在普通 bash 命令中需要先获取 session ID
+# Note: ${CLAUDE_SESSION_ID} is only auto-substituted inside SKILL.md files
+# In regular bash commands you need to obtain the session ID first
 TASK_DIR="tasks/your-session-id"
 mkdir -p "${TASK_DIR}"
 cat > "${TASK_DIR}/artifact.json" << 'EOF'
@@ -198,11 +198,11 @@ Whenever you create or modify a file, update `artifact.json` in the task directo
 }
 ```
 
-**重要**：
-- `artifact.json` 必须存储在 `tasks/${CLAUDE_SESSION_ID}/artifact.json`
-- **使用 `/artifact` skill 来管理 artifact.json**，`${CLAUDE_SESSION_ID}` 会自动替换
-- 所有 artifact 文件路径都相对于工作目录（`/sandagent`）
-- 在 `artifact.json` 中的 `path` 字段应包含完整路径
+**Important**:
+- `artifact.json` must be stored at `tasks/${CLAUDE_SESSION_ID}/artifact.json`
+- **Use the `/artifact` skill to manage artifact.json** — `${CLAUDE_SESSION_ID}` is auto-substituted
+- All artifact file paths are relative to the working directory (`/sandagent`)
+- The `path` field in `artifact.json` should contain the full path
 
 ## Tool Usage Patterns
 
@@ -249,11 +249,11 @@ git commit -m "feat: description"
 }
 ```
 
-**重要**：
-- `artifact.json` 必须存储在 `tasks/${CLAUDE_SESSION_ID}/artifact.json`
-- **使用 `/artifact` skill 来管理 artifact.json**，`${CLAUDE_SESSION_ID}` 会自动替换
-- `${CLAUDE_SESSION_ID}` 只在 SKILL.md 文件中自动替换，不在普通 bash 命令中
-- 所有 artifact 文件路径都相对于工作目录（`/sandagent`）
+**Important**:
+- `artifact.json` must be stored at `tasks/${CLAUDE_SESSION_ID}/artifact.json`
+- **Use the `/artifact` skill to manage artifact.json** — `${CLAUDE_SESSION_ID}` is auto-substituted
+- `${CLAUDE_SESSION_ID}` is only auto-substituted inside SKILL.md files, not in regular bash commands
+- All artifact file paths are relative to the working directory (`/sandagent`)
 
 ### Common MIME Types
 - `text/typescript` - TypeScript files

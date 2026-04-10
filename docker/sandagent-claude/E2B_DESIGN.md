@@ -1,90 +1,90 @@
-# E2B Template 设计
+# E2B Template Design
 
-## 概述
+## Overview
 
-本文档说明 `sandagent-claude` Docker 镜像在 E2B 平台上的设计原理。
+This document explains the design principles of the `sandagent-claude` Docker image on the E2B platform.
 
-E2B **没有 Volume 概念**，但为了与 Daytona 保持一致性，使用相同的目录结构设计。
+E2B **has no Volume concept**, but uses the same directory structure design as Daytona for consistency.
 
-## 目录结构
+## Directory Structure
 
 ```
 /
 ├── opt/sandagent/
-│   ├── node_modules/           # 预装依赖
-│   └── templates/              # 模板文件
-├── usr/local/bin/sandagent     # 系统命令
-└── workspace/                  # 工作目录
+│   ├── node_modules/           # Pre-installed dependencies
+│   └── templates/              # Template files
+├── usr/local/bin/sandagent     # System command
+└── workspace/                  # Working directory
 ```
 
-### 为什么不直接安装到 /workspace？
+### Why not install directly to /workspace?
 
-虽然 E2B 没有 Volume 覆盖问题，但使用相同的设计有以下好处：
-1. **一致性**：Daytona 和 E2B 使用相同的 Dockerfile
-2. **可维护性**：一套代码处理两种平台
-3. **灵活性**：未来如果 E2B 添加持久化功能，不需要修改
+Although E2B has no Volume override issue, using the same design provides:
+1. **Consistency**: Daytona and E2B use the same Dockerfile
+2. **Maintainability**: One codebase handles both platforms
+3. **Flexibility**: No changes needed if E2B adds persistence features in the future
 
-## 构建流程
+## Build Process
 
-### 基础模板（无自定义模板）
+### Base Template (no custom template)
 
 ```bash
 make e2b
 # → sandagent-claude
 ```
 
-### 带模板的镜像
+### Image with Template
 
 ```bash
 make e2b TEMPLATE=researcher
 # → sandagent-claude-researcher
 ```
 
-## 使用方式
+## Usage
 
-### 代码中使用
+### In Code
 
 ```typescript
 import { E2BSandbox } from "@sandagent/sandbox-e2b";
 
 const sandbox = new E2BSandbox({
-  template: "sandagent-claude-researcher",  // 以 sandagent 开头的模板自动使用预装依赖
+  template: "sandagent-claude-researcher",  // templates starting with "sandagent" use pre-installed deps
   workdir: "/workspace",
 });
 ```
 
-### 执行流程
+### Execution Flow
 
-1. E2B 创建 sandbox
-2. 代码检测到 template 以 `sandagent` 开头
-3. 从 `/opt/sandagent/templates` 复制模板到 `/workspace`
-4. 执行 `sandagent run` 命令
+1. E2B creates the sandbox
+2. Code detects that the template name starts with `sandagent`
+3. Templates are copied from `/opt/sandagent/templates` to `/workspace`
+4. The `sandagent run` command is executed
 
-## 自动检测机制
+## Auto-Detection Mechanism
 
-E2B sandbox 通过 `template` 参数自动判断是否使用自定义模板：
+The E2B sandbox automatically determines whether to use a custom template via the `template` parameter:
 
-- `template` 以 `sandagent` 开头 → 使用预装依赖，从 `/opt/sandagent/templates` 复制模板
-- 其他 template（如 `base`）→ 运行时安装依赖
+- `template` starts with `sandagent` → Use pre-installed deps, copy templates from `/opt/sandagent/templates`
+- Other templates (e.g. `base`) → Install dependencies at runtime
 
-## 常见问题
+## FAQ
 
-### Q: E2B 如何判断是否使用自定义模板？
+### Q: How does E2B determine whether to use a custom template?
 
-A: 通过 `template` 参数判断，以 `sandagent` 开头的模板会自动跳过依赖安装，使用 `/opt/sandagent` 中预装的依赖。
+A: Via the `template` parameter — templates starting with `sandagent` automatically skip dependency installation and use the pre-installed deps in `/opt/sandagent`.
 
-### Q: E2B 模板更新后需要重新部署吗？
+### Q: Does the E2B template need to be redeployed after an update?
 
-A: 是的，需要重新运行 `make e2b TEMPLATE=xxx` 来更新模板。
+A: Yes, you need to re-run `make e2b TEMPLATE=xxx` to update the template.
 
-### Q: 可以使用本地 templatesPath 覆盖模板吗？
+### Q: Can a local templatesPath override the template?
 
-A: 可以。如果同时设置了 `template` 和 `templatesPath`，本地模板会上传并覆盖镜像中的模板。
+A: Yes. If both `template` and `templatesPath` are set, the local template is uploaded and overrides the one in the image.
 
-## 相关文件
+## Related Files
 
-- `Dockerfile` - 基础 Dockerfile
-- `Dockerfile.template` - 带占位符的模板
-- `generate-dockerfile.sh` - 生成带模板的 Dockerfile
-- `Makefile` - 构建和部署命令
-- `build-e2b-template.ts` - E2B template 构建脚本
+- `Dockerfile` - Base Dockerfile
+- `Dockerfile.template` - Template with placeholders
+- `generate-dockerfile.sh` - Generates Dockerfile with template
+- `Makefile` - Build and deployment commands
+- `build-e2b-template.ts` - E2B template build script
