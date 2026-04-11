@@ -1,0 +1,22 @@
+{
+  "name": "bunny-bench",
+  "version": "0.1.0",
+  "description": "Bunny Agent benchmark CLI",
+  "type": "module",
+  "bin": {
+    "bunny-bench": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "chalk": "^5.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "tsup": "^8.4.0",
+    "tsx": "^4.19.3",
+    "typescript": "^5.9.0"
+  }
+}

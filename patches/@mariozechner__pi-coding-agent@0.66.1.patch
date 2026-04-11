@@ -107,8 +107,8 @@ index ec785c490f9be669552f7ccf424c30cc5321b2c9..514f221428f12681f61db46e0ff4d402
 +  "description": "Coding agent CLI with read, bash, edit, write tools and session management",
 +  "type": "module",
 +  "piConfig": {
-+    "name": "sandagent",
-+    "configDir": ".sandagent"
++    "name": "bunny",
++    "configDir": ".bunny"
 +  },
 +  "bin": {
 +    "pi": "dist/cli.js"
