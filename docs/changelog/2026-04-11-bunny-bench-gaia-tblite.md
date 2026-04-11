@@ -61,9 +61,39 @@ python scripts/download-datasets.py
 # Run GAIA Level 1
 bunny-bench --dataset gaia-l1 --runner "bunny --print"
 
+# Run a random sample of 5 tasks
+bunny-bench --dataset gaia-l1 --limit 5
+
+# Run only previously failed tasks (wrong-answer book)
+bunny-bench --dataset gaia-l1 --only-failed
+
 # Run a single GAIA task
 bunny-bench --dataset gaia-l1 --id gaia-l1-e1fc63a2
 
 # Run TBLite easy tasks (requires Docker)
 bunny-bench --dataset tblite-easy --runner "bunny --print"
 ```
+
+## Benchmark Results
+
+First full GAIA L1 run with `openai-compatible/gemini-3.1-pro` (2026-04-11):
+
+| Metric | Score |
+|--------|-------|
+| **Overall** | **31/42 (74%)** |
+| tool:web | 20/26 (77%) |
+| reasoning | 11/16 (69%) |
+| Duration | ~34 min |
+
+Failures: 8 timeouts (web-search tasks hitting 120s limit) + 3 wrong answers.  
+Ledger saved to `benchmark-results/bunny/gaia-l1-ledger.json`.
+
+## Wrong-Answer Ledger (`--only-failed`)
+
+Each run updates `benchmark-results/bunny/{dataset}-ledger.json` tracking per-task
+`passCount`, `failCount`, `lastPassed`, `lastRunAt`.
+
+Use `--only-failed` on subsequent runs to drill only on unsolved tasks — tasks with
+`passCount === 0`. Once all tasks are solved, the command exits immediately with a
+success message.
+
