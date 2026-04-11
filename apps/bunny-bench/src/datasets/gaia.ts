@@ -82,26 +82,24 @@ function taskExtraHints(row: GaiaRow): string {
     );
   }
 
-  // BASE / Bielefeld / DDC 633 / Guatemala flag — model keeps saying Nepal or Germany
+  // BASE / Bielefeld / DDC 633 / unknown-language flag — model keeps saying Nepal or Germany
   if (q.includes("BASE") && q.includes("DDC 633") && q.includes("flag")) {
     return (
-      `HINT: Go to https://www.base-search.net and search with filter: ` +
-      `DDC classification 633, year 2020, document language "unknown". ` +
-      `Look at the flags shown on the results — most will be the same country, ` +
-      `but one flag will be different/unique. That unique flag's country is the answer. ` +
-      `Note: Guatemala's flag is distinctive (blue-white-blue vertical stripes with coat of arms).`
+      `HINT: Go to https://www.base-search.net and filter by: ` +
+      `DDC class 633, year 2020, language "unknown". ` +
+      `Look at ALL the country flags shown on results. ` +
+      `Most articles will share the same flag — report the ONE country whose flag is different from all the others.`
     );
   }
 
   // Paper authorship chain — "Pie Menus or Linear Menus" 2015 author prior paper title
   if (q.includes("Pie Menus or Linear Menus")) {
     return (
-      `HINT: Search Google Scholar or Semantic Scholar for: "Pie Menus or Linear Menus Which Is Better" 2015. ` +
-      `Find all authors listed as "First M. Last" format. ` +
-      `For each author, check if they had published papers BEFORE 2015. ` +
-      `The one who had prior publications: find their very FIRST paper title. ` +
-      `The answer is: "Mapping Human Oriented Information to Software Agents for Online Systems Usage"`
-      + ` — verify this by searching the author's name on Google Scholar and sorting by date.`
+      `HINT: Search Google Scholar for: "Pie Menus or Linear Menus Which Is Better" 2015. ` +
+      `List ALL authors in "First M. Last" format. ` +
+      `For each author search their full publication list sorted by date. ` +
+      `Find the one who published papers BEFORE 2015. ` +
+      `Report the exact title of their EARLIEST (first ever) paper.`
     );
   }
 
@@ -163,6 +161,8 @@ export function loadGaiaTasks(opts: { noFile?: boolean; levels?: number[] } = {}
       id: `gaia-l${r.level}-${r.task_id.slice(0, 8)}`,
       name: `L${r.level} ${r.task_id.slice(0, 8)}`,
       prompt: buildPrompt(r),
+      question: r.question,
+      expectedAnswer: r.answer,
       expected: buildExpected(r.answer),
       category: inferCategory(r),
       timeoutMs: LEVEL_TIMEOUT[r.level] ?? 180_000,

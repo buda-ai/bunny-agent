@@ -186,9 +186,29 @@ const totalInLedger = Object.keys(ledger).length;
 const solvedInLedger = Object.values(ledger).filter((e) => e.passCount > 0).length;
 console.log(chalk.dim(`  Ledger: ${solvedInLedger}/${totalInLedger} tasks ever solved → ${join(outDir, `${datasetName}-ledger.json`)}`));
 
-// Save run results
+// Save run results — serialize RegExp expected as string, add failed details
+const serializableResults = results.map((r) => ({
+  ...r,
+  task: {
+    ...r.task,
+    expected: r.task.expected instanceof RegExp ? r.task.expected.toString() : r.task.expected,
+  },
+}));
+
+// Compact failed details for easy review
+const failedDetails = results
+  .filter((r) => !r.passed)
+  .map((r) => ({
+    id: r.task.id,
+    question: r.task.question ?? r.task.prompt.slice(0, 200),
+    expectedAnswer: r.task.expectedAnswer ?? String(r.task.expected),
+    got: r.output.slice(0, 300),
+    error: r.error,
+    durationMs: r.durationMs,
+  }));
+
 const outFile = join(outDir, `${datasetName}-${Date.now()}.json`);
-writeFileSync(outFile, JSON.stringify(summary, null, 2));
+writeFileSync(outFile, JSON.stringify({ ...summary, results: serializableResults, failedDetails }, null, 2));
 console.log(chalk.dim(`  Results saved: ${outFile}\n`));
 
 process.exit(passed === total ? 0 : 1);
