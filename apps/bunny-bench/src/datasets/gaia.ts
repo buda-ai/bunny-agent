@@ -36,19 +36,32 @@ function loadGaiaData(): GaiaRow[] {
 function buildPrompt(row: GaiaRow): string {
   return (
     `${row.question}\n\n` +
-    `Answer with ONLY the final answer — no explanation, no units unless they are part of the answer, ` +
-    `no punctuation outside the answer itself. ` +
-    `If the answer is a number, give the number only (e.g. "17" not "17 thousand hours").`
+    `Answer with ONLY the final answer — no explanation, no preamble, no units unless ` +
+    `they are part of the answer. Use the exact same format as you would see in a textbook. ` +
+    `If the answer is a number, give only the number (e.g. "17" not "17 thousand"). ` +
+    `If the answer is a name or title, give the exact name/title. ` +
+    `Do not add trailing punctuation unless it is part of the answer itself.`
   );
 }
 
 /**
  * GAIA scoring: case-insensitive exact match after normalising whitespace.
  * Allows the agent output to *contain* the answer (handles preamble/trailing text).
+ *
+ * Two fixes vs naive \b approach:
+ *  1. Use (?<!\w)/(?!\w) instead of \b — handles answers starting/ending with
+ *     non-word characters like "(¬A → B) ↔ (A ∨ ¬B)".
+ *  2. Escape the answer but make a trailing period optional — agents often omit
+ *     sentence-ending punctuation even when instructed not to.
  */
 function buildExpected(answer: string): RegExp {
-  const escaped = answer.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(`\\b${escaped}\\b`, "i");
+  let norm = answer.trim();
+  // Make trailing sentence punctuation optional so "foo" matches "foo."
+  const trailingPunct = norm.match(/[.!?]$/);
+  if (trailingPunct) norm = norm.slice(0, -1);
+  const escaped = norm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const suffix = trailingPunct ? `[${trailingPunct[0]}]?` : "";
+  return new RegExp(`(?<!\\w)${escaped}${suffix}(?!\\w)`, "i");
 }
 
 /** Infer category from GAIA tools metadata. */
@@ -60,11 +73,11 @@ function inferCategory(row: GaiaRow): Task["category"] {
   return "reasoning";
 }
 
-/** Timeout scales with GAIA level difficulty. */
+/** Timeout scales with GAIA level difficulty. Inspired by hermes-agent TBLite (1200s/task). */
 const LEVEL_TIMEOUT: Record<number, number> = {
-  1: 120_000,
-  2: 180_000,
-  3: 300_000,
+  1: 240_000,
+  2: 300_000,
+  3: 420_000,
 };
 
 /**
