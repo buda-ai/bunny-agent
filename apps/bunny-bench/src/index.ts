@@ -6,7 +6,11 @@
  *   bunny-bench [--dataset smoking] [--model <model>] [--runner <cmd>] [--cwd <path>] [--id <task-id>]
  */
 import chalk from "chalk";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { DATASETS } from "./datasets.js";
+import { failedTaskIds, loadLedger, updateLedger } from "./ledger.js";
 import { runTask } from "./runner.js";
 import type { RunSummary, TaskResult } from "./types.js";
 
@@ -43,7 +47,13 @@ Options:
   --cwd     <path>   Working directory for tasks (default: /tmp/bunny-bench)
   --id      <id>     Run a single task by ID
   --limit   <n>      Run only N random tasks from the dataset
+  --only-failed      Only run tasks never answered correctly (uses ledger history)
   --help             Show this help
+
+Ledger (wrong-answer book):
+  Each run updates benchmark-results/bunny/{dataset}-ledger.json with per-task
+  pass/fail history. Use --only-failed on subsequent runs to drill only on tasks
+  you have never solved.
 
 Data download (run once):
   python scripts/download-datasets.py            # download all datasets
@@ -62,6 +72,7 @@ const runner = flag("--runner",
 const taskId = flag("--id") || undefined;
 const limitStr = flag("--limit") || undefined;
 const limit = limitStr ? parseInt(limitStr, 10) : undefined;
+const onlyFailed = has("--only-failed");
 
 const dataset = DATASETS[datasetName];
 if (!dataset) {
@@ -69,24 +80,37 @@ if (!dataset) {
   process.exit(1);
 }
 
+// Working dir — use /tmp so file tasks don't pollute the project
+const cwd = flag("--cwd") || join(tmpdir(), "bunny-bench");
+mkdirSync(cwd, { recursive: true });
+
+const outDir = join(process.cwd(), "benchmark-results", "bunny");
+mkdirSync(outDir, { recursive: true });
+
+// Apply filters: --id > --only-failed > --limit
 let tasks = taskId ? dataset.filter((t) => t.id === taskId) : dataset;
+
+if (onlyFailed && !taskId) {
+  const ledger = loadLedger(outDir, datasetName);
+  const failedIds = failedTaskIds(ledger);
+  if (failedIds === null) {
+    console.log(chalk.dim("  No ledger found — running full dataset to build history.\n"));
+  } else {
+    const before = tasks.length;
+    tasks = tasks.filter((t) => failedIds.has(t.id));
+    console.log(chalk.dim(`  --only-failed: ${tasks.length} unsolved / ${before} total tasks\n`));
+  }
+}
+
 if (limit && limit > 0 && !taskId) {
-  // Shuffle and take first N for a representative sample
   const shuffled = [...tasks].sort(() => Math.random() - 0.5);
   tasks = shuffled.slice(0, limit);
 }
+
 if (tasks.length === 0) {
-  console.error(`No tasks found${taskId ? ` for id: ${taskId}` : ""}`);
-  process.exit(1);
+  console.log(chalk.green("  ✓ All tasks in this dataset have been solved! Nothing to run.\n"));
+  process.exit(0);
 }
-
-// Working dir — use /tmp so file tasks don't pollute the project
-import { mkdirSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-
-const cwd = flag("--cwd") || join(tmpdir(), "bunny-bench");
-mkdirSync(cwd, { recursive: true });
 
 // ---------------------------------------------------------------------------
 // Run
@@ -94,6 +118,7 @@ mkdirSync(cwd, { recursive: true });
 
 console.log(chalk.bold.cyan("\n🐰 bunny-bench"));
 console.log(chalk.dim(`dataset: ${datasetName}  runner: ${runner}${model ? `  model: ${model}` : ""}  cwd: ${cwd}`));
+if (onlyFailed) console.log(chalk.dim("  mode: only-failed (skipping previously solved tasks)"));
 console.log(chalk.dim("─".repeat(60)));
 
 const start = Date.now();
@@ -155,10 +180,13 @@ for (const [cat, s] of byCategory) {
 }
 console.log();
 
-// Save results
-import { writeFileSync } from "node:fs";
-const outDir = join(process.cwd(), "benchmark-results", "bunny");
-mkdirSync(outDir, { recursive: true });
+// Update ledger (wrong-answer book)
+const ledger = updateLedger(outDir, datasetName, results);
+const totalInLedger = Object.keys(ledger).length;
+const solvedInLedger = Object.values(ledger).filter((e) => e.passCount > 0).length;
+console.log(chalk.dim(`  Ledger: ${solvedInLedger}/${totalInLedger} tasks ever solved → ${join(outDir, `${datasetName}-ledger.json`)}`));
+
+// Save run results
 const outFile = join(outDir, `${datasetName}-${Date.now()}.json`);
 writeFileSync(outFile, JSON.stringify(summary, null, 2));
 console.log(chalk.dim(`  Results saved: ${outFile}\n`));
