@@ -19,7 +19,7 @@ interface TBLiteRow {
 function loadTBLiteData(): TBLiteRow[] {
   const candidates = [
     join(process.cwd(), "data", "tblite.json"),
-    join(new URL("../../data/tblite.json", import.meta.url).pathname),
+    join(new URL("../data/tblite.json", import.meta.url).pathname),
   ];
   for (const p of candidates) {
     if (existsSync(p)) return JSON.parse(readFileSync(p, "utf8")) as TBLiteRow[];

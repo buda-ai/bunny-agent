@@ -18,7 +18,7 @@ function loadGaiaData(): GaiaRow[] {
   // relative to this compiled file's location (two levels up from dist/).
   const candidates = [
     join(process.cwd(), "data", "gaia.json"),
-    join(new URL("../../data/gaia.json", import.meta.url).pathname),
+    join(new URL("../data/gaia.json", import.meta.url).pathname),
   ];
   for (const p of candidates) {
     if (existsSync(p)) return JSON.parse(readFileSync(p, "utf8")) as GaiaRow[];

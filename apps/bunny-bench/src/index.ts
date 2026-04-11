@@ -42,6 +42,7 @@ Options:
   --runner  <cmd>    Agent command (default: bunny --model openai-compatible/gemini-3.1-pro)
   --cwd     <path>   Working directory for tasks (default: /tmp/bunny-bench)
   --id      <id>     Run a single task by ID
+  --limit   <n>      Run only N random tasks from the dataset
   --help             Show this help
 
 Data download (run once):
@@ -59,6 +60,8 @@ const runner = flag("--runner",
   `node ${new URL("../../bunny-agent-tui/dist/index.js", import.meta.url).pathname} --model openai-compatible/gemini-3.1-pro --print`
 );
 const taskId = flag("--id") || undefined;
+const limitStr = flag("--limit") || undefined;
+const limit = limitStr ? parseInt(limitStr, 10) : undefined;
 
 const dataset = DATASETS[datasetName];
 if (!dataset) {
@@ -66,7 +69,12 @@ if (!dataset) {
   process.exit(1);
 }
 
-const tasks = taskId ? dataset.filter((t) => t.id === taskId) : dataset;
+let tasks = taskId ? dataset.filter((t) => t.id === taskId) : dataset;
+if (limit && limit > 0 && !taskId) {
+  // Shuffle and take first N for a representative sample
+  const shuffled = [...tasks].sort(() => Math.random() - 0.5);
+  tasks = shuffled.slice(0, limit);
+}
 if (tasks.length === 0) {
   console.error(`No tasks found${taskId ? ` for id: ${taskId}` : ""}`);
   process.exit(1);
