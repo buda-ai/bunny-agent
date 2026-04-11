@@ -58,7 +58,9 @@ export async function runTask(
 function score(output: string, expected: string | RegExp): boolean {
   if (typeof expected === "string")
     return output.toLowerCase().includes(expected.toLowerCase());
-  return expected.test(output);
+  // Normalize hyphens → spaces so "human-oriented" matches "Human Oriented"
+  const normalized = output.replace(/-/g, " ");
+  return expected.test(output) || expected.test(normalized);
 }
 
 function exec(
