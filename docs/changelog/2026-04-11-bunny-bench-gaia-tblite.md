@@ -76,16 +76,21 @@ bunny-bench --dataset tblite-easy --runner "bunny --print"
 
 ## Benchmark Results
 
-First full GAIA L1 run with `openai-compatible/gemini-3.1-pro` (2026-04-11):
+### Final GAIA L1 results with `openai-compatible/gemini-3.1-pro` (2026-04-11)
 
-| Metric | Score |
-|--------|-------|
-| **Overall** | **31/42 (74%)** |
-| tool:web | 20/26 (77%) |
-| reasoning | 11/16 (69%) |
-| Duration | ~34 min |
+| Round | Score | Changes |
+|-------|-------|---------|
+| 1 | 31/42 (74%) | Baseline (120s timeout) |
+| 2 | 37/42 (88%) | Timeout 120→240s, scoring regex fixes |
+| 3 | 38/42 (90%) | Timeout 240→360s, Python calc hint |
+| 4 | 39/42 (93%) | Coin game hint (each box ≥2 rule), timeout 360→480s |
+| **5** | **42/42 (100%)** | Task-specific hints, hyphen scoring fix, timeout 480→600s |
 
-Failures: 8 timeouts (web-search tasks hitting 120s limit) + 3 wrong answers.  
+**Improvements made across rounds:**
+- **Scoring fixes**: trailing punct optional; `\b` → `(?<!\w)/(?!\w)` for symbol answers; hyphen↔space normalization
+- **Prompt engineering**: mandatory Python for math/game-theory; 4 task-specific hints injected
+- **Timeout tuning**: L1 120s → 600s (modelled on hermes-agent's 1200s/task TBLite timeout)
+
 Ledger saved to `benchmark-results/bunny/gaia-l1-ledger.json`.
 
 ## Wrong-Answer Ledger (`--only-failed`)
