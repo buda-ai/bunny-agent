@@ -1,22 +1,33 @@
 /**
  * Bunny Agent extension for pi TUI.
  *
- * 1. Registers web_search, web_fetch, generate_image tools from runner-harness.
- * 2. Registers custom OpenAI-compatible provider if OPENAI_BASE_URL is set,
- *    so `--model openai:<any-model>` works with proxy endpoints.
+ * 1. Injects Bunny Agent identity + research methodology into the system prompt
+ *    (sourced from @sandagent/runner-harness so all runners share the same context).
+ * 2. Registers web_search, web_fetch, generate_image tools.
+ *    Note: bash, read, write, edit, find, grep, ls are built into pi-coding-agent.
+ * 3. Registers custom OpenAI-compatible provider if OPENAI_BASE_URL is set,
+ *    so `--model openai-compatible:<model-id>` works with proxy endpoints.
  */
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import {
+  BUNNY_AGENT_SYSTEM_PROMPT,
   buildImageGenerateTool,
   buildWebFetchTool,
   buildWebSearchTool,
-} from "@sandagent/runner-harness/tools";
+} from "@sandagent/runner-harness";
 
 export default function bunnyExtension(pi: ExtensionAPI) {
   const env = process.env as Record<string, string>;
 
+  // System prompt: sourced from runner-harness so all runners share the same identity
+  pi.on("before_agent_start", async (event) => {
+    return {
+      systemPrompt: BUNNY_AGENT_SYSTEM_PROMPT + "\n\n" + event.systemPrompt,
+    };
+  });
+
   // ---------------------------------------------------------------------------
-  // Tools
+  // Tools — bash/read/write/edit/find/grep/ls are built into pi-coding-agent
   // ---------------------------------------------------------------------------
 
   pi.registerTool(buildWebFetchTool());

@@ -13,7 +13,7 @@ export default defineConfig([
     format: ["esm"],
     outDir: "dist",
     splitting: false,
-    external: ["@mariozechner/pi-coding-agent"],
-    noExternal: ["@sandagent/runner-harness"],
+    // runner-harness resolves at runtime via pnpm workspace — no bundling needed
+    external: ["@mariozechner/pi-coding-agent", "@sandagent/runner-harness"],
   },
 ]);

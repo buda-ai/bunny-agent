@@ -58,8 +58,8 @@ export async function runTask(
 function score(output: string, expected: string | RegExp): boolean {
   if (typeof expected === "string")
     return output.toLowerCase().includes(expected.toLowerCase());
-  // Normalize hyphens → spaces so "human-oriented" matches "Human Oriented"
-  const normalized = output.replace(/-/g, " ");
+  // Normalize hyphens → spaces, and strip thousands-separator commas in numbers
+  const normalized = output.replace(/-/g, " ").replace(/(\d),(\d{3})/g, "$1$2");
   return expected.test(output) || expected.test(normalized);
 }
 

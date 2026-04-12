@@ -1,7 +1,7 @@
 <div align="center">
-  <img src="docs/logo.svg" alt="SandAgent Logo" width="200" height="200">
+  <img src="docs/bunny-logo.png" alt="Bunny Agent Logo" width="280">
   
-  # SandAgent
+  <h1>Bunny Agent</h1>
   
   ### 🏖️ Turn powerful coding agents into universal Super Agents
   

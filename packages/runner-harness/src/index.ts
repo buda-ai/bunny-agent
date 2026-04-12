@@ -7,6 +7,7 @@ export type { RunnerChunk } from "./stream.js";
 
 export { readSessionId, writeSessionId, clearSessionId } from "./session.js";
 export { loadSystemPrompt } from "./prompt.js";
+export { BUNNY_AGENT_SYSTEM_PROMPT } from "./agent-context.js";
 export { discoverSkillPaths } from "./skills.js";
 
 export * from "./tools/index.js";
