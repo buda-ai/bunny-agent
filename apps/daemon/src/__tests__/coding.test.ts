@@ -8,7 +8,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 // Track createRunner calls for assertion
 const createRunnerCalls: Array<Record<string, unknown>> = [];
 
-vi.mock("@sandagent/runner-harness", () => ({
+vi.mock("@sandagent/runner-core", () => ({
   createRunner: vi.fn((opts: { userInput: string; yolo?: boolean }) => {
     createRunnerCalls.push(opts);
     if (opts.userInput === "__THROW__") {

@@ -88,7 +88,7 @@ export function AskUserQuestionUI({
     );
   }
 
-  // Interactive state - show selection UI (radio single-select / checkbox multi-select)
+  // Interactive state - show selection UI (radio 单选 / checkbox 多选)
   return (
     <div className="my-2 space-y-4 overflow-visible">
       {questions.map((q, idx) => (
@@ -105,7 +105,7 @@ export function AskUserQuestionUI({
           )}
           <div className="mb-3 text-sm text-muted-foreground">{q.question}</div>
           {q.multiSelect && (
-            <div className="mb-2 text-xs text-muted-foreground">Multiple selections allowed</div>
+            <div className="mb-2 text-xs text-muted-foreground">可多选</div>
           )}
           <div className="flex flex-col gap-2 overflow-visible min-h-[2rem]">
             {q.options?.map((opt, optIdx) => {

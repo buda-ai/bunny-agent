@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { resolveSearchProvider, resolveSearchProviders } from "@sandagent/runner-harness/tools";
+import { resolveSearchProvider, resolveSearchProviders } from "../web-tools.js";
 
 describe("resolveSearchProviders", () => {
   const originalEnv = { ...process.env };

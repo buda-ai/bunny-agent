@@ -14,7 +14,12 @@ import {
   buildImageGenerateTool,
   type ImageToolDetails,
   saveImageItem,
-} from "@sandagent/runner-harness/tools";
+} from "../image-tools.js";
+
+// Minimal stub for ExtensionContext required by tool.execute signature
+const mockCtx = {} as Parameters<
+  ReturnType<typeof buildImageGenerateTool>["execute"]
+>[4];
 
 // ── saveImageItem ────────────────────────────────────────────────────
 
@@ -100,6 +105,7 @@ describe("buildImageGenerateTool", () => {
       { prompt: "a cute cat" },
       new AbortController().signal,
       vi.fn(),
+      mockCtx,
     );
 
     expect(result.details).toBeDefined();
@@ -130,6 +136,7 @@ describe("buildImageGenerateTool", () => {
       { prompt: "a cute cat", filename: "cat.png" },
       new AbortController().signal,
       vi.fn(),
+      mockCtx,
     );
 
     expect((result.details as ImageToolDetails).filePath).toContain("cat.png");
@@ -154,6 +161,7 @@ describe("buildImageGenerateTool", () => {
       { prompt: "a cute cat" },
       new AbortController().signal,
       vi.fn(),
+      mockCtx,
     );
 
     expect(
@@ -180,6 +188,7 @@ describe("buildImageGenerateTool", () => {
       { prompt: "a cute cat", filename: "mycat" },
       new AbortController().signal,
       vi.fn(),
+      mockCtx,
     );
 
     expect((result.details as ImageToolDetails).filePath).toMatch(

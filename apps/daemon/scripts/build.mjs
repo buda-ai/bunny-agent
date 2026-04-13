@@ -19,13 +19,6 @@ const shared = {
   platform: "node",
   format: "esm",
   banner,
-  external: [
-    "@anthropic-ai/sdk",
-    "@anthropic-ai/claude-agent-sdk",
-    "openai",
-    "@openai/codex",
-    "@mistralai/mistralai",
-  ],
 };
 
 // Library exports

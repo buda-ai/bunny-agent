@@ -26,32 +26,32 @@ This template configures Claude as a professional astrology expert specialized i
 
 ### Three Chart Types
 
-1. **Natal Chart** - "Who am I?"
+1. **本命盘 (Natal Chart)** - "Who am I?"
    - Personality traits and characteristics
    - Natural talents and potentials
    - Life foundation and purpose
-   - Keywords: personality, traits, talent, nature, potential, strengths
+   - Keywords: 性格, 天赋, 本质, personality, traits, talent
 
-2. **Transit Chart** - "What's happening now?"
+2. **时运盘 (Transit Chart)** - "What's happening now?"
    - Current trends and timing
    - Fortune predictions
    - Optimal timing for actions
-   - Keywords: recently, this month, fortune, trend, forecast, when
+   - Keywords: 最近, 这个月, 运势, recently, this month, forecast
 
-3. **Firdaria Chart** - "Where am I in life?"
+3. **法达盘 (Firdaria Chart)** - "Where am I in life?"
    - Life stage analysis
    - Current life chapter themes
    - Journey milestones
-   - Keywords: life stage, major cycle, life chapter, current phase
+   - Keywords: 人生阶段, 大运, life stage, life chapter
 
 ### 5-Dimensional Scoring
 
 Each reading includes star ratings (1-5) for:
-- 💕 **Love** - Romance and relationships
-- 💼 **Career** - Professional growth
-- 💰 **Wealth** - Financial prospects
-- 🏃 **Health** - Physical and mental wellness
-- ✨ **Overall** - General fortune
+- 💕 **Love** (爱情) - Romance and relationships
+- 💼 **Career** (事业) - Professional growth
+- 💰 **Wealth** (财运) - Financial prospects
+- 🏃 **Health** (健康) - Physical and mental wellness
+- ✨ **Overall** (综合) - General fortune
 
 ### 8 Specialized Skills
 
@@ -77,32 +77,32 @@ Each reading includes star ratings (1-5) for:
 
 ## Usage Examples
 
-### Natal Chart Analysis
+### Natal Chart Analysis (本命盘)
 ```
-What are my personality traits?
+我的性格特点是什么？
 What are my natural talents and strengths?
-What kind of career suits me?
+我适合什么样的职业？
 ```
 
-### Transit Chart Analysis
+### Transit Chart Analysis (时运盘)
 ```
-What is my fortune like this month?
+我这个月的运势如何？
 What should I focus on recently?
-How is my career fortune this year?
+今年的事业运怎么样？
 When is the best time to make a career move?
 ```
 
-### Firdaria Chart Analysis
+### Firdaria Chart Analysis (法达盘)
 ```
-What life stage am I currently in?
+我现在处于人生的什么阶段？
 What life chapter am I currently in?
-What is my current life theme?
+当前的人生主题是什么？
 ```
 
 ### Compatibility Analysis
 ```
 Analyze compatibility between Leo and Sagittarius
-Are Leo and Sagittarius compatible?
+狮子座和射手座合适吗？
 ```
 
 ### Other Features
@@ -242,11 +242,11 @@ Each reading includes:
 
 The agent uses keyword matching to determine chart type:
 
-**Natal Chart Keywords**: personality, traits, talent, nature, who am i, strengths, weaknesses, potential
+**Natal Chart Keywords**: 性格, 天赋, 本质, 特点, personality, traits, talent, who am i
 
-**Transit Chart Keywords**: recently, this month, this year, fortune, forecast, trend, when, upcoming
+**Transit Chart Keywords**: 最近, 这个月, 今年, 运势, recently, this month, forecast, when
 
-**Firdaria Chart Keywords**: life stage, major cycle, current phase, life chapter, life journey, current theme
+**Firdaria Chart Keywords**: 人生阶段, 大运, 当前阶段, life stage, life chapter, current phase
 
 ### Settings
 - **Temperature**: 0.7 (balanced creativity and consistency)

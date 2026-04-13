@@ -1,6 +1,6 @@
 {
   "name": "@sandagent/sdk",
-  "version": "0.9.26",
+  "version": "0.9.27",
   "description": "SandAgent SDK - AI Provider and React hooks for building AI agents",
   "type": "module",
   "sideEffects": false,
@@ -70,17 +70,16 @@
     }
   },
   "dependencies": {
-    "@ai-sdk/provider": "^3.0.8",
-    "@ai-sdk/react": "^3.0.105",
     "@sandagent/manager": "workspace:*",
-    "@sandagent/runner-harness": "workspace:*"
+    "@ai-sdk/provider": "^3.0.8",
+    "@ai-sdk/react": "^3.0.105"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
+    "vitest": "^1.6.1",
     "tsup": "^8.5.0",
-    "typescript": "^5.9.3",
-    "vitest": "^1.6.1"
+    "typescript": "^5.9.3"
   }
 }

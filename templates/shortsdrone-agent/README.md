@@ -1,167 +1,173 @@
-# ShortsDrone Agent
+# ShortsDrone Agent 🎬
 
-Multi-platform short video generation agent — converts long videos and scripts into talking-head short videos.
+多平台短视频生成 Agent - 将长视频、文案转换为口播短视频。
 
-## Features
+## ✨ 功能特点
 
-### Multi-source Support
-- 🌐 **Online video**: YouTube, Bilibili, Douyin, TikTok, Instagram, Twitter/X, Xiaohongshu, Kuaishou
-- 📝 **Script input**: Enter text directly to auto-generate talking-head video
-- 📁 **Local files**: Import local video/audio files for processing
-- 📦 **Batch processing**: Supports batch URLs or file processing
+### 多数据源支持
+- 🌐 **网络视频**: YouTube, B站, 抖音, TikTok, Instagram, Twitter/X, 小红书, 快手
+- 📝 **文案输入**: 直接输入文字，自动生成口播视频
+- 📁 **本地文件**: 导入本地视频/音频文件处理
+- 📦 **批量处理**: 支持批量 URL 或文件处理
 
-### Core Capabilities
-- Speech transcription (Whisper)
-- Highlight detection
-- Vertical format conversion (9:16)
-- Subtitle generation and burn-in
-- TTS voice synthesis
-- Auto thumbnail generation
-- Video clip merging
+### 核心能力
+- 语音转录 (Whisper)
+- 精彩片段识别
+- 竖屏格式转换 (9:16)
+- 字幕生成与烧录
+- TTS 语音合成
+- 封面自动生成
+- 视频片段合并
 
-## Quick Start
+## 🚀 快速开始
 
-### 1. Create Short Video from Online Video
-
-```
-Download this video and create a short video: https://www.youtube.com/watch?v=xxxxx
-```
+### 1. 从网络视频创建短视频
 
 ```
-Extract highlights from this Bilibili video: https://www.bilibili.com/video/BVxxxxx
+下载这个视频并创建短视频: https://www.youtube.com/watch?v=xxxxx
 ```
 
-### 2. Create Talking-Head Video from Script
-
 ```
-Generate a talking-head short video from this script:
-
-Hello everyone, today I'm sharing three habits that changed my life...
+从这个B站视频提取精彩片段: https://www.bilibili.com/video/BVxxxxx
 ```
 
-### 3. Create from Local File
+### 2. 从文案创建口播视频
 
 ```
-Process this local video: ./input/my-video.mp4
+用这段文案生成口播短视频:
+
+大家好，今天分享三个改变我人生的习惯...
 ```
 
-## Directory Structure
+### 3. 从本地文件创建
+
+```
+处理这个本地视频: ./input/my-video.mp4
+```
+
+## 📁 目录结构
 
 ```
 ./
-├── input/          # User input files
-│   ├── videos/     # Local videos
-│   ├── audios/     # Local audio
-│   └── scripts/    # Script files
-├── output/         # Output directory
-│   ├── downloads/  # Downloaded videos
-│   ├── shorts/     # Generated short videos
-│   ├── transcripts/# Transcriptions
-│   ├── thumbnails/ # Thumbnails
-│   └── merged/     # Merged videos
-├── temp/           # Temporary files
-├── config/         # Configuration files
-│   ├── cookies.txt # Platform auth
-│   └── .env        # Environment variables
-└── assets/         # Media assets
-    ├── bgm/        # Background music
-    ├── intro.mp4   # Intro clip
-    └── outro.mp4   # Outro clip
+├── input/          # 用户输入文件
+│   ├── videos/     # 本地视频
+│   ├── audios/     # 本地音频
+│   └── scripts/    # 文案脚本
+├── output/         # 输出目录
+│   ├── downloads/  # 下载的视频
+│   ├── shorts/     # 生成的短视频
+│   ├── transcripts/# 转录文本
+│   ├── thumbnails/ # 封面图
+│   └── merged/     # 合并的视频
+├── temp/           # 临时文件
+├── config/         # 配置文件
+│   ├── cookies.txt # 平台认证
+│   └── .env        # 环境变量
+└── assets/         # 素材资源
+    ├── bgm/        # 背景音乐
+    ├── intro.mp4   # 片头
+    └── outro.mp4   # 片尾
 ```
 
-## Configuration
+## 🔧 配置
 
-### Platform Authentication (optional)
+### 平台认证 (可选)
 
-Some platforms require authentication for downloads:
+某些平台需要认证才能下载:
 
 ```bash
-# YouTube (strongly recommended)
-# Export cookies to ./config/cookies.txt
+# YouTube (强烈推荐)
+# 将 cookies 导出到 ./config/cookies.txt
 
-# Or use Cobalt API (no auth needed)
+# 或使用 Cobalt API (无需认证)
 echo "COBALT_API=https://api.cobalt.tools" > ./config/.env
 ```
 
-### Install Dependencies
+### 安装依赖
 
 ```bash
 # macOS
 brew install yt-dlp ffmpeg
 
-# TTS support
+# TTS 功能
 pip install edge-tts
 
-# Transcription (optional)
+# 转录功能 (可选)
 pip install openai-whisper
 ```
 
-## Skills
+## 📚 Skills 列表
 
-### Video Acquisition
-| Skill | Description |
-|-------|-------------|
-| video-downloader | Universal video downloader |
-| cobalt-downloader | Cobalt API downloader |
-| rapidapi-downloader | RapidAPI downloader |
-| local-video-import | Local file import |
-| setup-auth | Authentication setup |
+### 视频获取
+| Skill | 说明 |
+|-------|------|
+| video-downloader | 通用视频下载器 |
+| cobalt-downloader | Cobalt API 下载 |
+| rapidapi-downloader | RapidAPI 下载 |
+| local-video-import | 本地文件导入 |
+| setup-auth | 认证配置 |
 
-### Content Analysis
-| Skill | Description |
-|-------|-------------|
-| speech-transcriber | Speech transcription |
-| highlight-finder | Highlight detection |
-| content-analyzer | Content analysis |
+### 内容分析
+| Skill | 说明 |
+|-------|------|
+| speech-transcriber | 语音转录 |
+| highlight-finder | 精彩片段识别 |
+| content-analyzer | 内容分析 |
 
-### Video Generation
-| Skill | Description |
-|-------|-------------|
-| shorts-generator | Short video generation |
-| script-to-video | Script-to-video |
-| tts-generator | TTS voice synthesis |
-| thumbnail-creator | Thumbnail generation |
-| video-merger | Video merging |
+### 视频生成
+| Skill | 说明 |
+|-------|------|
+| shorts-generator | 短视频生成 |
+| script-to-video | 文案转视频 |
+| tts-generator | TTS 语音合成 |
+| thumbnail-creator | 封面生成 |
+| video-merger | 视频合并 |
 
-### Utilities
-| Skill | Description |
-|-------|-------------|
-| audio-extractor | Audio extraction |
-| video-info-extractor | Video info extraction |
+### 辅助工具
+| Skill | 说明 |
+|-------|------|
+| audio-extractor | 音频提取 |
+| video-info-extractor | 视频信息提取 |
 
-## Use Cases
+## 🎯 使用场景
 
-### Case 1: Knowledge Creator Repurposing
+### 场景 1: 知识博主二创
 ```
-Extract the 3 most valuable insights from this YouTube tutorial and make them into short videos:
+从这个 YouTube 教程视频提取 3 个最有价值的知识点，做成短视频:
 https://youtube.com/watch?v=xxx
 ```
 
-### Case 2: Script Talking-Head
+### 场景 2: 影视解说搬运
 ```
-Generate a talking-head video from this product description:
-...script content...
-
-Requirements: female voice, slightly fast pace, minimal background
+下载这个 B站 视频，提取精彩片段，加上字幕:
+https://bilibili.com/video/BVxxx
 ```
 
-### Case 3: Batch Processing
+### 场景 3: 文案口播
 ```
-Batch process these video links:
+用这个产品介绍文案生成口播视频:
+...文案内容...
+
+要求: 女声、语速稍快、简约背景
+```
+
+### 场景 4: 批量处理
+```
+批量处理这些视频链接:
 - https://youtube.com/xxx
 - https://youtube.com/yyy
 - https://bilibili.com/xxx
 
-Extract 1 highlight clip from each video
+每个视频提取 1 个精彩片段
 ```
 
-## Notes
+## ⚠️ 注意事项
 
-1. **Copyright compliance**: Ensure you have the right to use the source video content
-2. **Platform rules**: Follow each platform's terms of service
-3. **Cookie security**: Do not share your cookies file
-4. **Storage space**: Video processing requires significant temporary storage
+1. **版权合规**: 请确保有权使用源视频内容
+2. **平台规则**: 遵守各平台的使用条款
+3. **Cookies 安全**: 不要分享你的 cookies 文件
+4. **存储空间**: 视频处理需要较大临时空间
 
-## License
+## 📄 License
 
 MIT

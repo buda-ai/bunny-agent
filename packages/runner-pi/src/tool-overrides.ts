@@ -171,7 +171,7 @@ import {
   buildWebFetchTool,
   buildWebSearchTool,
   resolveSearchProvider,
-} from "@sandagent/runner-harness/tools";
+} from "./web-tools.js";
 
 /**
  * Build all secret-aware tool overrides for the given env map.
