@@ -1,0 +1,42 @@
+{
+  "runner": "node /home/kelly/Documents/projects/sandagent/apps/bunny-agent-tui/dist/index.js --model openai-compatible/gemini-3.1-pro --print",
+  "dataset": "gaia-l1",
+  "total": 2,
+  "passed": 2,
+  "failed": 0,
+  "passRate": 100,
+  "durationMs": 43657,
+  "results": [
+    {
+      "task": {
+        "id": "gaia-l1-0383a3ee",
+        "name": "L1 0383a3ee",
+        "prompt": "On the BBC Earth YouTube video of the Top 5 Silliest Animal Moments, what species of bird is featured?\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "On the BBC Earth YouTube video of the Top 5 Silliest Animal Moments, what species of bird is featured?",
+        "expectedAnswer": "Rockhopper penguin",
+        "expected": "/(?<!\\w)Rockhopper penguin(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 600000
+      },
+      "output": "Rockhopper penguin",
+      "passed": true,
+      "durationMs": 19754
+    },
+    {
+      "task": {
+        "id": "gaia-l1-50ec8903",
+        "name": "L1 50ec8903",
+        "prompt": "A standard Rubik’s cube has been broken into cubes making up its sides. The cubes are jumbled, and one is removed. There are 6 cubes with one colored face, 12 edge cubes with two colored faces, and 8 corner cubes with three colored faces. All blue cubes have been found. All cubes directly left, right, above, and below the orange center cube have been found, along with the center cube. The green corners have all been found, along with all green that borders yellow. For all orange cubes found, the opposite face’s cubes have been found. The removed cube has two colors on its faces. What are they? Answer using a comma separated list, with the colors ordered alphabetically.\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "A standard Rubik’s cube has been broken into cubes making up its sides. The cubes are jumbled, and one is removed. There are 6 cubes with one colored face, 12 edge cubes with two colored faces, and 8 corner cubes with three colored faces. All blue cubes have been found. All cubes directly left, right, above, and below the orange center cube have been found, along with the center cube. The green corners have all been found, along with all green that borders yellow. For all orange cubes found, the opposite face’s cubes have been found. The removed cube has two colors on its faces. What are they? Answer using a comma separated list, with the colors ordered alphabetically.",
+        "expectedAnswer": "green, white",
+        "expected": "/(?<!\\w)green, white(?!\\w)/i",
+        "category": "reasoning",
+        "timeoutMs": 600000
+      },
+      "output": "Green, White",
+      "passed": true,
+      "durationMs": 23902
+    }
+  ],
+  "failedDetails": []
+}

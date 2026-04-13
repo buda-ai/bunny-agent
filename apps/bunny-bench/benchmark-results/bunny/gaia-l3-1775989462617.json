@@ -1,0 +1,346 @@
+{
+  "runner": "node /home/kelly/Documents/projects/sandagent/apps/bunny-agent-tui/dist/index.js --model openai-compatible/gemini-3.1-pro --print",
+  "dataset": "gaia-l3",
+  "total": 19,
+  "passed": 13,
+  "failed": 6,
+  "passRate": 68.42105263157895,
+  "durationMs": 4299530,
+  "results": [
+    {
+      "task": {
+        "id": "gaia-l3-676e5e31",
+        "name": "L3 676e5e31",
+        "prompt": "In July 2, 1959 United States standards for grades of processed fruits, vegetables, and certain other products listed as dehydrated, consider the items in the \"dried and dehydrated section\" specifically marked as dehydrated along with any items in the Frozen/Chilled section that contain the whole name of the item, but not if they're marked Chilled. As of August 2023, what is the percentage (to the nearest percent) of those standards that have been superseded by a new version since the date given in the 1959 standards?\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "In July 2, 1959 United States standards for grades of processed fruits, vegetables, and certain other products listed as dehydrated, consider the items in the \"dried and dehydrated section\" specifically marked as dehydrated along with any items in the Frozen/Chilled section that contain the whole name of the item, but not if they're marked Chilled. As of August 2023, what is the percentage (to the nearest percent) of those standards that have been superseded by a new version since the date given in the 1959 standards?",
+        "expectedAnswer": "86",
+        "expected": "/(?<!\\w)86(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 600000
+      },
+      "output": "86",
+      "passed": true,
+      "durationMs": 459068
+    },
+    {
+      "task": {
+        "id": "gaia-l3-00d579ea",
+        "name": "L3 00d579ea",
+        "prompt": "Assuming scientists in the famous youtube video The Thinking Machine (Artificial Intelligence in the 1960s) were interviewed the same year, what is the name of the scientist predicting the sooner thinking machines or robots? Answer using the format First name Last name\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "Assuming scientists in the famous youtube video The Thinking Machine (Artificial Intelligence in the 1960s) were interviewed the same year, what is the name of the scientist predicting the sooner thinking machines or robots? Answer using the format First name Last name",
+        "expectedAnswer": "Claude Shannon",
+        "expected": "/(?<!\\w)Claude Shannon(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 600000
+      },
+      "output": "Jerome Wiesner",
+      "passed": false,
+      "durationMs": 233994
+    },
+    {
+      "task": {
+        "id": "gaia-l3-384d0dd8",
+        "name": "L3 384d0dd8",
+        "prompt": "In the NCATS PubChem compound database for Food Additive Status classification, find the compound that has a molecular weight of 100 g/mol or less, 6 heavy atoms, 1 or fewer hydrogen bond acceptors, and a complexity between 10 and 15. Of the shared gene-chemical co-occurrences between its two possible enzyme transformations, what is the PubChem CID of the heaviest by molecular weight?\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.\n\nHINT: Step 1 — Find the compound. Use PubChem advanced search: https://pubchem.ncbi.nlm.nih.gov/search/#collection=compounds&query_type=structure&query_descriptor=mw_max%3A100%26hac%3A6%26hba_max%3A1%26complexity_min%3A10%26complexity_max%3A15 Or search: https://pubchem.ncbi.nlm.nih.gov/search/ with filters: Molecular Weight ≤ 100, Heavy Atom Count = 6, H-Bond Acceptor ≤ 1, Complexity 10-15, Classification = Food Additive Status. Step 2 — On the compound page, go to \"Biochemistry\" → \"Metabolic/Degradation Pathways\" or \"Enzyme and Pathway\" section to find the two possible enzyme transformations. Step 3 — For each transformation (enzyme), check the \"Gene-Chemical Co-occurrences in Literature\". Step 4 — Find genes/chemicals that appear in BOTH transformation co-occurrence lists. Step 5 — Among the shared entries, find the one with the highest molecular weight. Report its PubChem CID.",
+        "question": "In the NCATS PubChem compound database for Food Additive Status classification, find the compound that has a molecular weight of 100 g/mol or less, 6 heavy atoms, 1 or fewer hydrogen bond acceptors, and a complexity between 10 and 15. Of the shared gene-chemical co-occurrences between its two possible enzyme transformations, what is the PubChem CID of the heaviest by molecular weight?",
+        "expectedAnswer": "4192",
+        "expected": "/(?<!\\w)4192(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 600000
+      },
+      "output": "",
+      "passed": false,
+      "durationMs": 600033,
+      "error": "Timeout after 600000ms"
+    },
+    {
+      "task": {
+        "id": "gaia-l3-de9887f5",
+        "name": "L3 de9887f5",
+        "prompt": "What integer-rounded percentage of the total length of the harlequin shrimp recorded in Omar Valencfia-Mendez 2017 paper was the sea star fed to the same type of shrimp in G. Curt Fiedler's 2002 paper?\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "What integer-rounded percentage of the total length of the harlequin shrimp recorded in Omar Valencfia-Mendez 2017 paper was the sea star fed to the same type of shrimp in G. Curt Fiedler's 2002 paper?",
+        "expectedAnswer": "22",
+        "expected": "/(?<!\\w)22(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 600000
+      },
+      "output": "22",
+      "passed": true,
+      "durationMs": 232551
+    },
+    {
+      "task": {
+        "id": "gaia-l3-983bba7c",
+        "name": "L3 983bba7c",
+        "prompt": "What animals that were mentioned in both Ilias Lagkouvardos's and Olga Tapia's papers on the alvei species of the genus named for Copenhagen outside the bibliographies were also present in the 2021 article cited on the alvei species' Wikipedia page about a multicenter, randomized, double-blind study?\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "What animals that were mentioned in both Ilias Lagkouvardos's and Olga Tapia's papers on the alvei species of the genus named for Copenhagen outside the bibliographies were also present in the 2021 article cited on the alvei species' Wikipedia page about a multicenter, randomized, double-blind study?",
+        "expectedAnswer": "mice",
+        "expected": "/(?<!\\w)mice(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 600000
+      },
+      "output": "mice",
+      "passed": true,
+      "durationMs": 81189
+    },
+    {
+      "task": {
+        "id": "gaia-l3-56db2318",
+        "name": "L3 56db2318",
+        "prompt": "The following numbers function similarly to ISBN 13 numbers, however, their validation methods are slightly different. Rather than using alternate weights of 1 and 3, the checksum digit is calculated with an alternate weight of 1 and some other positive integer less than 10. Otherwise, the checksum digit is calculated as expected. Unfortunately, there is an error in the data. Two adjacent columns have been transposed. These errored columns do not involve the final column or one of the first three columns. Using this information, please provide all potential solutions with the unknown weight and the smaller index of the two errored columns (assume we start our indexing at 0 and ignore hyphens). Give your answer in the form x, y where x is the weight and y is the smaller index of the two transposed columns.\n\n978-354181391-9\n978-946669746-1\n978-398036139-6\n978-447656680-4\n978-279586664-7\n978-595073693-3\n978-976647652-6\n978-591178125-5\n978-728465924-5\n978-414825155-9\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "The following numbers function similarly to ISBN 13 numbers, however, their validation methods are slightly different. Rather than using alternate weights of 1 and 3, the checksum digit is calculated with an alternate weight of 1 and some other positive integer less than 10. Otherwise, the checksum digit is calculated as expected. Unfortunately, there is an error in the data. Two adjacent columns have been transposed. These errored columns do not involve the final column or one of the first three columns. Using this information, please provide all potential solutions with the unknown weight and the smaller index of the two errored columns (assume we start our indexing at 0 and ignore hyphens). Give your answer in the form x, y where x is the weight and y is the smaller index of the two transposed columns.\n\n978-354181391-9\n978-946669746-1\n978-398036139-6\n978-447656680-4\n978-279586664-7\n978-595073693-3\n978-976647652-6\n978-591178125-5\n978-728465924-5\n978-414825155-9",
+        "expectedAnswer": "7, 9",
+        "expected": "/(?<!\\w)7, 9(?!\\w)/i",
+        "category": "reasoning",
+        "timeoutMs": 600000
+      },
+      "output": "7, 9",
+      "passed": true,
+      "durationMs": 31226
+    },
+    {
+      "task": {
+        "id": "gaia-l3-8131e2c0",
+        "name": "L3 8131e2c0",
+        "prompt": "I was trying to remember how well the Cheater Beater performed in comparison to the Cheater when James tested it on his channel. I know that the Cheater still outperformed the Cheater Beater in terms of CFM. Could you please look that up for me, and report the CFM of both the Cheater and the Cheater Beater? I'm not sure if he made any changes to his testing, but this was back in season 4, so just report the value from that season. Please format your response like this: CFM number for Cheater, CFM number for Cheater beater\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.\n\nHINT: \"James\" is likely referring to a YouTube channel that reviews shop vacuum or dust collection impellers. Search YouTube for \"Cheater Beater CFM James season 4\" or \"Cheater impeller Cheater Beater CFM review\". The \"Cheater\" and \"Cheater Beater\" are impeller blades/fans for shop vacuums. Look for Season 4 of whatever series James runs and find the CFM values for each. Try searching: site:youtube.com \"Cheater Beater\" \"CFM\" \"season 4\"",
+        "question": "I was trying to remember how well the Cheater Beater performed in comparison to the Cheater when James tested it on his channel. I know that the Cheater still outperformed the Cheater Beater in terms of CFM. Could you please look that up for me, and report the CFM of both the Cheater and the Cheater Beater? I'm not sure if he made any changes to his testing, but this was back in season 4, so just report the value from that season. Please format your response like this: CFM number for Cheater, CFM number for Cheater beater",
+        "expectedAnswer": "101.376, 84.348",
+        "expected": "/(?<!\\w)101\\.376, 84\\.348(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 600000
+      },
+      "output": "101.376, 84.348",
+      "passed": true,
+      "durationMs": 499949
+    },
+    {
+      "task": {
+        "id": "gaia-l3-72c06643",
+        "name": "L3 72c06643",
+        "prompt": "What is the volume in milliliters of a system comprised of 0.312 kg Freon-12 refrigerant when placed at the bottom of the Marianas Trench and allowed to stabilize at the Trench's peak temperature, rounded to the nearest mL? Provide your answer as just an integer value.\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.\n\nHINT: Use the IDEAL GAS LAW: V = nRT/P Step 1 — MW of Freon-12 (CCl2F2) = 120.91 g/mol; calculate moles from the given mass. Step 2 — Look up the peak temperature at the Marianas Trench bottom (Challenger Deep, ~10,935m). Find the exact value from a scientific source and convert to Kelvin. Step 3 — Calculate pressure at that depth: P = ρgh where ρ≈1025 kg/m³, g=9.81, h=depth in meters. Step 4 — V = nRT/P; convert m³ → mL (×10⁶) and round to nearest integer. Write Python to compute all steps.",
+        "question": "What is the volume in milliliters of a system comprised of 0.312 kg Freon-12 refrigerant when placed at the bottom of the Marianas Trench and allowed to stabilize at the Trench's peak temperature, rounded to the nearest mL? Provide your answer as just an integer value.",
+        "expectedAnswer": "55",
+        "expected": "/(?<!\\w)55(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 600000
+      },
+      "output": "54",
+      "passed": false,
+      "durationMs": 39512
+    },
+    {
+      "task": {
+        "id": "gaia-l3-ebbc1f13",
+        "name": "L3 ebbc1f13",
+        "prompt": "The Latin root of the Yola word \"gimlie\" shares a spelling with a Spanish word. What is the Google translation of the source title for the 1994 example sentence for that word in the Collins Spanish-to-English dictionary online? Answer in plain text, without punctuation.\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "The Latin root of the Yola word \"gimlie\" shares a spelling with a Spanish word. What is the Google translation of the source title for the 1994 example sentence for that word in the Collins Spanish-to-English dictionary online? Answer in plain text, without punctuation.",
+        "expectedAnswer": "The World of the Twenty First Century",
+        "expected": "/(?<!\\w)The World of the Twenty First Century(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 600000
+      },
+      "output": "The World of the Twenty First Century",
+      "passed": true,
+      "durationMs": 169396
+    },
+    {
+      "task": {
+        "id": "gaia-l3-e961a717",
+        "name": "L3 e961a717",
+        "prompt": "According to wikipedia, how many Asian countries still have a monarchy and access to the sea in 2021?\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "According to wikipedia, how many Asian countries still have a monarchy and access to the sea in 2021?",
+        "expectedAnswer": "12",
+        "expected": "/(?<!\\w)12(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 600000
+      },
+      "output": "12",
+      "passed": true,
+      "durationMs": 37781
+    },
+    {
+      "task": {
+        "id": "gaia-l3-851e570a",
+        "name": "L3 851e570a",
+        "prompt": "I thought we could try a fun word puzzle together :)\n\nI've got a Boggle board here:\n\nABRL\nEITE\nIONS\nFPEI\n\nI'd like to know the longest word that can be generated from the board. Please find the longest English language word that can be generated from this board. If more than one word of the same length exists at the maximum word length, please report the longest word that comes first, alphabetically. Oh, and I know that there might be different wordlists available for Boggle, so let's please just use the words_alpha dictionary found at https://github.com/dwyl/english-words as the dictionary for our game.\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "I thought we could try a fun word puzzle together :)\n\nI've got a Boggle board here:\n\nABRL\nEITE\nIONS\nFPEI\n\nI'd like to know the longest word that can be generated from the board. Please find the longest English language word that can be generated from this board. If more than one word of the same length exists at the maximum word length, please report the longest word that comes first, alphabetically. Oh, and I know that there might be different wordlists available for Boggle, so let's please just use the words_alpha dictionary found at https://github.com/dwyl/english-words as the dictionary for our game.",
+        "expectedAnswer": "Briniest",
+        "expected": "/(?<!\\w)Briniest(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 600000
+      },
+      "output": "briniest",
+      "passed": true,
+      "durationMs": 58893
+    },
+    {
+      "task": {
+        "id": "gaia-l3-50f58759",
+        "name": "L3 50f58759",
+        "prompt": "How many times was a Twitter/X post cited as a reference on the english Wikipedia pages for each day of August in the last June 2023 versions of the pages?\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "How many times was a Twitter/X post cited as a reference on the english Wikipedia pages for each day of August in the last June 2023 versions of the pages?",
+        "expectedAnswer": "3",
+        "expected": "/(?<!\\w)3(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 600000
+      },
+      "output": "3",
+      "passed": true,
+      "durationMs": 131711
+    },
+    {
+      "task": {
+        "id": "gaia-l3-872bfbb1",
+        "name": "L3 872bfbb1",
+        "prompt": "Which of the fruits shown in the 2008 painting \"Embroidery from Uzbekistan\" were served as part of the October 1949 breakfast menu for the ocean liner that was later used as a floating prop for the film \"The Last Voyage\"? Give the items as a comma-separated list, ordering them in clockwise order based on their arrangement in the painting starting from the 12 o'clock position. Use the plural form of each fruit.\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "Which of the fruits shown in the 2008 painting \"Embroidery from Uzbekistan\" were served as part of the October 1949 breakfast menu for the ocean liner that was later used as a floating prop for the film \"The Last Voyage\"? Give the items as a comma-separated list, ordering them in clockwise order based on their arrangement in the painting starting from the 12 o'clock position. Use the plural form of each fruit.",
+        "expectedAnswer": "pears, bananas",
+        "expected": "/(?<!\\w)pears, bananas(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 600000
+      },
+      "output": "pears, bananas",
+      "passed": true,
+      "durationMs": 113376
+    },
+    {
+      "task": {
+        "id": "gaia-l3-c3a79cfe",
+        "name": "L3 c3a79cfe",
+        "prompt": "The year is 2022. I am at the National Air and Space Museum east of the Potomac River. I want to go to Fire Station 301 DCA ARFF using the metro. I go in the wrong direction and end up at the station closest to Cleveland Elementary School. How many metro stations am I away from my original destination if I don't change lines? Your answer should be a numerical integer value.\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "The year is 2022. I am at the National Air and Space Museum east of the Potomac River. I want to go to Fire Station 301 DCA ARFF using the metro. I go in the wrong direction and end up at the station closest to Cleveland Elementary School. How many metro stations am I away from my original destination if I don't change lines? Your answer should be a numerical integer value.",
+        "expectedAnswer": "8",
+        "expected": "/(?<!\\w)8(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 600000
+      },
+      "output": "8",
+      "passed": true,
+      "durationMs": 214556
+    },
+    {
+      "task": {
+        "id": "gaia-l3-ad2b4d70",
+        "name": "L3 ad2b4d70",
+        "prompt": "Eva Draconis has a personal website which can be accessed on her YouTube page. What is the meaning of the only symbol seen in the top banner that has a curved line that isn't a circle or a portion of a circle? Answer without punctuation.\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.\n\nHINT: Go to YouTube and search for \"Eva Draconis\" channel. On her channel page, find the link to her personal website (likely in the \"About\" section or channel links). Visit that website and look at the top banner/header image. Find a symbol that has a curved line but is NOT a circle or arc (e.g., a spiral, crescent-like but not arc, or a cultural/historical symbol). Research the meaning of that symbol.",
+        "question": "Eva Draconis has a personal website which can be accessed on her YouTube page. What is the meaning of the only symbol seen in the top banner that has a curved line that isn't a circle or a portion of a circle? Answer without punctuation.",
+        "expectedAnswer": "War is not here this is a land of peace",
+        "expected": "/(?<!\\w)War is not here this is a land of peace(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 600000
+      },
+      "output": "",
+      "passed": false,
+      "durationMs": 600027,
+      "error": "Timeout after 600000ms"
+    },
+    {
+      "task": {
+        "id": "gaia-l3-9e1fc53b",
+        "name": "L3 9e1fc53b",
+        "prompt": "A 5-man group made up of one tank, one healer, and three DPS is doing a dungeon that was just released in World of Warcraft. Two are plate wearers and two are cloth wearers. At the final boss, both the tank and the healer are casting holy spells. Ice and fire are being used, each one by a different DPS. A bear from the group is attacking the boss. Metamorphosis is cast. The Kilt of the Forgotten One drops as loot, but no one can use it. If all classes were using their class abilities and all classes are unique, what are the five classes in the group in alphabetical order separated by commas?\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "A 5-man group made up of one tank, one healer, and three DPS is doing a dungeon that was just released in World of Warcraft. Two are plate wearers and two are cloth wearers. At the final boss, both the tank and the healer are casting holy spells. Ice and fire are being used, each one by a different DPS. A bear from the group is attacking the boss. Metamorphosis is cast. The Kilt of the Forgotten One drops as loot, but no one can use it. If all classes were using their class abilities and all classes are unique, what are the five classes in the group in alphabetical order separated by commas?",
+        "expectedAnswer": "Death Knight, Hunter, Paladin, Priest, Warlock",
+        "expected": "/(?<!\\w)Death Knight, Hunter, Paladin, Priest, Warlock(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 600000
+      },
+      "output": "Death Knight, Hunter, Paladin, Priest, Warlock",
+      "passed": true,
+      "durationMs": 49674
+    },
+    {
+      "task": {
+        "id": "gaia-l3-5f982798",
+        "name": "L3 5f982798",
+        "prompt": "I read a paper about multiwavelength observations of fast radio bursts back in March 2021 on Arxiv, and it had a fascinating diagram of an X-ray time profile. There was a similar burst-1 diagram in another paper from one of the same authors about fast radio bursts back in July 2020, but I can't recall what the difference in seconds in the measured time span was. How many more seconds did one measure than the other? Just give the number.\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.\n\nHINT: Find these two ArXiv papers: (1) March 2021: A paper about multiwavelength observations of fast radio bursts containing an X-ray time profile diagram (burst time profile). (2) July 2020: A paper by at least one of the same authors, also about FRBs, with a \"burst-1\" diagram. For each paper, find the X-ray time profile figure and read the TIME SPAN shown on the x-axis (the total duration covered by the time axis in seconds). Compute the absolute difference. Search arxiv.org with: \"fast radio burst\" \"multiwavelength\" X-ray submitted:2021-03 and: \"fast radio burst\" burst submitted:2020-07",
+        "question": "I read a paper about multiwavelength observations of fast radio bursts back in March 2021 on Arxiv, and it had a fascinating diagram of an X-ray time profile. There was a similar burst-1 diagram in another paper from one of the same authors about fast radio bursts back in July 2020, but I can't recall what the difference in seconds in the measured time span was. How many more seconds did one measure than the other? Just give the number.",
+        "expectedAnswer": "0.2",
+        "expected": "/(?<!\\w)0\\.2(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 600000
+      },
+      "output": "",
+      "passed": false,
+      "durationMs": 600054,
+      "error": "Timeout after 600000ms"
+    },
+    {
+      "task": {
+        "id": "gaia-l3-0512426f",
+        "name": "L3 0512426f",
+        "prompt": "In the YouTube 360 VR video from March 2018 narrated by the voice actor of Lord of the Rings' Gollum, what number was mentioned by the narrator directly after dinosaurs were first shown in the video?\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "In the YouTube 360 VR video from March 2018 narrated by the voice actor of Lord of the Rings' Gollum, what number was mentioned by the narrator directly after dinosaurs were first shown in the video?",
+        "expectedAnswer": "100000000",
+        "expected": "/(?<!\\w)100000000(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 600000
+      },
+      "output": "100",
+      "passed": false,
+      "durationMs": 37597
+    },
+    {
+      "task": {
+        "id": "gaia-l3-0bdb7c40",
+        "name": "L3 0bdb7c40",
+        "prompt": "In NASA's Astronomy Picture of the Day on 2006 January 21, two astronauts are visible, with one appearing much smaller than the other. As of August 2023, out of the astronauts in the NASA Astronaut Group that the smaller astronaut was a member of, which one spent the least time in space, and how many minutes did he spend in space, rounded to the nearest minute? Exclude any astronauts who did not spend any time in space. Give the last name of the astronaut, separated from the number of minutes by a semicolon.\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "In NASA's Astronomy Picture of the Day on 2006 January 21, two astronauts are visible, with one appearing much smaller than the other. As of August 2023, out of the astronauts in the NASA Astronaut Group that the smaller astronaut was a member of, which one spent the least time in space, and how many minutes did he spend in space, rounded to the nearest minute? Exclude any astronauts who did not spend any time in space. Give the last name of the astronaut, separated from the number of minutes by a semicolon.",
+        "expectedAnswer": "White; 5876",
+        "expected": "/(?<!\\w)White; 5876(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 600000
+      },
+      "output": "White; 5876",
+      "passed": true,
+      "durationMs": 108938
+    }
+  ],
+  "failedDetails": [
+    {
+      "id": "gaia-l3-00d579ea",
+      "question": "Assuming scientists in the famous youtube video The Thinking Machine (Artificial Intelligence in the 1960s) were interviewed the same year, what is the name of the scientist predicting the sooner thinking machines or robots? Answer using the format First name Last name",
+      "expectedAnswer": "Claude Shannon",
+      "got": "Jerome Wiesner",
+      "durationMs": 233994
+    },
+    {
+      "id": "gaia-l3-384d0dd8",
+      "question": "In the NCATS PubChem compound database for Food Additive Status classification, find the compound that has a molecular weight of 100 g/mol or less, 6 heavy atoms, 1 or fewer hydrogen bond acceptors, and a complexity between 10 and 15. Of the shared gene-chemical co-occurrences between its two possible enzyme transformations, what is the PubChem CID of the heaviest by molecular weight?",
+      "expectedAnswer": "4192",
+      "got": "",
+      "error": "Timeout after 600000ms",
+      "durationMs": 600033
+    },
+    {
+      "id": "gaia-l3-72c06643",
+      "question": "What is the volume in milliliters of a system comprised of 0.312 kg Freon-12 refrigerant when placed at the bottom of the Marianas Trench and allowed to stabilize at the Trench's peak temperature, rounded to the nearest mL? Provide your answer as just an integer value.",
+      "expectedAnswer": "55",
+      "got": "54",
+      "durationMs": 39512
+    },
+    {
+      "id": "gaia-l3-ad2b4d70",
+      "question": "Eva Draconis has a personal website which can be accessed on her YouTube page. What is the meaning of the only symbol seen in the top banner that has a curved line that isn't a circle or a portion of a circle? Answer without punctuation.",
+      "expectedAnswer": "War is not here this is a land of peace",
+      "got": "",
+      "error": "Timeout after 600000ms",
+      "durationMs": 600027
+    },
+    {
+      "id": "gaia-l3-5f982798",
+      "question": "I read a paper about multiwavelength observations of fast radio bursts back in March 2021 on Arxiv, and it had a fascinating diagram of an X-ray time profile. There was a similar burst-1 diagram in another paper from one of the same authors about fast radio bursts back in July 2020, but I can't recall what the difference in seconds in the measured time span was. How many more seconds did one measure than the other? Just give the number.",
+      "expectedAnswer": "0.2",
+      "got": "",
+      "error": "Timeout after 600000ms",
+      "durationMs": 600054
+    },
+    {
+      "id": "gaia-l3-0512426f",
+      "question": "In the YouTube 360 VR video from March 2018 narrated by the voice actor of Lord of the Rings' Gollum, what number was mentioned by the narrator directly after dinosaurs were first shown in the video?",
+      "expectedAnswer": "100000000",
+      "got": "100",
+      "durationMs": 37597
+    }
+  ]
+}

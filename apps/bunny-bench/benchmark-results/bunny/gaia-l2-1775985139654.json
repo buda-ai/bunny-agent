@@ -1,0 +1,1084 @@
+{
+  "runner": "node /home/kelly/Documents/projects/sandagent/apps/bunny-agent-tui/dist/index.js --model openai-compatible/gemini-3.1-pro --print",
+  "dataset": "gaia-l2",
+  "total": 66,
+  "passed": 55,
+  "failed": 11,
+  "passRate": 83.33333333333334,
+  "durationMs": 10609421,
+  "results": [
+    {
+      "task": {
+        "id": "gaia-l2-c61d22de",
+        "name": "L2 c61d22de",
+        "prompt": "A paper about AI regulation that was originally submitted to arXiv.org in June 2022 shows a figure with three axes, where each axis has a label word at both ends. Which of these words is used to describe a type of society in a Physics and Society article submitted to arXiv.org on August 11, 2016?\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "A paper about AI regulation that was originally submitted to arXiv.org in June 2022 shows a figure with three axes, where each axis has a label word at both ends. Which of these words is used to describe a type of society in a Physics and Society article submitted to arXiv.org on August 11, 2016?",
+        "expectedAnswer": "egalitarian",
+        "expected": "/(?<!\\w)egalitarian(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "egalitarian",
+      "passed": true,
+      "durationMs": 90086
+    },
+    {
+      "task": {
+        "id": "gaia-l2-17b5a6a3",
+        "name": "L2 17b5a6a3",
+        "prompt": "I’m researching species that became invasive after people who kept them as pets released them. There’s a certain species of fish that was popularized as a pet by being the main character of the movie Finding Nemo. According to the USGS, where was this fish found as a nonnative species, before the year 2020? I need the answer formatted as the five-digit zip codes of the places the species was found, separated by commas if there is more than one place.\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "I’m researching species that became invasive after people who kept them as pets released them. There’s a certain species of fish that was popularized as a pet by being the main character of the movie Finding Nemo. According to the USGS, where was this fish found as a nonnative species, before the year 2020? I need the answer formatted as the five-digit zip codes of the places the species was found, separated by commas if there is more than one place.",
+        "expectedAnswer": "34689",
+        "expected": "/(?<!\\w)34689(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "34689",
+      "passed": true,
+      "durationMs": 150697
+    },
+    {
+      "task": {
+        "id": "gaia-l2-04a04a9b",
+        "name": "L2 04a04a9b",
+        "prompt": "If we assume all articles published by Nature in 2020 (articles, only, not book reviews/columns, etc) relied on statistical significance to justify their findings and they on average came to a p-value of 0.04, how many papers would be incorrect as to their claims of statistical significance? Round the value up to the next integer.\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.\n\nHINT: Go to nature.com and search for all publications from 2020 of type \"Article\" ONLY. On nature.com, use the advanced search to filter by: year=2020, article type=\"Article\" (also called \"Research Article\"). This excludes News & Views, Reviews, Perspectives, Letters, Comments, Correspondence, etc. Get the EXACT count of Articles. Then calculate: ceil(count × 0.04). Write Python: import math; count = ACTUAL_COUNT; print(math.ceil(count * 0.04))",
+        "question": "If we assume all articles published by Nature in 2020 (articles, only, not book reviews/columns, etc) relied on statistical significance to justify their findings and they on average came to a p-value of 0.04, how many papers would be incorrect as to their claims of statistical significance? Round the value up to the next integer.",
+        "expectedAnswer": "41",
+        "expected": "/(?<!\\w)41(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "42",
+      "passed": false,
+      "durationMs": 63545
+    },
+    {
+      "task": {
+        "id": "gaia-l2-14569e28",
+        "name": "L2 14569e28",
+        "prompt": "In Unlambda, what exact charcter or text needs to be added to correct the following code to output \"For penguins\"? If what is needed is a character, answer with the name of the character. If there are different names for the character, use the shortest. The text location is not needed. Code:\n\n`r```````````.F.o.r. .p.e.n.g.u.i.n.si\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "In Unlambda, what exact charcter or text needs to be added to correct the following code to output \"For penguins\"? If what is needed is a character, answer with the name of the character. If there are different names for the character, use the shortest. The text location is not needed. Code:\n\n`r```````````.F.o.r. .p.e.n.g.u.i.n.si",
+        "expectedAnswer": "backtick",
+        "expected": "/(?<!\\w)backtick(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "backtick",
+      "passed": true,
+      "durationMs": 23776
+    },
+    {
+      "task": {
+        "id": "gaia-l2-3627a8be",
+        "name": "L2 3627a8be",
+        "prompt": "The object in the British Museum's collection with a museum number of 2012,5015.17 is the shell of a particular mollusk species. According to the abstract of a research article published in Science Advances in 2021, beads made from the shells of this species were found that are at least how many thousands of years old?\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "The object in the British Museum's collection with a museum number of 2012,5015.17 is the shell of a particular mollusk species. According to the abstract of a research article published in Science Advances in 2021, beads made from the shells of this species were found that are at least how many thousands of years old?",
+        "expectedAnswer": "142",
+        "expected": "/(?<!\\w)142(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "142",
+      "passed": true,
+      "durationMs": 154873
+    },
+    {
+      "task": {
+        "id": "gaia-l2-7619a514",
+        "name": "L2 7619a514",
+        "prompt": "According to github, when was Regression added to the oldest closed numpy.polynomial issue that has the Regression label in MM/DD/YY?\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "According to github, when was Regression added to the oldest closed numpy.polynomial issue that has the Regression label in MM/DD/YY?",
+        "expectedAnswer": "04/15/18",
+        "expected": "/(?<!\\w)04\\/15\\/18(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "04/15/18",
+      "passed": true,
+      "durationMs": 36271
+    },
+    {
+      "task": {
+        "id": "gaia-l2-2a649bb1",
+        "name": "L2 2a649bb1",
+        "prompt": "What are the EC numbers of the two most commonly used chemicals for the virus testing method in the paper about SPFMV and SPCSV in the Pearl Of Africa from 2016? Return the semicolon-separated numbers in the order of the alphabetized chemicals.\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "What are the EC numbers of the two most commonly used chemicals for the virus testing method in the paper about SPFMV and SPCSV in the Pearl Of Africa from 2016? Return the semicolon-separated numbers in the order of the alphabetized chemicals.",
+        "expectedAnswer": "3.1.3.1; 1.11.1.7",
+        "expected": "/(?<!\\w)3\\.1\\.3\\.1; 1\\.11\\.1\\.7(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "3.1.3.1; 1.11.1.7",
+      "passed": true,
+      "durationMs": 136888
+    },
+    {
+      "task": {
+        "id": "gaia-l2-87c610df",
+        "name": "L2 87c610df",
+        "prompt": "In April of 1977, who was the Prime Minister of the first place mentioned by name in the Book of Esther (in the New International Version)?\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "In April of 1977, who was the Prime Minister of the first place mentioned by name in the Book of Esther (in the New International Version)?",
+        "expectedAnswer": "Morarji Desai",
+        "expected": "/(?<!\\w)Morarji Desai(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "Morarji Desai",
+      "passed": true,
+      "durationMs": 59409
+    },
+    {
+      "task": {
+        "id": "gaia-l2-624cbf11",
+        "name": "L2 624cbf11",
+        "prompt": "What's the last line of the rhyme under the flavor name on the headstone visible in the background of the photo of the oldest flavor's headstone in the Ben & Jerry's online flavor graveyard as of the end of 2022?\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.\n\nHINT: Search YouTube for photos of headstones or gravestones with ice cream flavor names or food-related epitaphs. The photo shows a headstone visible in the background of a specific photo. Look for a rhyme inscribed under the flavor name and find the last line of that rhyme.",
+        "question": "What's the last line of the rhyme under the flavor name on the headstone visible in the background of the photo of the oldest flavor's headstone in the Ben & Jerry's online flavor graveyard as of the end of 2022?",
+        "expectedAnswer": "So we had to let it die.",
+        "expected": "/(?<!\\w)So we had to let it die[.]?(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "So we had to let it die.",
+      "passed": true,
+      "durationMs": 339102
+    },
+    {
+      "task": {
+        "id": "gaia-l2-dd3c7503",
+        "name": "L2 dd3c7503",
+        "prompt": "Use density measures from the chemistry materials licensed by Marisa Alviar-Agnew & Henry Agnew under the CK-12 license in LibreText's Introductory Chemistry materials as compiled 08/21/2023.\n\nI have a gallon of honey and a gallon of mayonnaise at 25C. I remove one cup of honey at a time from the gallon of honey. How many times will I need to remove a cup to have the honey weigh less than the mayonaise? Assume the containers themselves weigh the same.\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "Use density measures from the chemistry materials licensed by Marisa Alviar-Agnew & Henry Agnew under the CK-12 license in LibreText's Introductory Chemistry materials as compiled 08/21/2023.\n\nI have a gallon of honey and a gallon of mayonnaise at 25C. I remove one cup of honey at a time from the gallon of honey. How many times will I need to remove a cup to have the honey weigh less than the mayonaise? Assume the containers themselves weigh the same.",
+        "expectedAnswer": "6",
+        "expected": "/(?<!\\w)6(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "6",
+      "passed": true,
+      "durationMs": 455977
+    },
+    {
+      "task": {
+        "id": "gaia-l2-f0f46385",
+        "name": "L2 f0f46385",
+        "prompt": "In terms of geographical distance between capital cities, which 2 countries are the furthest from each other within the ASEAN bloc according to wikipedia? Answer using a comma separated list, ordering the countries by alphabetical order.\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "In terms of geographical distance between capital cities, which 2 countries are the furthest from each other within the ASEAN bloc according to wikipedia? Answer using a comma separated list, ordering the countries by alphabetical order.",
+        "expectedAnswer": "Indonesia, Myanmar",
+        "expected": "/(?<!\\w)Indonesia, Myanmar(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "Indonesia, Myanmar",
+      "passed": true,
+      "durationMs": 24243
+    },
+    {
+      "task": {
+        "id": "gaia-l2-e4e91f1c",
+        "name": "L2 e4e91f1c",
+        "prompt": "I need to fact-check a citation. This is the citation from the bibliography:\n\nGreetham, David. \"Uncoupled: OR, How I Lost My Author(s).\" Textual Cultures: Texts, Contexts, Interpretation, vol. 3 no. 1, 2008, p. 45-46. Project MUSE, doi:10.2979/tex.2008.3.1.44.\n\nAnd this is the in-line citation:\n\nOur relationship with the authors of the works we read can often be “obscured not by a \"cloak of print\" but by the veil of scribal confusion and mis-transmission” (Greetham 45-46).\n\nDoes the quoted text match what is actually in the article? If Yes, answer Yes, otherwise, give me the word in my citation that does not match with the correct one (without any article).\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.\n\nHINT: Find the paper \"Uncoupled: OR, How I Lost My Author(s)\" by David Greetham in Textual Cultures journal (2008). The citation being fact-checked contains a specific word or term. Compare the citation given in the question against the actual published paper to find any discrepancy. The answer is a single word.",
+        "question": "I need to fact-check a citation. This is the citation from the bibliography:\n\nGreetham, David. \"Uncoupled: OR, How I Lost My Author(s).\" Textual Cultures: Texts, Contexts, Interpretation, vol. 3 no. 1, 2008, p. 45-46. Project MUSE, doi:10.2979/tex.2008.3.1.44.\n\nAnd this is the in-line citation:\n\nOur relationship with the authors of the works we read can often be “obscured not by a \"cloak of print\" but by the veil of scribal confusion and mis-transmission” (Greetham 45-46).\n\nDoes the quoted text match what is actually in the article? If Yes, answer Yes, otherwise, give me the word in my citation that does not match with the correct one (without any article).",
+        "expectedAnswer": "cloak",
+        "expected": "/(?<!\\w)cloak(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "cloak",
+      "passed": true,
+      "durationMs": 71696
+    },
+    {
+      "task": {
+        "id": "gaia-l2-56137764",
+        "name": "L2 56137764",
+        "prompt": "Which contributor to the version of OpenCV where support was added for the Mask-RCNN model has the same name as a former Chinese head of government when the names are transliterated to the Latin alphabet?\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "Which contributor to the version of OpenCV where support was added for the Mask-RCNN model has the same name as a former Chinese head of government when the names are transliterated to the Latin alphabet?",
+        "expectedAnswer": "Li Peng",
+        "expected": "/(?<!\\w)Li Peng(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "Li Peng",
+      "passed": true,
+      "durationMs": 153909
+    },
+    {
+      "task": {
+        "id": "gaia-l2-8b3379c0",
+        "name": "L2 8b3379c0",
+        "prompt": "What is the maximum length in meters of #9 in the first National Geographic short on YouTube that was ever released according to the Monterey Bay Aquarium website? Just give the number.\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.\n\nHINT: Find the FIRST YouTube Short published by the official National Geographic channel (@NatGeo). Sort their Shorts by \"Date (oldest first)\". The first Short contains a numbered list of facts. Find item #9 in that list which contains a length/size in meters. The answer is that length value. Try using YouTube's search: site:youtube.com/@NationalGeographic/shorts and sort oldest.",
+        "question": "What is the maximum length in meters of #9 in the first National Geographic short on YouTube that was ever released according to the Monterey Bay Aquarium website? Just give the number.",
+        "expectedAnswer": "1.8",
+        "expected": "/(?<!\\w)1\\.8(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "",
+      "passed": false,
+      "durationMs": 900121,
+      "error": "Timeout after 900000ms"
+    },
+    {
+      "task": {
+        "id": "gaia-l2-0ff53813",
+        "name": "L2 0ff53813",
+        "prompt": "What two-word type of model did Manash Pratim Kashyap's and PS Fader's studies in customer retention studies published during 2018-2019 have in common (no punctuation)?\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "What two-word type of model did Manash Pratim Kashyap's and PS Fader's studies in customer retention studies published during 2018-2019 have in common (no punctuation)?",
+        "expectedAnswer": "beta geometric",
+        "expected": "/(?<!\\w)beta geometric(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "beta geometric",
+      "passed": true,
+      "durationMs": 91743
+    },
+    {
+      "task": {
+        "id": "gaia-l2-a7feb290",
+        "name": "L2 a7feb290",
+        "prompt": "How many High Energy Physics - Lattice articles listed in January 2020 on Arxiv had ps versions available?\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "How many High Energy Physics - Lattice articles listed in January 2020 on Arxiv had ps versions available?",
+        "expectedAnswer": "31",
+        "expected": "/(?<!\\w)31(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "31",
+      "passed": true,
+      "durationMs": 328036
+    },
+    {
+      "task": {
+        "id": "gaia-l2-b4cc024b",
+        "name": "L2 b4cc024b",
+        "prompt": "The photograph in the Whitney Museum of American Art's collection with accession number 2022.128 shows a person holding a book. Which military unit did the author of this book join in 1813? Answer without using articles.\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "The photograph in the Whitney Museum of American Art's collection with accession number 2022.128 shows a person holding a book. Which military unit did the author of this book join in 1813? Answer without using articles.",
+        "expectedAnswer": "Russian-German Legion",
+        "expected": "/(?<!\\w)Russian-German Legion(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "Russian-German Legion",
+      "passed": true,
+      "durationMs": 224912
+    },
+    {
+      "task": {
+        "id": "gaia-l2-33d8ea3b",
+        "name": "L2 33d8ea3b",
+        "prompt": "What is the minimum number of page links a person must click on to go from the english Wikipedia page on The Lord of the Rings (the book) to the english Wikipedia page on A Song of Ice and Fire (the book series)? In your count, include each link you would click on to get to the page. Use the pages as they appeared at the end of the day on July 3, 2023.\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "What is the minimum number of page links a person must click on to go from the english Wikipedia page on The Lord of the Rings (the book) to the english Wikipedia page on A Song of Ice and Fire (the book series)? In your count, include each link you would click on to get to the page. Use the pages as they appeared at the end of the day on July 3, 2023.",
+        "expectedAnswer": "2",
+        "expected": "/(?<!\\w)2(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "2",
+      "passed": true,
+      "durationMs": 26023
+    },
+    {
+      "task": {
+        "id": "gaia-l2-e8cb5b03",
+        "name": "L2 e8cb5b03",
+        "prompt": "I went to Virtue restaurant & bar in Chicago for my birthday on March 22, 2021 and the main course I had was delicious!  Unfortunately, when I went back about a month later on April 21, it was no longer on the dinner menu.  Using the Wayback Machine, can you help me figure out which main course was on the dinner menu for Virtue on March 22, 2021 but not April 21, 2021? Answer using the singular form, without articles.\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "I went to Virtue restaurant & bar in Chicago for my birthday on March 22, 2021 and the main course I had was delicious!  Unfortunately, when I went back about a month later on April 21, it was no longer on the dinner menu.  Using the Wayback Machine, can you help me figure out which main course was on the dinner menu for Virtue on March 22, 2021 but not April 21, 2021? Answer using the singular form, without articles.",
+        "expectedAnswer": "shrimp",
+        "expected": "/(?<!\\w)shrimp(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "Shrimp",
+      "passed": true,
+      "durationMs": 43993
+    },
+    {
+      "task": {
+        "id": "gaia-l2-f46b4380",
+        "name": "L2 f46b4380",
+        "prompt": "It is 1999. Before you party like it is 1999, please assist me in settling a bet.\n\nFiona Apple and Paula Cole released albums prior to 1999. Of these albums, which didn't receive a letter grade from Robert Christgau? Provide your answer as a comma delimited list of album titles, sorted alphabetically.\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "It is 1999. Before you party like it is 1999, please assist me in settling a bet.\n\nFiona Apple and Paula Cole released albums prior to 1999. Of these albums, which didn't receive a letter grade from Robert Christgau? Provide your answer as a comma delimited list of album titles, sorted alphabetically.",
+        "expectedAnswer": "Harbinger, Tidal",
+        "expected": "/(?<!\\w)Harbinger, Tidal(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "Harbinger, Tidal",
+      "passed": true,
+      "durationMs": 25869
+    },
+    {
+      "task": {
+        "id": "gaia-l2-05407167",
+        "name": "L2 05407167",
+        "prompt": "In the 2018 VSCode blog post on replit.com, what was the command they clicked on in the last video to remove extra lines?\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "In the 2018 VSCode blog post on replit.com, what was the command they clicked on in the last video to remove extra lines?",
+        "expectedAnswer": "Format Document",
+        "expected": "/(?<!\\w)Format Document(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "Format Document",
+      "passed": true,
+      "durationMs": 584816
+    },
+    {
+      "task": {
+        "id": "gaia-l2-b9763138",
+        "name": "L2 b9763138",
+        "prompt": "Compute the check digit the Tropicos ID for the Order Helotiales would have if it were an ISBN-10 number.\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "Compute the check digit the Tropicos ID for the Order Helotiales would have if it were an ISBN-10 number.",
+        "expectedAnswer": "3",
+        "expected": "/(?<!\\w)3(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "3",
+      "passed": true,
+      "durationMs": 50348
+    },
+    {
+      "task": {
+        "id": "gaia-l2-16d825ff",
+        "name": "L2 16d825ff",
+        "prompt": "What time was the Tri-Rail train that carried the most passengers on May 27, 2019 scheduled to arrive in Pompano Beach? Express your answer in the 12-hour digital clock format without leading zero if any, and include whether it is AM or PM.\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.\n\nHINT: Search for Tri-Rail ridership data for May 27, 2019 (a Monday). Tri-Rail posts monthly On-Time Performance and Ridership reports. Try: https://www.tri-rail.com/about-tri-rail/statistics-reports/ or search \"Tri-Rail May 2019 ridership report\". Find the daily train-by-train ridership data for May 27. Identify the train with the most passengers, then look up its scheduled Pompano Beach arrival time in the Tri-Rail timetable.",
+        "question": "What time was the Tri-Rail train that carried the most passengers on May 27, 2019 scheduled to arrive in Pompano Beach? Express your answer in the 12-hour digital clock format without leading zero if any, and include whether it is AM or PM.",
+        "expectedAnswer": "6:41 PM",
+        "expected": "/(?<!\\w)6:41 PM(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "6:41 PM",
+      "passed": true,
+      "durationMs": 483317
+    },
+    {
+      "task": {
+        "id": "gaia-l2-544b7f0c",
+        "name": "L2 544b7f0c",
+        "prompt": "In Valentina Re’s contribution to the 2017 book “World Building: Transmedia, Fans, Industries”, what horror movie does the author cite as having popularized metalepsis between a dream world and reality? Use the complete name with article if any.\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "In Valentina Re’s contribution to the 2017 book “World Building: Transmedia, Fans, Industries”, what horror movie does the author cite as having popularized metalepsis between a dream world and reality? Use the complete name with article if any.",
+        "expectedAnswer": "A Nightmare on Elm Street",
+        "expected": "/(?<!\\w)A Nightmare on Elm Street(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "A Nightmare on Elm Street",
+      "passed": true,
+      "durationMs": 133690
+    },
+    {
+      "task": {
+        "id": "gaia-l2-6b078778",
+        "name": "L2 6b078778",
+        "prompt": "The Metropolitan Museum of Art has a portrait in its collection with an accession number of 29.100.5. Of the consecrators and co-consecrators of this portrait's subject as a bishop, what is the name of the one who never became pope?\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "The Metropolitan Museum of Art has a portrait in its collection with an accession number of 29.100.5. Of the consecrators and co-consecrators of this portrait's subject as a bishop, what is the name of the one who never became pope?",
+        "expectedAnswer": "Alfonso Visconti",
+        "expected": "/(?<!\\w)Alfonso Visconti(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "Alfonso Visconti",
+      "passed": true,
+      "durationMs": 72337
+    },
+    {
+      "task": {
+        "id": "gaia-l2-08cae58d",
+        "name": "L2 08cae58d",
+        "prompt": "According to Google Finance, when was the first year the Apple stock went above $50 (without adjusting for stock split)?\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.\n\nHINT: Go to Google Finance (finance.google.com) and search for Apple Inc (AAPL). View the stock price chart. Google Finance's chart displays prices that are ALREADY adjusted for all historical splits by default. Select \"All\" or \"Max\" time range. Look at the chart and find the FIRST calendar year when the displayed price EXCEEDED $50. The answer should be a 4-digit year.",
+        "question": "According to Google Finance, when was the first year the Apple stock went above $50 (without adjusting for stock split)?",
+        "expectedAnswer": "2018",
+        "expected": "/(?<!\\w)2018(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "2018",
+      "passed": true,
+      "durationMs": 31350
+    },
+    {
+      "task": {
+        "id": "gaia-l2-2dfc4c37",
+        "name": "L2 2dfc4c37",
+        "prompt": "According to Box Office Mojo's 2020 Worldwide Box Office list, how many of the top 10 highest-grossing worldwide movies are also on the top 10 highest-grossing domestic movies? Your answer should be a numerical integer value.\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.\n\nHINT: Visit these exact URLs on Box Office Mojo: (1) Worldwide 2020: https://www.boxofficemojo.com/year/world/2020/ (2) Domestic 2020: https://www.boxofficemojo.com/year/2020/ List the top 10 from each. Count films that appear in BOTH top 10 lists. Compare titles carefully — the worldwide list may have non-US films not in the domestic list.",
+        "question": "According to Box Office Mojo's 2020 Worldwide Box Office list, how many of the top 10 highest-grossing worldwide movies are also on the top 10 highest-grossing domestic movies? Your answer should be a numerical integer value.",
+        "expectedAnswer": "6",
+        "expected": "/(?<!\\w)6(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "3",
+      "passed": false,
+      "durationMs": 24329
+    },
+    {
+      "task": {
+        "id": "gaia-l2-9f41b083",
+        "name": "L2 9f41b083",
+        "prompt": "How many pages if the 2023 IPCC report (85 pages version) mentions nuclear energy?\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.\n\nHINT: Download the IPCC AR6 Synthesis Report 2023 Longer Report PDF: https://www.ipcc.ch/report/ar6/syr/downloads/report/IPCC_AR6_SYR_LongerReport.pdf This document is approximately 85 pages. After downloading, run this Python code: import pdfplumber; pdf=pdfplumber.open('IPCC_AR6_SYR_LongerReport.pdf'); pages=[p.page_number for p in pdf.pages if 'nuclear energy' in (p.extract_text() or '').lower()]; print(len(pages), pages) CRITICAL: Search for \"nuclear energy\" (two words together) NOT just \"nuclear\". Count PAGES (not word occurrences) that contain the phrase \"nuclear energy\".",
+        "question": "How many pages if the 2023 IPCC report (85 pages version) mentions nuclear energy?",
+        "expectedAnswer": "0",
+        "expected": "/(?<!\\w)0(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "0",
+      "passed": true,
+      "durationMs": 254796
+    },
+    {
+      "task": {
+        "id": "gaia-l2-ecbc4f94",
+        "name": "L2 ecbc4f94",
+        "prompt": "How many images are there in the latest 2022 Lego english wikipedia article?\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.\n\nHINT: Find the last Wikipedia revision of the English \"Lego\" article from 2022. Use the Wikipedia API: https://en.wikipedia.org/w/api.php?action=query&titles=Lego&prop=revisions&rvprop=ids|timestamp&rvlimit=500&format=json to get revisions, find the last one before 2023. Then use: https://en.wikipedia.org/w/api.php?action=parse&oldid=REVID&prop=images&format=json to list ALL images. Count only images that are actually visible in the article (filter out hidden icons, maintenance templates, etc.).",
+        "question": "How many images are there in the latest 2022 Lego english wikipedia article?",
+        "expectedAnswer": "13",
+        "expected": "/(?<!\\w)13(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "12",
+      "passed": false,
+      "durationMs": 85161
+    },
+    {
+      "task": {
+        "id": "gaia-l2-71345b0a",
+        "name": "L2 71345b0a",
+        "prompt": "On a leap day before the year 2008, a joke was removed from the Wikipedia page for “Dragon”. What was the phrase that was removed? Give the phrase as it appeared on the page, but without punctuation.\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "On a leap day before the year 2008, a joke was removed from the Wikipedia page for “Dragon”. What was the phrase that was removed? Give the phrase as it appeared on the page, but without punctuation.",
+        "expectedAnswer": "Here be dragons",
+        "expected": "/(?<!\\w)Here be dragons(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "Here be dragons",
+      "passed": true,
+      "durationMs": 42107
+    },
+    {
+      "task": {
+        "id": "gaia-l2-7b5377b0",
+        "name": "L2 7b5377b0",
+        "prompt": "Find the value of x to the nearest tenth: Lx = (d/dx * (A * x-squared)) + 4-thousand'n'ninety-7 minus C\nWhere L is the last two digits of the year of the Venezuelan Declaration of Independence,\nA is the number of colors in the TikTok logo as of July 2023, excluding black and white,\nand C is the height of the average woman in the Philippines according to a July 2023 Business Insider article, rounded to the nearest whole centimeter\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "Find the value of x to the nearest tenth: Lx = (d/dx * (A * x-squared)) + 4-thousand'n'ninety-7 minus C\nWhere L is the last two digits of the year of the Venezuelan Declaration of Independence,\nA is the number of colors in the TikTok logo as of July 2023, excluding black and white,\nand C is the height of the average woman in the Philippines according to a July 2023 Business Insider article, rounded to the nearest whole centimeter",
+        "expectedAnswer": "563.9",
+        "expected": "/(?<!\\w)563\\.9(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "563.9",
+      "passed": true,
+      "durationMs": 98001
+    },
+    {
+      "task": {
+        "id": "gaia-l2-114d5fd0",
+        "name": "L2 114d5fd0",
+        "prompt": "In the endnote found in the second-to-last paragraph of page 11 of the book with the doi 10.2307/j.ctv9b2xdv, what date in November was the Wikipedia article accessed? Just give the day of the month.\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "In the endnote found in the second-to-last paragraph of page 11 of the book with the doi 10.2307/j.ctv9b2xdv, what date in November was the Wikipedia article accessed? Just give the day of the month.",
+        "expectedAnswer": "4",
+        "expected": "/(?<!\\w)4(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "4",
+      "passed": true,
+      "durationMs": 138413
+    },
+    {
+      "task": {
+        "id": "gaia-l2-ad37a656",
+        "name": "L2 ad37a656",
+        "prompt": "On July 15, 2008, Phys.org published an article about a catastrophe. Find the explosive force of this catastrophe according to Encyclopedia Britannica, then find the name of the US nuclear test that had the same yield. Your answer should only be the last word of the name of the test.\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "On July 15, 2008, Phys.org published an article about a catastrophe. Find the explosive force of this catastrophe according to Encyclopedia Britannica, then find the name of the US nuclear test that had the same yield. Your answer should only be the last word of the name of the test.",
+        "expectedAnswer": "Bravo",
+        "expected": "/(?<!\\w)Bravo(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "Bravo",
+      "passed": true,
+      "durationMs": 68527
+    },
+    {
+      "task": {
+        "id": "gaia-l2-f3917a3d",
+        "name": "L2 f3917a3d",
+        "prompt": "How many edits were made to the Wikipedia page on Antidisestablishmentarianism from its inception until June of 2023?\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "How many edits were made to the Wikipedia page on Antidisestablishmentarianism from its inception until June of 2023?",
+        "expectedAnswer": "2732",
+        "expected": "/(?<!\\w)2732(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "2732",
+      "passed": true,
+      "durationMs": 95442
+    },
+    {
+      "task": {
+        "id": "gaia-l2-48eb8242",
+        "name": "L2 48eb8242",
+        "prompt": "How many nonindigenous crocodiles were found in Florida from the year 2000 through 2020? You can get the data from the USGS Nonindigenous Aquatic Species database.\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.\n\nHINT: Use the USGS NAS database. Go to: https://nas.er.usgs.gov/queries/SpeciesList.aspx?group=Reptiles&state=FL or search for \"Crocodylus\" in Florida. The American crocodile (Crocodylus acutus) IS native to Florida — check CAREFULLY whether NAS lists it as nonindigenous. Count records for ANY crocodile (Crocodylus species) listed as nonindigenous in Florida with observation dates 2000-2020 inclusive.",
+        "question": "How many nonindigenous crocodiles were found in Florida from the year 2000 through 2020? You can get the data from the USGS Nonindigenous Aquatic Species database.",
+        "expectedAnswer": "6",
+        "expected": "/(?<!\\w)6(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "7",
+      "passed": false,
+      "durationMs": 136136
+    },
+    {
+      "task": {
+        "id": "gaia-l2-c8b7e059",
+        "name": "L2 c8b7e059",
+        "prompt": "The work referenced in footnote 397 of Federico Lauria's 2014 dissertation is also the source for the titles of two paintings in the Smithsonian American Art Museum's collection, as of August 2023. What is the absolute difference between the chapter numbers of the chapters that the titles of these two paintings quote?\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.\n\nHINT: Federico Lauria's 2014 PhD dissertation is titled something about intentionality/emotion and available via the University of Geneva's RERO DOC archive or similar. Go to footnote 397 specifically. It references a work (book or article) that is also the title of Smithsonian artworks/paintings. Find the exact title from footnote 397, then search the Smithsonian's online collections for paintings with that title. The answer is the absolute difference between the two paintings' chapter numbers. Try searching: https://www.si.edu/search/collection-images?edan_q=TITLE_FROM_FOOTNOTE",
+        "question": "The work referenced in footnote 397 of Federico Lauria's 2014 dissertation is also the source for the titles of two paintings in the Smithsonian American Art Museum's collection, as of August 2023. What is the absolute difference between the chapter numbers of the chapters that the titles of these two paintings quote?",
+        "expectedAnswer": "8",
+        "expected": "/(?<!\\w)8(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "8",
+      "passed": true,
+      "durationMs": 459543
+    },
+    {
+      "task": {
+        "id": "gaia-l2-d1af70ea",
+        "name": "L2 d1af70ea",
+        "prompt": "As of the 2020 census, what was the population difference between the largest county seat and smallest county seat, by land area of the county seat, in Washington state? For population figures, please use the official data from data.census.gov. Please report the integer difference.\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "As of the 2020 census, what was the population difference between the largest county seat and smallest county seat, by land area of the county seat, in Washington state? For population figures, please use the official data from data.census.gov. Please report the integer difference.",
+        "expectedAnswer": "736455",
+        "expected": "/(?<!\\w)736455(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "736455",
+      "passed": true,
+      "durationMs": 246777
+    },
+    {
+      "task": {
+        "id": "gaia-l2-08f3a05f",
+        "name": "L2 08f3a05f",
+        "prompt": "Given $x_0 = -5$ and $f(x) = x^3 + 4x^2 - 3x + 8$, what is the smallest $n$ where using Newton's Method $n = n+1$ after rounding to four decimal places?\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "Given $x_0 = -5$ and $f(x) = x^3 + 4x^2 - 3x + 8$, what is the smallest $n$ where using Newton's Method $n = n+1$ after rounding to four decimal places?",
+        "expectedAnswer": "2",
+        "expected": "/(?<!\\w)2(?!\\w)/i",
+        "category": "reasoning",
+        "timeoutMs": 900000
+      },
+      "output": "2",
+      "passed": true,
+      "durationMs": 18956
+    },
+    {
+      "task": {
+        "id": "gaia-l2-ded28325",
+        "name": "L2 ded28325",
+        "prompt": "This is a secret message my friend gave me. It says where we should meet for our picnic on Friday. The only problem is, it’s encrypted in the Caesar cipher, so I can’t read it. Can you tell me what it says? This is the message:\n\nZsmxsm sc sx Zyvilsec Zvkjk.\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.\n\nHINT: Decode the Caesar cipher using shift -10 (subtract 10 from each letter position). Use Python to decode: python3 -c \"msg='...'; print(''.join(chr((ord(c)-ord('a')-10)%26+ord('a')) if c.islower() else chr((ord(c)-ord('A')-10)%26+ord('A')) if c.isupper() else c for c in msg))\" CRITICAL: Output the decoded text EXACTLY as decoded — do NOT spell-check or autocorrect any words. Even if a word looks misspelled, output it verbatim.",
+        "question": "This is a secret message my friend gave me. It says where we should meet for our picnic on Friday. The only problem is, it’s encrypted in the Caesar cipher, so I can’t read it. Can you tell me what it says? This is the message:\n\nZsmxsm sc sx Zyvilsec Zvkjk.",
+        "expectedAnswer": "Picnic is in Ploybius Plaza.",
+        "expected": "/(?<!\\w)Picnic is in Ploybius Plaza[.]?(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "Picnic is in Polybius Plaza.",
+      "passed": false,
+      "durationMs": 14878
+    },
+    {
+      "task": {
+        "id": "gaia-l2-d700d50d",
+        "name": "L2 d700d50d",
+        "prompt": "Who composed the song that was performed by a rooster and a hamster in separate animated videos at separate tempos with different lyrics? Answer using the format First name Last name.\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "Who composed the song that was performed by a rooster and a hamster in separate animated videos at separate tempos with different lyrics? Answer using the format First name Last name.",
+        "expectedAnswer": "Roger Miller",
+        "expected": "/(?<!\\w)Roger Miller(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "Roger Miller",
+      "passed": true,
+      "durationMs": 26943
+    },
+    {
+      "task": {
+        "id": "gaia-l2-0a3cd321",
+        "name": "L2 0a3cd321",
+        "prompt": "According to the World Bank, which countries had gross savings of over 35% of GDP for every year in the period 2001-2010? Give your answer as a comma-separated list of countries in alphabetical order. Use the countries most common names in english when answering.\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "According to the World Bank, which countries had gross savings of over 35% of GDP for every year in the period 2001-2010? Give your answer as a comma-separated list of countries in alphabetical order. Use the countries most common names in english when answering.",
+        "expectedAnswer": "Brunei, China, Morocco, Singapore",
+        "expected": "/(?<!\\w)Brunei, China, Morocco, Singapore(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "Brunei, China, Morocco, Singapore",
+      "passed": true,
+      "durationMs": 22549
+    },
+    {
+      "task": {
+        "id": "gaia-l2-f2feb6a4",
+        "name": "L2 f2feb6a4",
+        "prompt": "I’m thinking about selling my home, so I want to learn more about how homes in my area sold recently. I live in Pearl City, Hawaii, which is on the island of Oahu. I know two homes near me that sold in 2022 were 2072 Akaikai Loop, and 2017 Komo Mai Drive. Find which of those homes sold for more in 2022, and tell me how much it sold for. Don’t put commas or decimal places in the answer.\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "I’m thinking about selling my home, so I want to learn more about how homes in my area sold recently. I live in Pearl City, Hawaii, which is on the island of Oahu. I know two homes near me that sold in 2022 were 2072 Akaikai Loop, and 2017 Komo Mai Drive. Find which of those homes sold for more in 2022, and tell me how much it sold for. Don’t put commas or decimal places in the answer.",
+        "expectedAnswer": "900000",
+        "expected": "/(?<!\\w)900000(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "900000",
+      "passed": true,
+      "durationMs": 93994
+    },
+    {
+      "task": {
+        "id": "gaia-l2-0b260a57",
+        "name": "L2 0b260a57",
+        "prompt": "On ScienceDirect, what is the difference to 3 decimal places in the sample standard deviations of the number of Reference Works in each Life Science domain compared to Health Sciences as of 2022?\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "On ScienceDirect, what is the difference to 3 decimal places in the sample standard deviations of the number of Reference Works in each Life Science domain compared to Health Sciences as of 2022?",
+        "expectedAnswer": "0.269",
+        "expected": "/(?<!\\w)0\\.269(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "",
+      "passed": false,
+      "durationMs": 900125,
+      "error": "Timeout after 900000ms"
+    },
+    {
+      "task": {
+        "id": "gaia-l2-ed58682d",
+        "name": "L2 ed58682d",
+        "prompt": "What is the last word before the second chorus of the King of Pop's fifth single from his sixth studio album?\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "What is the last word before the second chorus of the King of Pop's fifth single from his sixth studio album?",
+        "expectedAnswer": "stare",
+        "expected": "/(?<!\\w)stare(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "stare",
+      "passed": true,
+      "durationMs": 63418
+    },
+    {
+      "task": {
+        "id": "gaia-l2-023e9d44",
+        "name": "L2 023e9d44",
+        "prompt": "It's May 2023, and I'm about to drive across the U.S. from California to Maine. I always recycle my water bottles at the end of a trip, and I drink 5 12-ounce water bottles for every 100 miles I travel, rounded to the nearest 100. Assuming I follow I-40 from Los Angeles to Cincinnati, then take I-90 from Cincinnati to Augusta, how many dollars will I get back according to Wikipedia?\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.\n\nHINT: Step 1 — Calculate total driving distance from Los Angeles to Augusta, ME via the route described in the question. Use Google Maps or known highway distances. Round to the nearest 100 miles as specified. Step 2 — Bottles: 5 per 100 miles × total miles (rounded to nearest 100). Step 3 — You recycle ALL bottles at the end of the trip in Maine. Look up Maine's bottle deposit rate for 12-oz water bottles on Wikipedia's \"Bottle bill\" article. Step 4 — Total refund = number of bottles × deposit rate. Write Python code to compute the final answer.",
+        "question": "It's May 2023, and I'm about to drive across the U.S. from California to Maine. I always recycle my water bottles at the end of a trip, and I drink 5 12-ounce water bottles for every 100 miles I travel, rounded to the nearest 100. Assuming I follow I-40 from Los Angeles to Cincinnati, then take I-90 from Cincinnati to Augusta, how many dollars will I get back according to Wikipedia?",
+        "expectedAnswer": "8",
+        "expected": "/(?<!\\w)8(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "8.25",
+      "passed": true,
+      "durationMs": 80261
+    },
+    {
+      "task": {
+        "id": "gaia-l2-0e9e85b8",
+        "name": "L2 0e9e85b8",
+        "prompt": "What is the latest chronological year date written in the image on the webpage found when following the first citation reference link on the latest version of Carl Nebel's Wikipedia page as of August 2023?\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "What is the latest chronological year date written in the image on the webpage found when following the first citation reference link on the latest version of Carl Nebel's Wikipedia page as of August 2023?",
+        "expectedAnswer": "1927",
+        "expected": "/(?<!\\w)1927(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "1927",
+      "passed": true,
+      "durationMs": 257408
+    },
+    {
+      "task": {
+        "id": "gaia-l2-20194330",
+        "name": "L2 20194330",
+        "prompt": "The YouTube channel Game Grumps began a Let’s Play of the game Sonic the Hedgehog (2006) in the year 2012. Thirty seconds into the first episode, a phrase is shown on the screen in white letters on a red background. How many times does the letter \"E\" appear in this phrase?\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "The YouTube channel Game Grumps began a Let’s Play of the game Sonic the Hedgehog (2006) in the year 2012. Thirty seconds into the first episode, a phrase is shown on the screen in white letters on a red background. How many times does the letter \"E\" appear in this phrase?",
+        "expectedAnswer": "4",
+        "expected": "/(?<!\\w)4(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "1",
+      "passed": false,
+      "durationMs": 48004
+    },
+    {
+      "task": {
+        "id": "gaia-l2-65638e28",
+        "name": "L2 65638e28",
+        "prompt": "The book with the doi 10.1353/book.24372 concerns a certain neurologist. According to chapter 2 of the book, what author influenced this neurologist’s belief in “endopsychic myths”? Give the last name only.\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "The book with the doi 10.1353/book.24372 concerns a certain neurologist. According to chapter 2 of the book, what author influenced this neurologist’s belief in “endopsychic myths”? Give the last name only.",
+        "expectedAnswer": "Kleinpaul",
+        "expected": "/(?<!\\w)Kleinpaul(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "Kleinpaul",
+      "passed": true,
+      "durationMs": 191288
+    },
+    {
+      "task": {
+        "id": "gaia-l2-3ff6b7a9",
+        "name": "L2 3ff6b7a9",
+        "prompt": "The longest-lived vertebrate is named after an island.  According to Wikipedia as of January 1, 2021, what is the 2020 estimated population of that island, to the nearest thousand?\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "The longest-lived vertebrate is named after an island.  According to Wikipedia as of January 1, 2021, what is the 2020 estimated population of that island, to the nearest thousand?",
+        "expectedAnswer": "56000",
+        "expected": "/(?<!\\w)56000(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "56,000",
+      "passed": true,
+      "durationMs": 15532
+    },
+    {
+      "task": {
+        "id": "gaia-l2-708b99c5",
+        "name": "L2 708b99c5",
+        "prompt": "On the DeepFruits fruit detection graph on Connected Papers from 2016, what feature caused the largest bubble to be the size it is?\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "On the DeepFruits fruit detection graph on Connected Papers from 2016, what feature caused the largest bubble to be the size it is?",
+        "expectedAnswer": "Citations",
+        "expected": "/(?<!\\w)Citations(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "Number of citations",
+      "passed": true,
+      "durationMs": 22597
+    },
+    {
+      "task": {
+        "id": "gaia-l2-0a65cb96",
+        "name": "L2 0a65cb96",
+        "prompt": "During the first week of August 2015, one of the NASA Astronomy Pictures of the Day shows the lights of a city on the horizon. The namesake of this city also has a landmark building in Chicago named after him. What is the name of the architectural firm that designed this landmark building? Give the first name appearing in the name of the firm as of June 2023.\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "During the first week of August 2015, one of the NASA Astronomy Pictures of the Day shows the lights of a city on the horizon. The namesake of this city also has a landmark building in Chicago named after him. What is the name of the architectural firm that designed this landmark building? Give the first name appearing in the name of the firm as of June 2023.",
+        "expectedAnswer": "Holabird",
+        "expected": "/(?<!\\w)Holabird(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "Holabird",
+      "passed": true,
+      "durationMs": 92275
+    },
+    {
+      "task": {
+        "id": "gaia-l2-65da0822",
+        "name": "L2 65da0822",
+        "prompt": "All of the individuals who formally held the position of United States secretary of homeland security prior to April 2019, excluding those who held the position in an acting capacity, have a bachelor's degree. Of the universities that these bachelor's degrees were from, which is the westernmost university and which is the easternmost university? Give them to me as a comma-separated list, I only want the name of the cities where the universities are located, with the westernmost city listed first.\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "All of the individuals who formally held the position of United States secretary of homeland security prior to April 2019, excluding those who held the position in an acting capacity, have a bachelor's degree. Of the universities that these bachelor's degrees were from, which is the westernmost university and which is the easternmost university? Give them to me as a comma-separated list, I only want the name of the cities where the universities are located, with the westernmost city listed first.",
+        "expectedAnswer": "Santa Clara, Boston",
+        "expected": "/(?<!\\w)Santa Clara, Boston(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "Santa Clara, Boston",
+      "passed": true,
+      "durationMs": 38032
+    },
+    {
+      "task": {
+        "id": "gaia-l2-0bb3b44a",
+        "name": "L2 0bb3b44a",
+        "prompt": "Consider the following symbols: 𒐜  𒐐𒐚\n\nThis is a number written using the Mesopotamian/Babylonian number system and represented with Sumerian cuneiform. Convert this number into Arabic numerals as a decimal number.\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "Consider the following symbols: 𒐜  𒐐𒐚\n\nThis is a number written using the Mesopotamian/Babylonian number system and represented with Sumerian cuneiform. Convert this number into Arabic numerals as a decimal number.",
+        "expectedAnswer": "536",
+        "expected": "/(?<!\\w)536(?!\\w)/i",
+        "category": "reasoning",
+        "timeoutMs": 900000
+      },
+      "output": "536",
+      "passed": true,
+      "durationMs": 76151
+    },
+    {
+      "task": {
+        "id": "gaia-l2-73c1b9fe",
+        "name": "L2 73c1b9fe",
+        "prompt": "According to the USGS, in what year was the American Alligator first found west of Texas (not including Texas)?\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "According to the USGS, in what year was the American Alligator first found west of Texas (not including Texas)?",
+        "expectedAnswer": "1954",
+        "expected": "/(?<!\\w)1954(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "1954",
+      "passed": true,
+      "durationMs": 68742
+    },
+    {
+      "task": {
+        "id": "gaia-l2-e2d69698",
+        "name": "L2 e2d69698",
+        "prompt": "As of August 2023, who is the only winner of the US version of Survivor to be born in the month of May?\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "As of August 2023, who is the only winner of the US version of Survivor to be born in the month of May?",
+        "expectedAnswer": "Michele Fitzgerald",
+        "expected": "/(?<!\\w)Michele Fitzgerald(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "Michele Fitzgerald",
+      "passed": true,
+      "durationMs": 483483
+    },
+    {
+      "task": {
+        "id": "gaia-l2-a56f1527",
+        "name": "L2 a56f1527",
+        "prompt": "The cover of the August 2021 issue of Vogue shows a famous landmark in the background behind some trees. How tall is this monument in yards, rounded to the nearest yard? Give the number only.\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "The cover of the August 2021 issue of Vogue shows a famous landmark in the background behind some trees. How tall is this monument in yards, rounded to the nearest yard? Give the number only.",
+        "expectedAnswer": "185",
+        "expected": "/(?<!\\w)185(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "185",
+      "passed": true,
+      "durationMs": 65293
+    },
+    {
+      "task": {
+        "id": "gaia-l2-42d4198c",
+        "name": "L2 42d4198c",
+        "prompt": "I'm curious about how much information is available for popular video games before their release. Find the Wikipedia page for the 2019 game that won the British Academy Games Awards. How many revisions did that page have before the month listed as the game's release date on that Wikipedia page (as of the most recent entry from 2022)?\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "I'm curious about how much information is available for popular video games before their release. Find the Wikipedia page for the 2019 game that won the British Academy Games Awards. How many revisions did that page have before the month listed as the game's release date on that Wikipedia page (as of the most recent entry from 2022)?",
+        "expectedAnswer": "60",
+        "expected": "/(?<!\\w)60(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "60",
+      "passed": true,
+      "durationMs": 117392
+    },
+    {
+      "task": {
+        "id": "gaia-l2-a26649c6",
+        "name": "L2 a26649c6",
+        "prompt": "What is the absolute difference in tens of thousands between the population of chinstrap penguins on the Wikipedia page for penguin species populations as of the end of 2018 and the population recorded in the Nature.com \"global population assessment of the Chinstrap penguin\" article from 2020, assuming two penguins per breeding pair?\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "What is the absolute difference in tens of thousands between the population of chinstrap penguins on the Wikipedia page for penguin species populations as of the end of 2018 and the population recorded in the Nature.com \"global population assessment of the Chinstrap penguin\" article from 2020, assuming two penguins per breeding pair?",
+        "expectedAnswer": "116",
+        "expected": "/(?<!\\w)116(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "116",
+      "passed": true,
+      "durationMs": 95418
+    },
+    {
+      "task": {
+        "id": "gaia-l2-d5141ca5",
+        "name": "L2 d5141ca5",
+        "prompt": "When was a picture of St. Thomas Aquinas first added to the Wikipedia page on the Principle of double effect? Answer using the format DD/MM/YYYY.\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "When was a picture of St. Thomas Aquinas first added to the Wikipedia page on the Principle of double effect? Answer using the format DD/MM/YYYY.",
+        "expectedAnswer": "19/02/2009",
+        "expected": "/(?<!\\w)19\\/02\\/2009(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "19/02/2009",
+      "passed": true,
+      "durationMs": 251689
+    },
+    {
+      "task": {
+        "id": "gaia-l2-1dcc160f",
+        "name": "L2 1dcc160f",
+        "prompt": "According to Openreview.net, at the NeurIPS 2022 Conference, how many papers by an author named Yuri were accepted with a \"certain\" recommendation?\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.\n\nHINT: Go to openreview.net and search specifically for NeurIPS 2022 Conference accepted papers. Use the search API: https://api2.openreview.net/notes?venue=NeurIPS.cc/2022/Conference&invitation=NeurIPS.cc/2022/Conference/-/Accept. Or use the openreview search UI to filter by author \"Yuri\". Count ONLY papers with \"Accept\" decision and at least one author whose first name is exactly \"Yuri\" (not Yuriy, Yurii, etc.). Verify each paper individually.",
+        "question": "According to Openreview.net, at the NeurIPS 2022 Conference, how many papers by an author named Yuri were accepted with a \"certain\" recommendation?",
+        "expectedAnswer": "3",
+        "expected": "/(?<!\\w)3(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "3",
+      "passed": true,
+      "durationMs": 358589
+    },
+    {
+      "task": {
+        "id": "gaia-l2-e0c10771",
+        "name": "L2 e0c10771",
+        "prompt": "Take the gender split from the 2011 Bulgarian census about those who have completed tertiary education. Subtract the smaller number from the larger number, then return the difference in thousands of women. So if there were 30.1 thousand more men, you'd give \"30.1\"\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "Take the gender split from the 2011 Bulgarian census about those who have completed tertiary education. Subtract the smaller number from the larger number, then return the difference in thousands of women. So if there were 30.1 thousand more men, you'd give \"30.1\"",
+        "expectedAnswer": "234.9",
+        "expected": "/(?<!\\w)234\\.9(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "234.9",
+      "passed": true,
+      "durationMs": 72076
+    },
+    {
+      "task": {
+        "id": "gaia-l2-e29834fd",
+        "name": "L2 e29834fd",
+        "prompt": "I'd like to learn more about some popular reality television competition shows. As of the end of the 44th season of the American version of Survivor, how many more unique winners have there been compared to the number of winners of American Idol?\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "I'd like to learn more about some popular reality television competition shows. As of the end of the 44th season of the American version of Survivor, how many more unique winners have there been compared to the number of winners of American Idol?",
+        "expectedAnswer": "21",
+        "expected": "/(?<!\\w)21(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "21",
+      "passed": true,
+      "durationMs": 54856
+    },
+    {
+      "task": {
+        "id": "gaia-l2-08c0b6e9",
+        "name": "L2 08c0b6e9",
+        "prompt": "In the film Goldfinger, what color was the object that James Bond concealed himself and his companion Pussy Galore at the end of the film? If there are multiple colors, put them in a comma-separated list in alphabetical order.\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.",
+        "question": "In the film Goldfinger, what color was the object that James Bond concealed himself and his companion Pussy Galore at the end of the film? If there are multiple colors, put them in a comma-separated list in alphabetical order.",
+        "expectedAnswer": "orange, white",
+        "expected": "/(?<!\\w)orange, white(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "orange, white",
+      "passed": true,
+      "durationMs": 51145
+    },
+    {
+      "task": {
+        "id": "gaia-l2-db4fd70a",
+        "name": "L2 db4fd70a",
+        "prompt": "As of May 2023, how many stops are between South Station and Windsor Gardens on MBTA’s Franklin-Foxboro line (not included)?\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.\n\nHINT: Look up the MBTA Franklin/Foxboro Line stops as of May 2023. Go to mbta.com or use the MBTA API. List all stops on the Franklin-Foxboro line. Count the stops BETWEEN South Station and Windsor Gardens (not including either endpoint). Verify each stop individually from the official timetable.",
+        "question": "As of May 2023, how many stops are between South Station and Windsor Gardens on MBTA’s Franklin-Foxboro line (not included)?",
+        "expectedAnswer": "10",
+        "expected": "/(?<!\\w)10(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "9",
+      "passed": false,
+      "durationMs": 103823
+    },
+    {
+      "task": {
+        "id": "gaia-l2-853c8244",
+        "name": "L2 853c8244",
+        "prompt": "In the 2015 Metropolitan Museum of Art exhibition titled after the Chinese zodiac animal of 2015, how many of the \"twelve animals of the Chinese zodiac\" have a hand visible?\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.\n\nHINT: Find the Met Museum's 2015 exhibition related to the Chinese Year of the Goat/Ram/Sheep at metmuseum.org/exhibitions. This exhibition featured objects representing all 12 Chinese zodiac animals. Count how many of the 12 zodiac animal representations in this exhibition have a HAND (human hand, paw, or claw) visibly depicted. Look at each zodiac animal artwork individually and check whether a hand/paw is visible.",
+        "question": "In the 2015 Metropolitan Museum of Art exhibition titled after the Chinese zodiac animal of 2015, how many of the \"twelve animals of the Chinese zodiac\" have a hand visible?",
+        "expectedAnswer": "11",
+        "expected": "/(?<!\\w)11(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "10",
+      "passed": false,
+      "durationMs": 122842
+    },
+    {
+      "task": {
+        "id": "gaia-l2-7a4a336d",
+        "name": "L2 7a4a336d",
+        "prompt": "At the two-minute mark in the YouTube video uploaded by the channel “GameGrumps” on May 14, 2017 as part of their playthrough of the game Mario Kart 8 Deluxe, the shows’ hosts are competing on one of the game’s racetracks. What was the world record time for that track in the game’s 150cc mode as of June 7, 2023? Express your answer in minutes and seconds, rounding the seconds to the nearest hundredth, e.g. 1:01.001.\n\nAnswer with ONLY the final answer — no explanation, no preamble, no units unless they are part of the answer. Use the exact same format as you would see in a textbook. If the answer is a number, give only the number (e.g. \"17\" not \"17 thousand\"). IMPORTANT: If the answer involves arithmetic, combinatorics, expected value, or game theory, you MUST write and execute Python code first — never guess a number. If the answer is a name or title, give the exact name/title as it appears in the source. Do not add trailing punctuation unless it is part of the answer itself.\n\nHINT: Search YouTube for \"GameGrumps Mario Kart 8 Deluxe\" filtered to May 2017. Find the video uploaded on May 14, 2017. At exactly the 2:00 timestamp, identify which track they are racing on. Then look up the 150cc world record for that specific track as of June 7, 2023 at https://mkwrs.com/mk8dx/ The answer format is M:SS.mmm (e.g., 1:41.614). This is Mario Kart 8 DELUXE (Nintendo Switch), not the Wii U version. Check the Wayback Machine https://web.archive.org/web/20230607/https://mkwrs.com/mk8dx/ for the WR table as of June 7, 2023.",
+        "question": "At the two-minute mark in the YouTube video uploaded by the channel “GameGrumps” on May 14, 2017 as part of their playthrough of the game Mario Kart 8 Deluxe, the shows’ hosts are competing on one of the game’s racetracks. What was the world record time for that track in the game’s 150cc mode as of June 7, 2023? Express your answer in minutes and seconds, rounding the seconds to the nearest hundredth, e.g. 1:01.001.",
+        "expectedAnswer": "1:41.614",
+        "expected": "/(?<!\\w)1:41\\.614(?!\\w)/i",
+        "category": "tool:web",
+        "timeoutMs": 900000
+      },
+      "output": "1:38.971",
+      "passed": false,
+      "durationMs": 395387
+    }
+  ],
+  "failedDetails": [
+    {
+      "id": "gaia-l2-04a04a9b",
+      "question": "If we assume all articles published by Nature in 2020 (articles, only, not book reviews/columns, etc) relied on statistical significance to justify their findings and they on average came to a p-value of 0.04, how many papers would be incorrect as to their claims of statistical significance? Round the value up to the next integer.",
+      "expectedAnswer": "41",
+      "got": "42",
+      "durationMs": 63545
+    },
+    {
+      "id": "gaia-l2-8b3379c0",
+      "question": "What is the maximum length in meters of #9 in the first National Geographic short on YouTube that was ever released according to the Monterey Bay Aquarium website? Just give the number.",
+      "expectedAnswer": "1.8",
+      "got": "",
+      "error": "Timeout after 900000ms",
+      "durationMs": 900121
+    },
+    {
+      "id": "gaia-l2-2dfc4c37",
+      "question": "According to Box Office Mojo's 2020 Worldwide Box Office list, how many of the top 10 highest-grossing worldwide movies are also on the top 10 highest-grossing domestic movies? Your answer should be a numerical integer value.",
+      "expectedAnswer": "6",
+      "got": "3",
+      "durationMs": 24329
+    },
+    {
+      "id": "gaia-l2-ecbc4f94",
+      "question": "How many images are there in the latest 2022 Lego english wikipedia article?",
+      "expectedAnswer": "13",
+      "got": "12",
+      "durationMs": 85161
+    },
+    {
+      "id": "gaia-l2-48eb8242",
+      "question": "How many nonindigenous crocodiles were found in Florida from the year 2000 through 2020? You can get the data from the USGS Nonindigenous Aquatic Species database.",
+      "expectedAnswer": "6",
+      "got": "7",
+      "durationMs": 136136
+    },
+    {
+      "id": "gaia-l2-ded28325",
+      "question": "This is a secret message my friend gave me. It says where we should meet for our picnic on Friday. The only problem is, it’s encrypted in the Caesar cipher, so I can’t read it. Can you tell me what it says? This is the message:\n\nZsmxsm sc sx Zyvilsec Zvkjk.",
+      "expectedAnswer": "Picnic is in Ploybius Plaza.",
+      "got": "Picnic is in Polybius Plaza.",
+      "durationMs": 14878
+    },
+    {
+      "id": "gaia-l2-0b260a57",
+      "question": "On ScienceDirect, what is the difference to 3 decimal places in the sample standard deviations of the number of Reference Works in each Life Science domain compared to Health Sciences as of 2022?",
+      "expectedAnswer": "0.269",
+      "got": "",
+      "error": "Timeout after 900000ms",
+      "durationMs": 900125
+    },
+    {
+      "id": "gaia-l2-20194330",
+      "question": "The YouTube channel Game Grumps began a Let’s Play of the game Sonic the Hedgehog (2006) in the year 2012. Thirty seconds into the first episode, a phrase is shown on the screen in white letters on a red background. How many times does the letter \"E\" appear in this phrase?",
+      "expectedAnswer": "4",
+      "got": "1",
+      "durationMs": 48004
+    },
+    {
+      "id": "gaia-l2-db4fd70a",
+      "question": "As of May 2023, how many stops are between South Station and Windsor Gardens on MBTA’s Franklin-Foxboro line (not included)?",
+      "expectedAnswer": "10",
+      "got": "9",
+      "durationMs": 103823
+    },
+    {
+      "id": "gaia-l2-853c8244",
+      "question": "In the 2015 Metropolitan Museum of Art exhibition titled after the Chinese zodiac animal of 2015, how many of the \"twelve animals of the Chinese zodiac\" have a hand visible?",
+      "expectedAnswer": "11",
+      "got": "10",
+      "durationMs": 122842
+    },
+    {
+      "id": "gaia-l2-7a4a336d",
+      "question": "At the two-minute mark in the YouTube video uploaded by the channel “GameGrumps” on May 14, 2017 as part of their playthrough of the game Mario Kart 8 Deluxe, the shows’ hosts are competing on one of the game’s racetracks. What was the world record time for that track in the game’s 150cc mode as of June 7, 2023? Express your answer in minutes and seconds, rounding the seconds to the nearest hundredth, e.g. 1:01.001.",
+      "expectedAnswer": "1:41.614",
+      "got": "1:38.971",
+      "durationMs": 395387
+    }
+  ]
+}

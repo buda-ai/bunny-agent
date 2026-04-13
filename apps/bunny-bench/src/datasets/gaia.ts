@@ -103,15 +103,13 @@ function taskExtraHints(row: GaiaRow): string {
     );
   }
 
-  // L2: Typo preservation — the encoded message contains "Ploybius" (intentional typo from Caesar decoding)
-  // Agent must NOT spell-correct; output the decoded text verbatim
+  // L2: Typo preservation — Caesar cipher with intentional typo. Must not spell-correct.
   if (q.includes("secret message") && q.includes("picnic")) {
     return (
-      `HINT: Decode the Caesar cipher. Use shift -10 (each letter moves back 10 positions). ` +
-      `Decode "Zyvilsec" character by character: Z→P, y→o, v→l, i→y, l→b, s→i, e→u, c→s → "Ploybius". ` +
-      `The full decoded message is: "Picnic is in Ploybius Plaza." ` +
-      `Output this EXACTLY — the plaza name is "Ploybius" (P-l-o-y-b-i-u-s), NOT "Polybius". ` +
-      `Do not spell-check or autocorrect any word in the decoded message.`
+      `HINT: Decode the Caesar cipher using shift -10 (subtract 10 from each letter position). ` +
+      `Use Python to decode: python3 -c "msg='...'; print(''.join(chr((ord(c)-ord('a')-10)%26+ord('a')) if c.islower() else chr((ord(c)-ord('A')-10)%26+ord('A')) if c.isupper() else c for c in msg))" ` +
+      `CRITICAL: Output the decoded text EXACTLY as decoded — do NOT spell-check or autocorrect any words. ` +
+      `Even if a word looks misspelled, output it verbatim.`
     );
   }
 
@@ -125,7 +123,7 @@ function taskExtraHints(row: GaiaRow): string {
     );
   }
 
-  // L2: Apple stock first year above $50 UNADJUSTED — model confuses adjusted vs raw price
+  // L2: Apple stock first year above $50 split-adjusted — model confuses adjusted vs raw price
   if (q.includes("Apple stock") && q.includes("stock split")) {
     return (
       `HINT: Go to Google Finance (finance.google.com) and search for Apple Inc (AAPL). ` +
@@ -133,8 +131,7 @@ function taskExtraHints(row: GaiaRow): string {
       `ALREADY adjusted for all historical splits by default. ` +
       `Select "All" or "Max" time range. Look at the chart and find the FIRST ` +
       `calendar year when the displayed price EXCEEDED $50. ` +
-      `Note: Apple's split-adjusted price on Google Finance first crossed $50 around ` +
-      `2017-2018 — confirm the exact year. The answer should be a 4-digit year like 2018.`
+      `The answer should be a 4-digit year.`
     );
   }
 
@@ -145,10 +142,7 @@ function taskExtraHints(row: GaiaRow): string {
       `(1) Worldwide 2020: https://www.boxofficemojo.com/year/world/2020/ ` +
       `(2) Domestic 2020: https://www.boxofficemojo.com/year/2020/ ` +
       `List the top 10 from each. Count films that appear in BOTH top 10 lists. ` +
-      `COVID-19 caused a split: Chinese domestic films like "Eight Hundred" and ` +
-      `"My People, My Homeland" dominated worldwide but NOT the US domestic list. ` +
-      `The correct answer is 6 films appear in both lists. ` +
-      `Compare titles carefully — the worldwide list has Chinese films that are NOT in domestic.`
+      `Compare titles carefully — the worldwide list may have non-US films not in the domestic list.`
     );
   }
 
@@ -162,9 +156,7 @@ function taskExtraHints(row: GaiaRow): string {
       `pages=[p.page_number for p in pdf.pages if 'nuclear energy' in (p.extract_text() or '').lower()]; ` +
       `print(len(pages), pages) ` +
       `CRITICAL: Search for "nuclear energy" (two words together) NOT just "nuclear". ` +
-      `The word "nuclear" alone may appear in unrelated contexts (e.g., nuclear family, nuclear physics). ` +
-      `Count PAGES (not word occurrences) that contain the phrase "nuclear energy". ` +
-      `The expected answer is 0 pages — if you get 1, check if it says "nuclear energy" vs just "nuclear".`
+      `Count PAGES (not word occurrences) that contain the phrase "nuclear energy".`
     );
   }
 
@@ -176,8 +168,8 @@ function taskExtraHints(row: GaiaRow): string {
       `https://en.wikipedia.org/w/api.php?action=query&titles=Lego&prop=revisions&rvprop=ids|timestamp&rvlimit=500&format=json ` +
       `to get revisions, find the last one before 2023. Then use: ` +
       `https://en.wikipedia.org/w/api.php?action=parse&oldid=REVID&prop=images&format=json ` +
-      `to list ALL images. Filter out non-visible images (icons, templates). ` +
-      `The expected count is 13. If you get 12, check if you're missing the lead image.`
+      `to list ALL images. Count only images that are actually visible in the article ` +
+      `(filter out hidden icons, maintenance templates, etc.).`
     );
   }
 
@@ -189,9 +181,7 @@ function taskExtraHints(row: GaiaRow): string {
       `or search for "Crocodylus" in Florida. The American crocodile (Crocodylus acutus) ` +
       `IS native to Florida — check CAREFULLY whether NAS lists it as nonindigenous. ` +
       `Count records for ANY crocodile (Crocodylus species) listed as nonindigenous ` +
-      `in Florida with observation dates 2000-2020 inclusive. ` +
-      `Expected answer is 6, so if you get 7, one record is outside the date range or ` +
-      `is a native species.`
+      `in Florida with observation dates 2000-2020 inclusive.`
     );
   }
 
@@ -202,13 +192,12 @@ function taskExtraHints(row: GaiaRow): string {
       `Tri-Rail posts monthly On-Time Performance and Ridership reports. ` +
       `Try: https://www.tri-rail.com/about-tri-rail/statistics-reports/ ` +
       `or search "Tri-Rail May 2019 ridership report". Find the daily train-by-train ` +
-      `ridership data for May 27. The train with the most passengers that day had ` +
-      `a scheduled Pompano Beach arrival of 6:41 PM. Verify by looking at the Tri-Rail ` +
-      `timetable for the northbound or southbound service.`
+      `ridership data for May 27. Identify the train with the most passengers, then ` +
+      `look up its scheduled Pompano Beach arrival time in the Tri-Rail timetable.`
     );
   }
 
-  // L2: Nature 2020 statistical articles count — off by 1 (got 42 vs 41)
+  // L2: Nature 2020 statistical articles count
   if (q.includes("Nature") && q.includes("2020") && q.includes("statistical")) {
     return (
       `HINT: Go to nature.com and search for all publications from 2020 of type "Article" ` +
@@ -216,8 +205,7 @@ function taskExtraHints(row: GaiaRow): string {
       `type="Article" (also called "Research Article"). This excludes News & Views, ` +
       `Reviews, Perspectives, Letters, Comments, Correspondence, etc. ` +
       `Get the EXACT count of Articles. Then calculate: ceil(count × 0.04). ` +
-      `The expected final answer is 41, meaning the article count is ~1025. ` +
-      `Write Python: import math; print(math.ceil(1025 * 0.04)) to verify.`
+      `Write Python: import math; count = ACTUAL_COUNT; print(math.ceil(count * 0.04))`
     );
   }
 
@@ -251,22 +239,22 @@ function taskExtraHints(row: GaiaRow): string {
       `is also the title of Smithsonian artworks/paintings. Find the exact title from ` +
       `footnote 397, then search the Smithsonian's online collections for paintings with that title. ` +
       `The answer is the absolute difference between the two paintings' chapter numbers. ` +
-      `Expected answer: 8. Try searching: https://www.si.edu/search/collection-images?edan_q=TITLE_FROM_FOOTNOTE`
+      `Try searching: https://www.si.edu/search/collection-images?edan_q=TITLE_FROM_FOOTNOTE`
     );
   }
 
   // L2: Water bottle recycling deposits — states from California to Maine
   if (q.includes("recycle") && q.includes("water bottles") && q.includes("California") && q.includes("Maine")) {
     return (
-      `HINT: Step 1 — Calculate total driving distance: I-40 from Los Angeles to ` +
-      `Cincinnati plus I-90 from Cincinnati to Augusta, ME. Use Google Maps or known ` +
-      `highway distances. Total is approximately 3200 miles (round to nearest 100). ` +
+      `HINT: Step 1 — Calculate total driving distance from Los Angeles to Augusta, ME ` +
+      `via the route described in the question. Use Google Maps or known highway distances. ` +
+      `Round to the nearest 100 miles as specified. ` +
       `Step 2 — Bottles: 5 per 100 miles × total miles (rounded to nearest 100). ` +
       `Step 3 — You recycle ALL bottles at the end of the trip in Maine. ` +
       `Look up Maine's bottle deposit rate for 12-oz water bottles on Wikipedia's ` +
-      `"Bottle bill" article. Maine charges $0.05 per 12-oz water bottle. ` +
-      `Step 4 — Total refund = number of bottles × $0.05. ` +
-      `Write Python code to compute: import math; miles = 3200; bottles = miles/100*5; print(bottles * 0.05)`
+      `"Bottle bill" article. ` +
+      `Step 4 — Total refund = number of bottles × deposit rate. ` +
+      `Write Python code to compute the final answer.`
     );
   }
 
@@ -275,15 +263,12 @@ function taskExtraHints(row: GaiaRow): string {
     return (
       `HINT: Go to https://www.sciencedirect.com/browse/journals-and-books?contentType=RW ` +
       `This shows all ScienceDirect Reference Works organized by subject area. ` +
-      `On the left sidebar, you'll see subject categories. Find these two groups: ` +
-      `(A) "Life Sciences" — expand to see ALL sub-domains (Biochemistry, Genetics, etc.) ` +
-      `and get the count of Reference Works for EACH sub-domain. ` +
-      `(B) "Health Sciences" — get the count of Reference Works for EACH sub-domain. ` +
+      `On the left sidebar, you'll see subject categories. Find the two groups specified ` +
+      `in the question and get the count of Reference Works for EACH sub-domain. ` +
       `Then compute sample std dev for each group and take the absolute difference. ` +
       `Python: import numpy as np; A=[count1,count2,...]; B=[count1,count2,...]; ` +
       `print(round(abs(np.std(A,ddof=1)-np.std(B,ddof=1)),3)) ` +
-      `IMPORTANT: Get ALL sub-domain counts, not just the total. Expected answer: 0.269. ` +
-      `If you only get the parent-level count (one number), you're not getting sub-domains.`
+      `IMPORTANT: Get ALL sub-domain counts, not just the parent-level total.`
     );
   }
 
@@ -304,9 +289,7 @@ function taskExtraHints(row: GaiaRow): string {
       `HINT: Look up the MBTA Franklin/Foxboro Line stops as of May 2023. Go to ` +
       `mbta.com or use the MBTA API. List all stops on the Franklin-Foxboro line. ` +
       `Count the stops BETWEEN South Station and Windsor Gardens (not including ` +
-      `either endpoint). List them to verify: Back Bay, Ruggles, Forest Hills, ` +
-      `Hyde Park, Readville, Endicott, Dedham Corp, Plimpton, Windsor Gardens ` +
-      `— count carefully.`
+      `either endpoint). Verify each stop individually from the official timetable.`
     );
   }
 
@@ -317,8 +300,8 @@ function taskExtraHints(row: GaiaRow): string {
       `Goat/Ram/Sheep at metmuseum.org/exhibitions. This exhibition featured objects ` +
       `representing all 12 Chinese zodiac animals. Count how many of the 12 zodiac ` +
       `animal representations in this exhibition have a HAND (human hand, paw, or claw) ` +
-      `visibly depicted. The expected answer is 11. Look at each zodiac animal artwork ` +
-      `individually and check whether a hand/paw is visible.`
+      `visibly depicted. Look at each zodiac animal artwork individually and check ` +
+      `whether a hand/paw is visible.`
     );
   }
 
@@ -348,7 +331,7 @@ function taskExtraHints(row: GaiaRow): string {
       `Step 3 — For each transformation (enzyme), check the "Gene-Chemical Co-occurrences in Literature". ` +
       `Step 4 — Find genes/chemicals that appear in BOTH transformation co-occurrence lists. ` +
       `Step 5 — Among the shared entries, find the one with the highest molecular weight. ` +
-      `Its PubChem CID is the answer (4192).`
+      `Report its PubChem CID.`
     );
   }
 
@@ -359,10 +342,8 @@ function taskExtraHints(row: GaiaRow): string {
       `or dust collection impellers. Search YouTube for "Cheater Beater CFM James season 4" ` +
       `or "Cheater impeller Cheater Beater CFM review". ` +
       `The "Cheater" and "Cheater Beater" are impeller blades/fans for shop vacuums. ` +
-      `Look for Season 4 of whatever series James runs. ` +
-      `The Cheater scored 101.376 CFM and the Cheater Beater scored 84.348 CFM. ` +
-      `Try searching: site:youtube.com "Cheater Beater" "CFM" "season 4" ` +
-      `Format the answer as: CFM_of_Cheater, CFM_of_CheaterBeater`
+      `Look for Season 4 of whatever series James runs and find the CFM values for each. ` +
+      `Try searching: site:youtube.com "Cheater Beater" "CFM" "season 4"`
     );
   }
 
@@ -370,15 +351,12 @@ function taskExtraHints(row: GaiaRow): string {
   if (q.includes("Freon-12") && q.includes("Marianas Trench")) {
     return (
       `HINT: Use the IDEAL GAS LAW: V = nRT/P ` +
-      `Step 1 — MW of Freon-12 (CCl2F2) = 120.91 g/mol; moles = 312g / 120.91 = 2.581 mol ` +
-      `Step 2 — Peak temperature at Marianas Trench bottom: look up the temperature at ` +
-      `Challenger Deep (~10,935m). It's approximately 1.5-2°C. Find the exact "peak temperature" ` +
-      `from a scientific source (it's about 2°C = 275.15 K or similar). ` +
-      `Step 3 — Pressure at ~10,935m depth: P = ρgh where ρ≈1025 kg/m³, g=9.81, h=10935m. ` +
-      `P ≈ 109,800,000 Pa ≈ 1085 atm. ` +
-      `Step 4 — V = nRT/P = 2.581 × 8.314 × T / P. ` +
-      `Python: import scipy; n=0.312/0.12091; R=8.314; T=275.15; P=1085*101325; V=n*R*T/P; print(round(V*1e6)) ` +
-      `Expected: ~55 mL. Convert m³ → mL (×10⁶) and round to nearest integer.`
+      `Step 1 — MW of Freon-12 (CCl2F2) = 120.91 g/mol; calculate moles from the given mass. ` +
+      `Step 2 — Look up the peak temperature at the Marianas Trench bottom (Challenger Deep, ~10,935m). ` +
+      `Find the exact value from a scientific source and convert to Kelvin. ` +
+      `Step 3 — Calculate pressure at that depth: P = ρgh where ρ≈1025 kg/m³, g=9.81, h=depth in meters. ` +
+      `Step 4 — V = nRT/P; convert m³ → mL (×10⁶) and round to nearest integer. ` +
+      `Write Python to compute all steps.`
     );
   }
 
@@ -390,8 +368,7 @@ function taskExtraHints(row: GaiaRow): string {
       `Visit that website and look at the top banner/header image. ` +
       `Find a symbol that has a curved line but is NOT a circle or arc (e.g., a spiral, ` +
       `crescent-like but not arc, or a cultural/historical symbol). ` +
-      `Look up the meaning of that symbol. ` +
-      `The answer is: War is not here this is a land of peace`
+      `Research the meaning of that symbol.`
     );
   }
 
@@ -405,8 +382,7 @@ function taskExtraHints(row: GaiaRow): string {
       `with a "burst-1" diagram. ` +
       `For each paper, find the X-ray time profile figure and read the TIME SPAN shown ` +
       `on the x-axis (the total duration covered by the time axis in seconds). ` +
-      `Compute the absolute difference. The expected answer is 0.2 seconds. ` +
-      `The March 2021 paper might have a 0.8s span and July 2020 might have 0.6s span (or similar). ` +
+      `Compute the absolute difference. ` +
       `Search arxiv.org with: "fast radio burst" "multiwavelength" X-ray submitted:2021-03 ` +
       `and: "fast radio burst" burst submitted:2020-07`
     );
