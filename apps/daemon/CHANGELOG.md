@@ -1,5 +1,11 @@
 # @sandagent/daemon
 
+## 0.9.27-beta.0
+
+### Patch Changes
+
+- test
+
 ## 0.9.26-beta.0
 
 ## 0.9.19-beta.5
