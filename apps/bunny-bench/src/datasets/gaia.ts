@@ -474,7 +474,7 @@ function inferCategory(row: GaiaRow): Task["category"] {
   return "reasoning";
 }
 
-/** Timeout scales with GAIA level difficulty. Inspired by hermes-agent TBLite (1200s/task). */
+/** Timeout scales with GAIA level difficulty. */
 const LEVEL_TIMEOUT: Record<number, number> = {
   1: 600_000,
   2: 900_000,

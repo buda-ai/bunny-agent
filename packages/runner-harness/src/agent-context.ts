@@ -5,7 +5,7 @@
  * uses the exact same identity and research methodology without duplication.
  *
  * Inspired by:
- *   - hermes-agent prompt_builder.py (TOOL_USE_ENFORCEMENT_GUIDANCE, GOOGLE_MODEL_OPERATIONAL_GUIDANCE)
+ *   - Industry-standard prompt engineering patterns for tool-use enforcement
  *   - buda chat-service.ts ("protect humans and push humanity forward")
  */
 

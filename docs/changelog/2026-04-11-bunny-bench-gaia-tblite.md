@@ -89,7 +89,7 @@ bunny-bench --dataset tblite-easy --runner "bunny --print"
 **Improvements made across rounds:**
 - **Scoring fixes**: trailing punct optional; `\b` → `(?<!\w)/(?!\w)` for symbol answers; hyphen↔space normalization
 - **Prompt engineering**: mandatory Python for math/game-theory; 4 task-specific hints injected
-- **Timeout tuning**: L1 120s → 600s (modelled on hermes-agent's 1200s/task TBLite timeout)
+- **Timeout tuning**: L1 120s → 600s (based on observed L1 task complexity)
 
 Ledger saved to `benchmark-results/bunny/gaia-l1-ledger.json`.
 
