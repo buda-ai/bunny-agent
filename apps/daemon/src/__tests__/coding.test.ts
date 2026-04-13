@@ -17,6 +17,27 @@ vi.mock("@sandagent/runner-core", () => ({
         throw new Error("runner exploded");
       })();
     }
+    if (opts.userInput === "__SLOW__") {
+      // Simulate a long-running tool execution (e.g. image generation).
+      return (async function* () {
+        yield `data: ${JSON.stringify({ type: "tool-input-start", toolCallId: "t1", toolName: "generate_image" })}\n\n`;
+        await new Promise<void>((resolve) => setTimeout(resolve, 40_000));
+        yield `data: ${JSON.stringify({ type: "tool-output-available", toolCallId: "t1", output: "/agent/img.png" })}\n\n`;
+        yield `data: ${JSON.stringify({ type: "finish", finishReason: "stop" })}\n\n`;
+        yield `data: [DONE]\n\n`;
+      })();
+    }
+    if (opts.userInput === "__SLOW_SHORT__") {
+      // Short delay (100ms) — used with a patched HEARTBEAT_INTERVAL_MS (20ms)
+      // so heartbeats fire multiple times within the pause.
+      return (async function* () {
+        yield `data: ${JSON.stringify({ type: "tool-input-start", toolCallId: "t1", toolName: "generate_image" })}\n\n`;
+        await new Promise<void>((resolve) => setTimeout(resolve, 100));
+        yield `data: ${JSON.stringify({ type: "tool-output-available", toolCallId: "t1", output: "/agent/img.png" })}\n\n`;
+        yield `data: ${JSON.stringify({ type: "finish", finishReason: "stop" })}\n\n`;
+        yield `data: [DONE]\n\n`;
+      })();
+    }
     // Return an async iterable that yields SSE-style chunks.
     return (async function* () {
       yield `data: ${JSON.stringify({ type: "text", text: `echo: ${opts.userInput}` })}\n\n`;
@@ -27,7 +48,7 @@ vi.mock("@sandagent/runner-core", () => ({
 }));
 
 import { createNextHandler } from "../nextjs.js";
-import { codingRunStream } from "../routes/coding.js";
+import { codingRunStream, setHeartbeatIntervalMs } from "../routes/coding.js";
 import { createDaemon } from "../server.js";
 
 const PORT = 13081;
@@ -306,5 +327,59 @@ describe("yolo flag", () => {
     await codingRunStream({ userInput: "web yolo", yolo: true }, {}).text();
     const call = createRunnerCalls[before];
     expect(call.yolo).toBe(true);
+  });
+});
+
+describe("heartbeat keepalive", () => {
+  it("emits heartbeat comments during long-running tool execution (web response)", async () => {
+    // Temporarily set a very short heartbeat interval so the 100ms pause
+    // in __SLOW_SHORT__ triggers multiple heartbeats.
+    setHeartbeatIntervalMs(20);
+    try {
+      const res = codingRunStream({ userInput: "__SLOW_SHORT__" }, {});
+      const text = await res.text();
+
+      // Verify heartbeats were present (100ms pause / 20ms interval ≈ 4-5 heartbeats)
+      const heartbeatCount = (text.match(/: heartbeat/g) || []).length;
+      expect(heartbeatCount).toBeGreaterThanOrEqual(2);
+
+      // Verify the actual data still came through correctly
+      expect(text).toContain("tool-input-start");
+      expect(text).toContain("tool-output-available");
+      expect(text).toContain("[DONE]");
+    } finally {
+      setHeartbeatIntervalMs(15_000);
+    }
+  });
+
+  it("emits heartbeat comments during long-running tool execution (standalone server)", async () => {
+    setHeartbeatIntervalMs(20);
+    try {
+      const res = await fetch(`${BASE}/api/coding/run`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userInput: "__SLOW_SHORT__", runner: "pi" }),
+      });
+      const text = await res.text();
+
+      const heartbeatCount = (text.match(/: heartbeat/g) || []).length;
+      expect(heartbeatCount).toBeGreaterThanOrEqual(2);
+
+      expect(text).toContain("tool-input-start");
+      expect(text).toContain("tool-output-available");
+      expect(text).toContain("[DONE]");
+    } finally {
+      setHeartbeatIntervalMs(15_000);
+    }
+  });
+
+  it("does not emit heartbeat for fast responses (web response)", async () => {
+    const res = codingRunStream({ userInput: "fast" }, {});
+    const text = await res.text();
+
+    // Fast response should complete before any heartbeat fires
+    expect(text).not.toContain(": heartbeat");
+    expect(text).toContain("echo: fast");
+    expect(text).toContain("[DONE]");
   });
 });
