@@ -4,11 +4,11 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
-// Mock runner-core before importing server/nextjs
+// Mock runner-harness before importing server/nextjs
 // Track createRunner calls for assertion
 const createRunnerCalls: Array<Record<string, unknown>> = [];
 
-vi.mock("@sandagent/runner-core", () => ({
+vi.mock("@sandagent/runner-harness", () => ({
   createRunner: vi.fn((opts: { userInput: string; yolo?: boolean }) => {
     createRunnerCalls.push(opts);
     if (opts.userInput === "__THROW__") {

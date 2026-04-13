@@ -44,7 +44,7 @@
     "node": ">=20.0.0"
   },
   "devDependencies": {
-    "@sandagent/runner-core": "workspace:*",
+    "@sandagent/runner-harness": "workspace:*",
     "@types/node": "^20.10.0",
     "esbuild": "^0.27.2",
     "typescript": "^5.3.0",
