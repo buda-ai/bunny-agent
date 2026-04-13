@@ -209,8 +209,14 @@ function getErrorFromAgentEndMessages(
  * Debug trace: append raw Pi agent events to a JSON-lines file when DEBUG=true.
  * Same idea as runner-claude's claude-message-stream-debug.json.
  */
-function traceRawMessage(debugCwd: string, data: unknown, reset = false): void {
-  const enabled = process.env.DEBUG === "true" || process.env.DEBUG === "1";
+function traceRawMessage(
+  debugCwd: string,
+  data: unknown,
+  reset = false,
+  optionsEnv?: Record<string, string>,
+): void {
+  const debugVal = getEnvValue(optionsEnv, "DEBUG");
+  const enabled = debugVal === "true" || debugVal === "1";
   if (!enabled) return;
   try {
     const file = join(debugCwd, "pi-message-stream-debug.json");
@@ -408,7 +414,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
         }
 
         try {
-          traceRawMessage(cwd, null, true);
+          traceRawMessage(cwd, null, true, options.env);
 
           let promptText = userInput;
           let images:
@@ -528,7 +534,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           while (!isComplete || eventQueue.length > 0) {
             while (eventQueue.length > 0) {
               const event = eventQueue.shift()!;
-              traceRawMessage(cwd, event);
+              traceRawMessage(cwd, event, false, options.env);
 
               yield* ensureStartEvent();
 
