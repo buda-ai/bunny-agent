@@ -1,5 +1,5 @@
 {
-  "name": "sandagent",
+  "name": "bunny-agent",
   "version": "0.6.2",
   "private": true,
   "description": "Sandboxed Super Agent runtime that speaks AI SDK UI natively",
@@ -10,7 +10,7 @@
   "license": "Apache-2.0",
   "scripts": {
     "build": "pnpm -r build",
-    "dev": "pnpm --filter @sandagent/web dev",
+    "dev": "pnpm --filter @bunny-agent/web dev",
     "clean": "pnpm -r clean",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",

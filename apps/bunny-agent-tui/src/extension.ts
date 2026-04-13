@@ -2,7 +2,7 @@
  * Bunny Agent extension for pi TUI.
  *
  * 1. Injects Bunny Agent identity + research methodology into the system prompt
- *    (sourced from @sandagent/runner-harness so all runners share the same context).
+ *    (sourced from @bunny-agent/runner-harness so all runners share the same context).
  * 2. Registers web_search, web_fetch, generate_image tools.
  *    Note: bash, read, write, edit, find, grep, ls are built into pi-coding-agent.
  * 3. Registers custom OpenAI-compatible provider if OPENAI_BASE_URL is set,
@@ -14,7 +14,7 @@ import {
   buildImageGenerateTool,
   buildWebFetchTool,
   buildWebSearchTool,
-} from "@sandagent/runner-harness";
+} from "@bunny-agent/runner-harness";
 
 export default function bunnyExtension(pi: ExtensionAPI) {
   const env = process.env as Record<string, string>;

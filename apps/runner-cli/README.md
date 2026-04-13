@@ -1,6 +1,6 @@
-# @sandagent/runner-cli
+# @bunny-agent/runner-cli
 
-SandAgent Runner CLI - A **lightweight, local** command-line interface for running AI agents in your terminal.
+Bunny Agent Runner CLI - A **lightweight, local** command-line interface for running AI agents in your terminal.
 
 Like gemini-cli, claude-code, or codex-cli, this tool runs **directly on your local filesystem** and streams AI SDK UI messages to stdout.
 
@@ -21,11 +21,11 @@ runner-cli → runner-* (direct, NO dependencies on manager or sandbox)
              └─ runner-copilot 🚧
 
 Dependencies:
-✅ @sandagent/runner-claude (runtime)
-✅ @sandagent/runner-codex (runtime)
-✅ @sandagent/runner-gemini (runtime)
-❌ NO @sandagent/manager
-❌ NO @sandagent/sandbox-*
+✅ @bunny-agent/runner-claude (runtime)
+✅ @bunny-agent/runner-codex (runtime)
+✅ @bunny-agent/runner-gemini (runtime)
+❌ NO @bunny-agent/manager
+❌ NO @bunny-agent/sandbox-*
 ```
 
 **Difference from manager-cli:**
@@ -35,45 +35,45 @@ Dependencies:
 ## Installation
 
 ```bash
-# Global install (recommended if you want the `sandagent` command)
-npm install -g @sandagent/runner-cli@latest
+# Global install (recommended if you want the `bunny-agent` command)
+npm install -g @bunny-agent/runner-cli@latest
 
 # Or add to a project
-npm install @sandagent/runner-cli@latest
+npm install @bunny-agent/runner-cli@latest
 ```
 
 ## Usage
 
 ```bash
-sandagent run [options] -- "<user input>"
+bunny-agent run [options] -- "<user input>"
 ```
 
 Without installing globally, you can also run it via `npx`:
 
 ```bash
-npx -y @sandagent/runner-cli@latest run -- "Create a hello world script"
+npx -y @bunny-agent/runner-cli@latest run -- "Create a hello world script"
 ```
 
 ### Basic Examples
 
 ```bash
 # Using Claude (default)
-sandagent run -- "Create a hello world script"
+bunny-agent run -- "Create a hello world script"
 
 # Explicitly choose Claude
-sandagent run --runner claude -- "Create a hello world script"
+bunny-agent run --runner claude -- "Create a hello world script"
 
 # Using Codex
-sandagent run --runner codex -- "Build a REST API with Express"
+bunny-agent run --runner codex -- "Build a REST API with Express"
 
 # Using Gemini
-sandagent run --runner gemini -- "Build a REST API with Express"
+bunny-agent run --runner gemini -- "Build a REST API with Express"
 
 # Using GitHub Copilot (when implemented)
-sandagent run --runner copilot -- "Refactor this code"
+bunny-agent run --runner copilot -- "Refactor this code"
 
 # With custom system prompt
-sandagent run --runner claude --system-prompt "You are a coding assistant" -- "Build a REST API with Express"
+bunny-agent run --runner claude --system-prompt "You are a coding assistant" -- "Build a REST API with Express"
 ```
 
 ## Options
@@ -91,10 +91,10 @@ sandagent run --runner claude --system-prompt "You are a coding assistant" -- "B
 
 ## Output Format
 
-`sandagent run` always outputs AI SDK data stream (SSE) format.
+`bunny-agent run` always outputs AI SDK data stream (SSE) format.
 
 ```bash
-sandagent run -- "Calculate 2+2"
+bunny-agent run -- "Calculate 2+2"
 ```
 
 **Output:**
@@ -111,21 +111,21 @@ data: [DONE]
 | `ANTHROPIC_API_KEY` | Anthropic API key (Claude runner) | No |
 | `OPENAI_API_KEY` or `CODEX_API_KEY` | OpenAI API key (Codex runner) | No |
 | `GEMINI_API_KEY` | Gemini API key (Gemini runner) | No |
-| `SANDAGENT_WORKSPACE` | Default workspace path | No |
-| `SANDAGENT_LOG_LEVEL` | Logging level (debug, info, warn, error) | No |
+| `BUNNY_AGENT_WORKSPACE` | Default workspace path | No |
+| `BUNNY_AGENT_LOG_LEVEL` | Logging level (debug, info, warn, error) | No |
 
 ## Advanced Examples
 
 ### Specify Working Directory
 
 ```bash
-sandagent run --cwd ./my-project -- "Fix the bug in main.ts"
+bunny-agent run --cwd ./my-project -- "Fix the bug in main.ts"
 ```
 
 ### Combined Options
 
 ```bash
-sandagent run \
+bunny-agent run \
   -m claude-sonnet-4-20250514 \
   --system-prompt "You are a helpful coding assistant" \
   --max-turns 10 \
@@ -146,20 +146,20 @@ Build Docker images with agent templates baked in:
 
 ```bash
 # Build image
-sandagent image build --name vikadata/sandagent-seo --tag 0.1.0 --template ./templates/seo-agent
+bunny-agent image build --name vikadata/bunny-agent-seo --tag 0.1.0 --template ./templates/seo-agent
 
 # Build and push
-sandagent image build --name vikadata/sandagent-seo --tag 0.1.0 --template ./templates/seo-agent --push
+bunny-agent image build --name vikadata/bunny-agent-seo --tag 0.1.0 --template ./templates/seo-agent --push
 
 # Without template
-sandagent image build --name vikadata/sandagent --tag 0.1.0
+bunny-agent image build --name vikadata/bunny-agent --tag 0.1.0
 ```
 
 ### Image Build Options
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `--name <name>` | Full image name (e.g. `vikadata/sandagent-seo`) | `sandagent` |
+| `--name <name>` | Full image name (e.g. `vikadata/bunny-agent-seo`) | `bunny-agent` |
 | `--tag <tag>` | Image tag | `latest` |
 | `--image <full>` | Full image name override (e.g. `myorg/myimage:v1`) | - |
 | `--platform <plat>` | Build platform | `linux/amd64` |

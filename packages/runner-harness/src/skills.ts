@@ -1,5 +1,5 @@
 /**
- * Auto-discover skill directories from cwd/skills/ and ~/.sandagent/skills/
+ * Auto-discover skill directories from cwd/skills/ and ~/.bunny-agent/skills/
  */
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { homedir } from "node:os";
@@ -10,7 +10,7 @@ export function discoverSkillPaths(cwd: string): string[] {
 
   for (const base of [
     join(cwd, "skills"),
-    join(homedir(), ".sandagent", "skills"),
+    join(homedir(), ".bunny-agent", "skills"),
   ]) {
     if (!existsSync(base)) continue;
     try {

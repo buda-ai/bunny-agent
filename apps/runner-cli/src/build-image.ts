@@ -12,7 +12,7 @@ import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export interface BuildImageOptions {
-  /** Image name, e.g. "vikadata/sandagent-seo" */
+  /** Image name, e.g. "vikadata/bunny-agent-seo" */
   name: string;
   /** Image tag, e.g. "0.1.0" */
   tag: string;
@@ -38,7 +38,7 @@ function getPackageRoot(): string {
 function getShippedDockerfile(): string {
   // Look for Dockerfile in several locations:
   // 1. Package root (apps/runner-cli/Dockerfile) — shipped with npm package
-  // 2. docker/sandagent-claude/Dockerfile — monorepo development
+  // 2. docker/bunny-agent-claude/Dockerfile — monorepo development
   const packageRoot = getPackageRoot();
   const candidates = [
     join(packageRoot, "Dockerfile"),
@@ -47,7 +47,7 @@ function getShippedDockerfile(): string {
       "..",
       "..",
       "docker",
-      "sandagent-claude",
+      "bunny-agent-claude",
       "Dockerfile",
     ),
   ];
@@ -106,7 +106,7 @@ export async function buildImage(opts: BuildImageOptions): Promise<void> {
   const templateName = templatePath ? basename(templatePath) : null;
   const localImage = opts.image ?? `${opts.name}:${opts.tag}`;
 
-  console.log("📦 SandAgent Docker Image Builder");
+  console.log("📦 BunnyAgent Docker Image Builder");
   console.log("========================");
   console.log(`  Image: ${localImage}`);
   console.log(`  Platform: ${opts.platform}`);
@@ -132,12 +132,12 @@ export async function buildImage(opts: BuildImageOptions): Promise<void> {
     const claudeDir = join(templatePath, ".claude");
     if (existsSync(claudeDir)) copyDirSync(claudeDir, join(destDir, ".claude"));
 
-    let copyLines = "\n# Template files\nRUN mkdir -p /opt/sandagent/templates";
+    let copyLines = "\n# Template files\nRUN mkdir -p /opt/bunny-agent/templates";
     if (existsSync(join(destDir, "CLAUDE.md"))) {
-      copyLines += `\nCOPY templates/${templateName}/CLAUDE.md /opt/sandagent/templates/CLAUDE.md`;
+      copyLines += `\nCOPY templates/${templateName}/CLAUDE.md /opt/bunny-agent/templates/CLAUDE.md`;
     }
     if (existsSync(join(destDir, ".claude"))) {
-      copyLines += `\nCOPY templates/${templateName}/.claude /opt/sandagent/templates/.claude`;
+      copyLines += `\nCOPY templates/${templateName}/.claude /opt/bunny-agent/templates/.claude`;
     }
 
     dockerfile = dockerfile.replace(/^CMD /m, `${copyLines}\n\nCMD `);
@@ -156,7 +156,7 @@ export async function buildImage(opts: BuildImageOptions): Promise<void> {
 
   if (!localImage.includes("/")) {
     console.error(
-      "❌ --push requires --name to include namespace (e.g. vikadata/sandagent-seo)",
+      "❌ --push requires --name to include namespace (e.g. vikadata/bunny-agent-seo)",
     );
     process.exit(1);
   }

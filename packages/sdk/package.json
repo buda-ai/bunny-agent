@@ -1,7 +1,7 @@
 {
-  "name": "@sandagent/sdk",
+  "name": "@bunny-agent/sdk",
   "version": "0.9.28",
-  "description": "SandAgent SDK - AI Provider and React hooks for building AI agents",
+  "description": "BunnyAgent SDK - AI Provider and React hooks for building AI agents",
   "type": "module",
   "sideEffects": false,
   "main": "./src/index.ts",
@@ -45,7 +45,7 @@
     "prepublishOnly": "pnpm run build"
   },
   "keywords": [
-    "sandagent",
+    "bunny-agent",
     "sdk",
     "ai-provider",
     "react",
@@ -70,7 +70,7 @@
     }
   },
   "dependencies": {
-    "@sandagent/manager": "workspace:*",
+    "@bunny-agent/manager": "workspace:*",
     "@ai-sdk/provider": "^3.0.8",
     "@ai-sdk/react": "^3.0.105"
   },

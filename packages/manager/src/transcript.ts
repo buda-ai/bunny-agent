@@ -9,11 +9,11 @@ import type { TranscriptEntry, TranscriptWriter } from "./types.js";
  *
  * @example
  * ```ts
- * import { JsonlTranscriptWriter } from "@sandagent/manager";
+ * import { JsonlTranscriptWriter } from "@bunny-agent/manager";
  *
  * const writer = new JsonlTranscriptWriter("./transcript.jsonl");
  *
- * const agent = new SandAgent({ ... });
+ * const agent = new BunnyAgent({ ... });
  * const response = await agent.stream({
  *   messages,
  *   transcriptWriter: writer,

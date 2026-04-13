@@ -76,7 +76,7 @@ Bunny's stdout **is** an AI SDK UI stream. Pipe it to your server, pass it to yo
 export async function POST(req: Request) {
   const { messages, sessionId } = await req.json();
 
-  const agent = new SandAgent({
+  const agent = new Bunny Agent({
     id: sessionId,
     sandbox: new SandockSandbox(),
     runner: { kind: "pi", model: "google:gemini-2.5-pro" },
@@ -129,7 +129,7 @@ bunny run --resume my-project -- "continue where we left off"
 ### Install
 
 ```bash
-npm install -g @sandagent/runner-cli
+npm install -g @bunny-agent/runner-cli
 ```
 
 ### Set your API key
@@ -157,11 +157,11 @@ bunny run --runner pi --model google:gemini-2.5-pro -- "write unit tests for src
 
 ```bash
 git clone https://github.com/vikadata/sandagent.git
-cd sandagent
+cd bunny-agent
 pnpm install && pnpm build
 
 cd apps/runner-cli
-npx sandagent run -- "your task here"
+npx bunny-agent run -- "your task here"
 ```
 
 ---
@@ -202,7 +202,7 @@ Your Next.js App
     │
     └── POST /api/agent ──────────────────   your API route
             │
-            └── SandAgent.stream() ────────  Bunny Agent SDK
+            └── Bunny Agent.stream() ────────  Bunny Agent SDK
                     │
                     ├── runner: pi / claude / codex / gemini
                     │
@@ -221,10 +221,10 @@ Your Next.js App
 Switch with one import — the rest of your code stays unchanged.
 
 ```typescript
-import { createSandAgent } from "@sandagent/sdk";
-import { SandockSandbox } from "@sandagent/sandbox-sandock";
+import { createBunny Agent } from "@bunny-agent/sdk";
+import { SandockSandbox } from "@bunny-agent/sandbox-sandock";
 
-const agent = createSandAgent({
+const agent = createBunny Agent({
   sandbox: new SandockSandbox(),
   runner: { kind: "pi", model: "anthropic:claude-sonnet-4" },
 });
@@ -269,16 +269,16 @@ Options:
 
 | Package | Description |
 |---------|-------------|
-| `@sandagent/sdk` | Embed Bunny in your app |
-| `@sandagent/runner-harness` | Pre-built tool harness (search, bash, files, image gen) |
-| `@sandagent/runner-pi` | Pi coding agent runner (multi-model) |
-| `@sandagent/runner-claude` | Claude Agent SDK runner |
-| `@sandagent/runner-codex` | OpenAI Codex runner |
-| `@sandagent/runner-gemini` | Gemini CLI runner |
-| `@sandagent/sandbox-sandock` | Sandock sandbox adapter |
-| `@sandagent/sandbox-e2b` | E2B sandbox adapter |
-| `@sandagent/sandbox-daytona` | Daytona sandbox adapter |
-| `@sandagent/sandbox-local` | Local sandbox adapter |
+| `@bunny-agent/sdk` | Embed Bunny in your app |
+| `@bunny-agent/runner-harness` | Pre-built tool harness (search, bash, files, image gen) |
+| `@bunny-agent/runner-pi` | Pi coding agent runner (multi-model) |
+| `@bunny-agent/runner-claude` | Claude Agent SDK runner |
+| `@bunny-agent/runner-codex` | OpenAI Codex runner |
+| `@bunny-agent/runner-gemini` | Gemini CLI runner |
+| `@bunny-agent/sandbox-sandock` | Sandock sandbox adapter |
+| `@bunny-agent/sandbox-e2b` | E2B sandbox adapter |
+| `@bunny-agent/sandbox-daytona` | Daytona sandbox adapter |
+| `@bunny-agent/sandbox-local` | Local sandbox adapter |
 
 ---
 

@@ -1,8 +1,8 @@
 {
-  "name": "@sandagent/runner-codex",
+  "name": "@bunny-agent/runner-codex",
   "version": "0.6.2",
   "private": true,
-  "description": "Codex SDK runtime for SandAgent",
+  "description": "Codex SDK runtime for BunnyAgent",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",

@@ -44,7 +44,7 @@ afterEach(() => {
 describe("buildImage", () => {
   it("builds a plain image without template", async () => {
     await buildImage({
-      name: "myorg/sandagent",
+      name: "myorg/bunny-agent",
       tag: "0.1.0",
       platform: "linux/amd64",
       push: false,
@@ -57,7 +57,7 @@ describe("buildImage", () => {
 
     // docker build should reference the correct image name
     const buildCmd = calls.find((c) => c.includes("docker build"))!;
-    expect(buildCmd).toContain("-t myorg/sandagent:0.1.0");
+    expect(buildCmd).toContain("-t myorg/bunny-agent:0.1.0");
     expect(buildCmd).toContain("--platform=linux/amd64");
 
     // Should NOT have called docker push
@@ -66,7 +66,7 @@ describe("buildImage", () => {
 
   it("generates Dockerfile in build context", async () => {
     await buildImage({
-      name: "myorg/sandagent",
+      name: "myorg/bunny-agent",
       tag: "1.0.0",
       platform: "linux/amd64",
       push: false,
@@ -78,13 +78,13 @@ describe("buildImage", () => {
 
     const content = readFileSync(dockerfilePath, "utf8");
     expect(content).toContain("FROM node:20-slim");
-    expect(content).toContain("@sandagent/runner-cli");
+    expect(content).toContain("@bunny-agent/runner-cli");
     expect(content).toContain('CMD ["sleep", "infinity"]');
   });
 
   it("uses --image override when provided", async () => {
     await buildImage({
-      name: "sandagent",
+      name: "bunny-agent",
       tag: "latest",
       image: "custom/image:v2",
       platform: "linux/amd64",
@@ -106,7 +106,7 @@ describe("buildImage", () => {
     writeFileSync(join(claudeDir, "settings.json"), '{"max_tokens": 4096}');
 
     await buildImage({
-      name: "myorg/sandagent",
+      name: "myorg/bunny-agent",
       tag: "0.1.0",
       platform: "linux/amd64",
       template: templateDir,
@@ -116,14 +116,14 @@ describe("buildImage", () => {
     // Image name should include template name
     const calls = mockedExecSync.mock.calls.map((c) => c[0] as string);
     const buildCmd = calls.find((c) => c.includes("docker build"))!;
-    expect(buildCmd).toContain("-t myorg/sandagent:0.1.0");
+    expect(buildCmd).toContain("-t myorg/bunny-agent:0.1.0");
 
     // Generated Dockerfile should have template COPY lines
     const contextDir = join(process.cwd(), ".docker-staging");
     const dockerfile = readFileSync(join(contextDir, "Dockerfile"), "utf8");
     expect(dockerfile).toContain("COPY templates/my-agent/CLAUDE.md");
     expect(dockerfile).toContain("COPY templates/my-agent/.claude");
-    expect(dockerfile).toContain("mkdir -p /opt/sandagent/templates");
+    expect(dockerfile).toContain("mkdir -p /opt/bunny-agent/templates");
 
     // Template files should be copied into build context
     expect(
@@ -138,7 +138,7 @@ describe("buildImage", () => {
 
   it("pushes when --push is set", async () => {
     await buildImage({
-      name: "myorg/sandagent",
+      name: "myorg/bunny-agent",
       tag: "0.1.0",
       platform: "linux/amd64",
       push: true,
@@ -147,7 +147,7 @@ describe("buildImage", () => {
     const calls = mockedExecSync.mock.calls.map((c) => c[0] as string);
     expect(calls.some((c) => c.includes("docker push"))).toBe(true);
     expect(
-      calls.some((c) => c.includes("docker push myorg/sandagent:0.1.0")),
+      calls.some((c) => c.includes("docker push myorg/bunny-agent:0.1.0")),
     ).toBe(true);
   });
 
@@ -159,7 +159,7 @@ describe("buildImage", () => {
 
     await expect(
       buildImage({
-        name: "sandagent",
+        name: "bunny-agent",
         tag: "0.1.0",
         platform: "linux/amd64",
         push: true,
@@ -176,7 +176,7 @@ describe("buildImage", () => {
 
   it("does not push when --push is false", async () => {
     await buildImage({
-      name: "myorg/sandagent",
+      name: "myorg/bunny-agent",
       tag: "0.1.0",
       platform: "linux/amd64",
       push: false,

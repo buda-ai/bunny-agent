@@ -16,7 +16,7 @@ export interface LocalSandboxOptions {
   defaultTimeout?: number;
   /** Environment variables to pass to all commands */
   env?: Record<string, string>;
-  /** Runner command to execute in the sandbox (default: ["sandagent", "run"]) */
+  /** Runner command to execute in the sandbox (default: ["bunny-agent", "run"]) */
   runnerCommand?: string[];
 }
 
@@ -33,7 +33,7 @@ export interface LocalSandboxOptions {
  *
  * @example
  * ```typescript
- * import { LocalSandbox, SandAgent } from "@sandagent/manager";
+ * import { LocalSandbox, BunnyAgent } from "@bunny-agent/manager";
  *
  * // Create sandbox with template
  * const sandbox = new LocalSandbox({
@@ -41,7 +41,7 @@ export interface LocalSandboxOptions {
  *   templatesPath: "/path/to/agent-template",
  * });
  *
- * const agent = new SandAgent({
+ * const agent = new BunnyAgent({
  *   sandbox,
  *   runner: {
  *     model: "claude-sonnet-4-20250514",
@@ -69,7 +69,7 @@ export class LocalSandbox implements SandboxAdapter {
     this.templatesPath = options.templatesPath;
     this.defaultTimeout = options.defaultTimeout ?? 300000; // 5 min for agent runs
     this.env = options.env ?? {};
-    this.runnerCommand = options.runnerCommand ?? ["sandagent", "run"];
+    this.runnerCommand = options.runnerCommand ?? ["bunny-agent", "run"];
   }
 
   getHandle(): SandboxHandle | null {
@@ -309,7 +309,7 @@ class LocalSandboxHandle implements SandboxHandle {
     }
 
     // Buffer stderr for error reporting; also mirror to the parent process so
-    // subprocess diagnostics (e.g. [sandagent:pi] skill load) are visible on success.
+    // subprocess diagnostics (e.g. [bunny-agent:pi] skill load) are visible on success.
     const stderrChunks: Buffer[] = [];
     child.stderr.on("data", (chunk: Buffer) => {
       stderrChunks.push(chunk);

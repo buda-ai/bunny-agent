@@ -1,6 +1,6 @@
 # Debugging Guide
 
-**Troubleshoot and debug your SandAgent applications**
+**Troubleshoot and debug your Bunny Agent applications**
 
 When things don't work as expected, this guide helps you figure out what's going on.
 
@@ -27,15 +27,15 @@ When things don't work as expected, this guide helps you figure out what's going
 
 ## Transcript Recording
 
-SandAgent supports JSONL transcript recording for debugging and replay. Transcripts capture all streamed data without modifying the passthrough behavior.
+Bunny Agent supports JSONL transcript recording for debugging and replay. Transcripts capture all streamed data without modifying the passthrough behavior.
 
 ### Enable Transcript Recording
 
 ```ts
-import { SandAgent, JsonlTranscriptWriter } from "@sandagent/core";
-import { E2BSandbox } from "@sandagent/sandbox-e2b";
+import { Bunny Agent, JsonlTranscriptWriter } from "@bunny-agent/core";
+import { E2BSandbox } from "@bunny-agent/sandbox-e2b";
 
-const agent = new SandAgent({
+const agent = new Bunny Agent({
   id: "session-123",
   sandbox: new E2BSandbox(),
   runner: {
@@ -60,7 +60,7 @@ await writer.close();
 ### In-Memory Recording (for testing)
 
 ```ts
-import { MemoryTranscriptWriter } from "@sandagent/core";
+import { MemoryTranscriptWriter } from "@bunny-agent/core";
 
 const writer = new MemoryTranscriptWriter();
 
@@ -77,7 +77,7 @@ console.log(writer.getEntries());
 ### Console Logging
 
 ```ts
-import { ConsoleTranscriptWriter } from "@sandagent/core";
+import { ConsoleTranscriptWriter } from "@bunny-agent/core";
 
 const writer = new ConsoleTranscriptWriter();
 
@@ -95,7 +95,7 @@ import {
   MultiTranscriptWriter,
   JsonlTranscriptWriter,
   ConsoleTranscriptWriter,
-} from "@sandagent/core";
+} from "@bunny-agent/core";
 
 const writer = new MultiTranscriptWriter([
   new JsonlTranscriptWriter("./transcript.jsonl"),
@@ -112,7 +112,7 @@ const writer = new MultiTranscriptWriter([
 Each line in the JSONL transcript is a JSON object:
 
 ```json
-{"timestamp":"2024-01-01T00:00:00.000Z","type":"start","agentId":"session-123","metadata":{"command":"sandagent run ...","workspace":"/workspace"}}
+{"timestamp":"2024-01-01T00:00:00.000Z","type":"start","agentId":"session-123","metadata":{"command":"bunny-agent run ...","workspace":"/workspace"}}
 {"timestamp":"2024-01-01T00:00:01.000Z","type":"chunk","agentId":"session-123","data":"SGVsbG8=","text":"Hello"}
 {"timestamp":"2024-01-01T00:00:02.000Z","type":"end","agentId":"session-123"}
 ```
@@ -247,7 +247,7 @@ try {
 ls templates/
 
 # Set templates directory (in sandbox)
-export SANDAGENT_TEMPLATES_DIR=/path/to/templates
+export BUNNY_AGENT_TEMPLATES_DIR=/path/to/templates
 ```
 
 ### 5. Workspace Permission Errors
@@ -293,15 +293,15 @@ await agent.uploadFiles([], "/workspace"); // Creates directory
 ### Enable CLI Debug Logging
 
 ```bash
-export SANDAGENT_LOG_LEVEL=debug
-sandagent run -- "Test task"
+export BUNNY_AGENT_LOG_LEVEL=debug
+bunny-agent run -- "Test task"
 ```
 
 ### Enable Package Debug Logging
 
 ```ts
 // In your application
-process.env.DEBUG = "sandagent:*";
+process.env.DEBUG = "bunny-agent:*";
 ```
 
 ### Check Sandbox Stderr
@@ -316,7 +316,7 @@ The CLI writes diagnostic information to stderr:
 ### Verbose Benchmark Mode
 
 ```bash
-sandagent-benchmark run --runner sandagent --verbose
+bunny-agent-benchmark run --runner bunny-agent --verbose
 ```
 
 ---

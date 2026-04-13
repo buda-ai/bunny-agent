@@ -1,21 +1,21 @@
 /**
- * @sandagent/sdk
+ * @bunny-agent/sdk
  *
- * SandAgent SDK - AI Provider and React hooks for building AI chat interfaces.
+ * BunnyAgent SDK - AI Provider and React hooks for building AI chat interfaces.
  *
  * Main entry point exports the AI provider (backend).
- * React hooks are available via "@sandagent/sdk/react".
+ * React hooks are available via "@bunny-agent/sdk/react".
  *
  * @example
  * ```typescript
  * // Backend - Provider
- * import { createSandAgent } from "@sandagent/sdk";
- * const sandagent = createSandAgent({ sandbox, env });
- * const model = sandagent("sonnet");
+ * import { createBunnyAgent } from "@bunny-agent/sdk";
+ * const bunny-agent = createBunnyAgent({ sandbox, env });
+ * const model = bunny-agent("sonnet");
  *
  * // Frontend - React hooks
- * import { useSandAgentChat } from "@sandagent/sdk/react";
- * const { messages, sendMessage } = useSandAgentChat({ apiEndpoint: "/api/ai" });
+ * import { useBunnyAgentChat } from "@bunny-agent/sdk/react";
+ * const { messages, sendMessage } = useBunnyAgentChat({ apiEndpoint: "/api/ai" });
  * ```
  */
 
@@ -24,15 +24,15 @@ export type {
   LocalSandboxOptions,
   RunnerEnvParams,
   RunnerType,
-} from "@sandagent/manager";
+} from "@bunny-agent/manager";
 // Re-export LocalSandbox for convenience
 // Re-export env helpers
 export {
   buildRunnerEnv,
-  DEFAULT_SANDAGENT_DAEMON_URL,
+  DEFAULT_BUNNY_AGENT_DAEMON_URL,
   isSandagentDaemonHealthy,
   LocalSandbox,
-} from "@sandagent/manager";
+} from "@bunny-agent/manager";
 export type {
   ArtifactProcessor,
   ArtifactResult,
@@ -41,11 +41,11 @@ export type {
   Logger,
   Message,
   Question,
-  SandAgentLanguageModelOptions,
-  SandAgentModelId,
-  SandAgentProvider,
-  SandAgentProviderSettings,
-  // Re-exports from @sandagent/manager
+  BunnyAgentLanguageModelOptions,
+  BunnyAgentModelId,
+  BunnyAgentProvider,
+  BunnyAgentProviderSettings,
+  // Re-exports from @bunny-agent/manager
   SandboxAdapter,
   SandboxHandle,
   StreamWriter,
@@ -55,8 +55,8 @@ export type {
 } from "./provider";
 // Provider exports
 export {
-  createSandAgent,
-  SandAgentLanguageModel,
+  createBunnyAgent,
+  BunnyAgentLanguageModel,
   submitAnswer,
 } from "./provider";
 

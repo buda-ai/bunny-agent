@@ -1,19 +1,19 @@
 #!/usr/bin/env node
 
 /**
- * SandAgent Manager CLI
+ * BunnyAgent Manager CLI
  *
- * A command-line tool for managing SandAgent sandboxes, running agents
+ * A command-line tool for managing BunnyAgent sandboxes, running agents
  * with templates, and controlling sessions.
  *
- * This is the CLI equivalent of the sandagent-example web app.
+ * This is the CLI equivalent of the bunny-agent-example web app.
  *
  * Commands:
- *   sandagent-manager run [options]      - Run an agent task in a sandbox
- *   sandagent-manager list               - List running sandboxes
- *   sandagent-manager stop <id>          - Stop a sandbox
- *   sandagent-manager templates          - List available templates
- *   sandagent-manager info               - Show environment and configuration
+ *   bunny-agent-manager run [options]      - Run an agent task in a sandbox
+ *   bunny-agent-manager list               - List running sandboxes
+ *   bunny-agent-manager stop <id>          - Stop a sandbox
+ *   bunny-agent-manager templates          - List available templates
+ *   bunny-agent-manager info               - Show environment and configuration
  */
 
 import { infoCommand } from "./commands/info.js";
@@ -26,13 +26,13 @@ const VERSION = "0.1.0";
 
 function printHelp(): void {
   console.log(`
-🚀 SandAgent Manager CLI v${VERSION}
+🚀 BunnyAgent Manager CLI v${VERSION}
 
 Turn powerful coding agents into universal Super Agents.
 Run AI agents in sandboxed environments with AI SDK UI streaming.
 
 Usage:
-  sandagent-manager <command> [options]
+  bunny-agent-manager <command> [options]
 
 Commands:
   run          Run an agent task in a sandbox
@@ -43,46 +43,46 @@ Commands:
 
 Quick Start:
   # Run a task with the default template
-  sandagent-manager run "Create a hello world script"
+  bunny-agent-manager run "Create a hello world script"
 
   # Run with a specific template
-  sandagent-manager run --template coder "Build a REST API"
+  bunny-agent-manager run --template coder "Build a REST API"
 
   # Run in a specific workspace
-  sandagent-manager run --workspace ./my-project "Fix the bug in main.ts"
+  bunny-agent-manager run --workspace ./my-project "Fix the bug in main.ts"
 
 Options:
   -h, --help       Show this help message
   -v, --version    Show version number
 
 Examples:
-  sandagent-manager run "Create a weather script"
-  sandagent-manager run --template coder "Build a REST API with Express"
-  sandagent-manager run --template analyst "Analyze sales.csv and create a report"
-  sandagent-manager run --template researcher "Research the latest AI trends"
-  sandagent-manager run --sandbox e2b "Deploy this to production"
-  sandagent-manager run --sandbox sandock "Run unit tests"
-  sandagent-manager list
-  sandagent-manager stop session-123
-  sandagent-manager templates
-  sandagent-manager info
+  bunny-agent-manager run "Create a weather script"
+  bunny-agent-manager run --template coder "Build a REST API with Express"
+  bunny-agent-manager run --template analyst "Analyze sales.csv and create a report"
+  bunny-agent-manager run --template researcher "Research the latest AI trends"
+  bunny-agent-manager run --sandbox e2b "Deploy this to production"
+  bunny-agent-manager run --sandbox sandock "Run unit tests"
+  bunny-agent-manager list
+  bunny-agent-manager stop session-123
+  bunny-agent-manager templates
+  bunny-agent-manager info
 
 Environment Variables:
   ANTHROPIC_API_KEY    Anthropic API key (required)
   E2B_API_KEY          E2B API key (for E2B sandbox)
   DOCKER_HOST          Docker host URL (for Sandock sandbox)
-  SANDAGENT_TEMPLATE   Default template to use
-  SANDAGENT_SANDBOX    Default sandbox to use (e2b or sandock)
+  BUNNY_AGENT_TEMPLATE   Default template to use
+  BUNNY_AGENT_SANDBOX    Default sandbox to use (e2b or sandock)
 
 Documentation:
   https://github.com/vikadata/sandagent
 
-Enjoy building with SandAgent! 🤖
+Enjoy building with BunnyAgent! 🤖
 `);
 }
 
 function printVersion(): void {
-  console.log(`sandagent v${VERSION}`);
+  console.log(`bunny-agent v${VERSION}`);
 }
 
 async function main(): Promise<void> {
@@ -119,7 +119,7 @@ async function main(): Promise<void> {
         break;
       default:
         console.error(`❌ Unknown command: ${command}`);
-        console.error('Run "sandagent --help" for usage information.');
+        console.error('Run "bunny-agent --help" for usage information.');
         process.exit(1);
     }
   } catch (error) {

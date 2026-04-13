@@ -6,7 +6,7 @@ export {
   SANDBOX_CODING_RUN_TMP_DIR,
   streamCodingRunFromSandbox,
 } from "./coding-run.js";
-export { DEFAULT_SANDAGENT_DAEMON_URL } from "./constants.js";
+export { DEFAULT_BUNNY_AGENT_DAEMON_URL } from "./constants.js";
 export type { IsSandagentDaemonHealthyOptions } from "./daemon-health.js";
 export { isSandagentDaemonHealthy } from "./daemon-health.js";
 export type { RunnerEnvParams, RunnerType } from "./env.js";
@@ -15,7 +15,7 @@ export { buildRunnerEnv } from "./env.js";
 export type { LocalSandboxOptions } from "./local-sandbox.js";
 // Default sandbox adapter (built-in)
 export { LocalSandbox } from "./local-sandbox.js";
-export { SandAgent } from "./sand-agent.js";
+export { BunnyAgent } from "./bunny-agent.js";
 export {
   ConsoleTranscriptWriter,
   JsonlTranscriptWriter,
@@ -26,8 +26,8 @@ export type {
   ExecOptions,
   Message,
   RunnerSpec,
-  SandAgentCodingRunBody,
-  SandAgentOptions,
+  BunnyAgentCodingRunBody,
+  BunnyAgentOptions,
   SandboxAdapter,
   SandboxHandle,
   StreamInput,

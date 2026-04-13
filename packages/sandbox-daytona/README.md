@@ -1,13 +1,13 @@
-# @sandagent/sandbox-daytona
+# @bunny-agent/sandbox-daytona
 
-Daytona sandbox adapter for SandAgent.
+Daytona sandbox adapter for Bunny Agent.
 
-Run SandAgent inside a Daytona workspace, with optional volume persistence and snapshot-based fast boot.
+Run Bunny Agent inside a Daytona workspace, with optional volume persistence and snapshot-based fast boot.
 
 ## Install
 
 ```bash
-npm install @sandagent/sandbox-daytona @sandagent/manager
+npm install @bunny-agent/sandbox-daytona @bunny-agent/manager
 ```
 
 ## Quickstart
@@ -18,22 +18,22 @@ Prereqs:
 - `ANTHROPIC_API_KEY` (or your runner credentials)
 
 ```ts
-import { SandAgent } from "@sandagent/manager";
-import { DaytonaSandbox } from "@sandagent/sandbox-daytona";
+import { Bunny Agent } from "@bunny-agent/manager";
+import { DaytonaSandbox } from "@bunny-agent/sandbox-daytona";
 
 const sandbox = new DaytonaSandbox({
   apiKey: process.env.DAYTONA_API_KEY,
-  name: "my-sandagent-sandbox", // enables reuse by name
-  volumeName: "my-sandagent-volume", // optional persistence
+  name: "my-bunny-agent-sandbox", // enables reuse by name
+  volumeName: "my-bunny-agent-volume", // optional persistence
   workdir: "/workspace",
   env: {
     ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY!,
   },
   // Optional: use a prebuilt snapshot so the sandbox already has dependencies.
-  // snapshot: "sandagent-claude:0.1.0",
+  // snapshot: "bunny-agent-claude:0.1.0",
 });
 
-const agent = new SandAgent({
+const agent = new Bunny Agent({
   sandbox,
   runner: {
     kind: "claude-agent-sdk",
@@ -65,8 +65,8 @@ await agent.destroy();
 
 - If you set `name`, the adapter will try to reuse an existing sandbox with that name.
 - If you set `volumeName`, the adapter creates/attaches a persistent volume.
-- The adapter installs `@sandagent/runner-cli@latest` inside the sandbox `workdir` on first attach (unless you provide `snapshot`).
-- If you set `snapshot`, `getRunnerCommand()` uses `sandagent run` from the snapshot; otherwise it uses `${workdir}/node_modules/.bin/sandagent`.
+- The adapter installs `@bunny-agent/runner-cli@latest` inside the sandbox `workdir` on first attach (unless you provide `snapshot`).
+- If you set `snapshot`, `getRunnerCommand()` uses `bunny-agent run` from the snapshot; otherwise it uses `${workdir}/node_modules/.bin/bunny-agent`.
 
 ## License
 

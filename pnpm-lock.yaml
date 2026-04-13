@@ -31,12 +31,12 @@ importers:
 
   apps/bunny-agent-tui:
     dependencies:
+      '@bunny-agent/runner-harness':
+        specifier: workspace:*
+        version: link:../../packages/runner-harness
       '@mariozechner/pi-coding-agent':
         specifier: 0.66.1
         version: 0.66.1(patch_hash=69edfea015730e483a9f2d71b9a2af995d6baff2805038a4442fa957b61a8416)(ws@8.19.0)(zod@4.3.6)
-      '@sandagent/runner-harness':
-        specifier: workspace:*
-        version: link:../../packages/runner-harness
     devDependencies:
       '@types/node':
         specifier: ^20.10.0
@@ -72,7 +72,7 @@ importers:
 
   apps/daemon:
     devDependencies:
-      '@sandagent/runner-harness':
+      '@bunny-agent/runner-harness':
         specifier: workspace:*
         version: link:../../packages/runner-harness
       '@types/node':
@@ -90,16 +90,16 @@ importers:
 
   apps/manager-cli:
     dependencies:
-      '@sandagent/manager':
+      '@bunny-agent/manager':
         specifier: workspace:*
         version: link:../../packages/manager
-      '@sandagent/runner-claude':
+      '@bunny-agent/runner-claude':
         specifier: workspace:*
         version: link:../../packages/runner-claude
-      '@sandagent/sandbox-e2b':
+      '@bunny-agent/sandbox-e2b':
         specifier: workspace:*
         version: link:../../packages/sandbox-e2b
-      '@sandagent/sandbox-sandock':
+      '@bunny-agent/sandbox-sandock':
         specifier: workspace:*
         version: link:../../packages/sandbox-sandock
     devDependencies:
@@ -137,22 +137,22 @@ importers:
         specifier: ^4.0.0
         version: 4.3.6
     devDependencies:
-      '@sandagent/runner-claude':
+      '@bunny-agent/runner-claude':
         specifier: workspace:*
         version: link:../../packages/runner-claude
-      '@sandagent/runner-codex':
+      '@bunny-agent/runner-codex':
         specifier: workspace:*
         version: link:../../packages/runner-codex
-      '@sandagent/runner-gemini':
+      '@bunny-agent/runner-gemini':
         specifier: workspace:*
         version: link:../../packages/runner-gemini
-      '@sandagent/runner-harness':
+      '@bunny-agent/runner-harness':
         specifier: workspace:*
         version: link:../../packages/runner-harness
-      '@sandagent/runner-opencode':
+      '@bunny-agent/runner-opencode':
         specifier: workspace:*
         version: link:../../packages/runner-opencode
-      '@sandagent/runner-pi':
+      '@bunny-agent/runner-pi':
         specifier: workspace:*
         version: link:../../packages/runner-pi
       '@types/node':
@@ -173,21 +173,21 @@ importers:
       '@ai-sdk/react':
         specifier: ^3.0.52
         version: 3.0.107(react@19.2.4)(zod@4.3.6)
+      '@bunny-agent/sandbox-daytona':
+        specifier: workspace:*
+        version: link:../../packages/sandbox-daytona
+      '@bunny-agent/sandbox-e2b':
+        specifier: workspace:*
+        version: link:../../packages/sandbox-e2b
+      '@bunny-agent/sandbox-sandock':
+        specifier: workspace:*
+        version: link:../../packages/sandbox-sandock
+      '@bunny-agent/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
       '@next/third-parties':
         specifier: ^16.1.6
         version: 16.1.6(next@16.1.6(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)
-      '@sandagent/sandbox-daytona':
-        specifier: workspace:*
-        version: link:../../packages/sandbox-daytona
-      '@sandagent/sandbox-e2b':
-        specifier: workspace:*
-        version: link:../../packages/sandbox-e2b
-      '@sandagent/sandbox-sandock':
-        specifier: workspace:*
-        version: link:../../packages/sandbox-sandock
-      '@sandagent/sdk':
-        specifier: workspace:*
-        version: link:../../packages/sdk
       ai:
         specifier: ^6.0.105
         version: 6.0.105(zod@4.3.6)
@@ -250,7 +250,7 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
 
-  docker/sandagent-claude:
+  docker/bunny-agent-claude:
     dependencies:
       '@daytonaio/sdk':
         specifier: ^0.134.0
@@ -524,19 +524,19 @@ importers:
 
   packages/runner-harness:
     dependencies:
-      '@sandagent/runner-claude':
+      '@bunny-agent/runner-claude':
         specifier: workspace:*
         version: link:../runner-claude
-      '@sandagent/runner-codex':
+      '@bunny-agent/runner-codex':
         specifier: workspace:*
         version: link:../runner-codex
-      '@sandagent/runner-gemini':
+      '@bunny-agent/runner-gemini':
         specifier: workspace:*
         version: link:../runner-gemini
-      '@sandagent/runner-opencode':
+      '@bunny-agent/runner-opencode':
         specifier: workspace:*
         version: link:../runner-opencode
-      '@sandagent/runner-pi':
+      '@bunny-agent/runner-pi':
         specifier: workspace:*
         version: link:../runner-pi
       ai:
@@ -587,12 +587,12 @@ importers:
 
   packages/sandbox-daytona:
     dependencies:
+      '@bunny-agent/manager':
+        specifier: workspace:*
+        version: link:../manager
       '@daytonaio/sdk':
         specifier: ^0.130.0
         version: 0.130.0(ws@8.19.0)
-      '@sandagent/manager':
-        specifier: workspace:*
-        version: link:../manager
     devDependencies:
       '@types/node':
         specifier: ^20.10.0
@@ -606,7 +606,7 @@ importers:
 
   packages/sandbox-e2b:
     dependencies:
-      '@sandagent/manager':
+      '@bunny-agent/manager':
         specifier: workspace:*
         version: link:../manager
       e2b:
@@ -625,7 +625,7 @@ importers:
 
   packages/sandbox-sandock:
     dependencies:
-      '@sandagent/manager':
+      '@bunny-agent/manager':
         specifier: workspace:*
         version: link:../manager
       sandock:
@@ -650,7 +650,7 @@ importers:
       '@ai-sdk/react':
         specifier: ^3.0.105
         version: 3.0.107(react@19.2.4)(zod@4.3.6)
-      '@sandagent/manager':
+      '@bunny-agent/manager':
         specifier: workspace:*
         version: link:../manager
       ai:

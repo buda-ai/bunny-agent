@@ -16,7 +16,7 @@ Fixed two TypeScript build errors introduced in the `feat(sdk): support multi-pa
 - Non-base64 image URLs (HTTP/HTTPS) are skipped as they are unsupported by the Codex SDK.
 - Temp files are cleaned up after the streaming turn completes.
 
-### `packages/sdk/src/provider/sandagent-language-model.ts`
+### `packages/sdk/src/provider/bunny-agent-language-model.ts`
 
 - Fixed `convertPromptToMessages` to use the Vercel AI SDK v3 `LanguageModelV3FilePart` format (`type: 'file'`, `data`, `mediaType`) instead of the old v2 image part format (`type: 'image'`, `part.image`, `part.mimeType`).
 - Property accesses updated: `part.image` → `part.data`, `part.mimeType` → `part.mediaType`.

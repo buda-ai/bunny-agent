@@ -1,8 +1,8 @@
-import type { Logger, SandAgentProviderSettings } from "./types";
+import type { Logger, BunnyAgentProviderSettings } from "./types";
 
 /** Shared logger factory for provider and language model. */
 export function getProviderLogger(
-  settings: Partial<SandAgentProviderSettings>,
+  settings: Partial<BunnyAgentProviderSettings>,
 ): Logger {
   if (settings.logger === false) {
     return {

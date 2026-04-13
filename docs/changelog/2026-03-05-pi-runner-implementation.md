@@ -1,7 +1,7 @@
 # 2026-03-05 - Pi Runner Implementation
 
 ## Summary
-Implemented Pi runner for SandAgent, enabling multi-provider LLM support (OpenAI, Google, Anthropic, etc.) through the Pi coding agent framework.
+Implemented Pi runner for Bunny Agent, enabling multi-provider LLM support (OpenAI, Google, Anthropic, etc.) through the Pi coding agent framework.
 
 ## Changes
 
@@ -46,13 +46,13 @@ Implemented Pi runner for SandAgent, enabling multi-provider LLM support (OpenAI
 ### Usage
 ```bash
 # Run with OpenAI
-npx sandagent run --runner pi -m "openai:gpt-4.1-mini" -- "your task"
+npx bunny-agent run --runner pi -m "openai:gpt-4.1-mini" -- "your task"
 
 # Run with Google Gemini
-npx sandagent run --runner pi -m "google:gemini-2.5-flash-lite-preview-06-17" -- "your task"
+npx bunny-agent run --runner pi -m "google:gemini-2.5-flash-lite-preview-06-17" -- "your task"
 
 # Run benchmark
-pnpm --filter @sandagent/benchmark benchmark:run -- --runner pi --level 1 --limit 1
+pnpm --filter @bunny-agent/benchmark benchmark:run -- --runner pi --level 1 --limit 1
 ```
 
 ## Testing
@@ -126,7 +126,7 @@ stdout
 ## Known Issues
 
 ### Development Environment
-- Pi runner requires `sandagent` command in PATH for benchmark detection
+- Pi runner requires `bunny-agent` command in PATH for benchmark detection
 - Workaround: `cd apps/runner-cli && npm link`
 
 ### Future Improvements
@@ -150,7 +150,7 @@ stdout
 ### New Structure
 Split benchmark into 3 packages for clarity:
 
-1. **@sandagent/benchmark-shared** - Core logic + Multiple datasets
+1. **@bunny-agent/benchmark-shared** - Core logic + Multiple datasets
    - **GAIA Benchmark** - General AI Assistant (existing)
    - **SWE-bench Lite** - Software Engineering tasks (TODO)
    - **Smoking Coding Benchmark** - 5 quick validation tests (NEW)
@@ -158,14 +158,14 @@ Split benchmark into 3 packages for clarity:
    - Answer extraction
    - Shared types
 
-2. **@sandagent/benchmark-cli** - Native CLI testing
+2. **@bunny-agent/benchmark-cli** - Native CLI testing
    - Tests: `claude`, `gemini`, `codex` CLIs directly
    - Purpose: Compare original agent CLIs
 
-3. **@sandagent/benchmark-sandagent** - SandAgent runner testing
-   - Tests: `sandagent --runner claude`, `sandagent --runner pi`, etc.
-   - Purpose: Test sandagent's runner implementations
-   - Measures sandagent overhead
+3. **@bunny-agent/benchmark-bunny-agent** - Bunny Agent runner testing
+   - Tests: `bunny-agent --runner claude`, `bunny-agent --runner pi`, etc.
+   - Purpose: Test bunny-agent's runner implementations
+   - Measures bunny-agent overhead
 
 ### Smoking Coding Benchmark
 
@@ -189,10 +189,10 @@ Perfect for:
 
 ### Smoking Benchmark Implementation
 
-Created `@sandagent/benchmark-sandagent` package to run smoking tests:
+Created `@bunny-agent/benchmark-bunny-agent` package to run smoking tests:
 
 ```bash
-cd packages/benchmark-sandagent
+cd packages/benchmark-bunny-agent
 
 # Run smoking benchmark
 AI_MODEL="openai:gpt-4o-mini" \
@@ -201,7 +201,7 @@ OPENAI_BASE_URL=https://llm.bika.ltd \
 node dist/cli.js run --runner pi
 
 # Output:
-🏖️  Running Smoking Benchmark with sandagent --runner pi
+🏖️  Running Smoking Benchmark with bunny-agent --runner pi
 📊 Total tests: 5
 
 🧪 [smoke-001] Create Hello World (file)
@@ -222,16 +222,16 @@ node dist/cli.js run --runner pi
 **Features:**
 - ✅ Runs 5 quick tests
 - ✅ Tests file, bash, code, reasoning
-- ✅ Passes env vars to sandagent
+- ✅ Passes env vars to bunny-agent
 - ✅ Pretty output with emojis
 - ✅ Summary statistics
 
 ### Benefits
-- ✅ Clear separation: native CLIs vs sandagent runners
+- ✅ Clear separation: native CLIs vs bunny-agent runners
 - ✅ Shared core logic (no duplication)
 - ✅ Multiple benchmark datasets
 - ✅ Fast smoking tests for quick validation
-- ✅ Can compare native vs sandagent performance
+- ✅ Can compare native vs bunny-agent performance
 - ✅ Independent versioning
 
 ### Package Structure
@@ -239,7 +239,7 @@ node dist/cli.js run --runner pi
 packages/
 ├── benchmark-shared/       # Core logic + datasets (GAIA, SWE-bench, Smoking)
 ├── benchmark-cli/          # Native CLI benchmark (claude, gemini, codex)
-└── benchmark-sandagent/    # SandAgent runner benchmark (--runner X)
+└── benchmark-bunny-agent/    # Bunny Agent runner benchmark (--runner X)
 ```
 
 ## Contributors
@@ -258,19 +258,19 @@ benchmark-results/
 │   └── smoking/
 │       └── cli-{agent}-{model}-{date}-{time}.json
 │
-└── sandagent/              # sandagent runner results
+└── bunny-agent/              # bunny-agent runner results
     └── smoking/
-        └── sandagent-{runner}-{model}-{date}-{time}.json
+        └── bunny-agent-{runner}-{model}-{date}-{time}.json
 ```
 
 **Filename format:**
 - CLI: `cli-claudecode-claude-sonnet-4-2026-03-05-14-30-45.json`
-- SandAgent: `sandagent-pi-openai-gpt-4.1-mini-2026-03-05-20-41-14.json`
+- Bunny Agent: `bunny-agent-pi-openai-gpt-4.1-mini-2026-03-05-20-41-14.json`
 
 **Result structure:**
 ```json
 {
-  "benchmarkType": "sandagent",
+  "benchmarkType": "bunny-agent",
   "runner": "pi",
   "model": "openai:gpt-4.1-mini",
   "timestamp": "2026-03-05T12:41:14.726Z",
@@ -285,13 +285,13 @@ benchmark-results/
 ```
 
 **Example results:**
-- sandagent-pi-openai-gpt-4.1-mini-2026-03-05-20-41-14.json: 2/5 passed (40%)
+- bunny-agent-pi-openai-gpt-4.1-mini-2026-03-05-20-41-14.json: 2/5 passed (40%)
 - Runtime: ~14 seconds
 
 ## Environment Configuration
 
 All packages now use the root `.env` file. Removed redundant `.env.example` files from:
-- ❌ `docker/sandagent-claude/.env.example` (deleted)
+- ❌ `docker/bunny-agent-claude/.env.example` (deleted)
 - ❌ `packages/benchmark-cli/.env.example` (deleted)
 - ✅ `.env.example` (root - single source of truth)
 
@@ -333,7 +333,7 @@ Created `run-benchmark.sh` in project root as the single entry point for all ben
 **Features:**
 - ✅ Loads `.env` automatically (with error check)
 - ✅ Configurable default models at top of script
-- ✅ Runs in `/tmp/sandagent-benchmark` (no project pollution)
+- ✅ Runs in `/tmp/bunny-agent-benchmark` (no project pollution)
 - ✅ Supports both pi and claude runners
 - ✅ Multiple runs support
 - ✅ Full output display
@@ -351,7 +351,7 @@ DEFAULT_CLAUDE_MODEL="global.anthropic.claude-sonnet-4-5-20250929-v1:0"
 ```
 
 **Fixes:**
-- Fixed working directory to `/tmp/sandagent-benchmark`
+- Fixed working directory to `/tmp/bunny-agent-benchmark`
 - Fixed result save path using `PROJECT_ROOT` env var
 - Removed old scattered benchmark scripts
 - Updated AGENTS.md with unified script documentation

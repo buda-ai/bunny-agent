@@ -3,14 +3,14 @@
  * Build Daytona snapshot from Docker image using SDK
  *
  * Usage (from project root):
- *   pnpm exec tsx docker/sandagent-claude/build-daytona-snapshot.ts [options]
+ *   pnpm exec tsx docker/bunny-agent-claude/build-daytona-snapshot.ts [options]
  *
  * Or from script directory:
  *   npx tsx build-daytona-snapshot.ts [options]
  *
  * Options:
- *   --name <name>        Snapshot name (default: vikadata/sandagent)
- *   --image <image>      Docker image name (default: vikadata/sandagent:0.1.0)
+ *   --name <name>        Snapshot name (default: vikadata/bunny-agent)
+ *   --image <image>      Docker image name (default: vikadata/bunny-agent:0.1.0)
  *   --cpu <count>        CPU cores (default: 2)
  *   --memory <gb>        Memory in GB (default: 4)
  *   --disk <gb>          Disk in GB (default: 8)
@@ -29,7 +29,7 @@ import { Daytona } from "@daytonaio/sdk";
 function parseArgs() {
   // Read IMAGE_TAG from .env (loaded by dotenv/config)
   const imageTag = process.env.IMAGE_TAG || "0.1.0";
-  const imageName = process.env.IMAGE_NAME || "vikadata/sandagent";
+  const imageName = process.env.IMAGE_NAME || "vikadata/bunny-agent";
 
   const args: {
     name: string;
@@ -39,7 +39,7 @@ function parseArgs() {
     disk: number;
     force: boolean;
   } = {
-    // Snapshot name includes version with colon: vikadata/sandagent:0.1.0
+    // Snapshot name includes version with colon: vikadata/bunny-agent:0.1.0
     name: `${imageName}:${imageTag}`,
     image: `${imageName}:${imageTag}`,
     cpu: 2,
@@ -67,8 +67,8 @@ function parseArgs() {
 Usage: npx tsx build-daytona-snapshot.ts [options]
 
 Options:
-  --name <name>     Snapshot name (default: vikadata/sandagent)
-  --image <image>   Docker image name (default: vikadata/sandagent:0.1.0)
+  --name <name>     Snapshot name (default: vikadata/bunny-agent)
+  --image <image>   Docker image name (default: vikadata/bunny-agent:0.1.0)
   --cpu <count>     CPU cores (default: 2)
   --memory <gb>     Memory in GB (default: 4)
   --disk <gb>       Disk in GB (default: 8)
@@ -270,7 +270,7 @@ async function main() {
       console.log(`   Name: ${snapshot.name}`);
       console.log(`   State: ${snapshot.state}`);
       console.log("");
-      console.log("You can now use this snapshot in SandAgent:");
+      console.log("You can now use this snapshot in BunnyAgent:");
       console.log(`   snapshot: "${name}"`);
     }
   } catch (_error: unknown) {

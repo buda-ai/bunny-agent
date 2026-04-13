@@ -17,7 +17,7 @@ import type {
  *
  * @example
  * ```tsx
- * import { useAskUserQuestion } from "@sandagent/sdk/react";
+ * import { useAskUserQuestion } from "@bunny-agent/sdk/react";
  *
  * function QuestionUI({ part, sessionId }) {
  *   const {

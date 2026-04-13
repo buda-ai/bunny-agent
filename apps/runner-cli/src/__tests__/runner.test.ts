@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// Mock @sandagent/runner-claude
-vi.mock("@sandagent/runner-claude", () => ({
+// Mock @bunny-agent/runner-claude
+vi.mock("@bunny-agent/runner-claude", () => ({
   createClaudeRunner: vi.fn().mockReturnValue({
     run: vi.fn().mockImplementation(async function* () {
       yield "data: test message\n\n";
@@ -9,7 +9,7 @@ vi.mock("@sandagent/runner-claude", () => ({
   }),
 }));
 
-vi.mock("@sandagent/runner-codex", () => ({
+vi.mock("@bunny-agent/runner-codex", () => ({
   createCodexRunner: vi.fn().mockReturnValue({
     run: vi.fn().mockImplementation(async function* () {
       yield '0:"codex message"\\n';
@@ -18,7 +18,7 @@ vi.mock("@sandagent/runner-codex", () => ({
   }),
 }));
 
-vi.mock("@sandagent/runner-gemini", () => ({
+vi.mock("@bunny-agent/runner-gemini", () => ({
   createGeminiRunner: vi.fn().mockReturnValue({
     run: vi.fn().mockImplementation(async function* () {
       yield '0:"gemini message"\\n';
@@ -27,9 +27,9 @@ vi.mock("@sandagent/runner-gemini", () => ({
   }),
 }));
 
-import { createClaudeRunner } from "@sandagent/runner-claude";
-import { createCodexRunner } from "@sandagent/runner-codex";
-import { createGeminiRunner } from "@sandagent/runner-gemini";
+import { createClaudeRunner } from "@bunny-agent/runner-claude";
+import { createCodexRunner } from "@bunny-agent/runner-codex";
+import { createGeminiRunner } from "@bunny-agent/runner-gemini";
 import { runAgent } from "../runner.js";
 
 describe("runAgent", () => {

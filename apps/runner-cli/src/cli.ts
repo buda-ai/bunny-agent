@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 
 /**
- * SandAgent Runner CLI
+ * BunnyAgent Runner CLI
  *
  * Subcommands:
- *   sandagent run         [options] -- "<user input>"   Run an agent locally
- *   sandagent image build [options]                     Build (and optionally push) a Docker image
+ *   bunny-agent run         [options] -- "<user input>"   Run an agent locally
+ *   bunny-agent image build [options]                     Build (and optionally push) a Docker image
  */
 
 import { resolve } from "node:path";
@@ -62,7 +62,7 @@ function argsAfterPositionals(n: number): string[] {
 }
 
 // ---------------------------------------------------------------------------
-// `sandagent run`
+// `bunny-agent run`
 // ---------------------------------------------------------------------------
 
 interface ParsedRunArgs {
@@ -91,7 +91,7 @@ function parseRunArgs(): ParsedRunArgs {
       cwd: {
         type: "string",
         short: "c",
-        default: process.env.SANDAGENT_WORKSPACE ?? process.cwd(),
+        default: process.env.BUNNY_AGENT_WORKSPACE ?? process.cwd(),
       },
       "system-prompt": { type: "string", short: "s" },
       "max-turns": { type: "string", short: "t" },
@@ -120,7 +120,7 @@ function parseRunArgs(): ParsedRunArgs {
 
   if (!userInput) {
     console.error("Error: User input is required");
-    console.error('Usage: sandagent run [options] -- "<user input>"');
+    console.error('Usage: bunny-agent run [options] -- "<user input>"');
     process.exit(1);
   }
 
@@ -151,7 +151,7 @@ function parseRunArgs(): ParsedRunArgs {
 }
 
 // ---------------------------------------------------------------------------
-// `sandagent image build`
+// `bunny-agent image build`
 // ---------------------------------------------------------------------------
 
 interface ParsedImageBuildArgs {
@@ -167,7 +167,7 @@ function parseImageBuildArgs(): ParsedImageBuildArgs {
   const { values } = parseArgs({
     args: argsAfterPositionals(2),
     options: {
-      name: { type: "string", default: "sandagent" },
+      name: { type: "string", default: "bunny-agent" },
       tag: { type: "string", default: "latest" },
       image: { type: "string" },
       platform: { type: "string", default: "linux/amd64" },
@@ -200,12 +200,12 @@ function parseImageBuildArgs(): ParsedImageBuildArgs {
 
 function printRunHelp(): void {
   console.log(`
-🤖 SandAgent Runner CLI — run
+🤖 BunnyAgent Runner CLI — run
 
 Runs an agent locally in your terminal, streaming AI SDK UI messages to stdout.
 
 Usage:
-  sandagent run [options] -- "<user input>"
+  bunny-agent run [options] -- "<user input>"
 
 Options:
   -r, --runner <runner>        Runner: claude, codex, gemini, opencode, copilot, pi (default: claude)
@@ -223,22 +223,22 @@ Environment:
   OPENAI_API_KEY               OpenAI API key (for codex runner)
   CODEX_API_KEY                OpenAI API key alias (for codex runner)
   GEMINI_API_KEY               Gemini API key (for gemini runner)
-  SANDAGENT_WORKSPACE          Default workspace path
+  BUNNY_AGENT_WORKSPACE          Default workspace path
 `);
 }
 
 function printImageBuildHelp(): void {
   console.log(`
-🐳 SandAgent Runner CLI — image build
+🐳 BunnyAgent Runner CLI — image build
 
-Build (and optionally push) a SandAgent Docker image.
+Build (and optionally push) a BunnyAgent Docker image.
 The image includes Claude Agent SDK + runner-cli pre-installed.
 
 Usage:
-  sandagent image build [options]
+  bunny-agent image build [options]
 
 Options:
-  --name <name>          Image name, e.g. vikadata/sandagent-seo (default: sandagent)
+  --name <name>          Image name, e.g. vikadata/bunny-agent-seo (default: bunny-agent)
   --tag <tag>            Image tag (default: latest)
   --image <full>         Full image name override (e.g. myorg/myimage:v1)
   --platform <plat>      Build platform (default: linux/amd64)
@@ -247,40 +247,40 @@ Options:
   -h, --help             Show this help
 
 Examples:
-  sandagent image build --name vikadata/sandagent-seo --tag 0.1.0
-  sandagent image build --name vikadata/sandagent-seo --tag 0.1.0 --template ./templates/seo-agent
-  sandagent image build --name vikadata/sandagent-seo --tag 0.1.0 --template ./templates/seo-agent --push
+  bunny-agent image build --name vikadata/bunny-agent-seo --tag 0.1.0
+  bunny-agent image build --name vikadata/bunny-agent-seo --tag 0.1.0 --template ./templates/seo-agent
+  bunny-agent image build --name vikadata/bunny-agent-seo --tag 0.1.0 --template ./templates/seo-agent --push
 `);
 }
 
 function printImageHelp(): void {
   console.log(`
-🐳 SandAgent Runner CLI — image
+🐳 BunnyAgent Runner CLI — image
 
-Manage SandAgent Docker images.
+Manage BunnyAgent Docker images.
 
 Usage:
-  sandagent image <subcommand> [options]
+  bunny-agent image <subcommand> [options]
 
 Subcommands:
   build    Build (and optionally push) a Docker image
 
-Run "sandagent image build --help" for build options.
+Run "bunny-agent image build --help" for build options.
 `);
 }
 
 function printGlobalHelp(): void {
   console.log(`
-🤖 SandAgent Runner CLI
+🤖 BunnyAgent Runner CLI
 
 Usage:
-  sandagent <command> [options]
+  bunny-agent <command> [options]
 
 Commands:
   run          Run an agent locally (streams AI SDK UI messages to stdout)
-  image build  Build a SandAgent Docker image (with optional --push)
+  image build  Build a BunnyAgent Docker image (with optional --push)
 
-Run "sandagent <command> --help" for command-specific options.
+Run "bunny-agent <command> --help" for command-specific options.
 `);
 }
 

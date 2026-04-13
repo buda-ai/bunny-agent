@@ -1,32 +1,32 @@
-# @sandagent/manager
+# @bunny-agent/manager
 
 > ⚠️ **Deprecated (exec-based transport)**
 >
-> `@sandagent/manager` works by spawning `sandagent run` CLI inside a sandbox via `exec()`. This approach is being superseded by **`@sandagent/daemon`** — a unified HTTP gateway that runs inside the sandbox and exposes the same capabilities over a clean REST API.
+> `@bunny-agent/manager` works by spawning `bunny-agent run` CLI inside a sandbox via `exec()`. This approach is being superseded by **`@bunny-agent/daemon`** — a unified HTTP gateway that runs inside the sandbox and exposes the same capabilities over a clean REST API.
 >
-> **Prefer `createSandAgent` with an explicit `daemonUrl` from `@sandagent/sdk`** when using the HTTP daemon.
+> **Prefer `createBunny Agent` with an explicit `daemonUrl` from `@bunny-agent/sdk`** when using the HTTP daemon.
 >
 > This package remains supported for sandboxes that only provide `exec()` capability (E2B, Daytona, etc.) and has no planned removal date.
 
-Core manager package for SandAgent - manages sandbox and runner lifecycle, defines core interfaces.
+Core manager package for Bunny Agent - manages sandbox and runner lifecycle, defines core interfaces.
 
 This package is the core runtime that wires **sandbox adapters** + a **runner spec** into an AI SDK UI stream you can consume from your server or CLI.
 
 ## Overview
 
-`@sandagent/manager` is the foundational package that provides:
+`@bunny-agent/manager` is the foundational package that provides:
 
-- **SandAgent**: Main class for managing sandboxed agent instances
+- **Bunny Agent**: Main class for managing sandboxed agent instances
 - **Core Interfaces**: `SandboxAdapter`, `SandboxHandle`, `RunnerSpec`, etc.
 - **Transcript Writers**: Tools for logging agent execution (JSONL, Memory, Console, Multi)
 - **Type Definitions**: Shared types for messages, streams, and sandbox operations
 
-This package is typically used as a dependency by higher-level packages like `@sandagent/sdk` and sandbox adapters.
+This package is typically used as a dependency by higher-level packages like `@bunny-agent/sdk` and sandbox adapters.
 
 ## Installation
 
 ```bash
-npm install @sandagent/manager
+npm install @bunny-agent/manager
 ```
 
 ## Quickstart
@@ -34,10 +34,10 @@ npm install @sandagent/manager
 ### Basic Usage
 
 ```typescript
-import { SandAgent } from '@sandagent/manager';
-import { E2BSandbox } from '@sandagent/sandbox-e2b';
+import { Bunny Agent } from '@bunny-agent/manager';
+import { E2BSandbox } from '@bunny-agent/sandbox-e2b';
 
-const agent = new SandAgent({
+const agent = new Bunny Agent({
   sandbox: new E2BSandbox({ apiKey: 'xxx' }),
   runner: {
     model: 'claude-sonnet-4-20250514',
@@ -73,7 +73,7 @@ await agent.destroy();
 ### With Transcript Logging
 
 ```typescript
-import { SandAgent, JsonlTranscriptWriter } from '@sandagent/manager';
+import { Bunny Agent, JsonlTranscriptWriter } from '@bunny-agent/manager';
 
 const transcriptWriter = new JsonlTranscriptWriter('./transcript.jsonl');
 
@@ -151,7 +151,7 @@ import {
   JsonlTranscriptWriter,
   MemoryTranscriptWriter,
   MultiTranscriptWriter 
-} from '@sandagent/manager';
+} from '@bunny-agent/manager';
 
 const transcriptWriter = new MultiTranscriptWriter([
   new JsonlTranscriptWriter('./transcript.jsonl'),
@@ -161,12 +161,12 @@ const transcriptWriter = new MultiTranscriptWriter([
 
 ## API Reference
 
-### SandAgent
+### Bunny Agent
 
 #### Constructor
 
 ```typescript
-new SandAgent(options: SandAgentOptions)
+new Bunny Agent(options: Bunny AgentOptions)
 ```
 
 **Options:**
@@ -191,7 +191,7 @@ Destroy the sandbox and release resources.
 ## Requirements
 
 - Node.js 20+
-- A sandbox adapter (@sandagent/sandbox-e2b, @sandagent/sandbox-local, etc.)
+- A sandbox adapter (@bunny-agent/sandbox-e2b, @bunny-agent/sandbox-local, etc.)
 
 ## License
 

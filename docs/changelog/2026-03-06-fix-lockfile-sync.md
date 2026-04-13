@@ -4,7 +4,7 @@
 
 ## Problem
 
-CI was failing with `--frozen-lockfile` because `apps/runner-cli/package.json` had new workspace devDependencies (`@sandagent/runner-codex`, `@sandagent/runner-gemini`, `@sandagent/runner-opencode`) that were not reflected in `pnpm-lock.yaml`.
+CI was failing with `--frozen-lockfile` because `apps/runner-cli/package.json` had new workspace devDependencies (`@bunny-agent/runner-codex`, `@bunny-agent/runner-gemini`, `@bunny-agent/runner-opencode`) that were not reflected in `pnpm-lock.yaml`.
 
 ## Fix
 

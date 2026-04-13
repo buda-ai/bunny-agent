@@ -1,13 +1,13 @@
 import { createHash } from "node:crypto";
 import path from "node:path";
-import type { DaytonaSandboxOptions } from "@sandagent/sandbox-daytona";
-import { E2BSandbox } from "@sandagent/sandbox-e2b";
-import { SandockSandbox } from "@sandagent/sandbox-sandock";
+import type { DaytonaSandboxOptions } from "@bunny-agent/sandbox-daytona";
+import { E2BSandbox } from "@bunny-agent/sandbox-e2b";
+import { SandockSandbox } from "@bunny-agent/sandbox-sandock";
 import {
   buildRunnerEnv,
   LocalSandbox,
   type SandboxAdapter,
-} from "@sandagent/sdk";
+} from "@bunny-agent/sdk";
 import type { RunnerType } from "@/lib/runner";
 
 const MONOREPO_ROOT = path.resolve(process.cwd(), "../..");
@@ -17,34 +17,34 @@ const RUNNER_BUNDLE_PATH = path.join(
   "apps/runner-cli/dist/bundle.mjs",
 );
 const SANDBOX_IMAGE =
-  process.env.SANDBOX_IMAGE ?? "vikadata/sandagent:0.9.16-beta.3";
+  process.env.SANDBOX_IMAGE ?? "vikadata/bunny-agent:0.9.16-beta.3";
 
 /**
  * Sandock on Kubernetes replaces Docker ENTRYPOINT with a shell keep-alive, so
  * we pass the image entrypoint explicitly. Args mirror Dockerfile:
- * ENTRYPOINT sandagent-entrypoint + CMD ["sleep", "infinity"].
+ * ENTRYPOINT bunny-agent-entrypoint + CMD ["sleep", "infinity"].
  * Set SANDOCK_CONTAINER_SLEEP_SEC=1800 (or another duration) if you need a
  * numeric `sleep` instead of `infinity`.
- * Override the entrypoint binary with SANDOCK_SANDAGENT_ENTRYPOINT if your image
+ * Override the entrypoint binary with SANDOCK_BUNNY_AGENT_ENTRYPOINT if your image
  * installs it elsewhere.
  *
  * LLM keys in `SandockSandbox({ env: baseEnv })` are sent to the Sandock API as
- * container `env` so sandagent-daemon sees the same variables as shell `exec`
+ * container `env` so bunny-agent-daemon sees the same variables as shell `exec`
  * (not only the curl child process).
  *
- * Sandock + sandagent image: the entrypoint command is always applied when the
+ * Sandock + bunny-agent image: the entrypoint command is always applied when the
  * image name matches {@link sandockImageNeedsSandagentEntrypoint}. `useSandagentDaemon`
  * only affects sandbox cache key and (in the web app) whether `/api/ai` probes
  * `/healthz` and passes `daemonUrl` for HTTP transport, or omits it for CLI.
  */
 const SANDOCK_SLEEP_ARG = process.env.SANDOCK_CONTAINER_SLEEP_SEC ?? "infinity";
 
-const SANDAGENT_SANDOCK_ENTRYPOINT =
-  process.env.SANDOCK_SANDAGENT_ENTRYPOINT?.trim() ||
-  "/usr/local/bin/sandagent-entrypoint";
+const BUNNY_AGENT_SANDOCK_ENTRYPOINT =
+  process.env.SANDOCK_BUNNY_AGENT_ENTRYPOINT?.trim() ||
+  "/usr/local/bin/bunny-agent-entrypoint";
 
-const SANDAGENT_SANDOCK_COMMAND = [
-  SANDAGENT_SANDOCK_ENTRYPOINT,
+const BUNNY_AGENT_SANDOCK_COMMAND = [
+  BUNNY_AGENT_SANDOCK_ENTRYPOINT,
   "sleep",
   SANDOCK_SLEEP_ARG,
 ] as const;
@@ -52,10 +52,10 @@ const SANDAGENT_SANDOCK_COMMAND = [
 function sandockImageNeedsSandagentEntrypoint(image: string): boolean {
   const i = image.toLowerCase();
   return (
-    i.includes("vikadata/sandagent") ||
-    i.includes("/sandagent:") ||
-    i.endsWith("/sandagent") ||
-    i === "sandagent"
+    i.includes("vikadata/bunny-agent") ||
+    i.includes("/bunny-agent:") ||
+    i.endsWith("/bunny-agent") ||
+    i === "bunny-agent"
   );
 }
 
@@ -86,7 +86,7 @@ export interface CreateSandboxParams {
   localWorkdir?: string;
   /**
    * Sandock: include in sandbox cache key; web API also uses this to pass provider `daemonUrl`.
-   * Entrypoint command for sandagent images is chosen from the image name, not this flag.
+   * Entrypoint command for bunny-agent images is chosen from the image name, not this flag.
    */
   useSandagentDaemon?: boolean;
 }
@@ -115,7 +115,7 @@ function sandboxCacheKey(params: CreateSandboxParams): string {
     .digest("hex")
     .slice(0, 12);
 
-  return `sandagent-${t}${daemon}-${fingerprint}`;
+  return `bunny-agent-${t}${daemon}-${fingerprint}`;
 }
 
 function getCachedSandboxId(key: string): string | undefined {
@@ -176,7 +176,7 @@ async function buildSandbox(
     env: extraEnv = {},
   } = params;
 
-  const sandboxName = `sandagent-${template}`;
+  const sandboxName = `bunny-agent-${template}`;
   const baseEnv = buildRunnerEnv({
     runnerType,
     ANTHROPIC_API_KEY,
@@ -194,7 +194,7 @@ async function buildSandbox(
     inherit: extraEnv,
   });
   if (SANDBOX_PROVIDER === "daytona" && DAYTONA_API_KEY) {
-    const { DaytonaSandbox } = await import("@sandagent/sandbox-daytona");
+    const { DaytonaSandbox } = await import("@bunny-agent/sandbox-daytona");
     const opts: DaytonaSandboxOptions & { snapshot?: string } = {
       apiKey: DAYTONA_API_KEY,
       templatesPath: path.join(TEMPLATES_PATH, template),
@@ -204,7 +204,7 @@ async function buildSandbox(
       autoStopInterval: 15,
       autoDeleteInterval: -1,
       env: baseEnv,
-      snapshot: "sandagent-claude-researcher:0.1.2",
+      snapshot: "bunny-agent-claude-researcher:0.1.2",
       workdir: "/workspace",
     };
     return new DaytonaSandbox(opts) as unknown as SandboxAdapter;
@@ -225,7 +225,7 @@ async function buildSandbox(
       name: sandboxName,
       sandboxId: cachedId,
       ...(sandockImageNeedsSandagentEntrypoint(image)
-        ? { command: [...SANDAGENT_SANDOCK_COMMAND] }
+        ? { command: [...BUNNY_AGENT_SANDOCK_COMMAND] }
         : {}),
     });
   }

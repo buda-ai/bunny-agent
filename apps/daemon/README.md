@@ -1,4 +1,4 @@
-# @sandagent/daemon
+# @bunny-agent/daemon
 
 Unified API gateway for sandbox containers. Runs **inside** the [sandock](~/Documents/kapps/apps/sandock) Next.js app — either embedded as a Next.js route handler (local/dev mode) or as a standalone process inside a sandbox container (production).
 
@@ -9,23 +9,23 @@ Unified API gateway for sandbox containers. Runs **inside** the [sandock](~/Docu
 ```
 ~/Documents/kapps/apps/buda/        ← buda.im Next.js app
     app/api/daemon/[...path]/
-        route.ts                    ← embeds @sandagent/daemon via createNextHandler()
+        route.ts                    ← embeds @bunny-agent/daemon via createNextHandler()
                                        (local dev mode, no extra process)
 
 sandbox container                   ← production
-    sandagent-daemon :3080          ← standalone process
+    bunny-agent-daemon :3080          ← standalone process
     (accessed via sandock.ai proxy)
 ```
 
-The same `@sandagent/daemon` package works in both modes — Next.js embed for local development, standalone HTTP server for production containers.
+The same `@bunny-agent/daemon` package works in both modes — Next.js embed for local development, standalone HTTP server for production containers.
 
-### SandAgent container image (`vikadata/sandagent`)
+### Bunny Agent container image (`vikadata/bunny-agent`)
 
-The Dockerfiles under `docker/sandagent-claude/` (`Dockerfile`, `Dockerfile.local`, `Dockerfile.template`) install `@sandagent/daemon` and start **`sandagent-daemon`** in the background when the container starts (alongside the existing CDP / `sandagent` CLI setup). The HTTP API listens on **`0.0.0.0:3080`** by default (`EXPOSE 3080`). Override with `SANDAGENT_DAEMON_HOST`, `SANDAGENT_DAEMON_PORT`, and `SANDAGENT_ROOT` if needed.
+The Dockerfiles under `docker/bunny-agent-claude/` (`Dockerfile`, `Dockerfile.local`, `Dockerfile.template`) install `@bunny-agent/daemon` and start **`bunny-agent-daemon`** in the background when the container starts (alongside the existing CDP / `bunny-agent` CLI setup). The HTTP API listens on **`0.0.0.0:3080`** by default (`EXPOSE 3080`). Override with `BUNNY_AGENT_DAEMON_HOST`, `BUNNY_AGENT_DAEMON_PORT`, and `BUNNY_AGENT_ROOT` if needed.
 
 ### Runner environment
 
-`POST /api/coding/run` starts the runner with the daemon process **`process.env`**. Configure API keys and runner settings on the daemon (or container image env), not via per-request HTTP headers from `@sandagent/manager`.
+`POST /api/coding/run` starts the runner with the daemon process **`process.env`**. Configure API keys and runner settings on the daemon (or container image env), not via per-request HTTP headers from `@bunny-agent/manager`.
 
 ---
 
@@ -47,7 +47,7 @@ The Dockerfiles under `docker/sandagent-claude/` (`Dockerfile`, `Dockerfile.loca
 │           sandbox container                         │
 │                                                     │
 │   ┌────────────────────────────────────┐            │
-│   │       sandagent-daemon :3080       │            │
+│   │       bunny-agent-daemon :3080       │            │
 │   │       (unified API gateway)        │            │
 │   └────────────────────────────────────┘            │
 │                                                     │
@@ -67,7 +67,7 @@ incoming HTTP request
         │
         ▼
 ┌───────────────────────────────────────────────────────┐
-│                  sandagent-daemon                     │
+│                  bunny-agent-daemon                     │
 │                                                       │
 │  POST /api/coding/run  ──────────────────────────┐ │
 │                                                     │ │
@@ -87,7 +87,7 @@ incoming HTTP request
 │         node:fs/promises        spawn git      SSE │ │
 │         (file ops)              (git CLI)   stream │ │
 │                                                    │ │
-│                                    @sandagent/     │ │
+│                                    @bunny-agent/     │ │
 │                                    runner-core ◄───┘ │
 │                                    claude/pi/        │
 │                                    gemini/codex      │
@@ -105,7 +105,7 @@ packages/
 ├── runner-codex    ──┤
 ├── runner-gemini   ──┼──► runner-core ◄──┬── apps/runner-cli
 ├── runner-pi       ──┤                   │
-└── runner-opencode ──┘                   └── apps/sandagent-daemon
+└── runner-opencode ──┘                   └── apps/bunny-agent-daemon
 ```
 
 `runner-core` is the shared dispatch layer — no I/O, no stdout, just `createRunner() → AsyncIterable<string>`.
@@ -121,7 +121,7 @@ packages/
 │  entrypoint.sh                                                   │
 │  ├── chromium :9223 (internal) --remote-allow-origins=* &        │
 │  ├── nginx :9222 → :9223 (rewrites Host: localhost) &            │
-│  └── sandagent-daemon          ← node process, listens :3080     │
+│  └── bunny-agent-daemon          ← node process, listens :3080     │
 │                                                                  │
 │  caller: curl / Buda SDK / any HTTP client                       │
 │  → http://sandbox:3080/api/fs/read?path=file.txt                 │
@@ -141,7 +141,7 @@ packages/
 ┌──────────────────────────────────────────────────────────────────┐
 │  Mode C: runner-cli (local terminal, no daemon needed)           │
 │                                                                  │
-│  sandagent run --runner claude -- "Build a REST API"             │
+│  bunny-agent run --runner claude -- "Build a REST API"             │
 │  └── runner-core → stdout (AI SDK UI NDJSON stream)              │
 │                                                                  │
 │  Runs directly on local filesystem. No HTTP server.              │
@@ -153,7 +153,7 @@ packages/
 ### 5. Internal code structure
 
 ```
-apps/sandagent-daemon/
+apps/bunny-agent-daemon/
 ├── src/
 │   ├── cli.ts          entry point — reads env, starts http.Server
 │   ├── server.ts       createDaemon() — http.Server wrapping DaemonRouter
@@ -178,10 +178,10 @@ apps/sandagent-daemon/
 
 ```bash
 cd templates/coder
-npx sandagent run -- "Build a REST API"
-npx sandagent run --runner pi -- "Analyze this dataset"
-npx sandagent run --runner gemini --model gemini-2.0-flash -- "Review my code"
-npx sandagent run --resume <session-id> -- "Continue"
+npx bunny-agent run -- "Build a REST API"
+npx bunny-agent run --runner pi -- "Analyze this dataset"
+npx bunny-agent run --runner gemini --model gemini-2.0-flash -- "Review my code"
+npx bunny-agent run --resume <session-id> -- "Continue"
 ```
 
 Output: raw AI SDK UI NDJSON stream to stdout.
@@ -200,7 +200,7 @@ chromium --headless --no-sandbox \
   --remote-debugging-port=9223 \
   --remote-allow-origins=* &
 nginx  # proxies :9222 → :9223 with Host rewrite
-exec sandagent-daemon
+exec bunny-agent-daemon
 ```
 
 ```bash
@@ -226,7 +226,7 @@ curl -X POST http://localhost:3080/api/git/clone \
 
 ```ts
 // app/api/daemon/[...path]/route.ts
-import { createNextHandler } from "@sandagent/daemon/nextjs";
+import { createNextHandler } from "@bunny-agent/daemon/nextjs";
 
 const handler = createNextHandler({ root: process.cwd() });
 export const GET = handler;
@@ -240,7 +240,7 @@ Covers `/api/fs/*`, `/api/git/*`, `/api/volumes/*` at `/api/daemon/*`. No extra 
 If you only need to run an agent — no file API, no HTTP server — use `runner-core` directly:
 
 ```ts
-import { createRunner } from "@sandagent/runner-core";
+import { createRunner } from "@bunny-agent/runner-core";
 
 const stream = createRunner({
   runner: "claude",           // or "pi", "gemini", "codex", "opencode"
@@ -266,7 +266,7 @@ for await (const chunk of stream) {
 }
 ```
 
-`runner-core` is the shared core used by both `runner-cli` and `sandagent-daemon`. Use it directly when you don't need the HTTP gateway.
+`runner-core` is the shared core used by both `runner-cli` and `bunny-agent-daemon`. Use it directly when you don't need the HTTP gateway.
 
 ---
 
@@ -287,7 +287,7 @@ Request body:
 | `userInput` | string | required | The task / prompt |
 | `runner` | string | `"claude"` | `claude` · `codex` · `gemini` · `pi` · `opencode` |
 | `model` | string | `"claude-sonnet-4-20250514"` | Model name for the runner |
-| `cwd` | string | `SANDAGENT_ROOT` | Working directory inside the sandbox |
+| `cwd` | string | `BUNNY_AGENT_ROOT` | Working directory inside the sandbox |
 | `systemPrompt` | string | — | Override system prompt |
 | `maxTurns` | number | — | Max agent turns |
 | `allowedTools` | string[] | — | Restrict which tools the agent can use |
@@ -414,8 +414,8 @@ GET /healthz
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `SANDAGENT_DAEMON_PORT` | `3080` | Listen port |
-| `SANDAGENT_ROOT` | `./.sandagent-daemon` (under cwd) | Daemon filesystem root; Docker images set e.g. `/workspace` |
+| `BUNNY_AGENT_DAEMON_PORT` | `3080` | Listen port |
+| `BUNNY_AGENT_ROOT` | `./.bunny-agent-daemon` (under cwd) | Daemon filesystem root; Docker images set e.g. `/workspace` |
 | `ANTHROPIC_API_KEY` | — | For claude runner |
 | `GEMINI_API_KEY` | — | For gemini / pi runner |
 | `OPENAI_API_KEY` | — | For codex runner |
@@ -425,10 +425,10 @@ GET /healthz
 ## Development
 
 ```bash
-cd apps/sandagent-daemon
+cd apps/bunny-agent-daemon
 pnpm install && pnpm build
 
-SANDAGENT_ROOT=/tmp/test sandagent-daemon
+BUNNY_AGENT_ROOT=/tmp/test bunny-agent-daemon
 curl http://localhost:3080/healthz
 
 pnpm test   # 13 integration tests

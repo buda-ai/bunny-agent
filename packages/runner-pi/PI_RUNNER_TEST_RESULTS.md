@@ -3,12 +3,12 @@
 ## ✅ Successfully Tested
 
 **Date**: 2026-03-05  
-**Runner**: `@sandagent/runner-pi`  
+**Runner**: `@bunny-agent/runner-pi`  
 **Provider**: OpenAI via LiteLLM Proxy (https://llm.bika.ltd)
 
 ### Test Command
 ```bash
-npx sandagent run --runner pi -m "openai:gpt-4.1-mini" -- "Say 'Hello from Pi runner!' and explain what you are in one sentence."
+npx bunny-agent run --runner pi -m "openai:gpt-4.1-mini" -- "Say 'Hello from Pi runner!' and explain what you are in one sentence."
 ```
 
 ### Output (Streaming Text)
@@ -80,7 +80,7 @@ AZURE_OPENAI_DEPLOYMENT=
 
 1. **Add Tools** - Implement file operations, bash execution
 2. **Test Other Providers** - Try Gemini, Anthropic via Pi runner
-3. **Documentation** - Add Pi runner guide to SandAgent docs
+3. **Documentation** - Add Pi runner guide to Bunny Agent docs
 4. **Comparison** - Benchmark Pi vs Claude runner performance
 
 ### Comparison: Claude vs Pi Runner
@@ -96,7 +96,7 @@ AZURE_OPENAI_DEPLOYMENT=
 
 ### Conclusion
 
-Pi runner is **fully functional** and successfully integrated into SandAgent. It provides:
+Pi runner is **fully functional** and successfully integrated into Bunny Agent. It provides:
 - ✅ Multi-provider LLM support
 - ✅ Streaming text output
 - ✅ Proxy/custom base URL support

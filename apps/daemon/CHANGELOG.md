@@ -1,4 +1,4 @@
-# @sandagent/daemon
+# @bunny-agent/daemon
 
 ## 0.9.27-beta.0
 

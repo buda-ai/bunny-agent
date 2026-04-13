@@ -1,13 +1,13 @@
-# @sandagent/runner-claude
+# @bunny-agent/runner-claude
 
-A Claude Agent SDK runtime that converts Claude output into AI SDK UI streams (SSE/NDJSON) for SandAgent.
+A Claude Agent SDK runtime that converts Claude output into AI SDK UI streams (SSE/NDJSON) for Bunny Agent.
 
 > Note: this is a monorepo internal runtime (`"private": true`) and is not published to npm. Use it via workspace.
 
 ## When do you need it?
 
 - You’re building your own runner/CLI and need to convert Claude Agent SDK messages into AI SDK UI Data Stream.
-- You’re developing `@sandagent/runner-cli` / `@sandagent/manager-cli` in this repo and want a reusable Claude runner.
+- You’re developing `@bunny-agent/runner-cli` / `@bunny-agent/manager-cli` in this repo and want a reusable Claude runner.
 
 ## Quick start (beginner-friendly)
 
@@ -21,7 +21,7 @@ pnpm install
 Minimal example (write the stream to stdout):
 
 ```ts
-import { createClaudeRunner } from "@sandagent/runner-claude";
+import { createClaudeRunner } from "@bunny-agent/runner-claude";
 
 const runner = createClaudeRunner({
   model: "claude-3-5-sonnet-20241022",

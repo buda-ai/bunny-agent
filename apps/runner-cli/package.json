@@ -1,10 +1,10 @@
 {
-  "name": "@sandagent/runner-cli",
+  "name": "@bunny-agent/runner-cli",
   "version": "0.9.28",
-  "description": "SandAgent Runner CLI - Like gemini-cli or claude-code, runs in your local terminal with AI SDK UI streaming",
+  "description": "BunnyAgent Runner CLI - Like gemini-cli or claude-code, runs in your local terminal with AI SDK UI streaming",
   "type": "module",
   "bin": {
-    "sandagent-runner": "./dist/bundle.mjs"
+    "bunny-agent-runner": "./dist/bundle.mjs"
   },
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -44,7 +44,7 @@
   "keywords": [
     "cli",
     "agent",
-    "sandagent",
+    "bunny-agent",
     "runner",
     "claude",
     "anthropic"
@@ -59,12 +59,12 @@
     "zod": "^4.0.0"
   },
   "devDependencies": {
-    "@sandagent/runner-harness": "workspace:*",
-    "@sandagent/runner-claude": "workspace:*",
-    "@sandagent/runner-codex": "workspace:*",
-    "@sandagent/runner-gemini": "workspace:*",
-    "@sandagent/runner-opencode": "workspace:*",
-    "@sandagent/runner-pi": "workspace:*",
+    "@bunny-agent/runner-harness": "workspace:*",
+    "@bunny-agent/runner-claude": "workspace:*",
+    "@bunny-agent/runner-codex": "workspace:*",
+    "@bunny-agent/runner-gemini": "workspace:*",
+    "@bunny-agent/runner-opencode": "workspace:*",
+    "@bunny-agent/runner-pi": "workspace:*",
     "@types/node": "^20.10.0",
     "esbuild": "^0.27.2",
     "typescript": "^5.3.0",

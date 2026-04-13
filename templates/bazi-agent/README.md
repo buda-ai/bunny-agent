@@ -261,7 +261,7 @@ This template can be extended with additional skills:
 
 ## 📝 License
 
-This template is part of the SandAgent project. Refer to the main repository for licensing information.
+This template is part of the Bunny Agent project. Refer to the main repository for licensing information.
 
 ## 🙏 Acknowledgments
 

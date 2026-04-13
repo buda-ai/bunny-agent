@@ -1,5 +1,5 @@
 import type * as http from "node:http";
-import { createRunner } from "@sandagent/runner-harness";
+import { createRunner } from "@bunny-agent/runner-harness";
 
 export interface RunRequest {
   runner?: string;
@@ -35,7 +35,7 @@ export function setHeartbeatIntervalMs(ms: number): void {
 /**
  * POST /api/coding/run — Node http.ServerResponse version (standalone daemon)
  */
-export async function sandagentRun(
+export async function bunnyAgentRun(
   req: RunRequest,
   res: http.ServerResponse,
   env: Record<string, string>,
@@ -67,7 +67,7 @@ export async function sandagentRun(
       allowedTools: req.allowedTools,
       resume: req.resume,
       skillPaths: req.skillPaths,
-      cwd: req.cwd ?? process.env.SANDAGENT_ROOT ?? "/workspace",
+      cwd: req.cwd ?? process.env.BUNNY_AGENT_ROOT ?? "/workspace",
       yolo: req.yolo,
       env,
       abortController,
@@ -125,7 +125,7 @@ export function codingRunStream(
           allowedTools: req.allowedTools,
           resume: req.resume,
           skillPaths: req.skillPaths,
-          cwd: req.cwd ?? process.env.SANDAGENT_ROOT ?? "/workspace",
+          cwd: req.cwd ?? process.env.BUNNY_AGENT_ROOT ?? "/workspace",
           yolo: req.yolo,
           env,
           abortController,

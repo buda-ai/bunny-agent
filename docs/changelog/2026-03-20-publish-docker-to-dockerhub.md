@@ -3,8 +3,8 @@
 ## Problem
 
 The **Publish Docker Image** workflow was pushing images only to GitHub Container
-Registry (`ghcr.io/vikadata/sandagent`). The requirement is to publish to
-**Docker Hub** (`vikadata/sandagent`) instead.
+Registry (`ghcr.io/vikadata/bunny-agent`). The requirement is to publish to
+**Docker Hub** (`vikadata/bunny-agent`) instead.
 
 ## Fix — `.github/workflows/publish-docker.yml`
 
@@ -13,12 +13,12 @@ Registry (`ghcr.io/vikadata/sandagent`). The requirement is to publish to
    field, which defaults to Docker Hub).
 
 2. **Update image tags** — tags changed from:
-   - `ghcr.io/vikadata/sandagent:<version>`
-   - `ghcr.io/vikadata/sandagent:latest`
+   - `ghcr.io/vikadata/bunny-agent:<version>`
+   - `ghcr.io/vikadata/bunny-agent:latest`
 
    to:
-   - `vikadata/sandagent:<version>`
-   - `vikadata/sandagent:latest`
+   - `vikadata/bunny-agent:<version>`
+   - `vikadata/bunny-agent:latest`
 
 3. **Remove `packages: write` permission** — this permission was only required
    for pushing to GHCR. Docker Hub authentication uses repository secrets, so the

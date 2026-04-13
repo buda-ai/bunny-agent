@@ -189,7 +189,7 @@ export function createCodexRunner(options: CodexRunnerOptions): CodexRunner {
                   const ext = match[1].split("/")[1] ?? "png";
                   const tmpPath = path.join(
                     os.tmpdir(),
-                    `sandagent-img-${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`,
+                    `bunny-agent-img-${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`,
                   );
                   fs.writeFileSync(tmpPath, Buffer.from(match[2], "base64"));
                   tempFiles.push(tmpPath);

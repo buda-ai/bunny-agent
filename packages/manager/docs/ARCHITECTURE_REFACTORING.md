@@ -6,13 +6,13 @@ This document summarizes the architecture refactor that split responsibilities b
 
 ### Before
 
-- `@sandagent/core` mixed lifecycle management and interface definitions
+- `@bunny-agent/core` mixed lifecycle management and interface definitions
 - Runners were isolated and hard to swap
 - `sdk` was thin and overlapped with `ai-provider`
 
 ### After
 
-- `@sandagent/manager` defines the core interfaces and lifecycle
+- `@bunny-agent/manager` defines the core interfaces and lifecycle
 - `runner-*` and `sandbox-*` implement interfaces independently
 - `ai-provider` composes a manager with a runner + sandbox
 - `sdk` functionality is merged into `ai-provider`

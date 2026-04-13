@@ -1,15 +1,15 @@
 import type { BaseLayoutProps } from "fumadocs-ui/layouts/shared";
 
 export const gitConfig = {
-  user: "sandagent",
-  repo: "sandagent",
+  user: "bunny-agent",
+  repo: "bunny-agent",
   branch: "main",
 };
 
 export function baseOptions(): BaseLayoutProps {
   return {
     nav: {
-      title: "🏖️ SandAgent",
+      title: "🏖️ BunnyAgent",
     },
     githubUrl: `https://github.com/${gitConfig.user}/${gitConfig.repo}`,
     links: [
@@ -26,39 +26,39 @@ export function baseOptions(): BaseLayoutProps {
         text: "NPM Packages",
         items: [
           {
-            text: "@sandagent/sdk",
+            text: "@bunny-agent/sdk",
             description: "AI SDK provider & React hooks",
-            url: "https://www.npmjs.com/package/@sandagent/sdk",
+            url: "https://www.npmjs.com/package/@bunny-agent/sdk",
           },
           {
-            text: "@sandagent/manager",
+            text: "@bunny-agent/manager",
             description: "Core orchestration & interfaces",
-            url: "https://www.npmjs.com/package/@sandagent/manager",
+            url: "https://www.npmjs.com/package/@bunny-agent/manager",
           },
           {
-            text: "@sandagent/runner-claude",
+            text: "@bunny-agent/runner-claude",
             description: "Claude Agent SDK runner",
-            url: "https://www.npmjs.com/package/@sandagent/runner-claude",
+            url: "https://www.npmjs.com/package/@bunny-agent/runner-claude",
           },
           {
-            text: "@sandagent/runner-cli",
+            text: "@bunny-agent/runner-cli",
             description: "Universal CLI agent runner",
-            url: "https://www.npmjs.com/package/@sandagent/runner-cli",
+            url: "https://www.npmjs.com/package/@bunny-agent/runner-cli",
           },
           {
-            text: "@sandagent/sandbox-sandock",
+            text: "@bunny-agent/sandbox-sandock",
             description: "Sandock cloud sandbox adapter",
-            url: "https://www.npmjs.com/package/@sandagent/sandbox-sandock",
+            url: "https://www.npmjs.com/package/@bunny-agent/sandbox-sandock",
           },
           {
-            text: "@sandagent/sandbox-e2b",
+            text: "@bunny-agent/sandbox-e2b",
             description: "E2B cloud sandbox adapter",
-            url: "https://www.npmjs.com/package/@sandagent/sandbox-e2b",
+            url: "https://www.npmjs.com/package/@bunny-agent/sandbox-e2b",
           },
           {
-            text: "@sandagent/sandbox-daytona",
+            text: "@bunny-agent/sandbox-daytona",
             description: "Daytona sandbox adapter",
-            url: "https://www.npmjs.com/package/@sandagent/sandbox-daytona",
+            url: "https://www.npmjs.com/package/@bunny-agent/sandbox-daytona",
           },
         ],
       },

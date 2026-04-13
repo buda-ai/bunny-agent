@@ -1,4 +1,4 @@
-# SandAgent Architecture
+# Bunny Agent Architecture
 
 ## Full System Overview
 
@@ -8,9 +8,9 @@
 │                                                                                 │
 │   buda.im (Next.js)                    Developer / CI                           │
 │   ┌──────────────────┐                 ┌──────────────────┐                    │
-│   │  @sandagent/sdk  │                 │   runner-cli     │                    │
-│   │  createSandAgent │                 │   sandagent run  │                    │
-│   │  createSandAgent │                 │   --runner claude│                    │
+│   │  @bunny-agent/sdk  │                 │   runner-cli     │                    │
+│   │  createBunny Agent │                 │   bunny-agent run  │                    │
+│   │  createBunny Agent │                 │   --runner claude│                    │
 │   │  Daemon()        │                 │   -- "task"      │                    │
 │   └────────┬─────────┘                 └────────┬─────────┘                    │
 └────────────┼────────────────────────────────────┼─────────────────────────────┘
@@ -24,7 +24,7 @@
 │  │  Mode A: standalone :3080                │   │                             │
 │  │  (container / local process)             │   │                             │
 │  │                                          │   │                             │
-│  │  POST /api/sandagent/run  (SSE stream)   │   │                             │
+│  │  POST /api/bunny-agent/run  (SSE stream)   │   │                             │
 │  │  GET|POST /api/fs/*                      │   │                             │
 │  │  GET|POST /api/git/*                     │   │                             │
 │  │  GET|POST /api/volumes/*                 │   │                             │
@@ -61,19 +61,19 @@
 ## SDK Transport Modes
 
 ```
-@sandagent/sdk
+@bunny-agent/sdk
 │
-├── createSandAgent({ sandbox })          ← manager + sandbox transport
+├── createBunny Agent({ sandbox })          ← manager + sandbox transport
 │   │
-│   └── @sandagent/manager
-│       └── SandAgent.stream()
+│   └── @bunny-agent/manager
+│       └── Bunny Agent.stream()
 │           └── spawns runner-cli inside sandbox
 │               └── sandbox: E2B / Sandock / Local / Daytona
 │
-└── createSandAgent({ sandbox, daemonUrl })  ← daemon HTTP inside sandbox
+└── createBunny Agent({ sandbox, daemonUrl })  ← daemon HTTP inside sandbox
     │
     └── streamCodingRunFromSandbox (curl POST /api/coding/run in VM)
-        └── apps/daemon (@sandagent/daemon)
+        └── apps/daemon (@bunny-agent/daemon)
             └── runner-core
 ```
 
@@ -88,11 +88,11 @@ sandbox container
 │
 ├── chromium --headless :9222        (CDP, optional)
 │
-└── sandagent-daemon :3080           (unified gateway)
+└── bunny-agent-daemon :3080           (unified gateway)
     ├── /api/fs/*      → node:fs
     ├── /api/git/*     → spawn git
     ├── /api/volumes/* → node:fs
-    └── /api/sandagent/run → runner-core → claude/pi/gemini/...
+    └── /api/bunny-agent/run → runner-core → claude/pi/gemini/...
 ```
 
 External access via sandock.ai proxy:
@@ -129,7 +129,7 @@ apps/
 
 packages/
 ├── runner-core     → runner-claude, runner-pi, runner-gemini, runner-codex, runner-opencode
-├── sdk             → manager  (createSandAgent; daemon path uses fetch only)
+├── sdk             → manager  (createBunny Agent; daemon path uses fetch only)
 ├── manager         → (no deps, defines Runner + SandboxAdapter interfaces)
 ├── runner-claude   → @anthropic-ai/claude-agent-sdk
 ├── runner-pi       → @mariozechner/pi-coding-agent

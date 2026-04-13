@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { SandAgent } from "../sand-agent.js";
+import { BunnyAgent } from "../bunny-agent.js";
 import type { SandboxAdapter, SandboxHandle, StreamInput } from "../types.js";
 
 describe("Signal Integration Tests", () => {
@@ -51,7 +51,7 @@ describe("Signal Integration Tests", () => {
   });
 
   it("should pass signal from StreamInput to sandbox exec", async () => {
-    const agent = new SandAgent({
+    const agent = new BunnyAgent({
       sandbox: mockSandbox,
       runner: {
         model: "claude-3-5-sonnet-20241022",
@@ -72,7 +72,7 @@ describe("Signal Integration Tests", () => {
   });
 
   it("should stop streaming when signal is aborted", async () => {
-    const agent = new SandAgent({
+    const agent = new BunnyAgent({
       sandbox: mockSandbox,
       runner: {
         model: "claude-3-5-sonnet-20241022",
@@ -109,7 +109,7 @@ describe("Signal Integration Tests", () => {
   });
 
   it("should handle pre-aborted signal", async () => {
-    const agent = new SandAgent({
+    const agent = new BunnyAgent({
       sandbox: mockSandbox,
       runner: {
         model: "claude-3-5-sonnet-20241022",
@@ -128,7 +128,7 @@ describe("Signal Integration Tests", () => {
   });
 
   it("should work without signal (backward compatibility)", async () => {
-    const agent = new SandAgent({
+    const agent = new BunnyAgent({
       sandbox: mockSandbox,
       runner: {
         model: "claude-3-5-sonnet-20241022",

@@ -4,7 +4,7 @@ export default function HomePage() {
   return (
     <main className="flex flex-col items-center justify-center flex-1 px-4 py-16 text-center">
       <div className="text-6xl mb-6">🏖️</div>
-      <h1 className="text-4xl font-bold mb-4 tracking-tight">SandAgent</h1>
+      <h1 className="text-4xl font-bold mb-4 tracking-tight">BunnyAgent</h1>
       <p className="text-xl text-fd-muted-foreground max-w-2xl mb-2">
         Turn powerful Coding Agents into your product's superpower.
       </p>
@@ -31,7 +31,7 @@ export default function HomePage() {
 
       <div className="rounded-lg border border-fd-border bg-fd-card p-4 font-mono text-sm text-left max-w-lg w-full">
         <span className="text-fd-muted-foreground">$</span> npm install
-        @sandagent/sdk ai
+        @bunny-agent/sdk ai
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-16 max-w-4xl w-full text-left">

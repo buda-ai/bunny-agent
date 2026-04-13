@@ -6,7 +6,7 @@
  *   npx tsx build-e2b-template.ts [options]
  *
  * Options:
- *   --alias <name>     Template alias (default: sandagent-claude)
+ *   --alias <name>     Template alias (default: bunny-agent-claude)
  *   --cpu <count>      CPU cores (default: 2)
  *   --memory <mb>      Memory in MB (default: 2048)
  *   --context <path>   Build context directory (default: current directory)
@@ -33,7 +33,7 @@ function parseArgs() {
     context: string;
     force: boolean;
   } = {
-    alias: "sandagent-claude",
+    alias: "bunny-agent-claude",
     cpuCount: 2,
     memoryMB: 2048,
     context: ".",
@@ -57,7 +57,7 @@ function parseArgs() {
 Usage: npx tsx build-e2b-template.ts [options]
 
 Options:
-  --alias <name>     Template alias (default: sandagent-claude)
+  --alias <name>     Template alias (default: bunny-agent-claude)
   --cpu <count>      CPU cores (default: 2)
   --memory <mb>      Memory in MB (default: 2048)
   --context <path>   Build context directory (default: current directory)
@@ -68,8 +68,8 @@ Environment:
   E2B_API_KEY        Required. Get from https://e2b.dev
 
 Examples:
-  npx tsx build-e2b-template.ts --alias sandagent-claude
-  npx tsx build-e2b-template.ts --alias sandagent-claude-researcher --context .build-context --force
+  npx tsx build-e2b-template.ts --alias bunny-agent-claude
+  npx tsx build-e2b-template.ts --alias bunny-agent-claude-researcher --context .build-context --force
 `);
       process.exit(0);
     }
@@ -146,7 +146,7 @@ async function main() {
     console.log("✅ Template built successfully!");
     console.log(`   Alias: ${alias}`);
     console.log("");
-    console.log("You can now use this template in SandAgent:");
+    console.log("You can now use this template in BunnyAgent:");
     console.log(`   template: "${alias}"`);
   } catch (_error: unknown) {
     console.error("");

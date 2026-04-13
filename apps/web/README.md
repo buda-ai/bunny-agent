@@ -1,8 +1,8 @@
-# SandAgent Documentation Site
+# Bunny Agent Documentation Site
 
-Official documentation website for SandAgent, built with [Fumadocs](https://fumadocs.dev) and Next.js.
+Official documentation website for Bunny Agent, built with [Fumadocs](https://fumadocs.dev) and Next.js.
 
-Visit the live site at: **https://sandagent.dev/**
+Visit the live site at: **https://bunny-agent.dev/**
 
 ---
 

@@ -1,6 +1,6 @@
 "use client";
 
-export { DEFAULT_SANDAGENT_DAEMON_URL } from "@sandagent/manager";
+export { DEFAULT_BUNNY_AGENT_DAEMON_URL } from "@bunny-agent/manager";
 
 // Types
 export type {
@@ -19,9 +19,9 @@ export type {
   UseArtifactsReturn,
   UseAskUserQuestionOptions,
   UseAskUserQuestionReturn,
-  // useSandAgentChat types
-  UseSandAgentChatOptions,
-  UseSandAgentChatReturn,
+  // useBunnyAgentChat types
+  UseBunnyAgentChatOptions,
+  UseBunnyAgentChatReturn,
   UseWriteToolOptions,
   UseWriteToolReturn,
   // useWriteTool types
@@ -31,5 +31,5 @@ export type {
 export { useArtifacts } from "./useArtifacts";
 export { useAskUserQuestion } from "./useAskUserQuestion";
 // Hooks
-export { useSandAgentChat } from "./useSandAgentChat";
+export { useBunnyAgentChat } from "./useBunnyAgentChat";
 export { useWriteTool } from "./useWriteTool";

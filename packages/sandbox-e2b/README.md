@@ -1,12 +1,12 @@
-# @sandagent/sandbox-e2b
+# @bunny-agent/sandbox-e2b
 
-E2B sandbox adapter for SandAgent - run agents in secure cloud sandboxes.
+E2B sandbox adapter for Bunny Agent - run agents in secure cloud sandboxes.
 
-Use E2B as the execution environment for SandAgent (isolated cloud sandbox with optional persistence and reuse).
+Use E2B as the execution environment for Bunny Agent (isolated cloud sandbox with optional persistence and reuse).
 
 ## Overview
 
-`@sandagent/sandbox-e2b` provides an E2B-based sandbox implementation for SandAgent. E2B offers secure, isolated cloud environments with:
+`@bunny-agent/sandbox-e2b` provides an E2B-based sandbox implementation for Bunny Agent. E2B offers secure, isolated cloud environments with:
 
 - Fast startup times
 - Persistent storage (up to 30 days when paused)
@@ -16,7 +16,7 @@ Use E2B as the execution environment for SandAgent (isolated cloud sandbox with 
 ## Installation
 
 ```bash
-npm install @sandagent/sandbox-e2b @sandagent/sdk
+npm install @bunny-agent/sandbox-e2b @bunny-agent/sdk
 ```
 
 You'll also need an E2B API key. Sign up at [e2b.dev](https://e2b.dev) to get one.
@@ -24,8 +24,8 @@ You'll also need an E2B API key. Sign up at [e2b.dev](https://e2b.dev) to get on
 ## Quick Start
 
 ```typescript
-import { E2BSandbox } from '@sandagent/sandbox-e2b';
-import { SandAgent } from '@sandagent/manager';
+import { E2BSandbox } from '@bunny-agent/sandbox-e2b';
+import { Bunny Agent } from '@bunny-agent/manager';
 
 // Create sandbox adapter
 // Runner is automatically downloaded from npm if runnerBundlePath is not provided
@@ -37,8 +37,8 @@ const sandbox = new E2BSandbox({
   },
 });
 
-// Use with SandAgent
-const agent = new SandAgent({
+// Use with Bunny Agent
+const agent = new Bunny Agent({
   sandbox,
   runner: {
     kind: 'claude-agent-sdk',
@@ -59,12 +59,12 @@ const stream = await agent.stream({
 ## Usage with AI Provider
 
 ```typescript
-import { createSandAgent } from '@sandagent/sdk';
-import { E2BSandbox } from '@sandagent/sandbox-e2b';
+import { createBunny Agent } from '@bunny-agent/sdk';
+import { E2BSandbox } from '@bunny-agent/sandbox-e2b';
 import { generateText } from 'ai';
 
 // Runner is automatically downloaded from npm
-const sandagent = createSandAgent({
+const bunny-agent = createBunny Agent({
   sandbox: new E2BSandbox({
     apiKey: process.env.E2B_API_KEY!,
   }),
@@ -74,7 +74,7 @@ const sandagent = createSandAgent({
 });
 
 const { text } = await generateText({
-  model: sandagent('sonnet'),
+  model: bunny-agent('sonnet'),
   prompt: 'Create a hello world program',
 });
 ```
@@ -96,7 +96,7 @@ interface E2BSandboxOptions {
   timeout?: number;
   
   // Path to runner bundle.mjs (optional)
-  // If not provided, automatically downloads @sandagent/runner-cli from npm
+  // If not provided, automatically downloads @bunny-agent/runner-cli from npm
   runnerBundlePath?: string;
   
   // Path to template directory to upload
@@ -193,15 +193,15 @@ const sandbox = new E2BSandbox({
 
 - Node.js 20+
 - E2B API key (get one at [e2b.dev](https://e2b.dev))
-- `@sandagent/manager` package
+- `@bunny-agent/manager` package
 
-**Note:** `@sandagent/runner-cli` is automatically downloaded from npm when the sandbox initializes. You don't need to install it locally unless you want to use a custom bundle.
+**Note:** `@bunny-agent/runner-cli` is automatically downloaded from npm when the sandbox initializes. You don't need to install it locally unless you want to use a custom bundle.
 
 ## API Reference
 
 ### E2BSandbox
 
-Implements the `SandboxAdapter` interface from `@sandagent/manager`.
+Implements the `SandboxAdapter` interface from `@bunny-agent/manager`.
 
 #### Methods
 

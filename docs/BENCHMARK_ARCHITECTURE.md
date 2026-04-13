@@ -2,11 +2,11 @@
 
 ## Overview
 
-SandAgent benchmark system is split into 3 packages for clear separation of concerns:
+Bunny Agent benchmark system is split into 3 packages for clear separation of concerns:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                  @sandagent/benchmark                        │
+│                  @bunny-agent/benchmark                        │
 │  Tests native CLIs: claude, gemini, codex                   │
 │  Purpose: Compare original agent CLIs                       │
 └─────────────────────────┬───────────────────────────────────┘
@@ -14,7 +14,7 @@ SandAgent benchmark system is split into 3 packages for clear separation of conc
                           │ depends on
                           ↓
 ┌─────────────────────────────────────────────────────────────┐
-│              @sandagent/benchmark-shared                     │
+│              @bunny-agent/benchmark-shared                     │
 │  Core logic: GAIA dataset, evaluation, types                │
 │  Shared by both benchmark packages                          │
 └─────────────────────────┬───────────────────────────────────┘
@@ -22,15 +22,15 @@ SandAgent benchmark system is split into 3 packages for clear separation of conc
                           │ depends on
                           │
 ┌─────────────────────────────────────────────────────────────┐
-│            @sandagent/benchmark-sandagent                    │
-│  Tests sandagent CLI: --runner claude, --runner pi          │
-│  Purpose: Test sandagent's runner implementations           │
+│            @bunny-agent/benchmark-bunny-agent                    │
+│  Tests bunny-agent CLI: --runner claude, --runner pi          │
+│  Purpose: Test bunny-agent's runner implementations           │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ## Package Responsibilities
 
-### @sandagent/benchmark-shared
+### @bunny-agent/benchmark-shared
 
 **Core benchmark logic + Multiple datasets** - shared by both benchmark packages.
 
@@ -60,7 +60,7 @@ SandAgent benchmark system is split into 3 packages for clear separation of conc
 
 **No CLI** - pure library package.
 
-### @sandagent/benchmark-cli
+### @bunny-agent/benchmark-cli
 
 **Tests native agent CLIs** directly.
 
@@ -77,24 +77,24 @@ SandAgent benchmark system is split into 3 packages for clear separation of conc
 - Establish baseline performance
 - Compare different agent architectures
 
-**CLI:** `sandagent-benchmark` (for native CLIs)
+**CLI:** `bunny-agent-benchmark` (for native CLIs)
 
-### @sandagent/benchmark-sandagent
+### @bunny-agent/benchmark-bunny-agent
 
-**Tests sandagent CLI** with different runners.
+**Tests bunny-agent CLI** with different runners.
 
 **Runners:**
-- `claude` → `sandagent run --runner claude -- "task"`
-- `pi` → `sandagent run --runner pi -- "task"`
-- `codex` → `sandagent run --runner codex -- "task"`
-- `copilot` → `sandagent run --runner copilot -- "task"`
+- `claude` → `bunny-agent run --runner claude -- "task"`
+- `pi` → `bunny-agent run --runner pi -- "task"`
+- `codex` → `bunny-agent run --runner codex -- "task"`
+- `copilot` → `bunny-agent run --runner copilot -- "task"`
 
 **Purpose:**
-- Test sandagent's runner implementations
-- Measure sandagent overhead vs native CLIs
+- Test bunny-agent's runner implementations
+- Measure bunny-agent overhead vs native CLIs
 - Validate runner compatibility
 
-**CLI:** `sandagent-benchmark` (for sandagent runners)
+**CLI:** `bunny-agent-benchmark` (for bunny-agent runners)
 
 ## Smoking Coding Benchmark
 
@@ -118,7 +118,7 @@ Quick validation tests for fast feedback (NEW in benchmark-shared):
 
 **Usage:**
 ```typescript
-import { getAllSmokingTests, getSmokingTest } from "@sandagent/benchmark-shared";
+import { getAllSmokingTests, getSmokingTest } from "@bunny-agent/benchmark-shared";
 
 // Get all tests
 const tests = getAllSmokingTests(); // 5 tests
@@ -151,10 +151,10 @@ pnpm benchmark:run -- --runner gemini-cli --level 1 --limit 10
 pnpm benchmark:compare
 ```
 
-### SandAgent Runner Benchmark
+### Bunny Agent Runner Benchmark
 
 ```bash
-cd packages/benchmark-sandagent
+cd packages/benchmark-bunny-agent
 
 # Download dataset (uses shared package)
 pnpm benchmark:download
@@ -162,7 +162,7 @@ pnpm benchmark:download
 # Run smoking tests (fast validation)
 pnpm benchmark:run -- --runner claude --dataset smoking --verbose
 
-# Test sandagent runners with GAIA
+# Test bunny-agent runners with GAIA
 pnpm benchmark:run -- --runner claude --level 1 --limit 10
 pnpm benchmark:run -- --runner pi --level 1 --limit 10
 
@@ -178,13 +178,13 @@ With this architecture, you can:
    - Which agent CLI is fastest?
    - Which has best accuracy?
 
-2. **Compare sandagent runners** (benchmark-sandagent)
-   - Does sandagent add overhead?
+2. **Compare bunny-agent runners** (benchmark-bunny-agent)
+   - Does bunny-agent add overhead?
    - Are runners compatible with GAIA tasks?
 
-3. **Compare native vs sandagent** (cross-package)
-   - `claude` CLI vs `sandagent --runner claude`
-   - Measure sandagent's abstraction cost
+3. **Compare native vs bunny-agent** (cross-package)
+   - `claude` CLI vs `bunny-agent --runner claude`
+   - Measure bunny-agent's abstraction cost
 
 ## File Structure
 
@@ -216,16 +216,16 @@ packages/
 │   │       └── index.ts
 │   └── package.json
 │
-└── benchmark-sandagent/
+└── benchmark-bunny-agent/
     ├── src/
     │   ├── cli.ts                # CLI entry point
     │   ├── runner.ts             # Benchmark execution
     │   ├── compare.ts            # Result comparison
-    │   ├── types.ts              # SandAgentRunner type
+    │   ├── types.ts              # Bunny AgentRunner type
     │   └── runners/
-    │       ├── claude.ts         # sandagent --runner claude
-    │       ├── pi.ts             # sandagent --runner pi
-    │       ├── codex.ts          # sandagent --runner codex
+    │       ├── claude.ts         # bunny-agent --runner claude
+    │       ├── pi.ts             # bunny-agent --runner pi
+    │       ├── codex.ts          # bunny-agent --runner codex
     │       └── index.ts
     └── package.json
 ```
@@ -233,7 +233,7 @@ packages/
 ## Benefits
 
 ✅ **Clear Separation**
-- Native CLI testing vs sandagent runner testing
+- Native CLI testing vs bunny-agent runner testing
 - No confusion about what's being tested
 
 ✅ **Shared Core Logic**
@@ -241,11 +241,11 @@ packages/
 - Evaluation logic consistent across both
 
 ✅ **Independent Versioning**
-- Can update native CLI tests without affecting sandagent tests
-- Can add new sandagent runners independently
+- Can update native CLI tests without affecting bunny-agent tests
+- Can add new bunny-agent runners independently
 
 ✅ **Performance Comparison**
-- Easy to compare native vs sandagent
+- Easy to compare native vs bunny-agent
 - Measure abstraction overhead
 
 ✅ **Maintainability**
@@ -255,7 +255,7 @@ packages/
 ## Future Enhancements
 
 - [ ] Add more native CLI runners (aider, cursor, etc.)
-- [ ] Add more sandagent runners (codex, copilot)
+- [ ] Add more bunny-agent runners (codex, copilot)
 - [ ] Cross-package comparison tool
 - [ ] Performance regression tracking
 - [ ] CI/CD integration for both benchmarks

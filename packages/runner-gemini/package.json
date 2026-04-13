@@ -1,9 +1,9 @@
 {
-  "name": "@sandagent/runner-gemini",
+  "name": "@bunny-agent/runner-gemini",
   "version": "0.6.2",
   "private": true,
   "type": "module",
-  "description": "Gemini CLI runner for SandAgent using ACP protocol",
+  "description": "Gemini CLI runner for BunnyAgent using ACP protocol",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {

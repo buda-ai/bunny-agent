@@ -1,11 +1,11 @@
 /**
- * sandagent run command
+ * bunny-agent run command
  *
  * Run an agent task in a sandbox with template support.
  */
 
 import { parseArgs } from "node:util";
-import { SandAgent } from "@sandagent/manager";
+import { BunnyAgent } from "@bunny-agent/manager";
 
 export async function runCommand(args: string[]): Promise<void> {
   const { values, positionals } = parseArgs({
@@ -14,12 +14,12 @@ export async function runCommand(args: string[]): Promise<void> {
       template: {
         type: "string",
         short: "t",
-        default: process.env.SANDAGENT_TEMPLATE ?? "default",
+        default: process.env.BUNNY_AGENT_TEMPLATE ?? "default",
       },
       sandbox: {
         type: "string",
         short: "s",
-        default: process.env.SANDAGENT_SANDBOX ?? "e2b",
+        default: process.env.BUNNY_AGENT_SANDBOX ?? "e2b",
       },
       model: {
         type: "string",
@@ -53,12 +53,12 @@ export async function runCommand(args: string[]): Promise<void> {
 
   if (!task) {
     console.error("❌ Error: Task description is required");
-    console.error('Usage: sandagent run [options] "your task description"');
+    console.error('Usage: bunny-agent run [options] "your task description"');
     process.exit(1);
   }
 
   // Check for Claude auth (API key or Bedrock proxy)
-  const { hasClaudeAuth } = await import("@sandagent/runner-claude");
+  const { hasClaudeAuth } = await import("@bunny-agent/runner-claude");
   if (!hasClaudeAuth()) {
     console.error(
       "❌ Error: Claude auth is required. Set one of: ANTHROPIC_API_KEY, AWS_BEARER_TOKEN_BEDROCK, ANTHROPIC_AUTH_TOKEN, LITELLM_MASTER_KEY, or Bedrock proxy (CLAUDE_CODE_USE_BEDROCK=1 + ANTHROPIC_BEDROCK_BASE_URL)",
@@ -74,7 +74,7 @@ export async function runCommand(args: string[]): Promise<void> {
     process.exit(1);
   }
 
-  console.log("🚀 Starting SandAgent...");
+  console.log("🚀 Starting BunnyAgent...");
   console.log("");
   console.log(`  📦 Sandbox:   ${values.sandbox}`);
   console.log(`  📋 Template:  ${values.template}`);
@@ -99,16 +99,16 @@ export async function runCommand(args: string[]): Promise<void> {
       console.error("  export E2B_API_KEY=your_e2b_api_key");
       console.error("");
       console.error("Or use local sandbox instead:");
-      console.error("  sandagent run --sandbox local ...");
+      console.error("  bunny-agent run --sandbox local ...");
       process.exit(1);
     }
-    const { E2BSandbox } = await import("@sandagent/sandbox-e2b");
+    const { E2BSandbox } = await import("@bunny-agent/sandbox-e2b");
     sandboxAdapter = new E2BSandbox();
   } else if (values.sandbox === "sandock") {
-    const { SandockSandbox } = await import("@sandagent/sandbox-sandock");
+    const { SandockSandbox } = await import("@bunny-agent/sandbox-sandock");
     sandboxAdapter = new SandockSandbox();
   } else if (values.sandbox === "local") {
-    const { LocalSandbox } = await import("@sandagent/manager");
+    const { LocalSandbox } = await import("@bunny-agent/manager");
     sandboxAdapter = new LocalSandbox({
       workdir: values.workspace,
     });
@@ -124,7 +124,7 @@ export async function runCommand(args: string[]): Promise<void> {
   }
 
   // Create and run the agent
-  const agent = new SandAgent({
+  const agent = new BunnyAgent({
     sandbox: sandboxAdapter,
     runner: {
       model: values.model!,
@@ -153,10 +153,10 @@ export async function runCommand(args: string[]): Promise<void> {
 
 function printRunHelp(): void {
   console.log(`
-sandagent run - Run an agent task in a sandbox
+bunny-agent run - Run an agent task in a sandbox
 
 Usage:
-  sandagent run [options] "your task description"
+  bunny-agent run [options] "your task description"
 
 Options:
   -t, --template <name>    Template to use (default: default)
@@ -168,11 +168,11 @@ Options:
   -h, --help               Show this help message
 
 Examples:
-  sandagent run "Create a hello world script"
-  sandagent run --template coder "Build a REST API"
-  sandagent run --sandbox sandock "Run unit tests"
-  sandagent run --sandbox local "Run locally without cloud"
-  sandagent run --workspace ./my-project "Fix the bug"
+  bunny-agent run "Create a hello world script"
+  bunny-agent run --template coder "Build a REST API"
+  bunny-agent run --sandbox sandock "Run unit tests"
+  bunny-agent run --sandbox local "Run locally without cloud"
+  bunny-agent run --workspace ./my-project "Fix the bug"
 
 Sandbox types:
   e2b         Cloud sandbox using E2B (requires E2B_API_KEY)

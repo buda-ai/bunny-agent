@@ -1,8 +1,8 @@
 {
-  "name": "@sandagent/runner-claude",
+  "name": "@bunny-agent/runner-claude",
   "version": "0.6.2",
   "private": true,
-  "description": "Claude Agent SDK runtime for SandAgent",
+  "description": "Claude Agent SDK runtime for BunnyAgent",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",

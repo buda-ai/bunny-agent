@@ -5,7 +5,7 @@ import type {
   ExecOptions,
   SandboxAdapter,
   SandboxHandle,
-} from "@sandagent/manager";
+} from "@bunny-agent/manager";
 
 /**
  * Type alias for VolumeMount configuration
@@ -26,7 +26,7 @@ export interface DaytonaSandboxOptions {
   templatesPath?: string;
   /** Volume name for persistence (will be created if not exists) */
   volumeName?: string;
-  /** Mount path for the volume (default: /sandagent) */
+  /** Mount path for the volume (default: /bunny-agent) */
   volumeMountPath?: string;
   /**
    * Auto-stop interval in minutes (0 means disabled).
@@ -53,7 +53,7 @@ export interface DaytonaSandboxOptions {
    * Daytona snapshot name to use.
    * If provided, uses a custom snapshot with pre-installed dependencies.
    * This skips npm install for claude-agent-sdk and runner-cli.
-   * Create snapshot: daytona snapshot push sandagent-base:0.1.0 --name sandagent-base
+   * Create snapshot: daytona snapshot push bunny-agent-base:0.1.0 --name bunny-agent-base
    */
   snapshot?: string;
 
@@ -103,7 +103,7 @@ export class DaytonaSandbox implements SandboxAdapter {
     this.timeout = options.timeout ?? 0;
     this.templatesPath = options.templatesPath;
     this.volumeName = options.volumeName;
-    this.volumeMountPath = options.volumeMountPath ?? "/sandagent";
+    this.volumeMountPath = options.volumeMountPath ?? "/bunny-agent";
     // Default auto-stop to 15 minutes
     this.autoStopInterval = options.autoStopInterval ?? 15;
     // Default auto-delete to disabled (-1),
@@ -130,13 +130,13 @@ export class DaytonaSandbox implements SandboxAdapter {
 
   /**
    * Get the runner command to execute in the sandbox.
-   * Snapshot uses image's sandagent; otherwise npm-installed runner-cli.
+   * Snapshot uses image's bunny-agent; otherwise npm-installed runner-cli.
    */
   getRunnerCommand(): string[] {
     if (this.snapshot) {
-      return ["sandagent", "run"];
+      return ["bunny-agent", "run"];
     }
-    return [`${this.workdir}/node_modules/.bin/sandagent`, "run"];
+    return [`${this.workdir}/node_modules/.bin/bunny-agent`, "run"];
   }
 
   getHandle(): SandboxHandle | null {
@@ -300,13 +300,13 @@ export class DaytonaSandbox implements SandboxAdapter {
     if (needsInit) {
       await this.initializeSandbox(handle);
     } else if (this.snapshot) {
-      // For existing sandbox with snapshot, copy template files from /opt/sandagent/templates
+      // For existing sandbox with snapshot, copy template files from /opt/bunny-agent/templates
       console.log(
         `[Daytona] Copying template files from snapshot for existing sandbox`,
       );
       await handle.runCommand(
-        `if [ -d "/opt/sandagent/templates" ]; then ` +
-          `cp -r /opt/sandagent/templates/. ${this.workdir}/ 2>/dev/null && ` +
+        `if [ -d "/opt/bunny-agent/templates" ]; then ` +
+          `cp -r /opt/bunny-agent/templates/. ${this.workdir}/ 2>/dev/null && ` +
           `echo "Template files copied"; ` +
           `fi`,
       );
@@ -383,13 +383,13 @@ export class DaytonaSandbox implements SandboxAdapter {
     // If using custom snapshot with pre-installed dependencies - no npm install needed
     if (this.snapshot) {
       console.log(
-        `[Daytona] Using custom snapshot "${this.snapshot}", dependencies are in /opt/sandagent`,
+        `[Daytona] Using custom snapshot "${this.snapshot}", dependencies are in /opt/bunny-agent`,
       );
-      // Copy template files from /opt/sandagent/templates to workspace (if exists in snapshot)
+      // Copy template files from /opt/bunny-agent/templates to workspace (if exists in snapshot)
       // Use "." to include hidden files like .claude
       const copyTemplateResult = await handle.runCommand(
-        `if [ -d "/opt/sandagent/templates" ]; then ` +
-          `cp -r /opt/sandagent/templates/. ${this.workdir}/ 2>/dev/null && ` +
+        `if [ -d "/opt/bunny-agent/templates" ]; then ` +
+          `cp -r /opt/bunny-agent/templates/. ${this.workdir}/ 2>/dev/null && ` +
           `echo "Template files copied from snapshot"; ` +
           `fi`,
       );
@@ -404,11 +404,11 @@ export class DaytonaSandbox implements SandboxAdapter {
     } else {
       // Install runner-cli from npm (includes claude-agent-sdk)
       console.log(
-        `[Daytona] Installing @sandagent/runner-cli@latest to ${this.workdir}`,
+        `[Daytona] Installing @bunny-agent/runner-cli@latest to ${this.workdir}`,
       );
 
       const installResult = await handle.runCommand(
-        `cd ${this.workdir} && npm install --no-audit --no-fund --prefer-offline @sandagent/runner-cli@latest 2>&1`,
+        `cd ${this.workdir} && npm install --no-audit --no-fund --prefer-offline @bunny-agent/runner-cli@latest 2>&1`,
         10 * 60,
       );
       if (installResult.exitCode !== 0) {
@@ -416,11 +416,11 @@ export class DaytonaSandbox implements SandboxAdapter {
           `[Daytona] Failed to install runner-cli (exit ${installResult.exitCode}): ${installResult.stdout}`,
         );
         throw new Error(
-          `Failed to install @sandagent/runner-cli: ${installResult.stdout}`,
+          `Failed to install @bunny-agent/runner-cli: ${installResult.stdout}`,
         );
       }
       console.log(
-        `[Daytona] Successfully installed @sandagent/runner-cli to ${this.workdir}`,
+        `[Daytona] Successfully installed @bunny-agent/runner-cli to ${this.workdir}`,
       );
     }
 
@@ -576,7 +576,7 @@ class DaytonaHandle implements SandboxHandle {
 
     // Merge sandbox-level env with call-level env (call-level takes precedence)
     // Add NODE_PATH so Node can find packages installed in workspace
-    // Add PATH so shell can find sandagent command
+    // Add PATH so shell can find bunny-agent command
     const envWithNodePath: Record<string, string> = {
       ...this.sandboxEnv,
       ...opts?.env,

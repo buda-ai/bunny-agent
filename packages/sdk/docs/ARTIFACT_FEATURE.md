@@ -2,7 +2,7 @@
 
 ## Overview
 
-Artifacts let the agent generate files (reports, charts, code, etc.) that can be streamed to the UI. This document focuses on the backend processor and data flow. For user-facing setup and UI integration, see the [Artifacts Guide](https://sandagent.dev/docs/artifacts).
+Artifacts let the agent generate files (reports, charts, code, etc.) that can be streamed to the UI. This document focuses on the backend processor and data flow. For user-facing setup and UI integration, see the [Artifacts Guide](https://bunny-agent.dev/docs/artifacts).
 
 ## Architecture
 
@@ -100,17 +100,17 @@ export async function POST(request: Request) {
     execute: async ({ writer }) => {
       const artifactProcessor = new TaskDrivenArtifactProcessor({
         sandbox,
-        workdir: sandbox.getWorkdir?.() || "/sandagent",
+        workdir: sandbox.getWorkdir?.() || "/bunny-agent",
         writer,
       });
 
-      const sandagent = createSandAgent({
+      const bunny-agent = createBunny Agent({
         sandbox,
         artifactProcessors: [artifactProcessor],
       });
 
       const result = streamText({
-        model: sandagent(model),
+        model: bunny-agent(model),
         messages,
       });
 
@@ -147,6 +147,6 @@ The processor streams `data-artifact` parts:
 
 ## Related Docs
 
-- [Artifacts Guide](https://sandagent.dev/docs/artifacts) (manifest format, skills, UI rendering)
-- [SDK Development Guide](https://sandagent.dev/docs/sdk-guide) (full SDK integration)
-- [Write Tool UI](https://sandagent.dev/docs/write-tool-ui) (Write tool UI details)
+- [Artifacts Guide](https://bunny-agent.dev/docs/artifacts) (manifest format, skills, UI rendering)
+- [SDK Development Guide](https://bunny-agent.dev/docs/sdk-guide) (full SDK integration)
+- [Write Tool UI](https://bunny-agent.dev/docs/write-tool-ui) (Write tool UI details)

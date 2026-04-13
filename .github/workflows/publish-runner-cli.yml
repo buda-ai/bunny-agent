@@ -31,11 +31,11 @@ jobs:
 
       - name: Build dependencies
         run: |
-          pnpm --filter @sandagent/runner-claude build
-          pnpm --filter @sandagent/runner-codex build
-          pnpm --filter @sandagent/runner-gemini build
-          pnpm --filter @sandagent/runner-opencode build
-          pnpm --filter @sandagent/runner-pi build
+          pnpm --filter @bunny-agent/runner-claude build
+          pnpm --filter @bunny-agent/runner-codex build
+          pnpm --filter @bunny-agent/runner-gemini build
+          pnpm --filter @bunny-agent/runner-opencode build
+          pnpm --filter @bunny-agent/runner-pi build
 
       - name: Verify npm auth
         run: npm whoami
@@ -70,10 +70,10 @@ jobs:
             )
           }
 
-          publish_if_needed "@sandagent/sdk" "packages/sdk"
-          publish_if_needed "@sandagent/manager" "packages/manager"
-          publish_if_needed "@sandagent/sandbox-sandock" "packages/sandbox-sandock"
-          publish_if_needed "@sandagent/runner-cli" "apps/runner-cli"
-          publish_if_needed "@sandagent/daemon" "apps/daemon"
+          publish_if_needed "@bunny-agent/sdk" "packages/sdk"
+          publish_if_needed "@bunny-agent/manager" "packages/manager"
+          publish_if_needed "@bunny-agent/sandbox-sandock" "packages/sandbox-sandock"
+          publish_if_needed "@bunny-agent/runner-cli" "apps/runner-cli"
+          publish_if_needed "@bunny-agent/daemon" "apps/daemon"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN || secrets.NODE_AUTH_TOKEN || secrets.NPM_PUBLISH_TOKEN }}

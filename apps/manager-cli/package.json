@@ -1,10 +1,10 @@
 {
-  "name": "@sandagent/manager-cli",
+  "name": "@bunny-agent/manager-cli",
   "version": "0.6.2",
-  "description": "SandAgent Manager CLI - Manage sandboxes, run agents with templates, and control sessions from the command line",
+  "description": "BunnyAgent Manager CLI - Manage sandboxes, run agents with templates, and control sessions from the command line",
   "type": "module",
   "bin": {
-    "sandagent-manager": "./dist/cli.js"
+    "bunny-agent-manager": "./dist/cli.js"
   },
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -35,10 +35,10 @@
     "access": "public"
   },
   "dependencies": {
-    "@sandagent/manager": "workspace:*",
-    "@sandagent/sandbox-e2b": "workspace:*",
-    "@sandagent/sandbox-sandock": "workspace:*",
-    "@sandagent/runner-claude": "workspace:*"
+    "@bunny-agent/manager": "workspace:*",
+    "@bunny-agent/sandbox-e2b": "workspace:*",
+    "@bunny-agent/sandbox-sandock": "workspace:*",
+    "@bunny-agent/runner-claude": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",

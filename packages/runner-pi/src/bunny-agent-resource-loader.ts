@@ -15,7 +15,7 @@ import {
   loadSkills,
 } from "@mariozechner/pi-coding-agent";
 
-const LOG_PREFIX = "[sandagent:pi]";
+const LOG_PREFIX = "[bunny-agent:pi]";
 
 function logSkillLoad(
   cwd: string,
@@ -60,7 +60,7 @@ export interface SandagentResourceLoaderOptions {
 }
 
 /**
- * Custom ResourceLoader for sandagent that supports additional skillPaths.
+ * Custom ResourceLoader for bunny-agent that supports additional skillPaths.
  * Extends DefaultResourceLoader and overrides skill loading.
  */
 export class SandagentResourceLoader implements ResourceLoader {

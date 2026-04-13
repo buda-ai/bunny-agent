@@ -1,17 +1,17 @@
-# @sandagent/runner-pi
+# @bunny-agent/runner-pi
 
-Pi agent runner for SandAgent.
+Pi agent runner for Bunny Agent.
 
 ## Installation
 
 ```bash
-npm install @sandagent/runner-pi
+npm install @bunny-agent/runner-pi
 ```
 
 ## Usage
 
 ```ts
-import { createPiRunner } from "@sandagent/runner-pi";
+import { createPiRunner } from "@bunny-agent/runner-pi";
 
 const runner = createPiRunner({
   model: "google:gemini-2.5-pro",

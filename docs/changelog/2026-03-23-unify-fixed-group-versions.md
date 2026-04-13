@@ -3,5 +3,5 @@
 ## Changes
 
 - Aligned **`package.json` `version`** for all packages in the changesets **fixed** group (`.changeset/config.json`) to **`0.9.0`**.
-- **Before:** Most were `0.8.10` while `@sandagent/sandbox-sandock` was already `0.9.0`.
-- **Packages updated:** `@sandagent/daemon`, `@sandagent/manager`, `@sandagent/runner-cli`, `@sandagent/sandbox-e2b`, `@sandagent/sandbox-daytona`, `@sandagent/sdk` (sandock unchanged at `0.9.0`).
+- **Before:** Most were `0.8.10` while `@bunny-agent/sandbox-sandock` was already `0.9.0`.
+- **Packages updated:** `@bunny-agent/daemon`, `@bunny-agent/manager`, `@bunny-agent/runner-cli`, `@bunny-agent/sandbox-e2b`, `@bunny-agent/sandbox-daytona`, `@bunny-agent/sdk` (sandock unchanged at `0.9.0`).

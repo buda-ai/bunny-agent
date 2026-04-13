@@ -1,11 +1,11 @@
-# Pre-install python3, pip, and bx (brave-search-cli) in sandagent image
+# Pre-install python3, pip, and bx (brave-search-cli) in bunny-agent image
 
 ## Changes
 
 - Added `python3` and `python3-pip` to the apt-get install step in all three Dockerfiles:
-  - `docker/sandagent-claude/Dockerfile`
-  - `docker/sandagent-claude/Dockerfile.template`
-  - `docker/sandagent-claude/Dockerfile.local`
+  - `docker/bunny-agent-claude/Dockerfile`
+  - `docker/bunny-agent-claude/Dockerfile.template`
+  - `docker/bunny-agent-claude/Dockerfile.local`
 - Added `brave-search-cli` (provides the `bx` command) as a globally installed npm package in all three Dockerfiles
 
 ## Motivation

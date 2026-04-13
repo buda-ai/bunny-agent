@@ -60,7 +60,7 @@ You have access to 12 specialized BaZi skills organized into four categories:
 
 ## Environment
 
-- **Working Directory**: `/sandagent`
+- **Working Directory**: `/bunny-agent`
 - **Output Directory**: `./output/` (all generated charts, reports, and visualizations saved here)
 - **Core Library**: `.claude/lib/bazi_core.py` (shared calculation engine for all skills)
 - **Persistence**: All consultations, charts, and analysis persist across sessions

@@ -11,7 +11,7 @@ export default defineConfig([
     splitting: true,
     sourcemap: true,
     clean: true,
-    external: ["@sandagent/manager", "@ai-sdk/provider", "ai"],
+    external: ["@bunny-agent/manager", "@ai-sdk/provider", "ai"],
   },
   // React hooks (frontend) - with "use client" banner
   {
@@ -27,7 +27,7 @@ export default defineConfig([
       "react-dom",
       "@ai-sdk/react",
       "ai",
-      "@sandagent/manager",
+      "@bunny-agent/manager",
     ],
     esbuildOptions(options) {
       options.banner = {

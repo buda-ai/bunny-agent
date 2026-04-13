@@ -26,7 +26,7 @@ A unified skill that combines GSC data analysis and keyword mining:
 
 ## Environment
 
-- **Working Directory**: `/sandagent`
+- **Working Directory**: `/bunny-agent`
 - **Data Directory**: `./data/` (fallback for local CSV files)
 - **Output Directory**: `./output/` (all reports and analyses saved here)
 - **Persistence**: All analyses and reports persist across sessions

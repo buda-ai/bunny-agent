@@ -1,6 +1,6 @@
 "use client";
 
-import { useAskUserQuestion } from "@sandagent/sdk/react";
+import { useAskUserQuestion } from "@bunny-agent/sdk/react";
 import type { DynamicToolUIPart } from "ai";
 
 // AskUserQuestion interactive component

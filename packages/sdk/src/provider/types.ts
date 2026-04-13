@@ -1,5 +1,5 @@
 import type { LanguageModelV3StreamPart } from "@ai-sdk/provider";
-import type { SandAgentOptions, SandboxAdapter } from "@sandagent/manager";
+import type { BunnyAgentOptions, SandboxAdapter } from "@bunny-agent/manager";
 
 /**
  * Artifact Processor result
@@ -67,9 +67,9 @@ export interface Logger {
 }
 
 /**
- * CLI runner type passed to `sandagent run --runner <runnerType>`.
+ * CLI runner type passed to `bunny-agent run --runner <runnerType>`.
  */
-export type SandAgentRunnerType =
+export type BunnyAgentRunnerType =
   | "claude"
   | "pi"
   | "codex"
@@ -77,28 +77,28 @@ export type SandAgentRunnerType =
   | "opencode";
 
 /**
- * AI Provider specific settings that extend SandAgentOptions.
- * Requires a `sandbox`. Optional `daemonUrl` streams via sandagent-daemon HTTP
+ * AI Provider specific settings that extend BunnyAgentOptions.
+ * Requires a `sandbox`. Optional `daemonUrl` streams via bunny-agent-daemon HTTP
  * (`POST /api/coding/run`) inside the sandbox. The SDK does **not** probe `/healthz`
  * on each request — call `isSandagentDaemonHealthy` (re-exported from
- * `@sandagent/sdk`) when you want to check readiness and omit `daemonUrl` to fall
+ * `@bunny-agent/sdk`) when you want to check readiness and omit `daemonUrl` to fall
  * back to the CLI runner, or set `daemonUrl` and handle HTTP errors yourself.
  */
-export interface SandAgentProviderSettings
-  extends Omit<SandAgentOptions, "runner" | "sandboxId" | "sandbox"> {
+export interface BunnyAgentProviderSettings
+  extends Omit<BunnyAgentOptions, "runner" | "sandboxId" | "sandbox"> {
   /** Required. All transports run relative to this adapter. */
   sandbox: SandboxAdapter;
   /**
-   * sandagent-daemon base URL **inside** the sandbox (e.g. SandAgent image:
+   * bunny-agent-daemon base URL **inside** the sandbox (e.g. BunnyAgent image:
    * `http://127.0.0.1:3080`). When set, the SDK uses HTTP streaming only (no
    * automatic health probe or CLI fallback).
    */
   daemonUrl?: string;
   /**
    * Which runner implementation to use: claude (default), pi, codex, gemini, opencode.
-   * Maps to `sandagent run --runner <runnerType>`.
+   * Maps to `bunny-agent run --runner <runnerType>`.
    */
-  runnerType?: SandAgentRunnerType;
+  runnerType?: BunnyAgentRunnerType;
   /** Working directory for CLI operations inside the sandbox. */
   cwd?: string;
   /** Resume session ID for multi-turn conversation. */
@@ -124,4 +124,4 @@ export interface SandAgentProviderSettings
 /**
  * Model identifier: user passes whatever the runner expects (e.g. Claude model id, Pi model id).
  */
-export type SandAgentModelId = string;
+export type BunnyAgentModelId = string;

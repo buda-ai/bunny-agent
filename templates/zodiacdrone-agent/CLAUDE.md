@@ -202,7 +202,7 @@ You have access to 8 specialized astrology skills organized into four categories
 
 ## Environment
 
-- **Working Directory**: `/sandagent`
+- **Working Directory**: `/bunny-agent`
 - **Output Directory**: `./output/` (all generated horoscopes and reports should be saved here)
 - **Persistence**: All horoscopes, analyses, and profiles persist across sessions
 - **Tools Available**: bash, read_file, write_file

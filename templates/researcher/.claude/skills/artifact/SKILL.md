@@ -27,7 +27,7 @@ Read the current file, append new entries, and write it back. Each entry needs:
 | Field | Required | Description |
 |-------|----------|-------------|
 | `id` | Yes | Unique identifier (e.g. `research-report`) |
-| `path` | Yes | File path relative to `/sandagent` |
+| `path` | Yes | File path relative to `/bunny-agent` |
 | `mimeType` | Yes | MIME type of the file |
 | `description` | No | Brief description of the content |
 

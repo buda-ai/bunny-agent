@@ -2,4 +2,4 @@
 
 ## Changes
 
-- Moved `@sandagent/runner-core` from `dependencies` to `devDependencies` in `apps/daemon/package.json`. The package is workspace-only / not published on npm, matching `apps/runner-cli`.
+- Moved `@bunny-agent/runner-core` from `dependencies` to `devDependencies` in `apps/daemon/package.json`. The package is workspace-only / not published on npm, matching `apps/runner-cli`.

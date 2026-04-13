@@ -1,6 +1,6 @@
 ## Daemon volume root compatibility fix
 
-- Fixed `resolveVolumeRoot()` in `apps/daemon/src/utils.ts` to avoid double-nesting volume paths when `SANDAGENT_ROOT` already points to a specific volume directory (for example `root=/agent` with `volume=agent`).
+- Fixed `resolveVolumeRoot()` in `apps/daemon/src/utils.ts` to avoid double-nesting volume paths when `BUNNY_AGENT_ROOT` already points to a specific volume directory (for example `root=/agent` with `volume=agent`).
 - Added a compatibility fallback that returns `root` instead of `root/volumes/<volume>` when the requested volume name matches the root directory name and the nested volume path does not exist.
 - Added an integration regression test in `apps/daemon/src/__tests__/daemon.test.ts` to verify fs read/write APIs succeed in this configuration.
 - Added support for leading-slash volume input (for example `/agent` and `/space`) by normalizing to a volume name before validation and resolution.

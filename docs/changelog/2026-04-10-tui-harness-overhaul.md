@@ -1,4 +1,4 @@
-# 2026-04-10 sandagent-tui + runner-harness overhaul
+# 2026-04-10 bunny-agent-tui + runner-harness overhaul
 
 ## Completed
 
@@ -12,7 +12,7 @@
 - [x] Added `ai` as real dependency (for stream parsing)
 - [x] Updated all consumers (runner-pi, runner-pi tests, vitest config)
 
-### sandagent-tui rewrite
+### bunny-agent-tui rewrite
 - [x] Removed `@mariozechner/pi-coding-agent` dependency (was shell-wrapping pi TUI)
 - [x] New TUI using `@mariozechner/pi-tui` directly
 - [x] `src/chat-view.ts` — `UserMessage` (Container+Spacer+bg), `AssistantMessage` (streaming markdown + reasoning), `ToolCallComponent` (input preview + result update), `ChatView` (insertBeforeEditor pattern)
@@ -42,7 +42,7 @@
 
 - [x] **2.5 session persistence** (`runner-harness/session.ts`)
   - `readSessionId(cwd)` / `writeSessionId(cwd, id)` / `clearSessionId(cwd)`
-  - Stored in `.sandagent/session-id`
+  - Stored in `.bunny-agent/session-id`
   - `createRunner()` auto-reads session ID for resume, auto-writes from stream chunks
 
 - [x] **tools flat structure** (`runner-harness/src/tools/`)
@@ -50,7 +50,7 @@
   - Moved `image/generate.ts` → `image-generate.ts`
   - Removed subdirectories
 
-- [x] **TUI improvements** (`sandagent-tui`)
+- [x] **TUI improvements** (`bunny-agent-tui`)
   - `handleChunk()` method handles all RunnerChunk types
   - `/help` slash command
   - `addHelp()` in ChatView
@@ -58,28 +58,28 @@
 
 ### P1 — Experience quality
 
-- [x] **2.1 session resume** (`sandagent-tui`)
-  - `--resume` flag: reads `.sandagent/session-id` on start
+- [x] **2.1 session resume** (`bunny-agent-tui`)
+  - `--resume` flag: reads `.bunny-agent/session-id` on start
   - `--new` flag: clears saved session ID before starting
   - `/new` slash command: clear session mid-session
   - Footer shows `sid:xxxxxxxx` (first 8 chars of session ID)
   - Session ID auto-captured from `message-metadata` chunks and persisted
 
-- [x] **2.2 `/model` slash command** (`sandagent-tui`)
+- [x] **2.2 `/model` slash command** (`bunny-agent-tui`)
   - `/model <name>` switches model mid-session
   - Footer updates immediately
 
-- [x] **2.3 `/runner` slash command** (`sandagent-tui`)
+- [x] **2.3 `/runner` slash command** (`bunny-agent-tui`)
   - `/runner <claude|pi|gemini|codex|opencode>` switches runner mid-session
   - Validates against known runner list
 
-- [x] **2.4 image rendering** (`sandagent-tui`)
+- [x] **2.4 image rendering** (`bunny-agent-tui`)
   - `resolveToolCallWithImage()` in ChatView
   - Detects image file paths (`.png/.jpg/.gif/.webp`) in `tool-output-available`
   - Renders with pi-tui `Image` component (Kitty/iTerm2 protocol)
   - Falls back to text path if image load fails
 
-- [x] **2.7 Ctrl+C double-tap exit** (`sandagent-tui`)
+- [x] **2.7 Ctrl+C double-tap exit** (`bunny-agent-tui`)
   - First Ctrl+C: aborts running request
   - Second Ctrl+C within 2s: exits process
   - When idle: shows hint, second press exits
@@ -87,7 +87,7 @@
 ### P2 — Power features
 
 - [x] **1.3 skill auto-discovery** (`runner-harness/skills.ts`)
-  - `discoverSkillPaths(cwd)`: scans `cwd/skills/` and `~/.sandagent/skills/`
+  - `discoverSkillPaths(cwd)`: scans `cwd/skills/` and `~/.bunny-agent/skills/`
   - Auto-passed to runner-pi when `skillPaths` not explicitly provided
 
 - [x] **3.1 `bash` tool** (`runner-harness/tools/bash-execute.ts`)

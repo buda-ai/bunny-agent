@@ -1,7 +1,7 @@
 import {
   createRunner,
   type RunnerCoreOptions,
-} from "@sandagent/runner-harness";
+} from "@bunny-agent/runner-harness";
 
 export type RunAgentOptions = RunnerCoreOptions;
 

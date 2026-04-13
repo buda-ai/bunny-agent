@@ -16,23 +16,23 @@ import type {
 import {
   type Message,
   type RunnerSpec,
-  SandAgent,
-  type SandAgentCodingRunBody,
+  BunnyAgent,
+  type BunnyAgentCodingRunBody,
   streamCodingRunFromSandbox,
-} from "@sandagent/manager";
+} from "@bunny-agent/manager";
 import { getProviderLogger } from "./logging";
 import type {
   Logger,
-  SandAgentModelId,
-  SandAgentProviderSettings,
+  BunnyAgentModelId,
+  BunnyAgentProviderSettings,
 } from "./types";
 
 /**
- * Options for creating a SandAgent language model instance.
+ * Options for creating a BunnyAgent language model instance.
  */
-export interface SandAgentLanguageModelOptions {
-  id: SandAgentModelId;
-  options: SandAgentProviderSettings & { runner: RunnerSpec };
+export interface BunnyAgentLanguageModelOptions {
+  id: BunnyAgentModelId;
+  options: BunnyAgentProviderSettings & { runner: RunnerSpec };
 }
 
 /** Format error so message and cause chain are visible (e.g. includes "Fatal error: ..." from runner). */
@@ -103,9 +103,9 @@ function createEmptyUsage(): LanguageModelV3Usage {
 }
 
 /**
- * SandAgent Language Model implementation for AI SDK.
+ * BunnyAgent Language Model implementation for AI SDK.
  */
-export class SandAgentLanguageModel implements LanguageModelV3 {
+export class BunnyAgentLanguageModel implements LanguageModelV3 {
   readonly specificationVersion = "v3" as const;
   readonly provider: string;
   readonly modelId: string;
@@ -113,19 +113,19 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
     "image/*": [/.*/],
   };
 
-  private readonly options: SandAgentProviderSettings & { runner: RunnerSpec };
+  private readonly options: BunnyAgentProviderSettings & { runner: RunnerSpec };
   private readonly logger: Logger;
   private sessionId: string | undefined;
   private toolNameMap: Map<string, string> = new Map();
   private legacyTextPartCounter = 0;
 
-  constructor(modelOptions: SandAgentLanguageModelOptions) {
+  constructor(modelOptions: BunnyAgentLanguageModelOptions) {
     this.modelId = modelOptions.id;
     this.options = modelOptions.options;
     this.logger = getProviderLogger(modelOptions.options);
     this.provider = modelOptions.options.daemonUrl
-      ? "sandagent-daemon"
-      : "sandagent";
+      ? "bunny-agent-daemon"
+      : "bunny-agent";
   }
 
   async doGenerate(
@@ -250,13 +250,13 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
     this.resetStreamState();
 
     this.logger.debug(
-      `[sandagent] Starting stream with ${messages.length} messages`,
+      `[bunny-agent] Starting stream with ${messages.length} messages`,
     );
 
     const sandbox = this.options.sandbox;
     if (!sandbox) {
       throw new Error(
-        "SandAgent language model requires a sandbox adapter (set `sandbox` on the provider).",
+        "BunnyAgent language model requires a sandbox adapter (set `sandbox` on the provider).",
       );
     }
 
@@ -266,7 +266,7 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
       const handle = await sandbox.attach();
       const sandboxEnv = sandbox.getEnv?.() ?? {};
       const runnerEnv = { ...sandboxEnv, ...this.options.env };
-      const body: SandAgentCodingRunBody = {
+      const body: BunnyAgentCodingRunBody = {
         ...this.buildCodingRunBody(messages, handle.getWorkdir()),
         ...(Object.keys(runnerEnv).length > 0 ? { env: runnerEnv } : {}),
       };
@@ -288,7 +288,7 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
     const sandboxWorkdir =
       this.options.cwd ?? sandbox.getWorkdir?.() ?? "/workspace";
 
-    const agent = new SandAgent({
+    const agent = new BunnyAgent({
       sandbox,
       runner: this.options.runner,
       env: { ...sandboxEnv, ...this.options.env },
@@ -319,7 +319,7 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
   private buildCodingRunBody(
     messages: Message[],
     cwdFallback: string,
-  ): SandAgentCodingRunBody {
+  ): BunnyAgentCodingRunBody {
     const runner = this.options.runner;
     const cwd = this.options.cwd ?? cwdFallback;
     return {
@@ -405,7 +405,7 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
                           .then(() => processor.onChange(part, sessionId))
                           .catch((e) => {
                             self.logger.error(
-                              `[sandagent] Artifact processor error: ${e}`,
+                              `[bunny-agent] Artifact processor error: ${e}`,
                             );
                           });
                       }
@@ -417,7 +417,7 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
                 const msg = e instanceof Error ? e.message : String(e);
                 if (!msg.includes("Unexpected token")) {
                   self.logger.error(
-                    `[sandagent] Failed to parse stream data: ${e}`,
+                    `[bunny-agent] Failed to parse stream data: ${e}`,
                   );
                 }
               }
@@ -430,10 +430,10 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
           }
         } catch (error) {
           if (error instanceof Error && error.name === "AbortError") {
-            self.logger.info("[sandagent] Stream aborted by user");
+            self.logger.info("[bunny-agent] Stream aborted by user");
           } else {
             self.logger.error(
-              `[sandagent] Stream error: ${formatErrorForLog(error)}`,
+              `[bunny-agent] Stream error: ${formatErrorForLog(error)}`,
             );
           }
           controller.error(error);
@@ -495,7 +495,7 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
               type: "text-start",
               id,
               providerMetadata: {
-                sandagent: {
+                "bunny-agent": {
                   sessionId: this.sessionId,
                 } as unknown as SharedV3ProviderMetadata,
               },
@@ -512,7 +512,7 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
         if (metadata?.sessionId && typeof metadata.sessionId === "string") {
           this.sessionId = metadata.sessionId;
           this.logger.debug(
-            `[sandagent] Session ID extracted: ${this.sessionId}`,
+            `[bunny-agent] Session ID extracted: ${this.sessionId}`,
           );
           parts.push({
             type: "raw",
@@ -527,7 +527,7 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
           type: "text-start",
           id: parsed.id as string,
           providerMetadata: {
-            sandagent: {
+            "bunny-agent": {
               sessionId: this.sessionId,
             } as unknown as SharedV3ProviderMetadata,
           },
@@ -636,7 +636,7 @@ export class SandAgentLanguageModel implements LanguageModelV3 {
           finishReason,
           usage,
           providerMetadata: {
-            sandagent: {
+            "bunny-agent": {
               ...((parsed.messageMetadata as Record<string, unknown>) ?? {}),
               sessionId: this.sessionId,
             } as unknown as SharedV3ProviderMetadata,

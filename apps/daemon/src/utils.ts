@@ -43,7 +43,7 @@ export function resolveVolumeRoot(state: AppState, volume?: string): string {
   }
 
   // Backward compatibility:
-  // if SANDAGENT_ROOT already points to the requested volume root
+  // if BUNNY_AGENT_ROOT already points to the requested volume root
   // (e.g. root=/agent and volume=agent), prefer root over root/volumes/agent.
   if (
     path.basename(normalizedRoot) === normalizedVolume &&

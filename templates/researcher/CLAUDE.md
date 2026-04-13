@@ -42,7 +42,7 @@ Use the `/artifact` skill — it handles session ID substitution automatically.
 
 ## Environment
 
-- **Working Directory**: `/sandagent`
+- **Working Directory**: `/bunny-agent`
 - **Session ID**: `${CLAUDE_SESSION_ID}` (auto-replaced in SKILL.md files only)
 - **Tools**: `bash`, `read_file`, `write_file`
 - **Persistence**: Files persist across sessions

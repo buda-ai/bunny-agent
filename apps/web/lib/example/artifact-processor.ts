@@ -3,7 +3,7 @@ import type {
   LanguageModelV3StreamPart,
   SandboxAdapter,
   StreamWriter,
-} from "@sandagent/sdk";
+} from "@bunny-agent/sdk";
 
 /**
  * TaskDrivenArtifactProcessor

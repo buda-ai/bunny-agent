@@ -1,9 +1,9 @@
 {
-  "name": "@sandagent/runner-opencode",
+  "name": "@bunny-agent/runner-opencode",
   "version": "0.6.2",
   "private": true,
   "type": "module",
-  "description": "OpenCode runner for SandAgent using ACP protocol",
+  "description": "OpenCode runner for BunnyAgent using ACP protocol",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {

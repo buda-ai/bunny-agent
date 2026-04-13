@@ -48,7 +48,7 @@ export interface ClaudeRunnerOptions extends BaseRunnerOptions {
  * Build a regular user message (not a tool result)
  */
 export function buildUserMessage(userInput: string): SDKUserMessage {
-  // If userInput is a serialized JSON array (from SandAgent manager for multi-part messages)
+  // If userInput is a serialized JSON array (from BunnyAgent manager for multi-part messages)
   // Claude Agent SDK allows content to be string or array of blocks.
   // Let's decode it safely.
   let parsedContent: string | Array<Record<string, unknown>> = userInput;
@@ -117,7 +117,7 @@ interface ClaudeAgentSDKModule {
 
 /**
  * Create canUseTool callback for tool approval flow
- * Uses default path: {cwd}/.sandagent/approvals/{toolUseID}.json
+ * Uses default path: {cwd}/.bunny-agent/approvals/{toolUseID}.json
  *
  * @param claudeOptions - Claude runner options
  * @returns canUseTool callback function
@@ -154,7 +154,7 @@ function createCanUseToolCallback(
       const fs = await import("node:fs");
       const path = await import("node:path");
 
-      const approvalDir = path.join(cwd, ".sandagent", "approvals");
+      const approvalDir = path.join(cwd, ".bunny-agent", "approvals");
       const approvalFile = path.join(approvalDir, `${toolUseID}.json`);
 
       // Write pending file so frontend knows a tool is waiting for approval
@@ -281,7 +281,7 @@ export function createClaudeRunner(options: ClaudeRunnerOptions): ClaudeRunner {
       // Check for API key or Bedrock proxy config
       if (!hasClaudeAuth()) {
         console.error(
-          "[SandAgent] Warning: No Claude auth configured. Using mock response.\n" +
+          "[BunnyAgent] Warning: No Claude auth configured. Using mock response.\n" +
             "To use the real Claude Agent SDK, set one of:\n" +
             "  ANTHROPIC_API_KEY, AWS_BEARER_TOKEN_BEDROCK, ANTHROPIC_AUTH_TOKEN, or LITELLM_MASTER_KEY\n" +
             "  Or for Bedrock proxy: CLAUDE_CODE_USE_BEDROCK=1 and ANTHROPIC_BEDROCK_BASE_URL (and ANTHROPIC_AUTH_TOKEN or LITELLM_MASTER_KEY)\n" +
@@ -305,7 +305,7 @@ export function createClaudeRunner(options: ClaudeRunnerOptions): ClaudeRunner {
       } else {
         // Fallback to mock implementation
         console.error(
-          "[SandAgent] Warning: @anthropic-ai/claude-agent-sdk not installed. Using mock response.\n" +
+          "[BunnyAgent] Warning: @anthropic-ai/claude-agent-sdk not installed. Using mock response.\n" +
             "Install the SDK: npm install @anthropic-ai/claude-agent-sdk",
         );
         yield* runMockAgent(

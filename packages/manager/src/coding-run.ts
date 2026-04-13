@@ -1,10 +1,10 @@
 import type {
   ExecOptions,
-  SandAgentCodingRunBody,
+  BunnyAgentCodingRunBody,
   SandboxHandle,
 } from "./types.js";
 
-// NOTE: daemon health probing moved to `@sandagent/sandbox-sandock`.
+// NOTE: daemon health probing moved to `@bunny-agent/sandbox-sandock`.
 
 /** Temp directory for the coding-run JSON uploaded before `curl`. */
 export const SANDBOX_CODING_RUN_TMP_DIR = "/tmp";
@@ -49,7 +49,7 @@ export function buildCodingRunShellScript(
 }
 
 /**
- * Build argv for `curl` POST to sandagent-daemon `/api/coding/run`.
+ * Build argv for `curl` POST to bunny-agent-daemon `/api/coding/run`.
  *
  * Always passes `--fail` so HTTP 4xx/5xx produce a non-zero exit and stderr.
  * Runner credentials belong in the JSON body `env`, not headers.
@@ -113,7 +113,7 @@ function scheduleRemoveCodingRunRequestFile(
  * Embedding the body in the remote shell command (e.g. base64) often survives
  * in platform command history and cannot be deleted like a file.
  *
- * Runner credentials belong in {@link SandAgentCodingRunBody.env} on `body`.
+ * Runner credentials belong in {@link BunnyAgentCodingRunBody.env} on `body`.
  * {@link ExecOptions.env} is not used for the POST JSON.
  *
  * Errors from `upload` / `exec` propagate to the caller unchanged. If `exec` throws after a successful
@@ -122,7 +122,7 @@ function scheduleRemoveCodingRunRequestFile(
 export async function* streamCodingRunFromSandbox(
   handle: SandboxHandle,
   daemonBaseUrl: string,
-  body: SandAgentCodingRunBody,
+  body: BunnyAgentCodingRunBody,
   opts?: ExecOptions,
 ): AsyncIterable<Uint8Array> {
   const workdir = opts?.cwd ?? handle.getWorkdir();
@@ -135,7 +135,7 @@ export async function* streamCodingRunFromSandbox(
     timeout,
   };
 
-  const reqName = `.sandagent-coding-req-${Date.now()}-${Math.random().toString(36).slice(2, 10)}.json`;
+  const reqName = `.bunny-agent-coding-req-${Date.now()}-${Math.random().toString(36).slice(2, 10)}.json`;
   const payload = new TextEncoder().encode(JSON.stringify(body));
 
   const reqPath = joinSandboxPath(tmpDir, reqName);

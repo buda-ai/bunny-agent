@@ -12,15 +12,15 @@
 ### `apps/bunny-agent-tui/src/extension.ts`
 - **Removed** duplicate `buildBashTool`, `buildReadFileTool`, `buildWriteFileTool` registrations — these are built into pi-coding-agent (`bash`, `read`, `write`, `edit`, `find`, `grep`, `ls`)
 - **Removed** inline `BUNNY_SYSTEM_PROMPT` constant
-- **Added** import of `BUNNY_AGENT_SYSTEM_PROMPT` from `@sandagent/runner-harness`
+- **Added** import of `BUNNY_AGENT_SYSTEM_PROMPT` from `@bunny-agent/runner-harness`
 - Extension is now ~97 lines (was ~146)
 
 ### `apps/bunny-agent-tui/tsup.config.ts`
-- Changed extension build: `@sandagent/runner-harness` marked as `external` (resolved at runtime via pnpm workspace) instead of `noExternal` (bundled), avoiding transitive dep bundling errors with `@mistralai/mistralai`
+- Changed extension build: `@bunny-agent/runner-harness` marked as `external` (resolved at runtime via pnpm workspace) instead of `noExternal` (bundled), avoiding transitive dep bundling errors with `@mistralai/mistralai`
 
 ## Rationale
 - pi-coding-agent already ships `bash`, `read`, `write`, `edit`, `find`, `grep`, `ls` as built-in tools — registering them again via runner-harness was redundant
-- System prompt context belongs in runner-harness so sandagent and bunny-agent share the same identity without duplication
+- System prompt context belongs in runner-harness so bunny-agent and bunny-agent share the same identity without duplication
 
 ## Benchmark Results (legitimate, no hints)
 

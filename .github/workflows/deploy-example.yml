@@ -1,8 +1,8 @@
 # =============================================================================
-# Deploy SandAgent Web to Vercel
+# Deploy BunnyAgent Web to Vercel
 # =============================================================================
 #
-# Deploys apps/web (docs + example) to https://sandagent.vercel.com
+# Deploys apps/web (docs + example) to https://bunny-agent.vercel.com
 #
 # Architecture:
 #   Browser -> Vercel (Next.js) -> E2B/Sandock Sandbox -> runner-cli -> Claude Agent SDK
@@ -19,7 +19,7 @@
 #
 # =============================================================================
 
-name: Deploy SandAgent Web to Vercel
+name: Deploy BunnyAgent Web to Vercel
 
 on:
   push:
@@ -53,7 +53,7 @@ jobs:
         run: pnpm build
 
       - name: Build runner-cli bundle
-        run: pnpm --filter @sandagent/runner-cli build:bundle
+        run: pnpm --filter @bunny-agent/runner-cli build:bundle
 
       - name: Verify runner bundle
         run: |

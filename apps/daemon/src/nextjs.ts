@@ -1,10 +1,10 @@
 /**
- * Next.js Route Handler adapter for sandagent-daemon.
+ * Next.js Route Handler adapter for bunny-agent-daemon.
  *
  * Usage in Next.js app router:
  *
  *   // app/api/daemon/[...path]/route.ts
- *   import { createNextHandler } from "@sandagent/daemon/nextjs";
+ *   import { createNextHandler } from "@bunny-agent/daemon/nextjs";
  *   const handler = createNextHandler({ root: "/workspace", prefix: "/api/daemon" });
  *   export const GET = handler;
  *   export const POST = handler;

@@ -4,7 +4,7 @@
 
 ## Current Behavior
 
-- `sandagent run` always outputs AI SDK data stream (SSE) format.
+- `bunny-agent run` always outputs AI SDK data stream (SSE) format.
 - Output format selection via CLI flag is not supported.
 
 ## References

@@ -77,7 +77,7 @@ When you create a file that should be tracked, update `artifact.json`:
 ## Important Notes
 
 - Always use `${CLAUDE_SESSION_ID}` for the task directory
-- File paths in `artifact.json` should be relative to the working directory (`/sandagent`)
+- File paths in `artifact.json` should be relative to the working directory (`/bunny-agent`)
 - Code files can use paths like `src/...` (relative to working directory)
 - Task-specific files should use `tasks/${CLAUDE_SESSION_ID}/...`
 - Update `artifact.json` whenever you create a new output file

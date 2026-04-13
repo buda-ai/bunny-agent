@@ -1,28 +1,28 @@
 /**
  * Integration tests for manager-cli
- * Tests actual SandAgent with manager and sandbox
+ * Tests actual BunnyAgent with manager and sandbox
  */
 
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { LocalSandbox, SandAgent } from "@sandagent/manager";
+import { LocalSandbox, BunnyAgent } from "@bunny-agent/manager";
 import { describe, expect, it } from "vitest";
 
 describe("manager-cli Integration Tests", () => {
   const TIMEOUT = 30000;
 
   it(
-    "should create SandAgent with LocalSandbox",
+    "should create BunnyAgent with LocalSandbox",
     async () => {
-      const testDir = await mkdtemp(join(tmpdir(), "sandagent-test-"));
+      const testDir = await mkdtemp(join(tmpdir(), "bunny-agent-test-"));
 
       const sandbox = new LocalSandbox({
         baseDir: testDir,
         isolate: true,
       });
 
-      const agent = new SandAgent({
+      const agent = new BunnyAgent({
         sandbox,
         runner: {
           model: "claude-sonnet-4-20250514",
@@ -41,7 +41,7 @@ describe("manager-cli Integration Tests", () => {
   it(
     "should attach to sandbox and execute command",
     async () => {
-      const testDir = await mkdtemp(join(tmpdir(), "sandagent-test-"));
+      const testDir = await mkdtemp(join(tmpdir(), "bunny-agent-test-"));
 
       const sandbox = new LocalSandbox({
         baseDir: testDir,
@@ -67,7 +67,7 @@ describe("manager-cli Integration Tests", () => {
   it(
     "should create isolated workspace directories",
     async () => {
-      const testDir = await mkdtemp(join(tmpdir(), "sandagent-test-"));
+      const testDir = await mkdtemp(join(tmpdir(), "bunny-agent-test-"));
 
       const sandbox = new LocalSandbox({
         baseDir: testDir,

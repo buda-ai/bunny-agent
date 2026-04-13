@@ -1,5 +1,5 @@
 /**
- * Tool overrides for sandagent pi runner.
+ * Tool overrides for bunny-agent pi runner.
  *
  * Builds custom bash and read ToolDefinitions that:
  * - Inject env vars into bash via spawnHook (secrets never in command string)

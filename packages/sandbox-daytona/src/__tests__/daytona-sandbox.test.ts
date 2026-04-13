@@ -204,7 +204,7 @@ describe("DaytonaSandbox", () => {
 
     it("should support template-based naming strategy", () => {
       const template = "default";
-      const sandboxName = `sandagent-${template}`;
+      const sandboxName = `bunny-agent-${template}`;
 
       const sandbox = new DaytonaSandbox({
         name: sandboxName,
@@ -307,7 +307,7 @@ describe("DaytonaSandbox", () => {
       });
 
       expect(sandbox).toBeInstanceOf(DaytonaSandbox);
-      // Volume would be mounted at /custom/path instead of default /sandagent
+      // Volume would be mounted at /custom/path instead of default /bunny-agent
     });
 
     it("should skip initialization when files exist in volume", async () => {

@@ -118,10 +118,10 @@ extensions on disk were silently ignored.  The runner now explicitly calls
 
 ## Testing
 
-Run the `@sandagent/runner-pi` test suite:
+Run the `@bunny-agent/runner-pi` test suite:
 
 ```bash
-pnpm --filter @sandagent/runner-pi test
+pnpm --filter @bunny-agent/runner-pi test
 ```
 
 All 11 tests pass.

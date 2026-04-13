@@ -3,7 +3,7 @@ import { URL } from "node:url";
 import { mergeCodingRunProcessEnv } from "./coding-run-env.js";
 import { parseMultipart } from "./multipart.js";
 import { DaemonRouter } from "./router.js";
-import { sandagentRun } from "./routes/coding.js";
+import { bunnyAgentRun } from "./routes/coding.js";
 import { fsDownload, fsUpload } from "./routes/fs.js";
 import { AppError, type AppState, fail, guessMimeType } from "./utils.js";
 
@@ -37,8 +37,8 @@ export function createDaemon(config: DaemonConfig): http.Server {
           unknown
         >;
         const mergedEnv = mergeCodingRunProcessEnv(env, body);
-        return sandagentRun(
-          body as unknown as Parameters<typeof sandagentRun>[0],
+        return bunnyAgentRun(
+          body as unknown as Parameters<typeof bunnyAgentRun>[0],
           res,
           mergedEnv,
         );

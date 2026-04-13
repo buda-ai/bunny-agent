@@ -1,4 +1,4 @@
-# @sandagent/manager
+# @bunny-agent/manager
 
 ## 0.9.27-beta.0
 
@@ -298,7 +298,7 @@
 
 ### Patch Changes
 
-- - Fix: update changeset ignore list (use @sandagent/web instead of removed @sandagent/example)
+- - Fix: update changeset ignore list (use @bunny-agent/web instead of removed @bunny-agent/example)
 
 ## 0.2.10
 
@@ -371,12 +371,12 @@
 
 ### Patch Changes
 
-- Merge @sandagent/ai-provider into @sandagent/sdk
+- Merge @bunny-agent/ai-provider into @bunny-agent/sdk
 
-  - **BREAKING**: `@sandagent/ai-provider` is now deprecated, use `@sandagent/sdk` instead
-  - SDK now exports AI Provider (`createSandAgent`) and React hooks (`useSandAgentChat`)
+  - **BREAKING**: `@bunny-agent/ai-provider` is now deprecated, use `@bunny-agent/sdk` instead
+  - SDK now exports AI Provider (`createBunny Agent`) and React hooks (`useBunny AgentChat`)
   - SDK re-exports `LocalSandbox` for convenience
-  - Updated all documentation to use `@sandagent/sdk`
+  - Updated all documentation to use `@bunny-agent/sdk`
 
 ## 0.1.2-beta.4
 
@@ -384,6 +384,6 @@
 
 ### Patch Changes
 
-- 56ff91a: - Merge sandbox-local package into @sandagent/manager as built-in LocalSandbox
+- 56ff91a: - Merge sandbox-local package into @bunny-agent/manager as built-in LocalSandbox
   - Remove unused agentTemplate option from all sandbox adapters (E2B, Sandock, Daytona)
   - Fix kui component exports

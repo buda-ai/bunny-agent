@@ -70,7 +70,7 @@ export interface UseWriteToolReturn {
  *
  * @example
  * ```tsx
- * import { useWriteTool } from "@sandagent/sdk/react";
+ * import { useWriteTool } from "@bunny-agent/sdk/react";
  *
  * function WriteToolUI({ part }) {
  *   const {

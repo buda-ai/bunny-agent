@@ -18,7 +18,7 @@ describe("runner-cli Integration Tests", () => {
     async () => {
       const output = await runCLI(["--help"]);
 
-      expect(output.stdout).toContain("SandAgent Runner CLI");
+      expect(output.stdout).toContain("BunnyAgent Runner CLI");
       expect(output.stdout).toContain("run");
       expect(output.stdout).toContain("image build");
       expect(output.exitCode).toBe(0);
@@ -31,7 +31,7 @@ describe("runner-cli Integration Tests", () => {
     async () => {
       const output = await runCLI(["run", "--help"]);
 
-      expect(output.stdout).toContain("SandAgent Runner CLI");
+      expect(output.stdout).toContain("BunnyAgent Runner CLI");
       expect(output.stdout).toContain("--runner");
       expect(output.stdout).toContain("--model");
       expect(output.exitCode).toBe(0);

@@ -16,11 +16,11 @@ The Pi runner now uses pi-coding-agent's **AgentSession** and **SessionManager**
 
 ### packages/sdk
 
-- **sandagent-language-model.ts**: Store and expose **sessionFile** from stream `message-metadata`; include **sessionFile** in **providerMetadata.sandagent** (text-start and finish) so the UI can use it for resume.
-- **useSandAgentChat**: **getResumeFromMessage** now prefers **sessionFile** when present (for Pi), otherwise **sessionId**; the **resume** value sent in the request body is this so the Pi runner receives the session file path for resume.
+- **bunny-agent-language-model.ts**: Store and expose **sessionFile** from stream `message-metadata`; include **sessionFile** in **providerMetadata.bunny-agent** (text-start and finish) so the UI can use it for resume.
+- **useBunny AgentChat**: **getResumeFromMessage** now prefers **sessionFile** when present (for Pi), otherwise **sessionId**; the **resume** value sent in the request body is this so the Pi runner receives the session file path for resume.
 
 ## Behavior
 
 - **First run (no resume)**: SessionManager.continueRecent(cwd) creates or continues the most recent session in the default dir for that cwd. Session is persisted to `~/.pi/...`.
-- **Resume**: Client sends **resume: sessionFile** (from previous message’s providerMetadata.sandagent.sessionFile). Runner calls SessionManager.open(resume) and continues that session.
+- **Resume**: Client sends **resume: sessionFile** (from previous message’s providerMetadata.bunny-agent.sessionFile). Runner calls SessionManager.open(resume) and continues that session.
 - **Multi-turn**: Each request runs in the same session (same file) when resume is used; the agent sees full history via SessionManager/buildSessionContext.

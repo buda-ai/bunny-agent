@@ -1,20 +1,20 @@
 # Publishing npm Packages
 
-How to version and publish SandAgent packages to npm.
+How to version and publish Bunny Agent packages to npm.
 
 ---
 
 ## Published Packages
 
-The following packages are published to npm under the `@sandagent` scope and form a **fixed release group** — they are always versioned and published together.
+The following packages are published to npm under the `@bunny-agent` scope and form a **fixed release group** — they are always versioned and published together.
 
 | Package | Description |
 |---------|-------------|
-| `@sandagent/sdk` | Next.js / framework SDK |
-| `@sandagent/manager` | Core orchestration & interfaces |
-| `@sandagent/sandbox-sandock` | Sandock sandbox adapter |
-| `@sandagent/runner-cli` | Universal agent runner CLI |
-| `@sandagent/daemon` | Unified API gateway for sandbox services |
+| `@bunny-agent/sdk` | Next.js / framework SDK |
+| `@bunny-agent/manager` | Core orchestration & interfaces |
+| `@bunny-agent/sandbox-sandock` | Sandock sandbox adapter |
+| `@bunny-agent/runner-cli` | Universal agent runner CLI |
+| `@bunny-agent/daemon` | Unified API gateway for sandbox services |
 
 ---
 
@@ -123,7 +123,7 @@ The CI workflow also falls back to `NODE_AUTH_TOKEN` or `NPM_PUBLISH_TOKEN` if `
 
 To generate a token:
 
-1. Log in to [npmjs.com](https://www.npmjs.com) as the `@sandagent` org admin.
+1. Log in to [npmjs.com](https://www.npmjs.com) as the `@bunny-agent` org admin.
 2. Go to **Access Tokens → Generate New Token → Automation**.
 3. Add it as a repository secret named `NPM_TOKEN` in **Settings → Secrets → Actions**.
 
@@ -134,8 +134,8 @@ To generate a token:
 After the workflow runs, check that the new version appears on npm:
 
 ```bash
-npm view @sandagent/sdk versions --json
-npm view @sandagent/manager versions --json
+npm view @bunny-agent/sdk versions --json
+npm view @bunny-agent/manager versions --json
 ```
 
 Or check the **Actions** tab in GitHub for the workflow run logs.
@@ -152,9 +152,9 @@ Or check the **Actions** tab in GitHub for the workflow run logs.
 {
   "fixed": [
     [
-      "@sandagent/manager",
-      "@sandagent/sdk",
-      "@sandagent/your-new-package"
+      "@bunny-agent/manager",
+      "@bunny-agent/sdk",
+      "@bunny-agent/your-new-package"
     ]
   ]
 }

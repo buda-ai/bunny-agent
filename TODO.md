@@ -1,17 +1,17 @@
-# SandAgent TODO List
+# Bunny Agent TODO List
 
-This document tracks remaining features and improvements needed to complete the SandAgent implementation.
+This document tracks remaining features and improvements needed to complete the Bunny Agent implementation.
 
 ## Priority 1: Core Functionality Gaps
 
 ### 1.1 JSONL Transcript Export (Roadmap Item)
-- [x] Add `TranscriptWriter` interface in `@sandagent/core`
+- [x] Add `TranscriptWriter` interface in `@bunny-agent/core`
 - [x] Add `JsonlTranscriptWriter` class for file output
 - [x] Add `MemoryTranscriptWriter` class for testing
 - [x] Add `ConsoleTranscriptWriter` class for debugging
 - [x] Add `MultiTranscriptWriter` for multiple outputs
 - [x] Include timestamps, message types, and full content
-- [x] Add `transcriptWriter` option to `SandAgent.stream()` options
+- [x] Add `transcriptWriter` option to `Bunny Agent.stream()` options
 - [x] Document transcript format in spec/DEBUGGING_GUIDE.md
 - [x] Add tests for transcript writers
 
@@ -43,8 +43,8 @@ This document tracks remaining features and improvements needed to complete the 
 - [ ] Add download endpoint example in Next.js app
 
 ### 2.3 Additional Agent Runtimes
-- [ ] Create `@sandagent/runner-openai` package (OpenAI Assistants API)
-- [ ] Create `@sandagent/runner-gemini` package (Google Gemini)
+- [ ] Create `@bunny-agent/runner-openai` package (OpenAI Assistants API)
+- [ ] Create `@bunny-agent/runner-gemini` package (Google Gemini)
 - [ ] Create runner interface/type for standardization
 - [ ] Update RunnerSpec to support multiple kinds
 
@@ -85,14 +85,14 @@ This document tracks remaining features and improvements needed to complete the 
 - [x] Create comprehensive README.md
 - [x] Create spec/TECHNICAL_SPEC.md
 - [x] Set up monorepo structure with pnpm workspaces
-- [x] Implement @sandagent/core package
-- [x] Implement @sandagent/cli package
-- [x] Implement @sandagent/sdk package
-- [x] Implement @sandagent/sandbox-sandock package
-- [x] Implement @sandagent/sandbox-e2b package
-- [x] Implement @sandagent/runner-claude package (with real SDK)
+- [x] Implement @bunny-agent/core package
+- [x] Implement @bunny-agent/cli package
+- [x] Implement @bunny-agent/sdk package
+- [x] Implement @bunny-agent/sandbox-sandock package
+- [x] Implement @bunny-agent/sandbox-e2b package
+- [x] Implement @bunny-agent/runner-claude package (with real SDK)
 - [x] Create example Next.js application
-- [x] Add @sandagent/benchmark package
+- [x] Add @bunny-agent/benchmark package
 - [x] Update AI SDK to v6 (beta version)
 - [x] Add vitest tests for all packages (77 tests)
 - [x] Add comprehensive documentation

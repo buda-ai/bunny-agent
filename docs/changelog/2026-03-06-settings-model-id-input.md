@@ -17,5 +17,5 @@ Added an optional **Model ID** field to the example app Settings page so users c
 ## Behavior
 
 - Model ID is stored in localStorage with the rest of the config and sent to `/api/ai` on each request.
-- If **Model ID** is set in Settings, that value is passed to `createSandAgent` / `streamText` as the model.
+- If **Model ID** is set in Settings, that value is passed to `createBunny Agent` / `streamText` as the model.
 - If left empty, the API continues to use the previous default logic.

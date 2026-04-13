@@ -4,7 +4,7 @@ import type {
   ExecOptions,
   SandboxAdapter,
   SandboxHandle,
-} from "@sandagent/manager";
+} from "@bunny-agent/manager";
 import { Sandbox, type SandboxInfo } from "e2b";
 
 /**
@@ -94,7 +94,7 @@ export class E2BSandbox implements SandboxAdapter {
   private static readonly DEFAULT_TIMEOUT_SEC = 3600;
 
   /** Custom template prefix - templates starting with this have pre-installed dependencies */
-  private static readonly CUSTOM_TEMPLATE_PREFIX = "sandagent";
+  private static readonly CUSTOM_TEMPLATE_PREFIX = "bunny-agent";
 
   constructor(options: E2BSandboxOptions = {}) {
     this.apiKey = options.apiKey ?? process.env.E2B_API_KEY;
@@ -111,13 +111,13 @@ export class E2BSandbox implements SandboxAdapter {
   private static readonly DEFAULT_TEMPLATES = ["base", "code-interpreter-v1"];
 
   /**
-   * Check if using a custom sandagent template with pre-installed dependencies.
+   * Check if using a custom bunny-agent template with pre-installed dependencies.
    * Custom templates either:
-   * - Start with "sandagent" prefix (alias)
+   * - Start with "bunny-agent" prefix (alias)
    * - Are not in the default templates list (template ID)
    */
   private isCustomTemplate(): boolean {
-    // If starts with sandagent prefix, it's definitely custom
+    // If starts with bunny-agent prefix, it's definitely custom
     if (this.template.startsWith(E2BSandbox.CUSTOM_TEMPLATE_PREFIX)) {
       return true;
     }
@@ -141,13 +141,13 @@ export class E2BSandbox implements SandboxAdapter {
 
   /**
    * Get the runner command to execute in the sandbox.
-   * Custom template uses image's sandagent; otherwise npm-installed runner-cli.
+   * Custom template uses image's bunny-agent; otherwise npm-installed runner-cli.
    */
   getRunnerCommand(): string[] {
     if (this.isCustomTemplate()) {
-      return ["sandagent", "run"];
+      return ["bunny-agent", "run"];
     }
-    return [`${this.workdir}/node_modules/.bin/sandagent`, "run"];
+    return [`${this.workdir}/node_modules/.bin/bunny-agent`, "run"];
   }
 
   /**
@@ -164,7 +164,7 @@ export class E2BSandbox implements SandboxAdapter {
         apiKey: this.apiKey,
         query: {
           metadata: {
-            sandagentName: name,
+            bunnyAgentName: name,
           },
         },
       });
@@ -271,7 +271,7 @@ export class E2BSandbox implements SandboxAdapter {
 
     // Add name to metadata if provided (for sandbox reuse)
     if (sandboxName) {
-      metadata.sandagentName = sandboxName;
+      metadata.bunnyAgentName = sandboxName;
     }
 
     console.log(
@@ -311,11 +311,11 @@ export class E2BSandbox implements SandboxAdapter {
       } catch {
         // Ignore permission errors
       }
-      // Copy template files from /opt/sandagent/templates if exists (similar to Daytona)
+      // Copy template files from /opt/bunny-agent/templates if exists (similar to Daytona)
       try {
         const copyTemplateResult = await handle.runCommand(
-          `if [ -d "/opt/sandagent/templates" ]; then ` +
-            `cp -r /opt/sandagent/templates/. ${this.workdir}/ 2>&1 && ` +
+          `if [ -d "/opt/bunny-agent/templates" ]; then ` +
+            `cp -r /opt/bunny-agent/templates/. ${this.workdir}/ 2>&1 && ` +
             `echo "Template files copied"; ` +
             `else echo "No templates in image"; fi`,
         );
@@ -337,22 +337,22 @@ export class E2BSandbox implements SandboxAdapter {
     } else {
       // Install runner-cli from npm (includes claude-agent-sdk)
       console.log(
-        `[E2B] Installing @sandagent/runner-cli@latest to ${this.workdir}`,
+        `[E2B] Installing @bunny-agent/runner-cli@latest to ${this.workdir}`,
       );
 
       const installResult = await handle.runCommand(
-        `cd ${this.workdir} && npm install @sandagent/runner-cli@latest`,
+        `cd ${this.workdir} && npm install @bunny-agent/runner-cli@latest`,
       );
       if (installResult.exitCode !== 0) {
         console.error(
           `[E2B] Failed to install runner-cli: ${installResult.stderr}`,
         );
         throw new Error(
-          `Failed to install @sandagent/runner-cli: ${installResult.stderr}`,
+          `Failed to install @bunny-agent/runner-cli: ${installResult.stderr}`,
         );
       }
       console.log(
-        `[E2B] Successfully installed @sandagent/runner-cli to ${this.workdir}`,
+        `[E2B] Successfully installed @bunny-agent/runner-cli to ${this.workdir}`,
       );
     }
 
@@ -501,7 +501,7 @@ class E2BHandle implements SandboxHandle {
       .join(" && ");
 
     // Wrap command to capture PID for potential termination
-    const pidFile = `/tmp/sandagent-${Date.now()}-${Math.random().toString(36).substring(7)}.pid`;
+    const pidFile = `/tmp/bunny-agent-${Date.now()}-${Math.random().toString(36).substring(7)}.pid`;
     const shellCommand = `(${envExports} && ${baseCommand}) & echo $! > ${pidFile}; wait $!; EXIT_CODE=$?; rm -f ${pidFile}; exit $EXIT_CODE`;
 
     // Debug: log environment variables being passed to sandbox

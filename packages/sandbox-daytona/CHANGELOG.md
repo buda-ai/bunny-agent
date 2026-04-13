@@ -1,77 +1,77 @@
-# @sandagent/sandbox-daytona
+# @bunny-agent/sandbox-daytona
 
 ## 0.9.27-beta.0
 
 ### Patch Changes
 
-- @sandagent/manager@0.9.27-beta.0
+- @bunny-agent/manager@0.9.27-beta.0
 
 ## 0.9.26-beta.0
 
 ### Patch Changes
 
-- @sandagent/manager@0.9.26-beta.0
+- @bunny-agent/manager@0.9.26-beta.0
 
 ## 0.9.19-beta.5
 
 ### Patch Changes
 
-- @sandagent/manager@0.9.19-beta.5
+- @bunny-agent/manager@0.9.19-beta.5
 
 ## 0.9.19-beta.4
 
 ### Patch Changes
 
-- @sandagent/manager@0.9.19-beta.4
+- @bunny-agent/manager@0.9.19-beta.4
 
 ## 0.9.19-beta.3
 
 ### Patch Changes
 
-- @sandagent/manager@0.9.19-beta.3
+- @bunny-agent/manager@0.9.19-beta.3
 
 ## 0.9.19-beta.2
 
 ### Patch Changes
 
-- @sandagent/manager@0.9.19-beta.2
+- @bunny-agent/manager@0.9.19-beta.2
 
 ## 0.9.16-beta.5
 
 ### Patch Changes
 
-- @sandagent/manager@0.9.16-beta.5
+- @bunny-agent/manager@0.9.16-beta.5
 
 ## 0.9.16-beta.4
 
 ### Patch Changes
 
-- @sandagent/manager@0.9.16-beta.4
+- @bunny-agent/manager@0.9.16-beta.4
 
 ## 0.9.16-beta.3
 
 ### Patch Changes
 
-- @sandagent/manager@0.9.16-beta.3
+- @bunny-agent/manager@0.9.16-beta.3
 
 ## 0.9.16-beta.2
 
 ### Patch Changes
 
-- @sandagent/manager@0.9.16-beta.2
+- @bunny-agent/manager@0.9.16-beta.2
 
 ## 0.9.16-beta.1
 
 ### Patch Changes
 
-- @sandagent/manager@0.9.16-beta.1
+- @bunny-agent/manager@0.9.16-beta.1
 
 ## 0.9.16-beta.0
 
 ### Patch Changes
 
 - Updated dependencies
-  - @sandagent/manager@0.9.16-beta.0
+  - @bunny-agent/manager@0.9.16-beta.0
 
 ## 0.9.12
 
@@ -79,7 +79,7 @@
 
 - Release v0.9.12
 - Updated dependencies
-  - @sandagent/manager@0.9.12
+  - @bunny-agent/manager@0.9.12
 
 ## 0.9.11
 
@@ -87,7 +87,7 @@
 
 - Release v0.9.12
 - Updated dependencies
-  - @sandagent/manager@0.9.11
+  - @bunny-agent/manager@0.9.11
 
 ## 0.9.10
 
@@ -95,34 +95,34 @@
 
 - Stable release; align fixed-group packages at `0.9.10`.
 - Updated dependencies
-  - @sandagent/manager@0.9.10
+  - @bunny-agent/manager@0.9.10
 
 ## 0.9.9-beta.3
 
 ### Patch Changes
 
 - Updated dependencies
-  - @sandagent/manager@0.9.9-beta.3
+  - @bunny-agent/manager@0.9.9-beta.3
 
 ## 0.9.9-beta.2
 
 ### Patch Changes
 
-- @sandagent/manager@0.9.9-beta.2
+- @bunny-agent/manager@0.9.9-beta.2
 
 ## 0.9.9-beta.1
 
 ### Patch Changes
 
 - Updated dependencies
-  - @sandagent/manager@0.9.9-beta.1
+  - @bunny-agent/manager@0.9.9-beta.1
 
 ## 0.9.9-beta.0
 
 ### Patch Changes
 
 - Updated dependencies
-  - @sandagent/manager@0.9.9-beta.0
+  - @bunny-agent/manager@0.9.9-beta.0
 
 ## 0.9.9
 
@@ -130,7 +130,7 @@
 
 - Release v0.9.10
 - Updated dependencies
-  - @sandagent/manager@0.9.9
+  - @bunny-agent/manager@0.9.9
 
 ## 0.9.8
 
@@ -138,7 +138,7 @@
 
 - Release v0.9.8
 - Updated dependencies
-  - @sandagent/manager@0.9.8
+  - @bunny-agent/manager@0.9.8
 
 ## 0.9.7
 
@@ -146,7 +146,7 @@
 
 - Release v0.9.7
 - Updated dependencies
-  - @sandagent/manager@0.9.7
+  - @bunny-agent/manager@0.9.7
 
 ## 0.9.6
 
@@ -154,7 +154,7 @@
 
 - Release v0.9.6
 - Updated dependencies
-  - @sandagent/manager@0.9.6
+  - @bunny-agent/manager@0.9.6
 
 ## 0.9.5
 
@@ -162,7 +162,7 @@
 
 - Release v0.9.5
 - Updated dependencies
-  - @sandagent/manager@0.9.5
+  - @bunny-agent/manager@0.9.5
 
 ## 0.9.4
 
@@ -170,7 +170,7 @@
 
 - Release v0.9.4
 - Updated dependencies
-  - @sandagent/manager@0.9.4
+  - @bunny-agent/manager@0.9.4
 
 ## 0.9.3
 
@@ -178,7 +178,7 @@
 
 - Release v0.9.3
 - Updated dependencies
-  - @sandagent/manager@0.9.3
+  - @bunny-agent/manager@0.9.3
 
 ## 0.9.2
 
@@ -186,7 +186,7 @@
 
 - Release v0.9.2
 - Updated dependencies
-  - @sandagent/manager@0.9.2
+  - @bunny-agent/manager@0.9.2
 
 ## 0.9.1
 
@@ -194,7 +194,7 @@
 
 - Release v0.9.1
 - Updated dependencies
-  - @sandagent/manager@0.9.1
+  - @bunny-agent/manager@0.9.1
 
 ## 0.8.10
 
@@ -202,7 +202,7 @@
 
 - Release v0.9.0
 - Updated dependencies
-  - @sandagent/manager@0.8.10
+  - @bunny-agent/manager@0.8.10
 
 ## 0.8.9
 
@@ -210,7 +210,7 @@
 
 - Release v0.8.9
 - Updated dependencies
-  - @sandagent/manager@0.8.9
+  - @bunny-agent/manager@0.8.9
 
 ## 0.8.8
 
@@ -218,7 +218,7 @@
 
 - Release v0.8.8
 - Updated dependencies
-  - @sandagent/manager@0.8.8
+  - @bunny-agent/manager@0.8.8
 
 ## 0.8.7
 
@@ -226,7 +226,7 @@
 
 - Release v0.8.7
 - Updated dependencies
-  - @sandagent/manager@0.8.7
+  - @bunny-agent/manager@0.8.7
 
 ## 0.8.6
 
@@ -234,7 +234,7 @@
 
 - Release v0.8.6
 - Updated dependencies
-  - @sandagent/manager@0.8.6
+  - @bunny-agent/manager@0.8.6
 
 ## 0.8.5
 
@@ -242,7 +242,7 @@
 
 - Release v0.8.5
 - Updated dependencies
-  - @sandagent/manager@0.8.5
+  - @bunny-agent/manager@0.8.5
 
 ## 0.8.4
 
@@ -250,7 +250,7 @@
 
 - Release v0.8.4
 - Updated dependencies
-  - @sandagent/manager@0.8.4
+  - @bunny-agent/manager@0.8.4
 
 ## 0.8.3
 
@@ -258,7 +258,7 @@
 
 - Release v0.8.3
 - Updated dependencies
-  - @sandagent/manager@0.8.3
+  - @bunny-agent/manager@0.8.3
 
 ## 0.8.2
 
@@ -266,14 +266,14 @@
 
 - Release v0.8.2
 - Updated dependencies
-  - @sandagent/manager@0.8.2
+  - @bunny-agent/manager@0.8.2
 
 ## 0.8.1
 
 ### Patch Changes
 
 - Updated dependencies
-  - @sandagent/manager@0.8.1
+  - @bunny-agent/manager@0.8.1
 
 ## 0.8.0
 
@@ -284,13 +284,13 @@
 ### Patch Changes
 
 - Updated dependencies
-  - @sandagent/manager@0.8.0
+  - @bunny-agent/manager@0.8.0
 
 ## 0.7.6
 
 ### Patch Changes
 
-- @sandagent/manager@0.7.6
+- @bunny-agent/manager@0.7.6
 
 ## 0.7.5
 
@@ -298,7 +298,7 @@
 
 - Prepare coordinated release update toward `0.7.5`.
 - Updated dependencies
-  - @sandagent/manager@0.7.5
+  - @bunny-agent/manager@0.7.5
 
 ## 0.7.2
 
@@ -306,7 +306,7 @@
 
 - Prepare patch release `0.7.2`.
 - Updated dependencies
-  - @sandagent/manager@0.7.2
+  - @bunny-agent/manager@0.7.2
 
 ## 0.7.1
 
@@ -314,7 +314,7 @@
 
 - Prepare stable patch release `0.7.1`.
 - Updated dependencies
-  - @sandagent/manager@0.7.1
+  - @bunny-agent/manager@0.7.1
 
 ## 0.7.0
 
@@ -325,14 +325,14 @@
 ### Patch Changes
 
 - Updated dependencies
-  - @sandagent/manager@0.7.0
+  - @bunny-agent/manager@0.7.0
 
 ## 0.6.3
 
 ### Patch Changes
 
 - Updated dependencies
-  - @sandagent/manager@0.6.3
+  - @bunny-agent/manager@0.6.3
 
 ## 0.6.2
 
@@ -340,7 +340,7 @@
 
 - Version bump to 0.6.2
 - Updated dependencies
-  - @sandagent/manager@0.6.2
+  - @bunny-agent/manager@0.6.2
 
 ## 0.6.0
 
@@ -348,48 +348,48 @@
 
 - Updated dependencies
 - Updated dependencies [5086df7]
-  - @sandagent/manager@0.6.0
+  - @bunny-agent/manager@0.6.0
 
 ## 0.2.21
 
 ### Patch Changes
 
 - Updated dependencies
-  - @sandagent/manager@0.2.21
+  - @bunny-agent/manager@0.2.21
 
 ## 0.2.20
 
 ### Patch Changes
 
 - Updated dependencies
-  - @sandagent/manager@0.2.20
+  - @bunny-agent/manager@0.2.20
 
 ## 0.2.19
 
 ### Patch Changes
 
-- @sandagent/manager@0.2.19
+- @bunny-agent/manager@0.2.19
 
 ## 0.2.18
 
 ### Patch Changes
 
 - Updated dependencies
-  - @sandagent/manager@0.2.18
+  - @bunny-agent/manager@0.2.18
 
 ## 0.2.17
 
 ### Patch Changes
 
 - Updated dependencies
-  - @sandagent/manager@0.2.17
+  - @bunny-agent/manager@0.2.17
 
 ## 0.2.16
 
 ### Patch Changes
 
 - Updated dependencies
-  - @sandagent/manager@0.2.16
+  - @bunny-agent/manager@0.2.16
 
 ## 0.2.15
 
@@ -397,7 +397,7 @@
 
 - fix: only attach to RUNNING sandboxes in tryAttachExisting, skip start call
 - Updated dependencies
-  - @sandagent/manager@0.2.15
+  - @bunny-agent/manager@0.2.15
 
 ## 0.2.14
 
@@ -405,7 +405,7 @@
 
 - Fix sandbox reattach volumes, stream auth errors to frontend, add sandbox ID caching (30-min TTL), add maxLifetimeSeconds option, incremental debug tracing, upgrade sandock to 2.2.4.
 - Updated dependencies
-  - @sandagent/manager@0.2.14
+  - @bunny-agent/manager@0.2.14
 
 ## 0.2.13
 
@@ -413,7 +413,7 @@
 
 - Fix sandbox reattach volumes, stream auth errors to frontend, add sandbox ID caching with 30-min TTL, update reuse docs.
 - Updated dependencies
-  - @sandagent/manager@0.2.13
+  - @bunny-agent/manager@0.2.13
 
 ## 0.2.12
 
@@ -421,22 +421,22 @@
 
 - refactor: unify sandboxId and volumes on SandboxHandle interface; add getSandboxId() and getVolumes() to all sandbox adapters (sandock, daytona, e2b, local); support attaching to existing sandbox by id in SandockSandbox; add Volume type to manager; add extraBody option to useAskUserQuestion; change runner-cli install from @beta to @latest
 - Updated dependencies
-  - @sandagent/manager@0.2.12
+  - @bunny-agent/manager@0.2.12
 
 ## 0.2.11
 
 ### Patch Changes
 
-- - Fix: update changeset ignore list (use @sandagent/web instead of removed @sandagent/example)
+- - Fix: update changeset ignore list (use @bunny-agent/web instead of removed @bunny-agent/example)
 - Updated dependencies
-  - @sandagent/manager@0.2.11
+  - @bunny-agent/manager@0.2.11
 
 ## 0.2.10
 
 ### Patch Changes
 
 - Updated dependencies
-  - @sandagent/manager@0.2.10
+  - @bunny-agent/manager@0.2.10
 
 ## 0.2.9
 
@@ -444,7 +444,7 @@
 
 - question handler
 - Updated dependencies
-  - @sandagent/manager@0.2.9
+  - @bunny-agent/manager@0.2.9
 
 ## 0.2.8
 
@@ -452,14 +452,14 @@
 
 - add detail quickstart
 - Updated dependencies
-  - @sandagent/manager@0.2.8
+  - @bunny-agent/manager@0.2.8
 
 ## 0.2.7
 
 ### Patch Changes
 
 - Updated dependencies
-  - @sandagent/manager@0.2.7
+  - @bunny-agent/manager@0.2.7
 
 ## 0.2.5
 
@@ -467,7 +467,7 @@
 
 - AskUserQuestion refactor: submitAnswer API, /api/answer route, docs reorg (quick start + approval file).
 - Updated dependencies
-  - @sandagent/manager@0.2.5
+  - @bunny-agent/manager@0.2.5
 
 ## 0.2.4
 
@@ -475,14 +475,14 @@
 
 - refactor provider
 - Updated dependencies
-  - @sandagent/manager@0.2.4
+  - @bunny-agent/manager@0.2.4
 
 ## 0.2.3
 
 ### Patch Changes
 
 - Updated dependencies
-  - @sandagent/manager@0.2.3
+  - @bunny-agent/manager@0.2.3
 
 ## 0.2.2
 
@@ -490,7 +490,7 @@
 
 - 3a602d4: local-sandbox change
 - Updated dependencies [3a602d4]
-  - @sandagent/manager@0.2.2
+  - @bunny-agent/manager@0.2.2
 
 ## 0.2.1
 
@@ -498,47 +498,47 @@
 
 - Fix sandbox isolation and workdir handling
 - Updated dependencies
-  - @sandagent/manager@0.2.1
+  - @bunny-agent/manager@0.2.1
 
 ## 0.2.1-beta.0
 
 ### Patch Changes
 
 - Updated dependencies
-  - @sandagent/manager@0.2.1-beta.0
+  - @bunny-agent/manager@0.2.1-beta.0
 
 ## 0.2.0
 
 ### Patch Changes
 
-- @sandagent/manager@0.2.0
+- @bunny-agent/manager@0.2.0
 
 ## 0.2.0-beta.5
 
 ### Patch Changes
 
-- Merge @sandagent/ai-provider into @sandagent/sdk
+- Merge @bunny-agent/ai-provider into @bunny-agent/sdk
 
-  - **BREAKING**: `@sandagent/ai-provider` is now deprecated, use `@sandagent/sdk` instead
-  - SDK now exports AI Provider (`createSandAgent`) and React hooks (`useSandAgentChat`)
+  - **BREAKING**: `@bunny-agent/ai-provider` is now deprecated, use `@bunny-agent/sdk` instead
+  - SDK now exports AI Provider (`createBunny Agent`) and React hooks (`useBunny AgentChat`)
   - SDK re-exports `LocalSandbox` for convenience
-  - Updated all documentation to use `@sandagent/sdk`
+  - Updated all documentation to use `@bunny-agent/sdk`
 
 - Updated dependencies
-  - @sandagent/manager@0.2.0-beta.5
+  - @bunny-agent/manager@0.2.0-beta.5
 
 ## 0.1.2-beta.4
 
 ### Patch Changes
 
-- @sandagent/manager@0.1.2-beta.4
+- @bunny-agent/manager@0.1.2-beta.4
 
 ## 0.1.2-beta.3
 
 ### Patch Changes
 
-- 56ff91a: - Merge sandbox-local package into @sandagent/manager as built-in LocalSandbox
+- 56ff91a: - Merge sandbox-local package into @bunny-agent/manager as built-in LocalSandbox
   - Remove unused agentTemplate option from all sandbox adapters (E2B, Sandock, Daytona)
   - Fix kui component exports
 - Updated dependencies [56ff91a]
-  - @sandagent/manager@0.1.2-beta.3
+  - @bunny-agent/manager@0.1.2-beta.3

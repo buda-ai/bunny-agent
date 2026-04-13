@@ -29,9 +29,9 @@ The following packages are published to npm:
 
 | Package | Description |
 |---------|-------------|
-| `@sandagent/core` | SandAgent lifecycle & sandbox binding |
-| `@sandagent/sdk` | Next.js server passthrough helpers |
-| `@sandagent/sandbox-sandock` | Sandock sandbox adapter |
-| `@sandagent/sandbox-e2b` | E2B sandbox adapter |
-| `@sandagent/runner-claude` | Claude Agent SDK runtime |
-| `@sandagent/benchmark` | GAIA benchmark runner |
+| `@bunny-agent/core` | Bunny Agent lifecycle & sandbox binding |
+| `@bunny-agent/sdk` | Next.js server passthrough helpers |
+| `@bunny-agent/sandbox-sandock` | Sandock sandbox adapter |
+| `@bunny-agent/sandbox-e2b` | E2B sandbox adapter |
+| `@bunny-agent/runner-claude` | Claude Agent SDK runtime |
+| `@bunny-agent/benchmark` | GAIA benchmark runner |

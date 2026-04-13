@@ -1,9 +1,9 @@
 import {
-  createSandAgent,
-  DEFAULT_SANDAGENT_DAEMON_URL,
+  createBunnyAgent,
+  DEFAULT_BUNNY_AGENT_DAEMON_URL,
   isSandagentDaemonHealthy,
-  type SandAgentProviderSettings,
-} from "@sandagent/sdk";
+  type BunnyAgentProviderSettings,
+} from "@bunny-agent/sdk";
 import {
   createUIMessageStream,
   createUIMessageStreamResponse,
@@ -23,7 +23,7 @@ import { DEFAULT_RUNNER, type RunnerType } from "@/lib/runner";
 /**
  * POST /api/ai
  *
- * Stream AI SDK UI messages from a SandAgent.
+ * Stream AI SDK UI messages from a BunnyAgent.
  * Sandbox is cached per chat (keyed by template) and released when the
  * stream finishes.
  */
@@ -54,19 +54,19 @@ export async function POST(request: Request) {
     BRAVE_API_KEY,
     TAVILY_API_KEY,
     /** When true, provider may pass `daemonUrl` after an in-sandbox `/healthz` probe; otherwise CLI runner. */
-    USE_SANDAGENT_DAEMON,
+    USE_BUNNY_AGENT_DAEMON,
   } = body;
 
   const useSandagentDaemon =
-    USE_SANDAGENT_DAEMON === true ||
-    USE_SANDAGENT_DAEMON === 1 ||
-    USE_SANDAGENT_DAEMON === "1" ||
-    USE_SANDAGENT_DAEMON === "true" ||
-    process.env.SANDAGENT_USE_DAEMON === "1";
+    USE_BUNNY_AGENT_DAEMON === true ||
+    USE_BUNNY_AGENT_DAEMON === 1 ||
+    USE_BUNNY_AGENT_DAEMON === "1" ||
+    USE_BUNNY_AGENT_DAEMON === "true" ||
+    process.env.BUNNY_AGENT_USE_DAEMON === "1";
 
   const signal = request.signal;
 
-  // Same logic as @sandagent/runner-claude hasClaudeAuth (supports Bedrock proxy)
+  // Same logic as @bunny-agent/runner-claude hasClaudeAuth (supports Bedrock proxy)
   const hasClaudeAuth =
     !!ANTHROPIC_API_KEY ||
     !!AWS_BEARER_TOKEN_BEDROCK ||
@@ -233,7 +233,7 @@ export async function POST(request: Request) {
     execute: async ({ writer }) => {
       const artifactProcessor = new TaskDrivenArtifactProcessor({
         sandbox,
-        workdir: sandbox.getWorkdir?.() || "/sandagent",
+        workdir: sandbox.getWorkdir?.() || "/bunny-agent",
         writer,
       });
 
@@ -242,33 +242,33 @@ export async function POST(request: Request) {
         const handle = await sandbox.attach();
         const daemonOk = await isSandagentDaemonHealthy(
           handle,
-          DEFAULT_SANDAGENT_DAEMON_URL,
+          DEFAULT_BUNNY_AGENT_DAEMON_URL,
           { cwd: handle.getWorkdir(), signal },
         );
         if (daemonOk) {
-          daemonUrl = DEFAULT_SANDAGENT_DAEMON_URL;
+          daemonUrl = DEFAULT_BUNNY_AGENT_DAEMON_URL;
         }
       }
 
-      const sandagentOptions: SandAgentProviderSettings = {
+      const bunnyAgentOptions: BunnyAgentProviderSettings = {
         sandbox,
         ...(daemonUrl ? { daemonUrl } : {}),
-        cwd: sandbox.getWorkdir?.() || "/sandagent",
+        cwd: sandbox.getWorkdir?.() || "/bunny-agent",
         runnerType,
         verbose: true,
         artifactProcessors: [artifactProcessor],
         resume,
         systemPrompt: "============test============",
-        // Passed to RunnerSpec via createSandAgent merge (not only sandagent(model, { skillPaths }))
+        // Passed to RunnerSpec via createBunnyAgent merge (not only bunny-agent(model, { skillPaths }))
         skillPaths: [
           "/Users/zhengxu/vika/kapps/apps/buda/agent-templates/system-skills",
           "/Users/zhengxu/vika/kapps/apps/buda/agent-templates/company-templates/entire-company/finance-agent/.agents/skills",
         ],
       };
-      const sandagent = createSandAgent(sandagentOptions);
+      const bunnyAgent = createBunnyAgent(bunnyAgentOptions);
 
       const result = streamText({
-        model: sandagent(model),
+        model: bunny-agent(model),
         messages: normalizedMessages,
         abortSignal: signal,
       });

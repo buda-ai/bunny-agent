@@ -5,11 +5,11 @@ import path from "node:path";
 import { createDaemon } from "./server.js";
 import { ensureDir } from "./utils.js";
 
-const host = process.env.SANDAGENT_DAEMON_HOST ?? "0.0.0.0";
-const port = Number(process.env.SANDAGENT_DAEMON_PORT ?? "3080");
-/** Writable default for local dev; Docker sets `SANDAGENT_ROOT` (e.g. `/workspace`). */
+const host = process.env.BUNNY_AGENT_DAEMON_HOST ?? "0.0.0.0";
+const port = Number(process.env.BUNNY_AGENT_DAEMON_PORT ?? "3080");
+/** Writable default for local dev; Docker sets `BUNNY_AGENT_ROOT` (e.g. `/workspace`). */
 const root =
-  process.env.SANDAGENT_ROOT ?? path.join(process.cwd(), ".sandagent-daemon");
+  process.env.BUNNY_AGENT_ROOT ?? path.join(process.cwd(), ".bunny-agent-daemon");
 
 // Safety net: never let the daemon crash on unhandled errors
 process.on("uncaughtException", (err) => {
@@ -23,7 +23,7 @@ async function main() {
   await ensureDir(root);
   const server = createDaemon({ host, port, root });
   server.listen(port, host, () => {
-    console.log(`sandagent-daemon listening on http://${host}:${port}`);
+    console.log(`bunny-agent-daemon listening on http://${host}:${port}`);
     console.log(`  root: ${root}`);
   });
 }

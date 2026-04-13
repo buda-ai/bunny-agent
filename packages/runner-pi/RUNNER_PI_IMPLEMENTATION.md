@@ -2,7 +2,7 @@
 
 ## ✅ Completed
 
-Successfully created `@sandagent/runner-pi` - a new runner implementation for SandAgent that uses the Pi agent framework.
+Successfully created `@bunny-agent/runner-pi` - a new runner implementation for Bunny Agent that uses the Pi agent framework.
 
 ### What Was Built
 
@@ -22,7 +22,7 @@ Successfully created `@sandagent/runner-pi` - a new runner implementation for Sa
 
 ```
 User Command:
-  npx sandagent run --runner pi -m "google:gemini-2.5-flash-lite-preview-06-17" -- "task"
+  npx bunny-agent run --runner pi -m "google:gemini-2.5-flash-lite-preview-06-17" -- "task"
                               ↓
 runner-cli (apps/runner-cli/src/cli.ts)
   - Parses --runner flag
@@ -86,18 +86,18 @@ cd apps/runner-cli && pnpm build
 
 # Test (requires valid GEMINI_API_KEY)
 export GEMINI_API_KEY="your-key"
-npx sandagent run --runner pi -m "google:gemini-2.5-flash-lite-preview-06-17" -- "Say hello"
+npx bunny-agent run --runner pi -m "google:gemini-2.5-flash-lite-preview-06-17" -- "Say hello"
 ```
 
 ### Files Modified
 
-1. `/home/kelly/Documents/projects/sandagent/packages/runner-pi/` (new)
+1. `/home/kelly/Documents/projects/bunny-agent/packages/runner-pi/` (new)
    - `package.json`
    - `tsconfig.json`
    - `src/pi-runner.ts`
    - `src/index.ts`
 
-2. `/home/kelly/Documents/projects/sandagent/apps/runner-cli/`
+2. `/home/kelly/Documents/projects/bunny-agent/apps/runner-cli/`
    - `package.json` - Added runner-pi dependency
    - `src/cli.ts` - Added "pi" to runner validation
    - `src/runner.ts` - Added Pi runner case
@@ -107,7 +107,7 @@ npx sandagent run --runner pi -m "google:gemini-2.5-flash-lite-preview-06-17" --
 1. **Add Tools**: Pi Agent supports custom tools - can add file operations, bash, etc.
 2. **Add MCP Support**: Pi supports Model Context Protocol
 3. **Add More Providers**: Pi supports OpenAI, Anthropic, Azure, etc.
-4. **Documentation**: Add Pi runner docs to SandAgent website
+4. **Documentation**: Add Pi runner docs to Bunny Agent website
 5. **Tests**: Add unit tests for Pi runner
 
 ### Comparison: Pi vs Claude vs Gemini CLI
@@ -126,17 +126,17 @@ npx sandagent run --runner pi -m "google:gemini-2.5-flash-lite-preview-06-17" --
 
 1. **Multi-provider**: Supports Google, OpenAI, Anthropic, Azure, etc.
 2. **Clean API**: Simple Agent class with event system
-3. **TypeScript**: Easy to integrate with SandAgent
+3. **TypeScript**: Easy to integrate with Bunny Agent
 4. **MIT License**: Fully open source
 5. **Modular**: Separate packages for AI, agent, TUI
 6. **Active Development**: Regular updates from author
 
 ### Conclusion
 
-Pi runner is now fully integrated into SandAgent's runner-cli. Users can choose between:
+Pi runner is now fully integrated into Bunny Agent's runner-cli. Users can choose between:
 - `--runner claude` - Anthropic Claude (official SDK)
 - `--runner pi` - Multi-provider (Google, OpenAI, Anthropic, etc.)
 - `--runner codex` - OpenAI Codex (planned)
 - `--runner copilot` - GitHub Copilot (planned)
 
-This demonstrates SandAgent's pluggable architecture and ability to support multiple agent runtimes.
+This demonstrates Bunny Agent's pluggable architecture and ability to support multiple agent runtimes.
