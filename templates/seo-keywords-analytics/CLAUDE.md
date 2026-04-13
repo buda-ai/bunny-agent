@@ -37,20 +37,20 @@ A unified skill that combines GSC data analysis and keyword mining:
 **MANDATORY WORKFLOW**: When user asks for keyword analysis, you MUST invoke the `keyword-mining` skill FIRST. Do NOT directly call MCP tools.
 
 **Trigger Keywords** - Use skill when user asks:
-- "分析关键词" / "analyze keywords"
-- "关键词情况" / "keyword situation"
-- "挖掘关键词" / "mine keywords"
-- "GSC分析" / "GSC analysis"
-- "搜索表现" / "search performance"
+- "analyze keywords" / "keyword analysis"
+- "keyword situation" / "keyword status"
+- "mine keywords" / "keyword research"
+- "GSC analysis" / "search console analysis"
+- "search performance" / "search analytics"
 - Or any request about keyword research, analysis, or mining
 
 **Correct Workflow**:
-1. User: "帮我分析bika.ai的关键词情况"
+1. User: "Analyze the keywords for bika.ai"
 2. Agent: Invoke `keyword-mining` skill with the user's request
 3. Skill: Handles data fetching (with proper 14-day default), analysis, and reporting
 
 **INCORRECT Workflow** (what's happening now):
-1. User: "帮我分析bika.ai的关键词情况"
+1. User: "Analyze the keywords for bika.ai"
 2. Agent: Directly calls `gsc_search_analytics` MCP tool ❌
 3. Result: Skill settings (time range, analysis depth) are bypassed
 

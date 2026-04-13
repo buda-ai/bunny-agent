@@ -1,5 +1,5 @@
 import type * as http from "node:http";
-import { createRunner } from "@sandagent/runner-core";
+import { createRunner } from "@sandagent/runner-harness";
 
 export interface RunRequest {
   runner?: string;

@@ -1,0 +1,23 @@
+{
+  "name": "bunny-agent",
+  "version": "0.1.0",
+  "description": "Bunny Agent — The harness-ready pi coding agent",
+  "type": "module",
+  "bin": {
+    "bunny": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "node --import tsx/esm src/index.ts"
+  },
+  "dependencies": {
+    "@mariozechner/pi-coding-agent": "0.66.1",
+    "@sandagent/runner-harness": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "tsup": "^8.4.0",
+    "tsx": "^4.19.3",
+    "typescript": "^5.9.0"
+  }
+}

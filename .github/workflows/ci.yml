@@ -33,7 +33,7 @@ jobs:
         run: pnpm typecheck
 
       - name: Lint
-        run: pnpm biome check .
+        run: pnpm run -w lint
 
       - name: Test
         run: pnpm test
