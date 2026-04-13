@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+import { mkdirSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 /**
  * bunny-bench — Bunny Agent benchmark CLI
  *
@@ -6,9 +9,6 @@
  *   bunny-bench [--dataset smoking] [--model <model>] [--runner <cmd>] [--cwd <path>] [--id <task-id>]
  */
 import chalk from "chalk";
-import { mkdirSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { DATASETS } from "./datasets.js";
 import { failedTaskIds, loadLedger, updateLedger } from "./ledger.js";
 import { runTask } from "./runner.js";
@@ -23,7 +23,9 @@ function flag(name: string, def = ""): string {
   const i = args.indexOf(name);
   return i !== -1 && args[i + 1] ? args[i + 1] : def;
 }
-function has(name: string) { return args.includes(name); }
+function has(name: string) {
+  return args.includes(name);
+}
 
 if (has("--help") || has("-h")) {
   console.log(`
@@ -66,8 +68,9 @@ Requires: pip install datasets  |  Docker required for tblite-* datasets
 
 const datasetName = flag("--dataset", "smoking");
 const model = flag("--model") || undefined;
-const runner = flag("--runner",
-  `node ${new URL("../../bunny-agent-tui/dist/index.js", import.meta.url).pathname} --model openai-compatible/gemini-3.1-pro --print`
+const runner = flag(
+  "--runner",
+  `node ${new URL("../../bunny-agent-tui/dist/index.js", import.meta.url).pathname} --model openai-compatible/gemini-3.1-pro --print`,
 );
 const taskId = flag("--id") || undefined;
 const limitStr = flag("--limit") || undefined;
@@ -76,7 +79,9 @@ const onlyFailed = has("--only-failed");
 
 const dataset = DATASETS[datasetName];
 if (!dataset) {
-  console.error(`Unknown dataset: ${datasetName}. Available: ${Object.keys(DATASETS).join(", ")}`);
+  console.error(
+    `Unknown dataset: ${datasetName}. Available: ${Object.keys(DATASETS).join(", ")}`,
+  );
   process.exit(1);
 }
 
@@ -94,11 +99,17 @@ if (onlyFailed && !taskId) {
   const ledger = loadLedger(outDir, datasetName);
   const failedIds = failedTaskIds(ledger);
   if (failedIds === null) {
-    console.log(chalk.dim("  No ledger found — running full dataset to build history.\n"));
+    console.log(
+      chalk.dim("  No ledger found — running full dataset to build history.\n"),
+    );
   } else {
     const before = tasks.length;
     tasks = tasks.filter((t) => failedIds.has(t.id));
-    console.log(chalk.dim(`  --only-failed: ${tasks.length} unsolved / ${before} total tasks\n`));
+    console.log(
+      chalk.dim(
+        `  --only-failed: ${tasks.length} unsolved / ${before} total tasks\n`,
+      ),
+    );
   }
 }
 
@@ -108,7 +119,11 @@ if (limit && limit > 0 && !taskId) {
 }
 
 if (tasks.length === 0) {
-  console.log(chalk.green("  ✓ All tasks in this dataset have been solved! Nothing to run.\n"));
+  console.log(
+    chalk.green(
+      "  ✓ All tasks in this dataset have been solved! Nothing to run.\n",
+    ),
+  );
   process.exit(0);
 }
 
@@ -117,8 +132,15 @@ if (tasks.length === 0) {
 // ---------------------------------------------------------------------------
 
 console.log(chalk.bold.cyan("\n🐰 bunny-bench"));
-console.log(chalk.dim(`dataset: ${datasetName}  runner: ${runner}${model ? `  model: ${model}` : ""}  cwd: ${cwd}`));
-if (onlyFailed) console.log(chalk.dim("  mode: only-failed (skipping previously solved tasks)"));
+console.log(
+  chalk.dim(
+    `dataset: ${datasetName}  runner: ${runner}${model ? `  model: ${model}` : ""}  cwd: ${cwd}`,
+  ),
+);
+if (onlyFailed)
+  console.log(
+    chalk.dim("  mode: only-failed (skipping previously solved tasks)"),
+  );
 console.log(chalk.dim("─".repeat(60)));
 
 const start = Date.now();
@@ -152,17 +174,24 @@ const passRate = (passed / total) * 100;
 const duration = Date.now() - start;
 
 const summary: RunSummary = {
-  runner, model, dataset: datasetName,
-  total, passed, failed: total - passed,
-  passRate, durationMs: duration, results,
+  runner,
+  model,
+  dataset: datasetName,
+  total,
+  passed,
+  failed: total - passed,
+  passRate,
+  durationMs: duration,
+  results,
 };
 
 console.log(chalk.dim("─".repeat(60)));
-const color = passRate === 100 ? chalk.green : passRate >= 50 ? chalk.yellow : chalk.red;
+const color =
+  passRate === 100 ? chalk.green : passRate >= 50 ? chalk.yellow : chalk.red;
 console.log(
   `  ${color.bold(`${passed}/${total}`)} passed  ` +
-  color(`${passRate.toFixed(0)}%`) +
-  chalk.dim(`  ${(duration / 1000).toFixed(1)}s\n`),
+    color(`${passRate.toFixed(0)}%`) +
+    chalk.dim(`  ${(duration / 1000).toFixed(1)}s\n`),
 );
 
 // Category breakdown
@@ -183,15 +212,24 @@ console.log();
 // Update ledger (wrong-answer book)
 const ledger = updateLedger(outDir, datasetName, results);
 const totalInLedger = Object.keys(ledger).length;
-const solvedInLedger = Object.values(ledger).filter((e) => e.passCount > 0).length;
-console.log(chalk.dim(`  Ledger: ${solvedInLedger}/${totalInLedger} tasks ever solved → ${join(outDir, `${datasetName}-ledger.json`)}`));
+const solvedInLedger = Object.values(ledger).filter(
+  (e) => e.passCount > 0,
+).length;
+console.log(
+  chalk.dim(
+    `  Ledger: ${solvedInLedger}/${totalInLedger} tasks ever solved → ${join(outDir, `${datasetName}-ledger.json`)}`,
+  ),
+);
 
 // Save run results — serialize RegExp expected as string, add failed details
 const serializableResults = results.map((r) => ({
   ...r,
   task: {
     ...r.task,
-    expected: r.task.expected instanceof RegExp ? r.task.expected.toString() : r.task.expected,
+    expected:
+      r.task.expected instanceof RegExp
+        ? r.task.expected.toString()
+        : r.task.expected,
   },
 }));
 
@@ -208,7 +246,14 @@ const failedDetails = results
   }));
 
 const outFile = join(outDir, `${datasetName}-${Date.now()}.json`);
-writeFileSync(outFile, JSON.stringify({ ...summary, results: serializableResults, failedDetails }, null, 2));
+writeFileSync(
+  outFile,
+  JSON.stringify(
+    { ...summary, results: serializableResults, failedDetails },
+    null,
+    2,
+  ),
+);
 console.log(chalk.dim(`  Results saved: ${outFile}\n`));
 
 process.exit(passed === total ? 0 : 1);

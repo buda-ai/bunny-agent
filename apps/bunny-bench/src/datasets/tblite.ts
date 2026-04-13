@@ -1,6 +1,6 @@
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { execSync, spawnSync } from "node:child_process";
 import type { Task } from "../types.js";
 
 interface TBLiteRow {
@@ -22,7 +22,8 @@ function loadTBLiteData(): TBLiteRow[] {
     join(new URL("../data/tblite.json", import.meta.url).pathname),
   ];
   for (const p of candidates) {
-    if (existsSync(p)) return JSON.parse(readFileSync(p, "utf8")) as TBLiteRow[];
+    if (existsSync(p))
+      return JSON.parse(readFileSync(p, "utf8")) as TBLiteRow[];
   }
   throw new Error(
     "TBLite data not found. Run: python scripts/download-datasets.py --datasets tblite\n" +
@@ -38,7 +39,9 @@ const DIFFICULTY_TIMEOUT: Record<string, number> = {
   expert: 1200_000,
 };
 
-export function loadTBLiteTasks(opts: { difficulties?: string[]; limit?: number } = {}): Task[] {
+export function loadTBLiteTasks(
+  opts: { difficulties?: string[]; limit?: number } = {},
+): Task[] {
   const rows = loadTBLiteData();
   let filtered = rows;
   if (opts.difficulties) {
@@ -47,23 +50,27 @@ export function loadTBLiteTasks(opts: { difficulties?: string[]; limit?: number 
   }
   if (opts.limit) filtered = filtered.slice(0, opts.limit);
 
-  return filtered.map((r): Task => ({
-    id: `tblite-${r.task_name}`,
-    name: r.task_name,
-    // Prompt wraps original instruction with Docker exec context.
-    // The bunny-bench runner starts the container before invoking the agent;
-    // the container name is injected here.
-    prompt: r.instruction,
-    // Pass/fail is determined by test_sh, not by string matching.
-    // We use a sentinel that the Docker runner replaces with the actual result.
-    expected: /TBLITE_PASS/,
-    category: "tool:code",
-    timeoutMs: DIFFICULTY_TIMEOUT[r.difficulty.toLowerCase()] ?? 600_000,
-  }));
+  return filtered.map(
+    (r): Task => ({
+      id: `tblite-${r.task_name}`,
+      name: r.task_name,
+      // Prompt wraps original instruction with Docker exec context.
+      // The bunny-bench runner starts the container before invoking the agent;
+      // the container name is injected here.
+      prompt: r.instruction,
+      // Pass/fail is determined by test_sh, not by string matching.
+      // We use a sentinel that the Docker runner replaces with the actual result.
+      expected: /TBLITE_PASS/,
+      category: "tool:code",
+      timeoutMs: DIFFICULTY_TIMEOUT[r.difficulty.toLowerCase()] ?? 600_000,
+    }),
+  );
 }
 
 export const TBLITE_EASY: Task[] = loadTBLiteTasks({ difficulties: ["easy"] });
-export const TBLITE_MEDIUM: Task[] = loadTBLiteTasks({ difficulties: ["medium"] });
+export const TBLITE_MEDIUM: Task[] = loadTBLiteTasks({
+  difficulties: ["medium"],
+});
 export const TBLITE_ALL: Task[] = loadTBLiteTasks();
 
 // ---------------------------------------------------------------------------
@@ -92,10 +99,17 @@ export interface TBLiteResult {
  * 4. Upload tests_tar and run test_sh inside the container
  * 5. Read /logs/verifier/reward.txt to determine pass/fail
  */
-export async function runTBLiteTask(opts: TBLiteRunnerOpts): Promise<TBLiteResult> {
+export async function runTBLiteTask(
+  opts: TBLiteRunnerOpts,
+): Promise<TBLiteResult> {
   const rows = loadTBLiteData();
   const row = rows.find((r) => r.task_name === opts.taskName);
-  if (!row) return { passed: false, output: "", error: `Task not found: ${opts.taskName}` };
+  if (!row)
+    return {
+      passed: false,
+      output: "",
+      error: `Task not found: ${opts.taskName}`,
+    };
 
   const containerName = `bunny-tblite-${row.task_name}-${Date.now()}`;
   const workdir = opts.taskCwd ?? `/tmp/bunny-tblite/${row.task_name}`;
@@ -105,21 +119,42 @@ export async function runTBLiteTask(opts: TBLiteRunnerOpts): Promise<TBLiteResul
     // 1. Start container detached
     const startResult = spawnSync(
       "docker",
-      ["run", "-d", "--name", containerName, "--rm", row.docker_image, "sleep", "3600"],
+      [
+        "run",
+        "-d",
+        "--name",
+        containerName,
+        "--rm",
+        row.docker_image,
+        "sleep",
+        "3600",
+      ],
       { encoding: "utf8" },
     );
     if (startResult.status !== 0) {
-      return { passed: false, output: "", error: `docker run failed: ${startResult.stderr}` };
+      return {
+        passed: false,
+        output: "",
+        error: `docker run failed: ${startResult.stderr}`,
+      };
     }
 
     // 2. Extract environment_tar into container (if present)
     if (row.environment_tar) {
       const tarPath = join(workdir, "env.tar.gz");
       writeFileSync(tarPath, Buffer.from(row.environment_tar, "base64"));
-      spawnSync("docker", ["cp", tarPath, `${containerName}:/tmp/env.tar.gz`], { encoding: "utf8" });
+      spawnSync("docker", ["cp", tarPath, `${containerName}:/tmp/env.tar.gz`], {
+        encoding: "utf8",
+      });
       spawnSync(
         "docker",
-        ["exec", containerName, "bash", "-c", "cd /tmp && tar xzf env.tar.gz 2>/dev/null; true"],
+        [
+          "exec",
+          containerName,
+          "bash",
+          "-c",
+          "cd /tmp && tar xzf env.tar.gz 2>/dev/null; true",
+        ],
         { encoding: "utf8" },
       );
     }
@@ -148,15 +183,29 @@ export async function runTBLiteTask(opts: TBLiteRunnerOpts): Promise<TBLiteResul
     if (row.tests_tar) {
       const testsTarPath = join(workdir, "tests.tar.gz");
       writeFileSync(testsTarPath, Buffer.from(row.tests_tar, "base64"));
-      spawnSync("docker", ["exec", containerName, "mkdir", "-p", "/tests", "/logs/verifier"], {
-        encoding: "utf8",
-      });
-      spawnSync("docker", ["cp", testsTarPath, `${containerName}:/tmp/tests.tar.gz`], {
-        encoding: "utf8",
-      });
       spawnSync(
         "docker",
-        ["exec", containerName, "bash", "-c", "cd /tests && tar xzf /tmp/tests.tar.gz 2>/dev/null; true"],
+        ["exec", containerName, "mkdir", "-p", "/tests", "/logs/verifier"],
+        {
+          encoding: "utf8",
+        },
+      );
+      spawnSync(
+        "docker",
+        ["cp", testsTarPath, `${containerName}:/tmp/tests.tar.gz`],
+        {
+          encoding: "utf8",
+        },
+      );
+      spawnSync(
+        "docker",
+        [
+          "exec",
+          containerName,
+          "bash",
+          "-c",
+          "cd /tests && tar xzf /tmp/tests.tar.gz 2>/dev/null; true",
+        ],
         { encoding: "utf8" },
       );
     }
@@ -164,8 +213,14 @@ export async function runTBLiteTask(opts: TBLiteRunnerOpts): Promise<TBLiteResul
     // 6. Write and run test_sh
     const testShPath = join(workdir, "test.sh");
     writeFileSync(testShPath, row.test_sh);
-    spawnSync("docker", ["cp", testShPath, `${containerName}:/tmp/test.sh`], { encoding: "utf8" });
-    spawnSync("docker", ["exec", containerName, "mkdir", "-p", "/logs/verifier"], { encoding: "utf8" });
+    spawnSync("docker", ["cp", testShPath, `${containerName}:/tmp/test.sh`], {
+      encoding: "utf8",
+    });
+    spawnSync(
+      "docker",
+      ["exec", containerName, "mkdir", "-p", "/logs/verifier"],
+      { encoding: "utf8" },
+    );
     const testResult = spawnSync(
       "docker",
       ["exec", containerName, "bash", "/tmp/test.sh"],
@@ -181,7 +236,11 @@ export async function runTBLiteTask(opts: TBLiteRunnerOpts): Promise<TBLiteResul
     const reward = rewardResult.stdout.trim();
     const passed = reward === "1";
 
-    return { passed, output: agentOutput + `\n[test exit ${testResult.status}] reward=${reward}` };
+    return {
+      passed,
+      output:
+        agentOutput + `\n[test exit ${testResult.status}] reward=${reward}`,
+    };
   } finally {
     // Always clean up the container
     spawnSync("docker", ["rm", "-f", containerName], { encoding: "utf8" });

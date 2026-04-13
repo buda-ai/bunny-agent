@@ -25,17 +25,21 @@ export interface RunnerCoreOptions extends BaseRunnerOptions {
   autoInject?: boolean;
 }
 
-export function createRunner(options: RunnerCoreOptions): AsyncIterable<string> {
+export function createRunner(
+  options: RunnerCoreOptions,
+): AsyncIterable<string> {
   const cwd = options.cwd ?? process.cwd();
   const env = options.env ?? (process.env as Record<string, string>);
   const abortController = options.abortController ?? new AbortController();
   const autoInject = options.autoInject ?? true;
 
   // Auto-inject system prompt from CLAUDE.md / AGENTS.md if not provided
-  const systemPrompt = options.systemPrompt ?? (autoInject ? loadSystemPrompt(cwd) : undefined);
+  const systemPrompt =
+    options.systemPrompt ?? (autoInject ? loadSystemPrompt(cwd) : undefined);
 
   // Auto-resume session if not explicitly set
-  const resume = options.resume ?? (autoInject ? readSessionId(cwd) : undefined);
+  const resume =
+    options.resume ?? (autoInject ? readSessionId(cwd) : undefined);
 
   const base = {
     model: options.model,
@@ -54,11 +58,14 @@ export function createRunner(options: RunnerCoreOptions): AsyncIterable<string> 
 
 function dispatchRunner(
   runner: string,
-  base: BaseRunnerOptions & { env: Record<string, string>; abortController: AbortController },
+  base: BaseRunnerOptions & {
+    env: Record<string, string>;
+    abortController: AbortController;
+  },
   cwd: string,
   options: RunnerCoreOptions,
 ): AsyncIterable<string> {
-  const env = base.env;
+  const _env = base.env;
   switch (runner) {
     case "claude":
       return createClaudeRunner(base).run(options.userInput);
@@ -68,7 +75,12 @@ function dispatchRunner(
       return createCodexRunner({ ...codexBase, cwd }).run(options.userInput);
     }
     case "gemini":
-      return createGeminiRunner({ model: options.model, cwd, env: base.env, abortController: base.abortController }).run(options.userInput);
+      return createGeminiRunner({
+        model: options.model,
+        cwd,
+        env: base.env,
+        abortController: base.abortController,
+      }).run(options.userInput);
     case "pi":
       return createPiRunner({
         ...base,
@@ -77,7 +89,12 @@ function dispatchRunner(
         skillPaths: options.skillPaths ?? discoverSkillPaths(cwd),
       }).run(options.userInput);
     case "opencode":
-      return createOpenCodeRunner({ model: options.model, cwd, env: base.env, abortController: base.abortController }).run(options.userInput);
+      return createOpenCodeRunner({
+        model: options.model,
+        cwd,
+        env: base.env,
+        abortController: base.abortController,
+      }).run(options.userInput);
     case "copilot":
       throw new Error("Copilot runner not yet implemented");
     default:
@@ -88,7 +105,10 @@ function dispatchRunner(
 /**
  * Pass-through that extracts sessionId from stream chunks and persists it.
  */
-async function* captureSessionId(stream: AsyncIterable<string>, cwd: string): AsyncIterable<string> {
+async function* captureSessionId(
+  stream: AsyncIterable<string>,
+  cwd: string,
+): AsyncIterable<string> {
   for await (const chunk of stream) {
     if (chunk.includes('"sessionId"') || chunk.includes('"session_id"')) {
       try {

@@ -20,7 +20,10 @@ export function buildBashTool(cwd: string): ToolDefinition {
       required: ["command"],
       properties: {
         command: { type: "string", description: "Shell command to execute" },
-        timeout_ms: { type: "number", description: "Timeout in ms (default 30000)" },
+        timeout_ms: {
+          type: "number",
+          description: "Timeout in ms (default 30000)",
+        },
       },
     },
     async execute(_id, params, signal, _onUpdate) {
@@ -28,17 +31,27 @@ export function buildBashTool(cwd: string): ToolDefinition {
       const command = p.command;
       const timeout = p.timeout_ms ?? 30_000;
       try {
-        const { stdout, stderr } = await execFileAsync("bash", ["-c", command], {
-          cwd,
-          timeout,
-          signal: signal ?? undefined,
-          maxBuffer: 1024 * 1024,
-        });
+        const { stdout, stderr } = await execFileAsync(
+          "bash",
+          ["-c", command],
+          {
+            cwd,
+            timeout,
+            signal: signal ?? undefined,
+            maxBuffer: 1024 * 1024,
+          },
+        );
         const out = [stdout, stderr].filter(Boolean).join("\n").trim();
-        return { content: [{ type: "text", text: out || "(no output)" }], details: undefined };
+        return {
+          content: [{ type: "text", text: out || "(no output)" }],
+          details: undefined,
+        };
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
-        return { content: [{ type: "text", text: `Error: ${msg}` }], details: undefined };
+        return {
+          content: [{ type: "text", text: `Error: ${msg}` }],
+          details: undefined,
+        };
       }
     },
   };

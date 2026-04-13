@@ -8,12 +8,18 @@ import { join } from "node:path";
 export function discoverSkillPaths(cwd: string): string[] {
   const paths: string[] = [];
 
-  for (const base of [join(cwd, "skills"), join(homedir(), ".sandagent", "skills")]) {
+  for (const base of [
+    join(cwd, "skills"),
+    join(homedir(), ".sandagent", "skills"),
+  ]) {
     if (!existsSync(base)) continue;
     try {
       for (const entry of readdirSync(base)) {
         const full = join(base, entry);
-        if (statSync(full).isDirectory() && existsSync(join(full, "SKILL.md"))) {
+        if (
+          statSync(full).isDirectory() &&
+          existsSync(join(full, "SKILL.md"))
+        ) {
           paths.push(full);
         }
       }

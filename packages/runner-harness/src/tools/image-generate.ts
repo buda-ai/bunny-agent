@@ -6,11 +6,19 @@ export interface ImageToolDetails {
   filePath: string | undefined;
   response: {
     data: Array<{ b64_json?: string; url?: string; revised_prompt?: string }>;
-    usage?: { total_tokens?: number; input_tokens?: number; output_tokens?: number; input_tokens_details?: { image_tokens?: number; text_tokens?: number } };
+    usage?: {
+      total_tokens?: number;
+      input_tokens?: number;
+      output_tokens?: number;
+      input_tokens_details?: { image_tokens?: number; text_tokens?: number };
+    };
   };
 }
 
-async function resolveB64(item: { b64_json?: string; url?: string }): Promise<string | undefined> {
+async function resolveB64(item: {
+  b64_json?: string;
+  url?: string;
+}): Promise<string | undefined> {
   if (item.b64_json) return item.b64_json;
   if (item.url) {
     const res = await fetch(item.url);
@@ -19,7 +27,10 @@ async function resolveB64(item: { b64_json?: string; url?: string }): Promise<st
   return undefined;
 }
 
-export async function saveImageItem(item: { b64_json?: string; url?: string }, filePath: string): Promise<string | undefined> {
+export async function saveImageItem(
+  item: { b64_json?: string; url?: string },
+  filePath: string,
+): Promise<string | undefined> {
   const b64 = await resolveB64(item);
   if (!b64) return undefined;
   mkdirSync(dirname(filePath), { recursive: true });
@@ -27,13 +38,21 @@ export async function saveImageItem(item: { b64_json?: string; url?: string }, f
   return filePath;
 }
 
-export function buildImageGenerateTool(cwd: string, imageModelId: string, baseUrl: string, apiKey: string): ToolDefinition {
+export function buildImageGenerateTool(
+  cwd: string,
+  imageModelId: string,
+  baseUrl: string,
+  apiKey: string,
+): ToolDefinition {
   return {
     name: "generate_image",
     label: "generate image",
-    description: "Generate an image from a text prompt. Saves to disk and returns the file path.",
+    description:
+      "Generate an image from a text prompt. Saves to disk and returns the file path.",
     promptSnippet: "generate_image(prompt, filename?, size?, quality?)",
-    promptGuidelines: ["Use when the user asks to create, draw, or visualize something."],
+    promptGuidelines: [
+      "Use when the user asks to create, draw, or visualize something.",
+    ],
     parameters: {
       type: "object",
       required: ["prompt"],
@@ -42,7 +61,20 @@ export function buildImageGenerateTool(cwd: string, imageModelId: string, baseUr
         filename: { type: "string", description: "e.g. 'cat.png'" },
         size: {
           type: "string",
-          enum: ["256x256","512x512","1024x1024","1792x1024","1024x1792","1280x1280","1568x1056","1056x1568","1472x1088","1088x1472","1728x960","960x1728"],
+          enum: [
+            "256x256",
+            "512x512",
+            "1024x1024",
+            "1792x1024",
+            "1024x1792",
+            "1280x1280",
+            "1568x1056",
+            "1056x1568",
+            "1472x1088",
+            "1088x1472",
+            "1728x960",
+            "960x1728",
+          ],
         },
         quality: { type: "string", enum: ["standard", "hd"] },
       },
@@ -55,22 +87,57 @@ export function buildImageGenerateTool(cwd: string, imageModelId: string, baseUr
       const quality = (p.quality as string) ?? "standard";
       const rawFilename = p.filename as string | undefined;
       const filename = rawFilename
-        ? (extname(rawFilename) ? rawFilename : `${rawFilename}.png`)
+        ? extname(rawFilename)
+          ? rawFilename
+          : `${rawFilename}.png`
         : `image_${Date.now()}.png`;
       const filePath = join(cwd, filename.replace(/[^a-zA-Z0-9_\-./]/g, "_"));
 
       try {
-        const res = await fetch(`${baseUrl.replace(/\/$/, "")}/v1/images/generations`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-          body: JSON.stringify({ model: imageModelId, prompt, n: 1, size, quality }),
-        });
-        if (!res.ok) throw new Error(`Image generation failed (${res.status}): ${await res.text()}`);
-        const json = await res.json() as { data: Array<{ b64_json?: string; url?: string }> };
+        const res = await fetch(
+          `${baseUrl.replace(/\/$/, "")}/v1/images/generations`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({
+              model: imageModelId,
+              prompt,
+              n: 1,
+              size,
+              quality,
+            }),
+          },
+        );
+        if (!res.ok)
+          throw new Error(
+            `Image generation failed (${res.status}): ${await res.text()}`,
+          );
+        const json = (await res.json()) as {
+          data: Array<{ b64_json?: string; url?: string }>;
+        };
         const saved = await saveImageItem(json.data?.[0] ?? {}, filePath);
-        return { content: [{ type: "text" as const, text: saved ?? "Generated but could not be saved." }], details: { filePath: saved, response: json } };
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: saved ?? "Generated but could not be saved.",
+            },
+          ],
+          details: { filePath: saved, response: json },
+        };
       } catch (e: unknown) {
-        return { content: [{ type: "text" as const, text: `Image generation error: ${e instanceof Error ? e.message : String(e)}` }], details: undefined };
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Image generation error: ${e instanceof Error ? e.message : String(e)}`,
+            },
+          ],
+          details: undefined,
+        };
       }
     },
   };

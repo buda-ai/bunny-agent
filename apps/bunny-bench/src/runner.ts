@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
-import type { Task, TaskResult } from "./types.js";
 import { runTBLiteTask } from "./datasets/tblite.js";
+import type { Task, TaskResult } from "./types.js";
 
 /**
  * Run a single task.
@@ -23,7 +23,13 @@ export async function runTask(
       taskCwd: opts.taskCwd,
       timeoutMs: task.timeoutMs,
     });
-    return { task, output: result.output, passed: result.passed, durationMs: Date.now() - start, error: result.error };
+    return {
+      task,
+      output: result.output,
+      passed: result.passed,
+      durationMs: Date.now() - start,
+      error: result.error,
+    };
   }
 
   const cmdStr = opts.runner ?? "bunny";
@@ -51,7 +57,13 @@ export async function runTask(
     return { task, output, passed, durationMs: Date.now() - start };
   } catch (e: unknown) {
     const error = e instanceof Error ? e.message : String(e);
-    return { task, output: "", passed: false, durationMs: Date.now() - start, error };
+    return {
+      task,
+      output: "",
+      passed: false,
+      durationMs: Date.now() - start,
+      error,
+    };
   }
 }
 
@@ -88,13 +100,18 @@ function exec(
         }, opts.timeout)
       : null;
 
-    proc.stdout.on("data", (d) => { stdout += d; });
-    proc.stderr.on("data", (d) => { stderr += d; });
+    proc.stdout.on("data", (d) => {
+      stdout += d;
+    });
+    proc.stderr.on("data", (d) => {
+      stderr += d;
+    });
 
     proc.on("close", (code) => {
       if (timer) clearTimeout(timer);
       if (killed) reject(new Error(`Timeout after ${opts.timeout}ms`));
-      else if (code !== 0 && !stdout) reject(new Error(`Exit ${code}: ${stderr.slice(0, 200)}`));
+      else if (code !== 0 && !stdout)
+        reject(new Error(`Exit ${code}: ${stderr.slice(0, 200)}`));
       else resolve({ stdout, stderr });
     });
 

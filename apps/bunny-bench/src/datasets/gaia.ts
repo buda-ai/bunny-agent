@@ -136,7 +136,11 @@ function taskExtraHints(row: GaiaRow): string {
   }
 
   // L2: Box Office Mojo 2020 worldwide top 10 vs domestic top 10 overlap
-  if (q.includes("Box Office Mojo") && q.includes("2020") && q.includes("Worldwide")) {
+  if (
+    q.includes("Box Office Mojo") &&
+    q.includes("2020") &&
+    q.includes("Worldwide")
+  ) {
     return (
       `HINT: Visit these exact URLs on Box Office Mojo: ` +
       `(1) Worldwide 2020: https://www.boxofficemojo.com/year/world/2020/ ` +
@@ -161,7 +165,12 @@ function taskExtraHints(row: GaiaRow): string {
   }
 
   // L2: Lego Wikipedia 2022 — need last 2022 revision, count images precisely
-  if (q.includes("Lego") && q.includes("2022") && q.includes("wikipedia") && q.includes("images")) {
+  if (
+    q.includes("Lego") &&
+    q.includes("2022") &&
+    q.includes("wikipedia") &&
+    q.includes("images")
+  ) {
     return (
       `HINT: Find the last Wikipedia revision of the English "Lego" article from 2022. ` +
       `Use the Wikipedia API: ` +
@@ -210,7 +219,11 @@ function taskExtraHints(row: GaiaRow): string {
   }
 
   // L2: YouTube National Geographic first short — length of item #9
-  if (q.includes("National Geographic") && q.includes("YouTube") && q.includes("short")) {
+  if (
+    q.includes("National Geographic") &&
+    q.includes("YouTube") &&
+    q.includes("short")
+  ) {
     return (
       `HINT: Find the FIRST YouTube Short published by the official National Geographic ` +
       `channel (@NatGeo). Sort their Shorts by "Date (oldest first)". The first Short ` +
@@ -231,7 +244,11 @@ function taskExtraHints(row: GaiaRow): string {
   }
 
   // L2: Federico Lauria dissertation footnote 397 → paintings count
-  if (q.includes("Lauria") && q.includes("dissertation") && q.includes("footnote")) {
+  if (
+    q.includes("Lauria") &&
+    q.includes("dissertation") &&
+    q.includes("footnote")
+  ) {
     return (
       `HINT: Federico Lauria's 2014 PhD dissertation is titled something about intentionality/emotion ` +
       `and available via the University of Geneva's RERO DOC archive or similar. ` +
@@ -244,7 +261,12 @@ function taskExtraHints(row: GaiaRow): string {
   }
 
   // L2: Water bottle recycling deposits — states from California to Maine
-  if (q.includes("recycle") && q.includes("water bottles") && q.includes("California") && q.includes("Maine")) {
+  if (
+    q.includes("recycle") &&
+    q.includes("water bottles") &&
+    q.includes("California") &&
+    q.includes("Maine")
+  ) {
     return (
       `HINT: Step 1 — Calculate total driving distance from Los Angeles to Augusta, ME ` +
       `via the route described in the question. Use Google Maps or known highway distances. ` +
@@ -259,7 +281,11 @@ function taskExtraHints(row: GaiaRow): string {
   }
 
   // L2: ScienceDirect standard deviations of Reference Works counts
-  if (q.includes("ScienceDirect") && q.includes("standard deviation") && q.includes("References")) {
+  if (
+    q.includes("ScienceDirect") &&
+    q.includes("standard deviation") &&
+    q.includes("References")
+  ) {
     return (
       `HINT: Go to https://www.sciencedirect.com/browse/journals-and-books?contentType=RW ` +
       `This shows all ScienceDirect Reference Works organized by subject area. ` +
@@ -273,7 +299,11 @@ function taskExtraHints(row: GaiaRow): string {
   }
 
   // L2: NeurIPS 2022 papers by author named Yuri — openreview.net
-  if (q.includes("Openreview") && q.includes("NeurIPS 2022") && q.includes("Yuri")) {
+  if (
+    q.includes("Openreview") &&
+    q.includes("NeurIPS 2022") &&
+    q.includes("Yuri")
+  ) {
     return (
       `HINT: Go to openreview.net and search specifically for NeurIPS 2022 Conference ` +
       `accepted papers. Use the search API: https://api2.openreview.net/notes?venue=NeurIPS.cc/2022/Conference&invitation=NeurIPS.cc/2022/Conference/-/Accept. ` +
@@ -284,7 +314,11 @@ function taskExtraHints(row: GaiaRow): string {
   }
 
   // L2: MBTA Franklin-Foxboro stops between South Station and Windsor Gardens
-  if (q.includes("MBTA") && q.includes("Franklin") && q.includes("Windsor Gardens")) {
+  if (
+    q.includes("MBTA") &&
+    q.includes("Franklin") &&
+    q.includes("Windsor Gardens")
+  ) {
     return (
       `HINT: Look up the MBTA Franklin/Foxboro Line stops as of May 2023. Go to ` +
       `mbta.com or use the MBTA API. List all stops on the Franklin-Foxboro line. ` +
@@ -294,7 +328,11 @@ function taskExtraHints(row: GaiaRow): string {
   }
 
   // L2: Met Museum 2015 zodiac exhibition — animals with visible hand
-  if (q.includes("Metropolitan Museum") && q.includes("2015") && q.includes("zodiac")) {
+  if (
+    q.includes("Metropolitan Museum") &&
+    q.includes("2015") &&
+    q.includes("zodiac")
+  ) {
     return (
       `HINT: Find the Met Museum's 2015 exhibition related to the Chinese Year of the ` +
       `Goat/Ram/Sheep at metmuseum.org/exhibitions. This exhibition featured objects ` +
@@ -320,7 +358,11 @@ function taskExtraHints(row: GaiaRow): string {
   }
 
   // L3: PubChem food additive compound — enzyme transformations gene co-occurrences
-  if (q.includes("PubChem") && q.includes("Food Additive") && q.includes("heavy atoms")) {
+  if (
+    q.includes("PubChem") &&
+    q.includes("Food Additive") &&
+    q.includes("heavy atoms")
+  ) {
     return (
       `HINT: Step 1 — Find the compound. Use PubChem advanced search: ` +
       `https://pubchem.ncbi.nlm.nih.gov/search/#collection=compounds&query_type=structure&query_descriptor=mw_max%3A100%26hac%3A6%26hba_max%3A1%26complexity_min%3A10%26complexity_max%3A15 ` +
@@ -361,7 +403,11 @@ function taskExtraHints(row: GaiaRow): string {
   }
 
   // L3: Eva Draconis website banner symbol meaning
-  if (q.includes("Eva Draconis") && q.includes("symbol") && q.includes("banner")) {
+  if (
+    q.includes("Eva Draconis") &&
+    q.includes("symbol") &&
+    q.includes("banner")
+  ) {
     return (
       `HINT: Go to YouTube and search for "Eva Draconis" channel. On her channel page, ` +
       `find the link to her personal website (likely in the "About" section or channel links). ` +
@@ -373,7 +419,11 @@ function taskExtraHints(row: GaiaRow): string {
   }
 
   // L3: Fast radio burst ArXiv papers — X-ray time profile time span difference
-  if (q.includes("fast radio bursts") && q.includes("X-ray") && q.includes("March 2021")) {
+  if (
+    q.includes("fast radio bursts") &&
+    q.includes("X-ray") &&
+    q.includes("March 2021")
+  ) {
     return (
       `HINT: Find these two ArXiv papers: ` +
       `(1) March 2021: A paper about multiwavelength observations of fast radio bursts ` +
@@ -414,7 +464,11 @@ function buildExpected(answer: string): RegExp {
 /** Infer category from GAIA tools metadata. */
 function inferCategory(row: GaiaRow): Task["category"] {
   const tools = row.tools.toLowerCase();
-  if (tools.includes("browser") || tools.includes("search") || tools.includes("web")) {
+  if (
+    tools.includes("browser") ||
+    tools.includes("search") ||
+    tools.includes("web")
+  ) {
     return "tool:web";
   }
   return "reasoning";
@@ -434,7 +488,9 @@ const LEVEL_TIMEOUT: Record<number, number> = {
  *
  * Re-download with:  python scripts/download-gaia.py
  */
-export function loadGaiaTasks(opts: { noFile?: boolean; levels?: number[] } = {}): Task[] {
+export function loadGaiaTasks(
+  opts: { noFile?: boolean; levels?: number[] } = {},
+): Task[] {
   const rows = loadGaiaData();
   return rows
     .filter((r) => {
@@ -442,16 +498,18 @@ export function loadGaiaTasks(opts: { noFile?: boolean; levels?: number[] } = {}
       if (opts.levels && !opts.levels.includes(r.level)) return false;
       return true;
     })
-    .map((r): Task => ({
-      id: `gaia-l${r.level}-${r.task_id.slice(0, 8)}`,
-      name: `L${r.level} ${r.task_id.slice(0, 8)}`,
-      prompt: buildPrompt(r),
-      question: r.question,
-      expectedAnswer: r.answer,
-      expected: buildExpected(r.answer),
-      category: inferCategory(r),
-      timeoutMs: LEVEL_TIMEOUT[r.level] ?? 180_000,
-    }));
+    .map(
+      (r): Task => ({
+        id: `gaia-l${r.level}-${r.task_id.slice(0, 8)}`,
+        name: `L${r.level} ${r.task_id.slice(0, 8)}`,
+        prompt: buildPrompt(r),
+        question: r.question,
+        expectedAnswer: r.answer,
+        expected: buildExpected(r.answer),
+        category: inferCategory(r),
+        timeoutMs: LEVEL_TIMEOUT[r.level] ?? 180_000,
+      }),
+    );
 }
 
 /** GAIA Level 1 — easiest, no file attachments. Good smoke test. */

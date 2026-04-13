@@ -48,7 +48,12 @@ export function updateLedger(
   const now = new Date().toISOString();
 
   for (const r of results) {
-    const prev = ledger[r.task.id] ?? { passCount: 0, failCount: 0, lastPassed: false, lastRunAt: now };
+    const prev = ledger[r.task.id] ?? {
+      passCount: 0,
+      failCount: 0,
+      lastPassed: false,
+      lastRunAt: now,
+    };
     ledger[r.task.id] = {
       passCount: prev.passCount + (r.passed ? 1 : 0),
       failCount: prev.failCount + (r.passed ? 0 : 1),

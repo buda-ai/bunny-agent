@@ -1,6 +1,12 @@
+import {
+  GAIA_ALL,
+  GAIA_FULL,
+  GAIA_L1,
+  GAIA_L2,
+  GAIA_L3,
+} from "./datasets/gaia.js";
+import { TBLITE_ALL, TBLITE_EASY, TBLITE_MEDIUM } from "./datasets/tblite.js";
 import type { Task } from "./types.js";
-import { GAIA_L1, GAIA_L2, GAIA_L3, GAIA_ALL, GAIA_FULL } from "./datasets/gaia.js";
-import { TBLITE_EASY, TBLITE_MEDIUM, TBLITE_ALL } from "./datasets/tblite.js";
 
 export { GAIA_L1, GAIA_L2, GAIA_L3, GAIA_ALL, GAIA_FULL };
 export { TBLITE_EASY, TBLITE_MEDIUM, TBLITE_ALL };
@@ -22,7 +28,8 @@ export const SMOKING: Task[] = [
   {
     id: "s-002",
     name: "JSON extract",
-    prompt: 'Extract the value of "name" from this JSON and reply with ONLY that value: {"name":"bunny","version":1}',
+    prompt:
+      'Extract the value of "name" from this JSON and reply with ONLY that value: {"name":"bunny","version":1}',
     expected: /bunny/i,
     category: "reasoning",
     timeoutMs: 30_000,
@@ -40,7 +47,8 @@ export const SMOKING: Task[] = [
   {
     id: "s-004",
     name: "Web search",
-    prompt: "Use web_search to find the current year. Reply with ONLY the 4-digit year.",
+    prompt:
+      "Use web_search to find the current year. Reply with ONLY the 4-digit year.",
     expected: /20\d\d/,
     category: "tool:web",
     timeoutMs: 60_000,
@@ -48,7 +56,8 @@ export const SMOKING: Task[] = [
   {
     id: "s-005",
     name: "Web fetch",
-    prompt: "Use web_fetch to get https://example.com and reply with ONLY the word 'success' if you got a response.",
+    prompt:
+      "Use web_fetch to get https://example.com and reply with ONLY the word 'success' if you got a response.",
     expected: /success/i,
     category: "tool:web",
     timeoutMs: 60_000,
@@ -58,7 +67,8 @@ export const SMOKING: Task[] = [
   {
     id: "s-006",
     name: "Create file",
-    prompt: "Create a file named bench_test.txt with content 'hello bunny'. Then reply with ONLY the file content.",
+    prompt:
+      "Create a file named bench_test.txt with content 'hello bunny'. Then reply with ONLY the file content.",
     expected: /hello bunny/i,
     category: "tool:file",
     timeoutMs: 90_000,
@@ -74,7 +84,8 @@ export const SMOKING: Task[] = [
   {
     id: "s-008",
     name: "Write Python",
-    prompt: "Write a Python script that prints 'py_ok', run it, and reply with ONLY the output.",
+    prompt:
+      "Write a Python script that prints 'py_ok', run it, and reply with ONLY the output.",
     expected: /py_ok/,
     category: "tool:code",
     timeoutMs: 90_000,

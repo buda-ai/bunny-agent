@@ -14,7 +14,10 @@ export interface ToolDefinition {
     signal: AbortSignal | undefined,
     // biome-ignore lint/suspicious/noExplicitAny: update callback
     onUpdate: any,
-  ): Promise<{ content: Array<{ type: "text"; text: string }>; details: unknown }>;
+  ): Promise<{
+    content: Array<{ type: "text"; text: string }>;
+    details: unknown;
+  }>;
 }
 
 export interface SearchResult {

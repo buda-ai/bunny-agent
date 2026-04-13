@@ -18,13 +18,27 @@ export type RunnerChunk =
   // tool
   | { type: "tool-input-start"; toolCallId: string; toolName: string }
   | { type: "tool-input-delta"; toolCallId: string; inputTextDelta: string }
-  | { type: "tool-input-available"; toolCallId: string; toolName: string; input: unknown }
-  | { type: "tool-output-available"; toolCallId: string; output: unknown; isError?: boolean }
+  | {
+      type: "tool-input-available";
+      toolCallId: string;
+      toolName: string;
+      input: unknown;
+    }
+  | {
+      type: "tool-output-available";
+      toolCallId: string;
+      output: unknown;
+      isError?: boolean;
+    }
   | { type: "tool-output-error"; toolCallId: string; errorText: string }
   // lifecycle
   | { type: "start"; messageId?: string }
   | { type: "finish"; finishReason?: string; messageMetadata?: unknown }
-  | { type: "step-finish"; finishReason?: string; usage?: { inputTokens?: number; outputTokens?: number } }
+  | {
+      type: "step-finish";
+      finishReason?: string;
+      usage?: { inputTokens?: number; outputTokens?: number };
+    }
   | { type: "error"; errorText: string }
   | { type: "message-metadata"; messageMetadata: unknown }
   // passthrough for anything else
