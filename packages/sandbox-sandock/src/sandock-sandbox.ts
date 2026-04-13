@@ -37,7 +37,7 @@ export interface SandockSandboxOptions {
    * If false, sandbox is stopped and deleted after the command finishes.
    */
   keep?: boolean;
-  /** Timeout for sandbox operations in milliseconds (default: 300000 = 5 min) */
+  /** Timeout for sandbox operations in milliseconds (default: 1800000 = 30 min) */
   timeout?: number;
   /** Path to template directory to upload */
   templatesPath?: string;
@@ -133,7 +133,7 @@ export class SandockSandbox implements SandboxAdapter {
     this.memoryLimitMb = options.memoryLimitMb;
     this.cpuShares = options.cpuShares;
     this.keep = options.keep ?? true;
-    this.timeout = options.timeout ?? 300000;
+    this.timeout = options.timeout ?? 1_800_000;
     this.templatesPath = options.templatesPath;
     this.volumeConfigs = options.volumes ?? [];
     this.skipBootstrap = options.skipBootstrap ?? false;

@@ -17,6 +17,21 @@ export interface RunRequest {
   env?: Record<string, string>;
 }
 
+/** SSE comment keepalive interval (ms). Prevents idle-timeout disconnects
+ *  from reverse proxies or sandbox shell APIs during long tool executions. */
+let _heartbeatIntervalMs = 15_000;
+export const HEARTBEAT_COMMENT = ": heartbeat\n\n";
+
+/** Get current heartbeat interval. */
+export function getHeartbeatIntervalMs(): number {
+  return _heartbeatIntervalMs;
+}
+
+/** Override heartbeat interval — exposed for testing only. */
+export function setHeartbeatIntervalMs(ms: number): void {
+  _heartbeatIntervalMs = ms;
+}
+
 /**
  * POST /api/coding/run — Node http.ServerResponse version (standalone daemon)
  */
@@ -33,6 +48,14 @@ export async function sandagentRun(
     "Cache-Control": "no-cache",
     "Transfer-Encoding": "chunked",
   });
+
+  // Heartbeat: write an SSE comment periodically to keep the connection alive
+  // during long-running tool executions (e.g. image generation).
+  const heartbeat = setInterval(() => {
+    if (!res.destroyed) {
+      res.write(HEARTBEAT_COMMENT);
+    }
+  }, getHeartbeatIntervalMs());
 
   try {
     const stream = createRunner({
@@ -63,6 +86,7 @@ export async function sandagentRun(
     );
     res.write(`data: [DONE]\n\n`);
   } finally {
+    clearInterval(heartbeat);
     res.end();
   }
 }
@@ -79,6 +103,18 @@ export function codingRunStream(
 
   const body = new ReadableStream({
     async start(controller) {
+      const encoder = new TextEncoder();
+
+      // Heartbeat: enqueue an SSE comment periodically to keep the connection
+      // alive during long-running tool executions.
+      const heartbeat = setInterval(() => {
+        try {
+          controller.enqueue(encoder.encode(HEARTBEAT_COMMENT));
+        } catch {
+          // controller may already be closed
+        }
+      }, getHeartbeatIntervalMs());
+
       try {
         const stream = createRunner({
           runner: req.runner ?? "claude",
@@ -95,18 +131,19 @@ export function codingRunStream(
           abortController,
         });
         for await (const chunk of stream) {
-          controller.enqueue(new TextEncoder().encode(chunk));
+          controller.enqueue(encoder.encode(chunk));
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         controller.enqueue(
-          new TextEncoder().encode(
+          encoder.encode(
             `data: ${JSON.stringify({ type: "error", errorText: msg })}\n\n` +
               `data: ${JSON.stringify({ type: "finish", finishReason: "error" })}\n\n` +
               `data: [DONE]\n\n`,
           ),
         );
       } finally {
+        clearInterval(heartbeat);
         controller.close();
       }
     },

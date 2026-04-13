@@ -1,6 +1,6 @@
 {
   "name": "@sandagent/sandbox-daytona",
-  "version": "0.9.27",
+  "version": "0.9.27-beta.0",
   "description": "Daytona sandbox adapter for SandAgent",
   "type": "module",
   "main": "./dist/index.js",
