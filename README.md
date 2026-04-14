@@ -29,7 +29,7 @@
 |------|--------------|
 | 🖥️ **Daily CLI agent** | Install and use it like a local coding assistant, today |
 | ☁️ **Remote sandbox agent** | `bunny remote my-project` — spin up a cloud machine for $5/mo |
-| 🏗️ **Managed agent SDK** | Embed it in your Next.js app and ship an Agent SaaS product |
+| 🏗️ **Your own Agent product** | Next.js SaaS · Desktop app · Build your own [OpenClaw](https://openclaw.ai) alternative |
 
 It outputs a **native AI SDK UI stream** — meaning you can wire it directly into any `useChat()` frontend with zero glue code.
 
@@ -64,6 +64,16 @@ No config needed. Bunny ships with a pre-built tool harness:
 | 📁 **File Ops** | Read / write files in the workspace |
 
 Add your own tools by dropping a skill file — the harness discovers them automatically.
+
+---
+
+### 🐰 Built with a Conscience
+
+Every Bunny Agent ships with a core directive baked into its system prompt:
+
+> **"Protect Human. Push Humanity Forward."**
+
+It's not decoration — it's the guiding principle behind every tool call, every decision, and every line of code Bunny writes.
 
 ---
 
@@ -105,12 +115,13 @@ bunny remote my-project
 
 That's it. You're now in a remote machine backed by [Sandock](https://sandock.ai):
 
-- ⚡ Fast NVMe SSD
-- 🔒 Isolated container, persistent filesystem
-- 💰 Starting at **$5 / month**
+- ⚡ **NVMe SSD** — fast local I/O, not sluggish network storage
+- 🗂️ **POSIX-compliant filesystem** — full compatibility, no quirks for coding agents
+- 🔒 Isolated container, persistent volume across sessions
+- 💰 Starting at **$5 / month** — production-grade at hobby prices
 - ♾️ Launch as many sandboxes as you need — no local resource constraints
 
-Perfect for running heavy tasks, parallel workloads, or keeping your work in the cloud between sessions.
+Sandock is purpose-built for coding agents: SSD-backed, POSIX-native, and optimised for the read/write patterns that agents generate. It's the best-performing sandbox at the lowest cost.
 
 ---
 
@@ -193,6 +204,8 @@ Get a Sandock API key at [sandock.ai](https://sandock.ai) — plans start at $5/
 
 ## 🏗️ Build Your Own Agent Product
 
+Use the SDK to embed Bunny Agent in any product — a **Next.js SaaS**, an **Electron desktop app**, or your own **[OpenClaw](https://openclaw.ai) alternative**. The architecture is the same either way: your UI talks to an AI SDK stream, Bunny handles the rest.
+
 ### Architecture
 
 ```
@@ -213,7 +226,7 @@ Your Next.js App
 
 | Sandbox | Best for | Setup |
 |---------|----------|-------|
-| **Sandock** | Production cloud, low cost | API key from [sandock.ai](https://sandock.ai) |
+| **Sandock** | ⭐ NVMe SSD · POSIX filesystem · coding-agent optimised · from $5/mo | API key from [sandock.ai](https://sandock.ai) |
 | **E2B** | Managed cloud sandboxes | API key from [e2b.dev](https://e2b.dev) |
 | **Daytona** | Enterprise / self-hosted | API key from [daytona.io](https://daytona.io) |
 | **Local** | Development, no cloud needed | No key required |
