@@ -4,7 +4,8 @@
   "description": "Bunny Agent — The harness-ready pi coding agent",
   "type": "module",
   "bin": {
-    "bunny": "./dist/index.js"
+    "bunny": "./dist/index.js",
+    "bunny-agent": "./dist/index.js"
   },
   "scripts": {
     "build": "tsup",
