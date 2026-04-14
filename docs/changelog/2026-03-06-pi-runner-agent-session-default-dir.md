@@ -17,7 +17,7 @@ The Pi runner now uses pi-coding-agent's **AgentSession** and **SessionManager**
 ### packages/sdk
 
 - **bunny-agent-language-model.ts**: Store and expose **sessionFile** from stream `message-metadata`; include **sessionFile** in **providerMetadata.bunny-agent** (text-start and finish) so the UI can use it for resume.
-- **useBunny AgentChat**: **getResumeFromMessage** now prefers **sessionFile** when present (for Pi), otherwise **sessionId**; the **resume** value sent in the request body is this so the Pi runner receives the session file path for resume.
+- **useBunnyAgentChat**: **getResumeFromMessage** now prefers **sessionFile** when present (for Pi), otherwise **sessionId**; the **resume** value sent in the request body is this so the Pi runner receives the session file path for resume.
 
 ## Behavior
 

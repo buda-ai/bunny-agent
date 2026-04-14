@@ -2,7 +2,7 @@
 
 ## Problem
 
-`--skill-path` was missing from the runner CLI command when `skillPaths` were set only on **`createBunny Agent({ skillPaths })`** default options. `createModel` only copied `options.skillPaths` from the per-call `bunny-agent(model, { ... })` argument, so defaults were ignored.
+`--skill-path` was missing from the runner CLI command when `skillPaths` were set only on **`createBunnyAgent({ skillPaths })`** default options. `createModel` only copied `options.skillPaths` from the per-call `bunny-agent(model, { ... })` argument, so defaults were ignored.
 
 ## Fix
 

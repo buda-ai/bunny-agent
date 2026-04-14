@@ -26,7 +26,7 @@ Bunny Agent uses a simple **identity model**. Each agent instance is tied to a u
 ### The Identity Model
 
 ```ts
-const agent = new Bunny Agent({
+const agent = new BunnyAgent({
   id: "user-123-project-a",  // <-- This is the identity key
   sandbox: new SandockSandbox(),
   runner: { kind: "claude-agent-sdk", model: "claude-sonnet-4-20250514" },
@@ -61,7 +61,7 @@ Use a session ID that persists for the user's session:
 export async function POST(req: Request) {
   const { messages, sessionId } = await req.json();
   
-  const agent = new Bunny Agent({
+  const agent = new BunnyAgent({
     id: sessionId,  // User's session ID
     sandbox: new SandockSandbox(),
     runner: { kind: "claude-agent-sdk", model: "claude-sonnet-4-20250514" },
@@ -78,7 +78,7 @@ export async function POST(req: Request) {
 Use a project identifier for long-term persistence:
 
 ```ts
-const agent = new Bunny Agent({
+const agent = new BunnyAgent({
   id: `user-${userId}-project-${projectId}`,
   sandbox: new SandockSandbox(),
   runner: { kind: "claude-agent-sdk", model: "claude-sonnet-4-20250514" },
@@ -94,7 +94,7 @@ Use a unique ID for each request:
 ```ts
 import { randomUUID } from "crypto";
 
-const agent = new Bunny Agent({
+const agent = new BunnyAgent({
   id: randomUUID(),  // New ID each time
   sandbox: new SandockSandbox(),
   runner: { kind: "claude-agent-sdk", model: "claude-sonnet-4-20250514" },
@@ -229,7 +229,7 @@ async function cleanupStaleSessions() {
   });
   
   for (const session of staleSessions) {
-    const agent = new Bunny Agent({
+    const agent = new BunnyAgent({
       id: session.id,
       sandbox: new SandockSandbox(),
       runner: { kind: "claude-agent-sdk", model: "claude-sonnet-4-20250514" },
@@ -308,7 +308,7 @@ async function withLock(sessionId: string, fn: () => Promise<Response>) {
 Track sandbox resources in your observability stack:
 
 ```ts
-const agent = new Bunny Agent({ id, sandbox, runner });
+const agent = new BunnyAgent({ id, sandbox, runner });
 
 // Log session activity
 logger.info("Agent session started", { 

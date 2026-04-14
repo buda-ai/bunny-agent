@@ -38,7 +38,7 @@ const sandbox = new E2BSandbox({
 });
 
 // Use with Bunny Agent
-const agent = new Bunny Agent({
+const agent = new BunnyAgent({
   sandbox,
   runner: {
     kind: 'claude-agent-sdk',
@@ -59,12 +59,12 @@ const stream = await agent.stream({
 ## Usage with AI Provider
 
 ```typescript
-import { createBunny Agent } from '@bunny-agent/sdk';
+import { createBunnyAgent } from '@bunny-agent/sdk';
 import { E2BSandbox } from '@bunny-agent/sandbox-e2b';
 import { generateText } from 'ai';
 
 // Runner is automatically downloaded from npm
-const bunny-agent = createBunny Agent({
+const bunnyAgent = createBunnyAgent({
   sandbox: new E2BSandbox({
     apiKey: process.env.E2B_API_KEY!,
   }),

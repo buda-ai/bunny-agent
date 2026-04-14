@@ -104,7 +104,7 @@ export async function POST(request: Request) {
         writer,
       });
 
-      const bunny-agent = createBunny Agent({
+      const bunnyAgent = createBunnyAgent({
         sandbox,
         artifactProcessors: [artifactProcessor],
       });

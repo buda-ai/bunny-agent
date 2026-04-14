@@ -33,7 +33,7 @@ const sandbox = new DaytonaSandbox({
   // snapshot: "bunny-agent-claude:0.1.0",
 });
 
-const agent = new Bunny Agent({
+const agent = new BunnyAgent({
   sandbox,
   runner: {
     kind: "claude-agent-sdk",

@@ -91,7 +91,7 @@ MCP (Model Context Protocol) server configuration for additional capabilities:
 import { Bunny Agent } from "@bunny-agent/core";
 import { E2BSandbox } from "@bunny-agent/sandbox-e2b";
 
-const agent = new Bunny Agent({
+const agent = new BunnyAgent({
   id: "my-session",
   sandbox: new E2BSandbox(),
   runner: {

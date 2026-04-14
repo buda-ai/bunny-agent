@@ -94,11 +94,11 @@ For web apps, cache the sandboxId server-side (e.g. in-memory Map with 30-min TT
 ## With @bunny-agent/sdk
 
 ```ts
-import { createBunny Agent } from "@bunny-agent/sdk";
+import { createBunnyAgent } from "@bunny-agent/sdk";
 import { SandockSandbox } from "@bunny-agent/sandbox-sandock";
 import { generateText } from "ai";
 
-const bunny-agent = createBunny Agent({
+const bunnyAgent = createBunnyAgent({
   sandbox: new SandockSandbox({
     apiKey: process.env.SANDOCK_API_KEY,
     workdir: "/workspace",

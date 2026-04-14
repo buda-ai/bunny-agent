@@ -80,7 +80,7 @@ E2B_API_KEY=e2b_...
 import { Bunny Agent } from "@bunny-agent/core";
 import { E2BSandbox } from "@bunny-agent/sandbox-e2b";
 
-const agent = new Bunny Agent({
+const agent = new BunnyAgent({
   id: "my-first-agent",
   sandbox: new E2BSandbox(),
   runner: {
@@ -135,7 +135,7 @@ import { SandockSandbox } from "@bunny-agent/sandbox-sandock";
 export async function POST(req: Request) {
   const { messages, sessionId } = await req.json();
 
-  const agent = new Bunny Agent({
+  const agent = new BunnyAgent({
     id: sessionId,
     sandbox: new SandockSandbox(),
     runner: {
@@ -233,7 +233,7 @@ const sandbox = new E2BSandbox({
 ### Claude Agent SDK (Default)
 
 ```ts
-const agent = new Bunny Agent({
+const agent = new BunnyAgent({
   id: "my-agent",
   sandbox: new SandockSandbox(),
   runner: {
@@ -254,7 +254,7 @@ const agent = new Bunny Agent({
 
 ```ts
 function getAgentForSession(sessionId: string) {
-  return new Bunny Agent({
+  return new BunnyAgent({
     id: sessionId,
     sandbox: new SandockSandbox(),
     runner: {

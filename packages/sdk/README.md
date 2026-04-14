@@ -37,8 +37,8 @@ Your App  →  @bunny-agent/sdk  →  Coding Agent (Claude / Codex / …)
 
 | Feature | Description |
 |---------|-------------|
-| 🔌 **AI SDK Provider** | `createBunny Agent()` returns a model you pass to `streamText` / `generateText` |
-| ⚛️ **React Hooks** | `useBunny AgentChat`, `useArtifacts`, `useWriteTool`, `useAskUserQuestion` |
+| 🔌 **AI SDK Provider** | `createBunnyAgent()` returns a model you pass to `streamText` / `generateText` |
+| ⚛️ **React Hooks** | `useBunnyAgentChat`, `useArtifacts`, `useWriteTool`, `useAskUserQuestion` |
 | 🖥️ **Local Mode** | Built-in `LocalSandbox` — run on your machine for Desktop apps & debugging |
 | ☁️ **Cloud Sandboxes** | Plug in [Sandock](https://sandock.ai), E2B, or Daytona for isolated cloud execution |
 | 🎨 **Agent Templates** | Markdown-based templates turn a generic agent into a domain expert |
@@ -58,7 +58,7 @@ npm install @bunny-agent/sdk ai
 
 ```typescript
 // app/api/ai/route.ts
-import { createBunny Agent, LocalSandbox } from "@bunny-agent/sdk";
+import { createBunnyAgent, LocalSandbox } from "@bunny-agent/sdk";
 import {
   convertToModelMessages,
   createUIMessageStream,
@@ -76,7 +76,7 @@ export async function POST(request: Request) {
     env: { ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY! },
   });
 
-  const bunny-agent = createBunny Agent({
+  const bunnyAgent = createBunnyAgent({
     sandbox,
     cwd: sandbox.getWorkdir(),
   });
@@ -100,10 +100,10 @@ export async function POST(request: Request) {
 
 ```tsx
 "use client";
-import { useBunny AgentChat } from "@bunny-agent/sdk/react";
+import { useBunnyAgentChat } from "@bunny-agent/sdk/react";
 
 export default function Chat() {
-  const { messages, isLoading, sendMessage } = useBunny AgentChat({
+  const { messages, isLoading, sendMessage } = useBunnyAgentChat({
     apiEndpoint: "/api/ai",
   });
 
@@ -141,7 +141,7 @@ That's it — you now have a full Coding Agent streaming into your app.
 `LocalSandbox` is built-in — no extra packages needed. The agent runs directly on your machine's filesystem.
 
 ```typescript
-import { createBunny Agent, LocalSandbox } from "@bunny-agent/sdk";
+import { createBunnyAgent, LocalSandbox } from "@bunny-agent/sdk";
 
 const sandbox = new LocalSandbox({
   workdir: "/path/to/project",
@@ -149,7 +149,7 @@ const sandbox = new LocalSandbox({
   env: { ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY! },
 });
 
-const bunny-agent = createBunny Agent({ sandbox, cwd: sandbox.getWorkdir() });
+const bunnyAgent = createBunnyAgent({ sandbox, cwd: sandbox.getWorkdir() });
 ```
 
 Best for: Electron/Tauri desktop apps, local development, debugging.
@@ -165,7 +165,7 @@ npm install @bunny-agent/sandbox-sandock
 ```
 
 ```typescript
-import { createBunny Agent } from "@bunny-agent/sdk";
+import { createBunnyAgent } from "@bunny-agent/sdk";
 import { SandockSandbox } from "@bunny-agent/sandbox-sandock";
 
 const sandbox = new SandockSandbox({
@@ -180,7 +180,7 @@ const sandbox = new SandockSandbox({
   ],
 });
 
-const bunny-agent = createBunny Agent({ sandbox, cwd: sandbox.getWorkdir() });
+const bunnyAgent = createBunnyAgent({ sandbox, cwd: sandbox.getWorkdir() });
 ```
 
 | Sandock Option | Description |
@@ -240,7 +240,7 @@ All hooks are available from `@bunny-agent/sdk/react`:
 
 ```typescript
 import {
-  useBunny AgentChat,     // Full chat with streaming
+  useBunnyAgentChat,     // Full chat with streaming
   useArtifacts,         // Display agent-generated files (reports, charts)
   useWriteTool,         // Handle file write tool calls
   useAskUserQuestion,   // Handle interactive questions from the agent
@@ -253,12 +253,12 @@ import {
 
 ### Provider
 
-#### `createBunny Agent` — sandbox transport (cloud / local filesystem)
+#### `createBunnyAgent` — sandbox transport (cloud / local filesystem)
 
 ```typescript
-import { createBunny Agent, LocalSandbox } from "@bunny-agent/sdk";
+import { createBunnyAgent, LocalSandbox } from "@bunny-agent/sdk";
 
-const bunny-agent = createBunny Agent({
+const bunnyAgent = createBunnyAgent({
   sandbox: SandboxAdapter,       // LocalSandbox, SandockSandbox, E2BSandbox, etc.
   cwd?: string,                  // Working directory inside sandbox
   env?: Record<string, string>,  // Environment variables
@@ -275,9 +275,9 @@ const model = bunny-agent("claude-sonnet-4-20250514");
 **With any sandbox adapter** (E2B, Sandock, `LocalSandbox`, etc.): pass **`sandbox` + `daemonUrl`**. The URL is resolved **inside** the sandbox (the `vikadata/bunny-agent` image starts `bunny-agent-daemon` on port 3080). The SDK streams via `streamCodingRunFromSandbox` (`curl -N` in the sandbox, including `LocalSandbox`), not `fetch` from your server. It does **not** call `/healthz` for you — use `isBunnyAgentDaemonHealthy` from `@bunny-agent/sdk` when you want a probe before setting `daemonUrl` (e.g. to fall back to the CLI runner).
 
 ```typescript
-import { createBunny Agent, DEFAULT_BUNNY_AGENT_DAEMON_URL } from "@bunny-agent/sdk";
+import { createBunnyAgent, DEFAULT_BUNNY_AGENT_DAEMON_URL } from "@bunny-agent/sdk";
 
-const bunny-agent = createBunny Agent({
+const bunnyAgent = createBunnyAgent({
   sandbox: mySandboxAdapter,
   daemonUrl: DEFAULT_BUNNY_AGENT_DAEMON_URL, // http://127.0.0.1:3080 inside the container
   runnerType: "claude",
@@ -285,14 +285,14 @@ const bunny-agent = createBunny Agent({
 });
 ```
 
-Omit `daemonUrl` to use the **CLI runner** in the same sandbox. `createBunny Agent` always requires a `sandbox` adapter.
+Omit `daemonUrl` to use the **CLI runner** in the same sandbox. `createBunnyAgent` always requires a `sandbox` adapter.
 
 ### Exports
 
 | Entry Point | Exports |
 |-------------|---------|
-| `@bunny-agent/sdk` | `createBunny Agent`, `LocalSandbox`, `Bunny AgentLanguageModel`, `submitAnswer`, `DEFAULT_BUNNY_AGENT_DAEMON_URL` (re-exported from `@bunny-agent/manager`) |
-| `@bunny-agent/sdk/react` | `useBunny AgentChat`, `useArtifacts`, `useWriteTool`, `useAskUserQuestion`, `DEFAULT_BUNNY_AGENT_DAEMON_URL` (re-exported from `@bunny-agent/manager`) |
+| `@bunny-agent/sdk` | `createBunnyAgent`, `LocalSandbox`, `BunnyAgentLanguageModel`, `submitAnswer`, `DEFAULT_BUNNY_AGENT_DAEMON_URL` (re-exported from `@bunny-agent/manager`) |
+| `@bunny-agent/sdk/react` | `useBunnyAgentChat`, `useArtifacts`, `useWriteTool`, `useAskUserQuestion`, `DEFAULT_BUNNY_AGENT_DAEMON_URL` (re-exported from `@bunny-agent/manager`) |
 
 ---
 

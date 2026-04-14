@@ -13,7 +13,7 @@ import { Bunny Agent } from "@bunny-agent/core";
 import { E2BSandbox } from "@bunny-agent/sandbox-e2b";
 
 // Create a specialized agent with one template
-const agent = new Bunny Agent({
+const agent = new BunnyAgent({
   id: "user-123-session",
   sandbox: new E2BSandbox(),
   runner: {
@@ -46,7 +46,7 @@ import { Bunny Agent } from "@bunny-agent/core";
 #### Constructor
 
 ```ts
-new Bunny Agent(options: Bunny AgentOptions)
+new BunnyAgent(options: BunnyAgentOptions)
 ```
 
 **Parameters:**
@@ -60,7 +60,7 @@ new Bunny Agent(options: Bunny AgentOptions)
 **Example:**
 
 ```ts
-const agent = new Bunny Agent({
+const agent = new BunnyAgent({
   id: "user-123-project-a",
   sandbox: new SandockSandbox(),
   runner: {
@@ -140,10 +140,10 @@ await agent.destroy();
 
 ### Types
 
-#### Bunny AgentOptions
+#### BunnyAgentOptions
 
 ```ts
-interface Bunny AgentOptions {
+interface BunnyAgentOptions {
   /** Unique identifier for the agent */
   id: string;
   /** Sandbox adapter to use */
@@ -318,12 +318,12 @@ const sandbox = new E2BSandbox({
 
 Next.js and server-side helpers.
 
-### createBunny AgentHandler
+### createBunnyAgentHandler
 
 Creates a Next.js API route handler.
 
 ```ts
-import { createBunny AgentHandler } from "@bunny-agent/sdk";
+import { createBunnyAgentHandler } from "@bunny-agent/sdk";
 ```
 
 **Parameters:**
@@ -337,10 +337,10 @@ import { createBunny AgentHandler } from "@bunny-agent/sdk";
 **Example:**
 
 ```ts
-import { createBunny AgentHandler } from "@bunny-agent/sdk";
+import { createBunnyAgentHandler } from "@bunny-agent/sdk";
 import { SandockSandbox } from "@bunny-agent/sandbox-sandock";
 
-export const POST = createBunny AgentHandler({
+export const POST = createBunnyAgentHandler({
   sandbox: () => new SandockSandbox(),
   runner: {
     kind: "claude-agent-sdk",

@@ -156,12 +156,12 @@ Prepared a pull request for the initial daemon package scaffold, expanded it int
 
 ### `packages/sdk/src/index.ts`
 
-- Exported `createBunny AgentDaemon` and its provider settings type from the SDK entrypoint.
+- Exported `createBunnyAgentDaemon` and its provider settings type from the SDK entrypoint.
 
 ### `packages/sdk/README.md`
 
 - Documented the new daemon transport provider alongside the existing sandbox transport provider.
-- Added usage examples for `createBunny AgentDaemon` and clarified transport swapping behavior.
+- Added usage examples for `createBunnyAgentDaemon` and clarified transport swapping behavior.
 
 ### `packages/manager/README.md`
 

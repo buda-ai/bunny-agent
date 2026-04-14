@@ -86,7 +86,7 @@ Bunny's stdout **is** an AI SDK UI stream. Pipe it to your server, pass it to yo
 export async function POST(req: Request) {
   const { messages, sessionId } = await req.json();
 
-  const agent = new Bunny Agent({
+  const agent = new BunnyAgent({
     id: sessionId,
     sandbox: new SandockSandbox(),
     runner: { kind: "pi", model: "google:gemini-2.5-pro" },
@@ -234,10 +234,10 @@ Your Next.js App
 Switch with one import — the rest of your code stays unchanged.
 
 ```typescript
-import { createBunny Agent } from "@bunny-agent/sdk";
+import { createBunnyAgent } from "@bunny-agent/sdk";
 import { SandockSandbox } from "@bunny-agent/sandbox-sandock";
 
-const agent = createBunny Agent({
+const agent = createBunnyAgent({
   sandbox: new SandockSandbox(),
   runner: { kind: "pi", model: "anthropic:claude-sonnet-4" },
 });

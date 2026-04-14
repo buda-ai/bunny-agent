@@ -35,7 +35,7 @@ Bunny Agent supports JSONL transcript recording for debugging and replay. Transc
 import { Bunny Agent, JsonlTranscriptWriter } from "@bunny-agent/core";
 import { E2BSandbox } from "@bunny-agent/sandbox-e2b";
 
-const agent = new Bunny Agent({
+const agent = new BunnyAgent({
   id: "session-123",
   sandbox: new E2BSandbox(),
   runner: {

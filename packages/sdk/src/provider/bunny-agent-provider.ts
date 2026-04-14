@@ -45,7 +45,7 @@ export interface BunnyAgentProvider extends ProviderV3 {
  * import { E2BSandbox } from '@bunny-agent/sandbox-e2b';
  * import { generateText } from 'ai';
  *
- * const bunny-agent = createBunnyAgent({
+ * const bunnyAgent = createBunnyAgent({
  *   sandbox: new E2BSandbox({ apiKey: process.env.E2B_API_KEY! }),
  *   env: {
  *     ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY!,

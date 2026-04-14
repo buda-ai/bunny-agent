@@ -34,12 +34,12 @@
 - Moved bunny-agent-daemon `/healthz` probing logic from `@bunny-agent/manager`
   into `packages/sandbox-sandock/src/sandock-sandbox.ts`, so Sandock adapter
   no longer depends on `probeSandagentDaemonHealth` being re-exported.
-- Updated SDK `Bunny AgentLanguageModel.doGenerate()` to actually surface
+- Updated SDK `BunnyAgentLanguageModel.doGenerate()` to actually surface
   `type:"error"` stream parts into UI content + `finishReason=error`.
 - Per-request runner env: optional **`env`** on `POST /api/coding/run` JSON only
   (merged after daemon `process.env` via `mergeCodingRunProcessEnv` in the daemon).
 - `streamCodingRunFromSandbox` serializes `body` as-is; **`ExecOptions.env` is not
-  used** (runner keys go in `Bunny AgentCodingRunBody.env`). SDK daemon path builds
+  used** (runner keys go in `BunnyAgentCodingRunBody.env`). SDK daemon path builds
   `body.env` from sandbox + provider env. Removed `codingRunHeaders` /
   `inheritSandboxEnv`; curl argv is Content-Type + `--data-binary @file` only.
 - `SANDBOX_CODING_RUN_TMP_DIR` lives in `coding-run.ts`. Removed unused

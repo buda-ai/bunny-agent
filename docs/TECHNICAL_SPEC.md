@@ -84,7 +84,7 @@ Bunny Agent does **not**:
 Represents **one persistent agent instance**.
 
 ```ts
-interface Bunny AgentOptions {
+interface BunnyAgentOptions {
   id: string;                    // identity = sandbox + volume
   sandbox: SandboxAdapter;
   runner: RunnerSpec;
@@ -272,7 +272,7 @@ Client render
 ### Identity Semantics
 
 ```ts
-new Bunny Agent({ id: "project-x" })
+new BunnyAgent({ id: "project-x" })
 ```
 
 Means:

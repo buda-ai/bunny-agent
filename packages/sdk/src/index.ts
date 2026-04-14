@@ -10,7 +10,7 @@
  * ```typescript
  * // Backend - Provider
  * import { createBunnyAgent } from "@bunny-agent/sdk";
- * const bunny-agent = createBunnyAgent({ sandbox, env });
+ * const bunnyAgent = createBunnyAgent({ sandbox, env });
  * const model = bunny-agent("sonnet");
  *
  * // Frontend - React hooks

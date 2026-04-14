@@ -4,7 +4,7 @@
 >
 > `@bunny-agent/manager` works by spawning `bunny-agent run` CLI inside a sandbox via `exec()`. This approach is being superseded by **`@bunny-agent/daemon`** — a unified HTTP gateway that runs inside the sandbox and exposes the same capabilities over a clean REST API.
 >
-> **Prefer `createBunny Agent` with an explicit `daemonUrl` from `@bunny-agent/sdk`** when using the HTTP daemon.
+> **Prefer `createBunnyAgent` with an explicit `daemonUrl` from `@bunny-agent/sdk`** when using the HTTP daemon.
 >
 > This package remains supported for sandboxes that only provide `exec()` capability (E2B, Daytona, etc.) and has no planned removal date.
 
@@ -37,7 +37,7 @@ npm install @bunny-agent/manager
 import { Bunny Agent } from '@bunny-agent/manager';
 import { E2BSandbox } from '@bunny-agent/sandbox-e2b';
 
-const agent = new Bunny Agent({
+const agent = new BunnyAgent({
   sandbox: new E2BSandbox({ apiKey: 'xxx' }),
   runner: {
     model: 'claude-sonnet-4-20250514',
@@ -166,7 +166,7 @@ const transcriptWriter = new MultiTranscriptWriter([
 #### Constructor
 
 ```typescript
-new Bunny Agent(options: Bunny AgentOptions)
+new BunnyAgent(options: BunnyAgentOptions)
 ```
 
 **Options:**

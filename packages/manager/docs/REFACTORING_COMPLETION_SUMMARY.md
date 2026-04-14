@@ -10,7 +10,7 @@ This is a concise summary of the architecture refactor work and test results.
 4. Added real integration tests for `runner-cli`
 5. Added real integration tests for `ai-provider`
 6. Enhanced `LocalSandbox` with `runCommand` and `env`
-7. Fixed `Bunny AgentProviderSettings` to make `sandboxId` optional
+7. Fixed `BunnyAgentProviderSettings` to make `sandboxId` optional
 8. Updated package dependencies
 
 ## Test Results

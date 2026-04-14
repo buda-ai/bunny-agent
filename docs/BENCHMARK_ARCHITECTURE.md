@@ -221,7 +221,7 @@ packages/
     │   ├── cli.ts                # CLI entry point
     │   ├── runner.ts             # Benchmark execution
     │   ├── compare.ts            # Result comparison
-    │   ├── types.ts              # Bunny AgentRunner type
+    │   ├── types.ts              # BunnyAgentRunner type
     │   └── runners/
     │       ├── claude.ts         # bunny-agent --runner claude
     │       ├── pi.ts             # bunny-agent --runner pi

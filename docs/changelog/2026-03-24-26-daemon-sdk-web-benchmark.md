@@ -21,12 +21,12 @@ Consolidated session notes (merges former `2026-03-24-sdk-daemon-unified-languag
 
 ## SDK: unified daemon with Bunny Agent language model
 
-- **Single implementation**: HTTP daemon transport and in-process `Bunny Agent` both use `Bunny AgentLanguageModel`; only the byte stream source differs.
+- **Single implementation**: HTTP daemon transport and in-process `Bunny Agent` both use `BunnyAgentLanguageModel`; only the byte stream source differs.
 - **Same SSE pipeline**: Daemon runners emit AI SDK UI SSE (`data: …`); parsing matches the sandbox path (not line-delimited JSON).
 - **Configuration**: With `sandbox` + `daemonUrl`, the SDK uses `streamCodingRunFromSandbox` (upload JSON + `curl -N` inside the sandbox, including `LocalSandbox`). `DEFAULT_BUNNY_AGENT_DAEMON_URL` matches the Bunny Agent Docker image (`http://127.0.0.1:3080` in-container).
-- **API**: Use `createBunny Agent({ sandbox, daemonUrl?, … })` (legacy `createBunny AgentDaemon` removed; `bunny-agent-daemon-provider.ts` removed).
+- **API**: Use `createBunnyAgent({ sandbox, daemonUrl?, … })` (legacy `createBunnyAgentDaemon` removed; `bunny-agent-daemon-provider.ts` removed).
 - **`allowedTools`**: On provider settings, merged into `RunnerSpec` (including daemon).
-- **Sandbox required**: `createBunny Agent` / `doStream` require a `sandbox` adapter; optional `daemonUrl` selects in-sandbox HTTP vs CLI runner (no host-only `fetch(daemonUrl)` path).
+- **Sandbox required**: `createBunnyAgent` / `doStream` require a `sandbox` adapter; optional `daemonUrl` selects in-sandbox HTTP vs CLI runner (no host-only `fetch(daemonUrl)` path).
 
 **Packages:** `packages/sdk/src/provider/types.ts`, `logging.ts`, `bunny-agent-language-model.ts`, `bunny-agent-provider.ts`, `index.ts`.
 
@@ -46,7 +46,7 @@ Consolidated session notes (merges former `2026-03-24-sdk-daemon-unified-languag
 
 - **Daemon** `POST /api/coding/run`: runner `env` is only the daemon process `process.env` (no `x-bunny-agent-runner-env` merge).
 - **Manager**: `streamCodingRunFromSandbox` does not send that header; removed `ExecOptions.codingRunDaemonEnv`.
-- **SDK** daemon path: does not forward `sandbox.getEnv()` / `createBunny Agent({ env })` onto the daemon HTTP request.
+- **SDK** daemon path: does not forward `sandbox.getEnv()` / `createBunnyAgent({ env })` onto the daemon HTTP request.
 - **Daemon utils**: removed `decodeRunnerEnvHeader` / `mergeProcessEnvWithRunnerHeader`; related tests removed.
 - Orchestrators should set API keys on the **daemon/container environment** (or image).
 

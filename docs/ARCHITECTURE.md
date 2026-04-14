@@ -9,8 +9,8 @@
 │   buda.im (Next.js)                    Developer / CI                           │
 │   ┌──────────────────┐                 ┌──────────────────┐                    │
 │   │  @bunny-agent/sdk  │                 │   runner-cli     │                    │
-│   │  createBunny Agent │                 │   bunny-agent run  │                    │
-│   │  createBunny Agent │                 │   --runner claude│                    │
+│   │  createBunnyAgent │                 │   bunny-agent run  │                    │
+│   │  createBunnyAgent │                 │   --runner claude│                    │
 │   │  Daemon()        │                 │   -- "task"      │                    │
 │   └────────┬─────────┘                 └────────┬─────────┘                    │
 └────────────┼────────────────────────────────────┼─────────────────────────────┘
@@ -63,14 +63,14 @@
 ```
 @bunny-agent/sdk
 │
-├── createBunny Agent({ sandbox })          ← manager + sandbox transport
+├── createBunnyAgent({ sandbox })          ← manager + sandbox transport
 │   │
 │   └── @bunny-agent/manager
 │       └── Bunny Agent.stream()
 │           └── spawns runner-cli inside sandbox
 │               └── sandbox: E2B / Sandock / Local / Daytona
 │
-└── createBunny Agent({ sandbox, daemonUrl })  ← daemon HTTP inside sandbox
+└── createBunnyAgent({ sandbox, daemonUrl })  ← daemon HTTP inside sandbox
     │
     └── streamCodingRunFromSandbox (curl POST /api/coding/run in VM)
         └── apps/daemon (@bunny-agent/daemon)
@@ -129,7 +129,7 @@ apps/
 
 packages/
 ├── runner-core     → runner-claude, runner-pi, runner-gemini, runner-codex, runner-opencode
-├── sdk             → manager  (createBunny Agent; daemon path uses fetch only)
+├── sdk             → manager  (createBunnyAgent; daemon path uses fetch only)
 ├── manager         → (no deps, defines Runner + SandboxAdapter interfaces)
 ├── runner-claude   → @anthropic-ai/claude-agent-sdk
 ├── runner-pi       → @mariozechner/pi-coding-agent

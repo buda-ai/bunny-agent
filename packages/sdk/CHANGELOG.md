@@ -550,7 +550,7 @@
 - Merge @bunny-agent/ai-provider into @bunny-agent/sdk
 
   - **BREAKING**: `@bunny-agent/ai-provider` is now deprecated, use `@bunny-agent/sdk` instead
-  - SDK now exports AI Provider (`createBunny Agent`) and React hooks (`useBunny AgentChat`)
+  - SDK now exports AI Provider (`createBunnyAgent`) and React hooks (`useBunnyAgentChat`)
   - SDK re-exports `LocalSandbox` for convenience
   - Updated all documentation to use `@bunny-agent/sdk`
 
