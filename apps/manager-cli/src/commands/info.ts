@@ -108,7 +108,7 @@ This command displays your BunnyAgent configuration and environment status.
   console.log('  bunny-agent-manager run "Create a hello world script"');
   console.log("");
   console.log("Documentation:");
-  console.log("  https://github.com/vikadata/sandagent");
+  console.log("  https://github.com/vikadata/bunny-agent");
 }
 
 function findTemplatesDir(): string | null {

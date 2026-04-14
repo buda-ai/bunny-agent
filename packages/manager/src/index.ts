@@ -7,8 +7,8 @@ export {
   streamCodingRunFromSandbox,
 } from "./coding-run.js";
 export { DEFAULT_BUNNY_AGENT_DAEMON_URL } from "./constants.js";
-export type { IsSandagentDaemonHealthyOptions } from "./daemon-health.js";
-export { isSandagentDaemonHealthy } from "./daemon-health.js";
+export type { IsBunnyAgentDaemonHealthyOptions } from "./daemon-health.js";
+export { isBunnyAgentDaemonHealthy } from "./daemon-health.js";
 export type { RunnerEnvParams, RunnerType } from "./env.js";
 // Env helpers
 export { buildRunnerEnv } from "./env.js";

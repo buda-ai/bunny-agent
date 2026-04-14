@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# SandAgent Benchmark Runner
+# Bunny Agent Benchmark Runner
 # Usage: ./run-benchmark.sh [options]
 #
 # Options:
@@ -112,14 +112,14 @@ if [ "$TRANSPORT" = "sandock" ]; then
   TRANSPORT="daemon"
 fi
 
-# Check if benchmark-sandagent is built
-if [ ! -f "packages/benchmark-sandagent/dist/cli.js" ]; then
-  echo "❌ benchmark-sandagent not built. Run: cd packages/benchmark-sandagent && pnpm build"
+# Check if bunny-bench is built
+if [ ! -f "packages/bunny-bench/dist/cli.js" ]; then
+  echo "❌ bunny-bench not built. Run: cd packages/bunny-bench && pnpm build"
   exit 1
 fi
 
 # Create working directory
-WORK_DIR="/tmp/sandagent-benchmark"
+WORK_DIR="/tmp/bunny-agent-benchmark"
 mkdir -p "$WORK_DIR"
 echo "📁 Working directory: $WORK_DIR"
 echo ""
@@ -129,7 +129,7 @@ PROJECT_ROOT="$(pwd)"
 
 cd "$WORK_DIR"
 
-echo "🏖️  SandAgent Benchmark Runner"
+echo "🐰  Bunny Agent Benchmark Runner"
 echo "=============================="
 echo "Runner: $RUNNER"
 echo "Runs: $RUNS"
@@ -172,7 +172,7 @@ run_benchmark() {
     AI_MODEL="$model" \
     OPENAI_API_KEY="$OPENAI_API_KEY" \
     OPENAI_BASE_URL="$OPENAI_BASE_URL" \
-    node "$PROJECT_ROOT/packages/benchmark-sandagent/dist/cli.js" run --runner pi "${BENCH_EXTRA[@]}"
+    node "$PROJECT_ROOT/packages/bunny-bench/dist/cli.js" run --runner pi "${BENCH_EXTRA[@]}"
   elif [ "$runner" = "claude" ]; then
     PROJECT_ROOT="$PROJECT_ROOT" \
     AI_MODEL="$model" \
@@ -183,21 +183,21 @@ run_benchmark() {
     CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS="$CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS" \
     CLAUDE_CODE_USE_BEDROCK="$CLAUDE_CODE_USE_BEDROCK" \
     CLAUDE_CODE_SKIP_BEDROCK_AUTH="$CLAUDE_CODE_SKIP_BEDROCK_AUTH" \
-    node "$PROJECT_ROOT/packages/benchmark-sandagent/dist/cli.js" run --runner claude "${BENCH_EXTRA[@]}"
+    node "$PROJECT_ROOT/packages/bunny-bench/dist/cli.js" run --runner claude "${BENCH_EXTRA[@]}"
   elif [ "$runner" = "codex" ]; then
     PROJECT_ROOT="$PROJECT_ROOT" \
     AI_MODEL="$model" \
     OPENAI_API_KEY="$OPENAI_API_KEY" \
     CODEX_API_KEY="${CODEX_API_KEY:-$OPENAI_API_KEY}" \
     OPENAI_BASE_URL="$OPENAI_BASE_URL" \
-    node "$PROJECT_ROOT/packages/benchmark-sandagent/dist/cli.js" run --runner codex "${BENCH_EXTRA[@]}"
+    node "$PROJECT_ROOT/packages/bunny-bench/dist/cli.js" run --runner codex "${BENCH_EXTRA[@]}"
   elif [ "$runner" = "gemini" ]; then
     PROJECT_ROOT="$PROJECT_ROOT" \
     AI_MODEL="$model" \
     GEMINI_API_KEY="$GEMINI_API_KEY" \
     GOOGLE_API_KEY="${GOOGLE_API_KEY:-}" \
     GOOGLE_GEMINI_BASE_URL="${GOOGLE_GEMINI_BASE_URL:-$GEMINI_BASE_URL}" \
-    node "$PROJECT_ROOT/packages/benchmark-sandagent/dist/cli.js" run --runner gemini "${BENCH_EXTRA[@]}"
+    node "$PROJECT_ROOT/packages/bunny-bench/dist/cli.js" run --runner gemini "${BENCH_EXTRA[@]}"
   fi
   
   echo ""

@@ -80,7 +80,7 @@ export type BunnyAgentRunnerType =
  * AI Provider specific settings that extend BunnyAgentOptions.
  * Requires a `sandbox`. Optional `daemonUrl` streams via bunny-agent-daemon HTTP
  * (`POST /api/coding/run`) inside the sandbox. The SDK does **not** probe `/healthz`
- * on each request — call `isSandagentDaemonHealthy` (re-exported from
+ * on each request — call `isBunnyAgentDaemonHealthy` (re-exported from
  * `@bunny-agent/sdk`) when you want to check readiness and omit `daemonUrl` to fall
  * back to the CLI runner, or set `daemonUrl` and handle HTTP errors yourself.
  */

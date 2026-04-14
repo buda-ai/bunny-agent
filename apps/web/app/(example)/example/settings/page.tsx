@@ -252,7 +252,7 @@ const ENV_CONFIGS: EnvConfig[] = [
     name: "Use BunnyAgent daemon",
     key: "USE_BUNNY_AGENT_DAEMON",
     description:
-      "When On, the example probes in-sandbox http://127.0.0.1:3080/healthz and streams coding runs through bunny-agent-daemon (HTTP) when healthy; otherwise the CLI runner is used. Matches SDK useSandagentDaemon / server BUNNY_AGENT_USE_DAEMON=1.",
+      "When On, the example probes in-sandbox http://127.0.0.1:3080/healthz and streams coding runs through bunny-agent-daemon (HTTP) when healthy; otherwise the CLI runner is used. Matches SDK useBunnyAgentDaemon / server BUNNY_AGENT_USE_DAEMON=1.",
     required: false,
     category: "api",
     placeholder: "Off — CLI runner in sandbox",

@@ -20,7 +20,7 @@
  */
 
 export type {
-  IsSandagentDaemonHealthyOptions,
+  IsBunnyAgentDaemonHealthyOptions,
   LocalSandboxOptions,
   RunnerEnvParams,
   RunnerType,
@@ -30,7 +30,7 @@ export type {
 export {
   buildRunnerEnv,
   DEFAULT_BUNNY_AGENT_DAEMON_URL,
-  isSandagentDaemonHealthy,
+  isBunnyAgentDaemonHealthy,
   LocalSandbox,
 } from "@bunny-agent/manager";
 export type {

@@ -13,7 +13,7 @@ import {
   buildImageGenerateTool,
   type ImageToolDetails,
 } from "./image-tools.js";
-import { SandagentResourceLoader } from "./bunny-agent-resource-loader.js";
+import { BunnyAgentResourceLoader } from "./bunny-agent-resource-loader.js";
 import { buildSecretAwareTools, redactSecrets } from "./tool-overrides.js";
 
 const LOG_PREFIX = "[bunny-agent:pi]";
@@ -337,7 +337,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
         })();
 
         const resourceLoader = options.skillPaths
-          ? new SandagentResourceLoader({
+          ? new BunnyAgentResourceLoader({
               cwd,
               skillPaths: options.skillPaths,
               appendSystemPrompt: options.systemPrompt,
@@ -351,7 +351,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
         }
 
         // createAgentSession only calls reload() when it creates its own
-        // DefaultResourceLoader.  When we supply our own SandagentResourceLoader
+        // DefaultResourceLoader.  When we supply our own BunnyAgentResourceLoader
         // we must reload it ourselves so that skills and extensions on disk are
         // picked up before the session is built.
         if (resourceLoader) {

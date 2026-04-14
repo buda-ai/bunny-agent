@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { isSandagentDaemonHealthy } from "../daemon-health.js";
+import { isBunnyAgentDaemonHealthy } from "../daemon-health.js";
 import type { SandboxHandle } from "../types.js";
 
 function mockHandle(execImpl: () => AsyncIterable<Uint8Array>): SandboxHandle {
@@ -14,7 +14,7 @@ function mockHandle(execImpl: () => AsyncIterable<Uint8Array>): SandboxHandle {
   };
 }
 
-describe("isSandagentDaemonHealthy", () => {
+describe("isBunnyAgentDaemonHealthy", () => {
   it("curls deduped /healthz when base already ends with /healthz", async () => {
     const exec = vi.fn().mockImplementation(() =>
       (async function* () {
@@ -31,7 +31,7 @@ describe("isSandagentDaemonHealthy", () => {
       destroy: vi.fn(),
     };
     await expect(
-      isSandagentDaemonHealthy(handle, "http://127.0.0.1:3080/healthz", {
+      isBunnyAgentDaemonHealthy(handle, "http://127.0.0.1:3080/healthz", {
         maxAttempts: 1,
         delayMs: 0,
       }),
@@ -45,7 +45,7 @@ describe("isSandagentDaemonHealthy", () => {
       yield new TextEncoder().encode("200");
     });
     await expect(
-      isSandagentDaemonHealthy(handle, "http://127.0.0.1:3080", {
+      isBunnyAgentDaemonHealthy(handle, "http://127.0.0.1:3080", {
         maxAttempts: 1,
         delayMs: 0,
       }),
@@ -57,7 +57,7 @@ describe("isSandagentDaemonHealthy", () => {
       yield new TextEncoder().encode("503");
     });
     await expect(
-      isSandagentDaemonHealthy(handle, "http://127.0.0.1:3080", {
+      isBunnyAgentDaemonHealthy(handle, "http://127.0.0.1:3080", {
         maxAttempts: 1,
         delayMs: 0,
       }),
@@ -69,7 +69,7 @@ describe("isSandagentDaemonHealthy", () => {
       yield new TextEncoder().encode("500");
     });
     await expect(
-      isSandagentDaemonHealthy(handle, "http://127.0.0.1:3080", {
+      isBunnyAgentDaemonHealthy(handle, "http://127.0.0.1:3080", {
         maxAttempts: 1,
         delayMs: 0,
       }),
@@ -81,7 +81,7 @@ describe("isSandagentDaemonHealthy", () => {
       yield new TextEncoder().encode("000");
     });
     await expect(
-      isSandagentDaemonHealthy(handle, "http://192.0.2.1:3080", {
+      isBunnyAgentDaemonHealthy(handle, "http://192.0.2.1:3080", {
         maxAttempts: 1,
         delayMs: 0,
       }),
@@ -101,7 +101,7 @@ describe("isSandagentDaemonHealthy", () => {
       destroy: vi.fn(),
     };
     await expect(
-      isSandagentDaemonHealthy(handle, "http://127.0.0.1:3080", {
+      isBunnyAgentDaemonHealthy(handle, "http://127.0.0.1:3080", {
         maxAttempts: 1,
         delayMs: 0,
       }),
@@ -113,7 +113,7 @@ describe("isSandagentDaemonHealthy", () => {
       // no chunks
     });
     await expect(
-      isSandagentDaemonHealthy(handle, "http://127.0.0.1:3080", {
+      isBunnyAgentDaemonHealthy(handle, "http://127.0.0.1:3080", {
         maxAttempts: 1,
         delayMs: 0,
       }),
@@ -131,7 +131,7 @@ describe("isSandagentDaemonHealthy", () => {
       },
     }));
     await expect(
-      isSandagentDaemonHealthy(handle, "http://127.0.0.1:3080", {
+      isBunnyAgentDaemonHealthy(handle, "http://127.0.0.1:3080", {
         maxAttempts: 1,
         delayMs: 0,
       }),

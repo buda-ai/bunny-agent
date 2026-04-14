@@ -31,7 +31,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/vikadata/sandagent.git",
+    "url": "https://github.com/vikadata/bunny-agent.git",
     "directory": "apps/runner-cli"
   },
   "license": "Apache-2.0",

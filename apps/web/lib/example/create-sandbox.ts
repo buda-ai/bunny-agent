@@ -33,7 +33,7 @@ const SANDBOX_IMAGE =
  * (not only the curl child process).
  *
  * Sandock + bunny-agent image: the entrypoint command is always applied when the
- * image name matches {@link sandockImageNeedsSandagentEntrypoint}. `useSandagentDaemon`
+ * image name matches {@link sandockImageNeedsSandagentEntrypoint}. `useBunnyAgentDaemon`
  * only affects sandbox cache key and (in the web app) whether `/api/ai` probes
  * `/healthz` and passes `daemonUrl` for HTTP transport, or omits it for CLI.
  */
@@ -88,7 +88,7 @@ export interface CreateSandboxParams {
    * Sandock: include in sandbox cache key; web API also uses this to pass provider `daemonUrl`.
    * Entrypoint command for bunny-agent images is chosen from the image name, not this flag.
    */
-  useSandagentDaemon?: boolean;
+  useBunnyAgentDaemon?: boolean;
 }
 
 // --- Server-side sandbox ID cache (30 min TTL) ------------------------------
@@ -97,7 +97,7 @@ const sandboxIdCache = new Map<string, { id: string; expiresAt: number }>();
 
 function sandboxCacheKey(params: CreateSandboxParams): string {
   const t = params.template ?? "default";
-  const daemon = params.useSandagentDaemon ? "-daemon" : "";
+  const daemon = params.useBunnyAgentDaemon ? "-daemon" : "";
   // Sandock sandboxes are cached by sandboxId for performance.
   // If runtime env changes (e.g. AGENT_KEY / BUDA_API_URL), we MUST include
   // an env fingerprint in the cache key; otherwise the old container keeps

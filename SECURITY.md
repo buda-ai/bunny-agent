@@ -109,4 +109,4 @@ We will announce security updates through:
 
 For security-related questions:
 - Email: security@vikadata.com
-- GitHub: https://github.com/vikadata/sandagent/security
+- GitHub: https://github.com/vikadata/bunny-agent/security

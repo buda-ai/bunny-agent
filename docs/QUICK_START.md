@@ -28,7 +28,7 @@ The fastest way to experience Bunny Agent:
 
 ```bash
 # Clone and setup
-git clone https://github.com/vikadata/sandagent.git
+git clone https://github.com/vikadata/bunny-agent.git
 cd bunny-agent
 pnpm install && pnpm build
 
@@ -335,5 +335,5 @@ Error: Sandbox execution timed out
 
 ## Getting Help
 
-- [GitHub Issues](https://github.com/vikadata/sandagent/issues)
+- [GitHub Issues](https://github.com/vikadata/bunny-agent/issues)
 - [Technical Specification](./TECHNICAL_SPEC.md)

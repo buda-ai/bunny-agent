@@ -1,7 +1,7 @@
 import {
   createBunnyAgent,
   DEFAULT_BUNNY_AGENT_DAEMON_URL,
-  isSandagentDaemonHealthy,
+  isBunnyAgentDaemonHealthy,
   type BunnyAgentProviderSettings,
 } from "@bunny-agent/sdk";
 import {
@@ -57,7 +57,7 @@ export async function POST(request: Request) {
     USE_BUNNY_AGENT_DAEMON,
   } = body;
 
-  const useSandagentDaemon =
+  const useBunnyAgentDaemon =
     USE_BUNNY_AGENT_DAEMON === true ||
     USE_BUNNY_AGENT_DAEMON === 1 ||
     USE_BUNNY_AGENT_DAEMON === "1" ||
@@ -180,7 +180,7 @@ export async function POST(request: Request) {
     GEMINI_API_KEY,
     GEMINI_BASE_URL,
     template,
-    useSandagentDaemon,
+    useBunnyAgentDaemon,
     env: {
       AGENT_KEY: process.env.AGENT_KEY ?? "",
       BUDA_API_URL: process.env.BUDA_API_URL ?? "",
@@ -238,9 +238,9 @@ export async function POST(request: Request) {
       });
 
       let daemonUrl: string | undefined;
-      if (useSandagentDaemon) {
+      if (useBunnyAgentDaemon) {
         const handle = await sandbox.attach();
-        const daemonOk = await isSandagentDaemonHealthy(
+        const daemonOk = await isBunnyAgentDaemonHealthy(
           handle,
           DEFAULT_BUNNY_AGENT_DAEMON_URL,
           { cwd: handle.getWorkdir(), signal },

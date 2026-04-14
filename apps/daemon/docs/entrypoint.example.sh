@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-echo "=== sandagent container entrypoint ==="
+echo "=== bunny-agent container entrypoint ==="
 
 # 1. Start Chrome with CDP
 #
@@ -70,6 +70,6 @@ else
   echo "WARN: git_daemon not found, git sidecar disabled"
 fi
 
-# 3. Start sandagent-daemon (unified gateway, port 3080)
-echo "Starting sandagent-daemon on :3080"
-exec sandagent-daemon
+# 3. Start bunny-agent-daemon (unified gateway, port 3080)
+echo "Starting bunny-agent-daemon on :3080"
+exec bunny-agent-daemon

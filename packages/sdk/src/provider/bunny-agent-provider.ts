@@ -66,7 +66,7 @@ export function createBunnyAgent(
   if (!defaultOptions.sandbox) {
     throw new Error(
       "Provide a `sandbox` adapter (e.g. E2BSandbox, LocalSandbox). " +
-        "Optional `daemonUrl` uses in-sandbox HTTP to bunny-agent-daemon (no automatic `/healthz` probe). Use `isSandagentDaemonHealthy` from `@bunny-agent/sdk` if you want to probe and omit `daemonUrl` for CLI fallback. Omit `daemonUrl` to always use CLI.",
+        "Optional `daemonUrl` uses in-sandbox HTTP to bunny-agent-daemon (no automatic `/healthz` probe). Use `isBunnyAgentDaemonHealthy` from `@bunny-agent/sdk` if you want to probe and omit `daemonUrl` for CLI fallback. Omit `daemonUrl` to always use CLI.",
     );
   }
 

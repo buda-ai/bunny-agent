@@ -20,7 +20,7 @@ async function collectExecUtf8(
   return out;
 }
 
-export type IsSandagentDaemonHealthyOptions = ExecOptions & {
+export type IsBunnyAgentDaemonHealthyOptions = ExecOptions & {
   /** Default 1 — avoid retry storms on every SDK stream. */
   maxAttempts?: number;
   /** Delay between attempts (default 0). */
@@ -37,10 +37,10 @@ const DEFAULT_DAEMON_HEALTH_TIMEOUT_MS = 4000;
  * Defaults: **one attempt**, **~4s** budget, and curl `--connect-timeout` / `--max-time` so the
  * command cannot hang much longer than `timeout` even if the adapter is loose.
  */
-export async function isSandagentDaemonHealthy(
+export async function isBunnyAgentDaemonHealthy(
   handle: SandboxHandle,
   daemonBaseUrl: string,
-  opts?: IsSandagentDaemonHealthyOptions,
+  opts?: IsBunnyAgentDaemonHealthyOptions,
 ): Promise<boolean> {
   const healthzUrl = daemonHealthzUrl(daemonBaseUrl);
   const maxAttempts = Math.max(1, opts?.maxAttempts ?? 1);

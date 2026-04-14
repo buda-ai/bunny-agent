@@ -15,7 +15,7 @@ Thank you for your interest in contributing to Bunny Agent!
 
 ```bash
 # Clone the repository
-git clone https://github.com/vikadata/sandagent.git
+git clone https://github.com/vikadata/bunny-agent.git
 cd bunny-agent
 
 # Install dependencies
@@ -208,8 +208,8 @@ pnpm test
 
 ## Getting Help
 
-- Open an issue on [GitHub](https://github.com/vikadata/sandagent/issues)
-- Join discussions on [GitHub Discussions](https://github.com/vikadata/sandagent/discussions)
+- Open an issue on [GitHub](https://github.com/vikadata/bunny-agent/issues)
+- Join discussions on [GitHub Discussions](https://github.com/vikadata/bunny-agent/discussions)
 
 ---
 

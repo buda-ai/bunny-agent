@@ -75,7 +75,7 @@ Environment Variables:
   BUNNY_AGENT_SANDBOX    Default sandbox to use (e2b or sandock)
 
 Documentation:
-  https://github.com/vikadata/sandagent
+  https://github.com/vikadata/bunny-agent
 
 Enjoy building with BunnyAgent! 🤖
 `);
