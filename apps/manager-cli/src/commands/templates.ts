@@ -60,7 +60,9 @@ Templates define the agent's behavior, system prompt, and available skills.
   console.log("");
   console.log("Usage:");
   console.log('  bunny-agent-manager run --template coder "Build a REST API"');
-  console.log('  bunny-agent-manager run --template analyst "Analyze sales.csv"');
+  console.log(
+    '  bunny-agent-manager run --template analyst "Analyze sales.csv"',
+  );
   console.log(
     '  bunny-agent-manager run --template researcher "Research AI trends"',
   );

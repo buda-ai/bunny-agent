@@ -8,13 +8,14 @@
  * 3. Registers custom OpenAI-compatible provider if OPENAI_BASE_URL is set,
  *    so `--model openai-compatible:<model-id>` works with proxy endpoints.
  */
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+
 import {
   BUNNY_AGENT_SYSTEM_PROMPT,
   buildImageGenerateTool,
   buildWebFetchTool,
   buildWebSearchTool,
 } from "@bunny-agent/runner-harness";
+import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
 export default function bunnyExtension(pi: ExtensionAPI) {
   const env = process.env as Record<string, string>;

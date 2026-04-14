@@ -1,11 +1,11 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { Daytona, type Sandbox, type VolumeMount } from "@daytonaio/sdk";
 import type {
   ExecOptions,
   SandboxAdapter,
   SandboxHandle,
 } from "@bunny-agent/manager";
+import { Daytona, type Sandbox, type VolumeMount } from "@daytonaio/sdk";
 
 /**
  * Type alias for VolumeMount configuration

@@ -1,7 +1,7 @@
 import type {
+  BunnyAgentOptions,
   Message,
   RunnerSpec,
-  BunnyAgentOptions,
   SandboxAdapter,
   SandboxHandle,
   StreamInput,

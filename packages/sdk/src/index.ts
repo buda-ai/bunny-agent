@@ -36,15 +36,15 @@ export {
 export type {
   ArtifactProcessor,
   ArtifactResult,
+  BunnyAgentLanguageModelOptions,
+  BunnyAgentModelId,
+  BunnyAgentProvider,
+  BunnyAgentProviderSettings,
   // Re-exports from @ai-sdk/provider
   LanguageModelV3StreamPart,
   Logger,
   Message,
   Question,
-  BunnyAgentLanguageModelOptions,
-  BunnyAgentModelId,
-  BunnyAgentProvider,
-  BunnyAgentProviderSettings,
   // Re-exports from @bunny-agent/manager
   SandboxAdapter,
   SandboxHandle,
@@ -55,8 +55,8 @@ export type {
 } from "./provider";
 // Provider exports
 export {
-  createBunnyAgent,
   BunnyAgentLanguageModel,
+  createBunnyAgent,
   submitAnswer,
 } from "./provider";
 

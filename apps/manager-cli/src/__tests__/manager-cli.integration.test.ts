@@ -6,7 +6,7 @@
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { LocalSandbox, BunnyAgent } from "@bunny-agent/manager";
+import { BunnyAgent, LocalSandbox } from "@bunny-agent/manager";
 import { describe, expect, it } from "vitest";
 
 describe("manager-cli Integration Tests", () => {

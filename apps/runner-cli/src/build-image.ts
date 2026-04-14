@@ -132,7 +132,8 @@ export async function buildImage(opts: BuildImageOptions): Promise<void> {
     const claudeDir = join(templatePath, ".claude");
     if (existsSync(claudeDir)) copyDirSync(claudeDir, join(destDir, ".claude"));
 
-    let copyLines = "\n# Template files\nRUN mkdir -p /opt/bunny-agent/templates";
+    let copyLines =
+      "\n# Template files\nRUN mkdir -p /opt/bunny-agent/templates";
     if (existsSync(join(destDir, "CLAUDE.md"))) {
       copyLines += `\nCOPY templates/${templateName}/CLAUDE.md /opt/bunny-agent/templates/CLAUDE.md`;
     }

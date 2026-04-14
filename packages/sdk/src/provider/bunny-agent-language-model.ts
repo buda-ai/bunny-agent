@@ -14,17 +14,17 @@ import type {
   SharedV3Warning,
 } from "@ai-sdk/provider";
 import {
-  type Message,
-  type RunnerSpec,
   BunnyAgent,
   type BunnyAgentCodingRunBody,
+  type Message,
+  type RunnerSpec,
   streamCodingRunFromSandbox,
 } from "@bunny-agent/manager";
 import { getProviderLogger } from "./logging";
 import type {
-  Logger,
   BunnyAgentModelId,
   BunnyAgentProviderSettings,
+  Logger,
 } from "./types";
 
 /**

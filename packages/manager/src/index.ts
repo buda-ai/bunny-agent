@@ -1,3 +1,4 @@
+export { BunnyAgent } from "./bunny-agent.js";
 export type { DaemonCodingRunExecParams } from "./coding-run.js";
 export {
   buildCodingRunShellScript,
@@ -15,7 +16,6 @@ export { buildRunnerEnv } from "./env.js";
 export type { LocalSandboxOptions } from "./local-sandbox.js";
 // Default sandbox adapter (built-in)
 export { LocalSandbox } from "./local-sandbox.js";
-export { BunnyAgent } from "./bunny-agent.js";
 export {
   ConsoleTranscriptWriter,
   JsonlTranscriptWriter,
@@ -23,11 +23,11 @@ export {
   MultiTranscriptWriter,
 } from "./transcript.js";
 export type {
+  BunnyAgentCodingRunBody,
+  BunnyAgentOptions,
   ExecOptions,
   Message,
   RunnerSpec,
-  BunnyAgentCodingRunBody,
-  BunnyAgentOptions,
   SandboxAdapter,
   SandboxHandle,
   StreamInput,

@@ -9,11 +9,11 @@ import {
   SessionManager,
   type ToolDefinition,
 } from "@mariozechner/pi-coding-agent";
+import { BunnyAgentResourceLoader } from "./bunny-agent-resource-loader.js";
 import {
   buildImageGenerateTool,
   type ImageToolDetails,
 } from "./image-tools.js";
-import { BunnyAgentResourceLoader } from "./bunny-agent-resource-loader.js";
 import { buildSecretAwareTools, redactSecrets } from "./tool-overrides.js";
 
 const LOG_PREFIX = "[bunny-agent:pi]";

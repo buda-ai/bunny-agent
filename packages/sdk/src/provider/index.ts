@@ -13,19 +13,19 @@ export type {
   SandboxHandle,
   TranscriptEntry,
 } from "@bunny-agent/manager";
-export type { SubmitAnswerOptions } from "./question-processor";
-export { submitAnswer } from "./question-processor";
 export type { BunnyAgentLanguageModelOptions } from "./bunny-agent-language-model";
 export { BunnyAgentLanguageModel } from "./bunny-agent-language-model";
 export type { BunnyAgentProvider } from "./bunny-agent-provider";
 export { createBunnyAgent } from "./bunny-agent-provider";
+export type { SubmitAnswerOptions } from "./question-processor";
+export { submitAnswer } from "./question-processor";
 export type {
   ArtifactProcessor,
   ArtifactResult,
-  Logger,
-  Question,
   BunnyAgentModelId,
   BunnyAgentProviderSettings,
+  Logger,
+  Question,
   StreamWriter,
   SubmitAnswerParams,
 } from "./types";

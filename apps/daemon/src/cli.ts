@@ -9,7 +9,8 @@ const host = process.env.BUNNY_AGENT_DAEMON_HOST ?? "0.0.0.0";
 const port = Number(process.env.BUNNY_AGENT_DAEMON_PORT ?? "3080");
 /** Writable default for local dev; Docker sets `BUNNY_AGENT_ROOT` (e.g. `/workspace`). */
 const root =
-  process.env.BUNNY_AGENT_ROOT ?? path.join(process.cwd(), ".bunny-agent-daemon");
+  process.env.BUNNY_AGENT_ROOT ??
+  path.join(process.cwd(), ".bunny-agent-daemon");
 
 // Safety net: never let the daemon crash on unhandled errors
 process.on("uncaughtException", (err) => {

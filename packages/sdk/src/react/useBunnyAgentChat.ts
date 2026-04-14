@@ -59,7 +59,9 @@ export function useBunnyAgentChat({
     for (const part of message.parts) {
       if (part.type === "text") {
         const providerMetadata = (
-          part as { providerMetadata?: { "bunny-agent"?: { sessionId?: string } } }
+          part as {
+            providerMetadata?: { "bunny-agent"?: { sessionId?: string } };
+          }
         ).providerMetadata;
         if (providerMetadata?.["bunny-agent"]?.sessionId) {
           return providerMetadata["bunny-agent"].sessionId;

@@ -1,8 +1,8 @@
 import {
+  type BunnyAgentProviderSettings,
   createBunnyAgent,
   DEFAULT_BUNNY_AGENT_DAEMON_URL,
   isBunnyAgentDaemonHealthy,
-  type BunnyAgentProviderSettings,
 } from "@bunny-agent/sdk";
 import {
   createUIMessageStream,

@@ -1,4 +1,4 @@
-import type { Logger, BunnyAgentProviderSettings } from "./types";
+import type { BunnyAgentProviderSettings, Logger } from "./types";
 
 /** Shared logger factory for provider and language model. */
 export function getProviderLogger(

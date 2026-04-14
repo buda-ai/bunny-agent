@@ -6,8 +6,8 @@ import type {
 } from "@ai-sdk/provider";
 import { NoSuchModelError } from "@ai-sdk/provider";
 import type { RunnerSpec } from "@bunny-agent/manager";
-import { getProviderLogger } from "./logging";
 import { BunnyAgentLanguageModel } from "./bunny-agent-language-model";
+import { getProviderLogger } from "./logging";
 import type { BunnyAgentModelId, BunnyAgentProviderSettings } from "./types";
 
 export type { BunnyAgentProviderSettings } from "./types";

@@ -1,4 +1,4 @@
-import { LocalSandbox, BunnyAgent } from "@bunny-agent/manager";
+import { BunnyAgent, LocalSandbox } from "@bunny-agent/manager";
 import { describe, expect, it } from "vitest";
 
 /**
