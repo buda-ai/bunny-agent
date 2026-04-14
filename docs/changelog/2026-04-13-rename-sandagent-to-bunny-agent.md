@@ -41,6 +41,21 @@ Complete project-wide rename from "SandAgent" to "Bunny Agent" across the entire
 - `pnpm-workspace.yaml` updated to reference `docker/bunny-agent-claude`.
 - `pnpm-lock.yaml` regenerated after package name changes.
 
+## Follow-up Cleanup (2026-04-14)
+
+Second pass fixing identifiers missed in the initial rename:
+
+- `isSandagentDaemonHealthy` → `isBunnyAgentDaemonHealthy`
+- `IsSandagentDaemonHealthyOptions` → `IsBunnyAgentDaemonHealthyOptions`
+- `SandagentResourceLoader` / `SandagentResourceLoaderOptions` → `BunnyAgentResourceLoader` / `BunnyAgentResourceLoaderOptions`
+- `useSandagentDaemon` → `useBunnyAgentDaemon`
+- `/opt/sandagent/` → `/opt/bunny-agent/` (Docker internal paths in `generate-dockerfile.sh`)
+- `sandagent-daemon` binary references in `entrypoint.example.sh`
+- `run-benchmark.sh` display string → `🐰 Bunny Agent Benchmark Runner`
+- `CONTRIBUTING.md`, `SECURITY.md`, `docs/QUICK_START.md` prose updated
+- Deleted `sandagent-daemon-0.1.0.tgz` legacy artifact from repo root
+- Added `*.tgz` to `.gitignore`
+
 ## Preserved (Not Renamed)
 - `sandock` — third-party service, unchanged.
 - `sandagent-daemon-0.1.0.tgz` — legacy tgz artifact at repo root, not renamed.
