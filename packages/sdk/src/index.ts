@@ -1,51 +1,51 @@
 /**
- * @sandagent/sdk
+ * @bunny-agent/sdk
  *
- * SandAgent SDK - AI Provider and React hooks for building AI chat interfaces.
+ * BunnyAgent SDK - AI Provider and React hooks for building AI chat interfaces.
  *
  * Main entry point exports the AI provider (backend).
- * React hooks are available via "@sandagent/sdk/react".
+ * React hooks are available via "@bunny-agent/sdk/react".
  *
  * @example
  * ```typescript
  * // Backend - Provider
- * import { createSandAgent } from "@sandagent/sdk";
- * const sandagent = createSandAgent({ sandbox, env });
- * const model = sandagent("sonnet");
+ * import { createBunnyAgent } from "@bunny-agent/sdk";
+ * const bunnyAgent = createBunnyAgent({ sandbox, env });
+ * const model = bunnyAgent("sonnet");
  *
  * // Frontend - React hooks
- * import { useSandAgentChat } from "@sandagent/sdk/react";
- * const { messages, sendMessage } = useSandAgentChat({ apiEndpoint: "/api/ai" });
+ * import { useBunnyAgentChat } from "@bunny-agent/sdk/react";
+ * const { messages, sendMessage } = useBunnyAgentChat({ apiEndpoint: "/api/ai" });
  * ```
  */
 
 export type {
-  IsSandagentDaemonHealthyOptions,
+  IsBunnyAgentDaemonHealthyOptions,
   LocalSandboxOptions,
   RunnerEnvParams,
   RunnerType,
-} from "@sandagent/manager";
+} from "@bunny-agent/manager";
 // Re-export LocalSandbox for convenience
 // Re-export env helpers
 export {
   buildRunnerEnv,
-  DEFAULT_SANDAGENT_DAEMON_URL,
-  isSandagentDaemonHealthy,
+  DEFAULT_BUNNY_AGENT_DAEMON_URL,
+  isBunnyAgentDaemonHealthy,
   LocalSandbox,
-} from "@sandagent/manager";
+} from "@bunny-agent/manager";
 export type {
   ArtifactProcessor,
   ArtifactResult,
+  BunnyAgentLanguageModelOptions,
+  BunnyAgentModelId,
+  BunnyAgentProvider,
+  BunnyAgentProviderSettings,
   // Re-exports from @ai-sdk/provider
   LanguageModelV3StreamPart,
   Logger,
   Message,
   Question,
-  SandAgentLanguageModelOptions,
-  SandAgentModelId,
-  SandAgentProvider,
-  SandAgentProviderSettings,
-  // Re-exports from @sandagent/manager
+  // Re-exports from @bunny-agent/manager
   SandboxAdapter,
   SandboxHandle,
   StreamWriter,
@@ -55,8 +55,8 @@ export type {
 } from "./provider";
 // Provider exports
 export {
-  createSandAgent,
-  SandAgentLanguageModel,
+  BunnyAgentLanguageModel,
+  createBunnyAgent,
   submitAnswer,
 } from "./provider";
 

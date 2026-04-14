@@ -3,7 +3,7 @@
 ## Session Log
 
 - Added `apps/web/content/docs/advanced/publishing-npm-packages.mdx`: a comprehensive guide covering
-  - Which packages are published (`@sandagent/sdk`, `@sandagent/manager`, `@sandagent/sandbox-sandock`, `@sandagent/runner-cli`)
+  - Which packages are published (`@bunny-agent/sdk`, `@bunny-agent/manager`, `@bunny-agent/sandbox-sandock`, `@bunny-agent/runner-cli`)
   - Tag-based release workflow vs. push-based automatic publishing
   - Step-by-step contributor workflow (changeset → PR → merge → publish)
   - How to trigger a tagged release

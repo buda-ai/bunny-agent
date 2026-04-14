@@ -9,14 +9,14 @@ import {
   SessionManager,
   type ToolDefinition,
 } from "@mariozechner/pi-coding-agent";
+import { BunnyAgentResourceLoader } from "./bunny-agent-resource-loader.js";
 import {
   buildImageGenerateTool,
   type ImageToolDetails,
 } from "./image-tools.js";
-import { SandagentResourceLoader } from "./sandagent-resource-loader.js";
 import { buildSecretAwareTools, redactSecrets } from "./tool-overrides.js";
 
-const LOG_PREFIX = "[sandagent:pi]";
+const LOG_PREFIX = "[bunny-agent:pi]";
 
 export interface PiRunnerOptions {
   model?: string;
@@ -337,7 +337,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
         })();
 
         const resourceLoader = options.skillPaths
-          ? new SandagentResourceLoader({
+          ? new BunnyAgentResourceLoader({
               cwd,
               skillPaths: options.skillPaths,
               appendSystemPrompt: options.systemPrompt,
@@ -351,7 +351,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
         }
 
         // createAgentSession only calls reload() when it creates its own
-        // DefaultResourceLoader.  When we supply our own SandagentResourceLoader
+        // DefaultResourceLoader.  When we supply our own BunnyAgentResourceLoader
         // we must reload it ourselves so that skills and extensions on disk are
         // picked up before the session is built.
         if (resourceLoader) {
@@ -421,7 +421,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
             | Array<{ type: "image"; data: string; mimeType: string }>
             | undefined;
 
-          // Try to parse userInput as a JSON array of parts (if passed from sandagent SDK)
+          // Try to parse userInput as a JSON array of parts (if passed from bunny-agent SDK)
           try {
             if (userInput.startsWith("[") && userInput.endsWith("]")) {
               const parsed = JSON.parse(userInput);

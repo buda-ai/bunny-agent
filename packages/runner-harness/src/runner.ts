@@ -1,9 +1,9 @@
-import type { BaseRunnerOptions } from "@sandagent/runner-claude";
-import { createClaudeRunner } from "@sandagent/runner-claude";
-import { createCodexRunner } from "@sandagent/runner-codex";
-import { createGeminiRunner } from "@sandagent/runner-gemini";
-import { createOpenCodeRunner } from "@sandagent/runner-opencode";
-import { createPiRunner } from "@sandagent/runner-pi";
+import type { BaseRunnerOptions } from "@bunny-agent/runner-claude";
+import { createClaudeRunner } from "@bunny-agent/runner-claude";
+import { createCodexRunner } from "@bunny-agent/runner-codex";
+import { createGeminiRunner } from "@bunny-agent/runner-gemini";
+import { createOpenCodeRunner } from "@bunny-agent/runner-opencode";
+import { createPiRunner } from "@bunny-agent/runner-pi";
 import { loadSystemPrompt } from "./prompt.js";
 import { readSessionId, writeSessionId } from "./session.js";
 import { discoverSkillPaths } from "./skills.js";
@@ -18,7 +18,7 @@ export interface RunnerCoreOptions extends BaseRunnerOptions {
   yolo?: boolean;
   /**
    * Whether to auto-inject CLAUDE.md/AGENTS.md as systemPrompt and
-   * auto-read/write .sandagent/session-id for resume.
+   * auto-read/write .bunny-agent/session-id for resume.
    * Default: true (good for TUI/runner-cli).
    * Set false for daemon/API usage where caller manages these explicitly.
    */

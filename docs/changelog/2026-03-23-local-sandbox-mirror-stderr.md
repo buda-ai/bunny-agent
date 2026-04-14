@@ -2,7 +2,7 @@
 
 ## Problem
 
-`LocalSandbox` only accumulated child **stderr** and printed it when the command exited with a non-zero code. Successful runs dropped stderr on the floor, so Pi runner logs (`console.error`, e.g. `[sandagent:pi]`) never appeared in the Next.js / dev server terminal.
+`LocalSandbox` only accumulated child **stderr** and printed it when the command exited with a non-zero code. Successful runs dropped stderr on the floor, so Pi runner logs (`console.error`, e.g. `[bunny-agent:pi]`) never appeared in the Next.js / dev server terminal.
 
 ## Fix
 

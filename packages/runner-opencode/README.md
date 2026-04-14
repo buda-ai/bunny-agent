@@ -1,11 +1,11 @@
-# @sandagent/runner-opencode
+# @bunny-agent/runner-opencode
 
-OpenCode runner for SandAgent using ACP (Agent Client Protocol).
+OpenCode runner for Bunny Agent using ACP (Agent Client Protocol).
 
 ## Installation
 
 ```bash
-npm install @sandagent/runner-opencode
+npm install @bunny-agent/runner-opencode
 ```
 
 ## Prerequisites
@@ -16,7 +16,7 @@ npm install @sandagent/runner-opencode
 ## Usage
 
 ```typescript
-import { createOpenCodeRunner } from '@sandagent/runner-opencode';
+import { createOpenCodeRunner } from '@bunny-agent/runner-opencode';
 
 const runner = createOpenCodeRunner({
   model: 'claude-sonnet-4',
@@ -39,7 +39,7 @@ for await (const chunk of runner.run('Create a hello world script')) {
 
 ## How it works
 
-This runner spawns the `opencode acp` command and communicates via ACP protocol over stdio. It converts ACP messages to AI SDK UI format for compatibility with SandAgent.
+This runner spawns the `opencode acp` command and communicates via ACP protocol over stdio. It converts ACP messages to AI SDK UI format for compatibility with Bunny Agent.
 
 ## License
 

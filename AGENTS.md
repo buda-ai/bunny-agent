@@ -1,6 +1,6 @@
 # Agent Instructions
 
-You are working on the SandAgent project - a framework that turns powerful coding agents into universal Super Agents.
+You are working on the Bunny Agent project - a framework that turns powerful coding agents into universal Super Agents.
 
 ## Critical Rules
 
@@ -14,7 +14,7 @@ You are working on the SandAgent project - a framework that turns powerful codin
 ## Project Structure
 
 ```
-sandagent/
+bunny-agent/
 ├── apps/
 │   ├── web/                 # Documentation website
 │   ├── manager-cli/         # Sandbox management CLI
@@ -46,7 +46,7 @@ sandagent/
 
 ## Runner Architecture
 
-SandAgent supports multiple agent runtimes through a pluggable runner system:
+Bunny Agent supports multiple agent runtimes through a pluggable runner system:
 
 - **runner-claude**: Uses `@anthropic-ai/claude-agent-sdk`
 - **runner-pi**: Uses `@mariozechner/pi-coding-agent` (multi-provider)
@@ -92,7 +92,7 @@ Use GAIA benchmark to test runners:
 
 ```bash
 # Download dataset
-pnpm --filter @sandagent/benchmark-cli benchmark:download
+pnpm --filter @bunny-agent/benchmark-cli benchmark:download
 
 # Run unified benchmark script (from project root)
 ./run-benchmark.sh --help
@@ -102,7 +102,7 @@ pnpm --filter @sandagent/benchmark-cli benchmark:download
 ./run-benchmark.sh --runner claude --model "global.anthropic.claude-sonnet-4-5-20250929-v1:0"
 ./run-benchmark.sh --runs 3  # Test both runners
 
-# Results saved to: benchmark-results/sandagent/smoking/
+# Results saved to: benchmark-results/bunny-agent/smoking/
 ```
 
 **Benchmark script options:**
@@ -111,7 +111,7 @@ pnpm --filter @sandagent/benchmark-cli benchmark:download
 - `--runs <n>` - Number of runs per config (default: 1)
 - `--dataset <name>` - Dataset: smoking, gaia (default: smoking)
 
-**Working directory:** Tests run in `/tmp/sandagent-benchmark` to avoid creating files in project directory.
+**Working directory:** Tests run in `/tmp/bunny-agent-benchmark` to avoid creating files in project directory.
 
 ## Code Style
 
@@ -134,13 +134,13 @@ pnpm build
 ```bash
 cd apps/runner-cli
 pnpm build
-npx sandagent run --runner pi -- "your task"
+npx bunny-agent run --runner pi -- "your task"
 ```
 
 ### Add a dependency
 ```bash
 # To a specific package
-pnpm --filter @sandagent/runner-pi add some-package
+pnpm --filter @bunny-agent/runner-pi add some-package
 
 # To workspace root
 pnpm add -w some-package

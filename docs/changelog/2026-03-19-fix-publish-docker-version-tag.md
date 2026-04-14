@@ -7,8 +7,8 @@ without pushing the version-specific tag (e.g. `0.8.5`).
 
 This happened when the `Extract version from tag` step produced an empty
 `version` output. In that case the `tags` parameter of `docker/build-push-action`
-would contain the invalid entry `ghcr.io/vikadata/sandagent:` alongside
-`ghcr.io/vikadata/sandagent:latest`. The action silently dropped the malformed
+would contain the invalid entry `ghcr.io/vikadata/bunny-agent:` alongside
+`ghcr.io/vikadata/bunny-agent:latest`. The action silently dropped the malformed
 tag and only pushed `latest`.
 
 Root-cause scenario: `git tag --points-at HEAD` returned nothing (e.g. due to a
@@ -37,5 +37,5 @@ prefix).
 Every successful push of a `v*.*.*` tag now guarantees that **both** the
 version-specific tag and `latest` are pushed to GHCR:
 
-- `ghcr.io/vikadata/sandagent:<version>` (e.g. `ghcr.io/vikadata/sandagent:0.8.5`)
-- `ghcr.io/vikadata/sandagent:latest`
+- `ghcr.io/vikadata/bunny-agent:<version>` (e.g. `ghcr.io/vikadata/bunny-agent:0.8.5`)
+- `ghcr.io/vikadata/bunny-agent:latest`

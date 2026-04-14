@@ -2,7 +2,7 @@
 
 ## Problem
 
-In `@sandagent/runner-pi`, all streamed `text-delta` chunks were emitted with a
+In `@bunny-agent/runner-pi`, all streamed `text-delta` chunks were emitted with a
 single `textId` for the whole run. When a response pattern was:
 
 1. assistant text
@@ -42,7 +42,7 @@ text blocks from being merged.
 Run:
 
 ```bash
-pnpm --filter @sandagent/runner-pi test
+pnpm --filter @bunny-agent/runner-pi test
 ```
 
 Status: passing.

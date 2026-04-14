@@ -1,7 +1,7 @@
 {
-  "name": "@sandagent/sandbox-e2b",
+  "name": "@bunny-agent/sandbox-e2b",
   "version": "0.9.28",
-  "description": "E2B sandbox adapter for SandAgent",
+  "description": "E2B sandbox adapter for BunnyAgent",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -25,7 +25,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/vikadata/sandagent.git",
+    "url": "https://github.com/vikadata/bunny-agent.git",
     "directory": "packages/sandbox-e2b"
   },
   "license": "Apache-2.0",
@@ -38,11 +38,11 @@
   "keywords": [
     "sandbox",
     "e2b",
-    "sandagent",
+    "bunny-agent",
     "adapter"
   ],
   "dependencies": {
-    "@sandagent/manager": "workspace:*",
+    "@bunny-agent/manager": "workspace:*",
     "e2b": "^2.9.0"
   },
   "devDependencies": {

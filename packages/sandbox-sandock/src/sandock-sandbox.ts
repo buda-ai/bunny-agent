@@ -5,7 +5,7 @@ import type {
   SandboxAdapter,
   SandboxHandle,
   Volume,
-} from "@sandagent/manager";
+} from "@bunny-agent/manager";
 import { createSandockClient, type SandockClient } from "sandock";
 
 /** Single volume mount configuration (name → get/create by name; mountPath inside container) */
@@ -57,7 +57,7 @@ export interface SandockSandboxOptions {
 
   /**
    * If true, skip installing SDK and runner (image already has them).
-   * Only upload template files and use `sandagent run`. Use with pre-built images like vikadata/sandagent.
+   * Only upload template files and use `bunny-agent run`. Use with pre-built images like vikadata/bunny-agent.
    */
   skipBootstrap?: boolean;
 
@@ -161,13 +161,13 @@ export class SandockSandbox implements SandboxAdapter {
 
   /**
    * Get the runner command to execute in the sandbox.
-   * When skipBootstrap is true, use image's sandagent; otherwise use npm-installed runner.
+   * When skipBootstrap is true, use image's bunny-agent; otherwise use npm-installed runner.
    */
   getRunnerCommand(): string[] {
     if (this.skipBootstrap) {
-      return ["sandagent", "run"];
+      return ["bunny-agent", "run"];
     }
-    return [`${this.workdir}/node_modules/.bin/sandagent`, "run"];
+    return [`${this.workdir}/node_modules/.bin/bunny-agent`, "run"];
   }
 
   /**
@@ -369,10 +369,10 @@ export class SandockSandbox implements SandboxAdapter {
     } else {
       // Install runner-cli from npm (brings in @anthropic-ai/claude-agent-sdk as dependency)
       console.log(
-        `[Sandock] Installing @sandagent/runner-cli@latest to ${this.workdir}`,
+        `[Sandock] Installing @bunny-agent/runner-cli@latest to ${this.workdir}`,
       );
       const installResult = await handle.runCommand(
-        `cd ${this.workdir} && npm install --no-audit --no-fund --prefer-offline @sandagent/runner-cli@latest 2>&1`,
+        `cd ${this.workdir} && npm install --no-audit --no-fund --prefer-offline @bunny-agent/runner-cli@latest 2>&1`,
       );
       if (installResult.exitCode !== 0) {
         console.error(
@@ -557,7 +557,7 @@ class SandockHandle implements SandboxHandle {
 
         // Wrap the command to capture its PID and handle signals
         // We write the PID to a file so we can kill it if needed
-        const pidFile = `/tmp/sandagent-${Date.now()}-${Math.random().toString(36).substring(7)}.pid`;
+        const pidFile = `/tmp/bunny-agent-${Date.now()}-${Math.random().toString(36).substring(7)}.pid`;
         const wrappedCmd = `(${baseCmd}) & echo $! > ${pidFile}; wait $!; rm -f ${pidFile}`;
         parts.push(wrappedCmd);
 

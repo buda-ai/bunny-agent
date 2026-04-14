@@ -4,13 +4,13 @@
   "commit": false,
   "fixed": [
     [
-      "@sandagent/daemon",
-      "@sandagent/manager",
-      "@sandagent/runner-cli",
-      "@sandagent/sandbox-e2b",
-      "@sandagent/sandbox-sandock",
-      "@sandagent/sandbox-daytona",
-      "@sandagent/sdk"
+      "@bunny-agent/daemon",
+      "@bunny-agent/manager",
+      "@bunny-agent/runner-cli",
+      "@bunny-agent/sandbox-e2b",
+      "@bunny-agent/sandbox-sandock",
+      "@bunny-agent/sandbox-daytona",
+      "@bunny-agent/sdk"
     ]
   ],
   "linked": [],
@@ -18,10 +18,10 @@
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
   "ignore": [
-    "@sandagent/web",
-    "@sandagent/manager-cli",
-    "@sandagent/benchmark-cli",
-    "@sandagent/benchmark-sandagent",
-    "@sandagent/benchmark-shared"
+    "@bunny-agent/web",
+    "@bunny-agent/manager-cli",
+    "@bunny-agent/benchmark-cli",
+    "@bunny-agent/benchmark-bunny-agent",
+    "@bunny-agent/benchmark-shared"
   ]
 }

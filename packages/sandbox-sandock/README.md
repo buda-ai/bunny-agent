@@ -1,6 +1,6 @@
-# @sandagent/sandbox-sandock
+# @bunny-agent/sandbox-sandock
 
-Sandock sandbox adapter for SandAgent. Runs AI agents in [Sandock](https://sandock.ai) remote sandboxes (instead of locally or via E2B/Daytona), with persistent volumes, seed-file uploads, and fast-start images.
+Sandock sandbox adapter for Bunny Agent. Runs AI agents in [Sandock](https://sandock.ai) remote sandboxes (instead of locally or via E2B/Daytona), with persistent volumes, seed-file uploads, and fast-start images.
 
 ## Prerequisites
 
@@ -10,18 +10,18 @@ Sandock sandbox adapter for SandAgent. Runs AI agents in [Sandock](https://sando
 ## Install
 
 ```bash
-npm install @sandagent/sandbox-sandock
+npm install @bunny-agent/sandbox-sandock
 ```
 
 ## Quick Start
 
 ```ts
-import { SandockSandbox } from "@sandagent/sandbox-sandock";
+import { SandockSandbox } from "@bunny-agent/sandbox-sandock";
 
 const sandbox = new SandockSandbox({
   apiKey: process.env.SANDOCK_API_KEY,
   workdir: "/workspace",
-  image: "ghcr.io/vikadata/sandagent:latest",
+  image: "ghcr.io/vikadata/bunny-agent:latest",
   skipBootstrap: true,
 });
 ```
@@ -49,7 +49,7 @@ const sandbox = new SandockSandbox({
 ```ts
 new SandockSandbox({
   apiKey: process.env.SANDOCK_API_KEY,
-  image: "ghcr.io/vikadata/sandagent:latest",
+  image: "ghcr.io/vikadata/bunny-agent:latest",
   skipBootstrap: true,
   workdir: "/workspace",
 });
@@ -60,7 +60,7 @@ new SandockSandbox({
 ```ts
 new SandockSandbox({
   apiKey: process.env.SANDOCK_API_KEY,
-  image: "ghcr.io/vikadata/sandagent:latest",
+  image: "ghcr.io/vikadata/bunny-agent:latest",
   skipBootstrap: true,
   workdir: "/workspace",
   volumes: [
@@ -77,7 +77,7 @@ Pass `sandboxId` to reattach to a previously created sandbox. The adapter will o
 ```ts
 const sandbox = new SandockSandbox({
   apiKey: process.env.SANDOCK_API_KEY,
-  image: "ghcr.io/vikadata/sandagent:latest",
+  image: "ghcr.io/vikadata/bunny-agent:latest",
   skipBootstrap: true,
   workdir: "/workspace",
   sandboxId: "cached-sandbox-id", // from your cache
@@ -91,30 +91,30 @@ const handle = await sandbox.attach();
 
 For web apps, cache the sandboxId server-side (e.g. in-memory Map with 30-min TTL) so subsequent requests reuse the same sandbox without client-side state. Use `keep: true` (the default) to keep sandboxes running between requests.
 
-## With @sandagent/sdk
+## With @bunny-agent/sdk
 
 ```ts
-import { createSandAgent } from "@sandagent/sdk";
-import { SandockSandbox } from "@sandagent/sandbox-sandock";
+import { createBunnyAgent } from "@bunny-agent/sdk";
+import { SandockSandbox } from "@bunny-agent/sandbox-sandock";
 import { generateText } from "ai";
 
-const sandagent = createSandAgent({
+const bunnyAgent = createBunnyAgent({
   sandbox: new SandockSandbox({
     apiKey: process.env.SANDOCK_API_KEY,
     workdir: "/workspace",
-    image: "ghcr.io/vikadata/sandagent:latest",
+    image: "ghcr.io/vikadata/bunny-agent:latest",
     skipBootstrap: true,
   }),
   env: { ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY! },
 });
 
 const { text } = await generateText({
-  model: sandagent("sonnet"),
+  model: bunnyAgent("sonnet"),
   prompt: "Create a hello world program",
 });
 ```
 
-Install: `npm install @sandagent/sandbox-sandock @sandagent/sdk ai`
+Install: `npm install @bunny-agent/sandbox-sandock @bunny-agent/sdk ai`
 
 ## API
 
@@ -135,8 +135,8 @@ Install: `npm install @sandagent/sandbox-sandock @sandagent/sdk ai`
 
 ## About skipBootstrap
 
-- **`skipBootstrap: true`**: Image already includes `sandagent run`; only upload seed files (from `templatesPath`), no runner install. Use with pre-built images like `ghcr.io/vikadata/sandagent:latest`.
-- **`skipBootstrap: false`**: On attach, runs `npm install @sandagent/runner-cli@latest` in `workdir`, then uses `${workdir}/node_modules/.bin/sandagent run` for execution.
+- **`skipBootstrap: true`**: Image already includes `bunny-agent run`; only upload seed files (from `templatesPath`), no runner install. Use with pre-built images like `ghcr.io/vikadata/bunny-agent:latest`.
+- **`skipBootstrap: false`**: On attach, runs `npm install @bunny-agent/runner-cli@latest` in `workdir`, then uses `${workdir}/node_modules/.bin/bunny-agent run` for execution.
 
 ## License
 

@@ -20,7 +20,7 @@ You are an expert software developer running inside a sandboxed environment. You
      - `${CLAUDE_SESSION_ID}` 只在 SKILL.md 中自动替换
      - 以数组形式存储所有产出文件/资源
      - 每个条目包含：id, path, mimeType, description 等字段
-     - 路径相对于工作目录（例如：`/sandagent`）
+     - 路径相对于工作目录（例如：`/bunny-agent`）
      - 示例：
      ```json
      {
@@ -82,7 +82,7 @@ You have access to the following tools:
 
 ## Environment
 
-- **Working Directory**: `/sandagent`
+- **Working Directory**: `/bunny-agent`
 - **Persistence**: All code and files persist across sessions
 - **Isolation**: Sandboxed environment with full dev tools
 - **Session ID**: Available via `${CLAUDE_SESSION_ID}` variable in Skills
@@ -201,7 +201,7 @@ Whenever you create or modify a file, update `artifact.json` in the task directo
 **重要**：
 - `artifact.json` 必须存储在 `tasks/${CLAUDE_SESSION_ID}/artifact.json`
 - **使用 `/artifact` skill 来管理 artifact.json**，`${CLAUDE_SESSION_ID}` 会自动替换
-- 所有 artifact 文件路径都相对于工作目录（`/sandagent`）
+- 所有 artifact 文件路径都相对于工作目录（`/bunny-agent`）
 - 在 `artifact.json` 中的 `path` 字段应包含完整路径
 
 ## Tool Usage Patterns
@@ -253,7 +253,7 @@ git commit -m "feat: description"
 - `artifact.json` 必须存储在 `tasks/${CLAUDE_SESSION_ID}/artifact.json`
 - **使用 `/artifact` skill 来管理 artifact.json**，`${CLAUDE_SESSION_ID}` 会自动替换
 - `${CLAUDE_SESSION_ID}` 只在 SKILL.md 文件中自动替换，不在普通 bash 命令中
-- 所有 artifact 文件路径都相对于工作目录（`/sandagent`）
+- 所有 artifact 文件路径都相对于工作目录（`/bunny-agent`）
 
 ### Common MIME Types
 - `text/typescript` - TypeScript files

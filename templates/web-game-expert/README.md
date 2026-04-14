@@ -28,31 +28,31 @@
 
 ## 使用方法
 
-### 使用 sandagent-manager CLI
+### 使用 bunny-agent-manager CLI
 
 ```bash
 # 创建新游戏项目
-sandagent-manager run --template web-game-expert "创建一个太空射击游戏"
+bunny-agent-manager run --template web-game-expert "创建一个太空射击游戏"
 
 # 查看模板信息
-sandagent-manager templates
+bunny-agent-manager templates
 ```
 
-### 使用 sandagent CLI（本地）
+### 使用 bunny-agent CLI（本地）
 
 ```bash
 # 在当前目录运行
-sandagent run --template web-game-expert -- "帮我开发一个 3D 赛车游戏"
+bunny-agent run --template web-game-expert -- "帮我开发一个 3D 赛车游戏"
 ```
 
 ### 在 Next.js 应用中使用
 
 ```typescript
-import { createSandAgent } from '@sandagent/manager';
-import { createClaudeRunner } from '@sandagent/runner-claude';
-import { createLocalSandbox } from '@sandagent/sandbox-local';
+import { createBunnyAgent } from '@bunny-agent/manager';
+import { createClaudeRunner } from '@bunny-agent/runner-claude';
+import { createLocalSandbox } from '@bunny-agent/sandbox-local';
 
-const agent = await createSandAgent({
+const agent = await createBunnyAgent({
   runner: createClaudeRunner({
     apiKey: process.env.ANTHROPIC_API_KEY!,
     template: 'web-game-expert'
@@ -234,4 +234,4 @@ Agent 会自动考虑以下优化：
 
 ## 许可证
 
-遵循 SandAgent 主项目的许可证。
+遵循 Bunny Agent 主项目的许可证。

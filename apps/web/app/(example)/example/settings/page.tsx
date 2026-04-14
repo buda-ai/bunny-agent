@@ -249,10 +249,10 @@ const ENV_CONFIGS: EnvConfig[] = [
     isSecret: true,
   },
   {
-    name: "Use SandAgent daemon",
-    key: "USE_SANDAGENT_DAEMON",
+    name: "Use BunnyAgent daemon",
+    key: "USE_BUNNY_AGENT_DAEMON",
     description:
-      "When On, the example probes in-sandbox http://127.0.0.1:3080/healthz and streams coding runs through sandagent-daemon (HTTP) when healthy; otherwise the CLI runner is used. Matches SDK useSandagentDaemon / server SANDAGENT_USE_DAEMON=1.",
+      "When On, the example probes in-sandbox http://127.0.0.1:3080/healthz and streams coding runs through bunny-agent-daemon (HTTP) when healthy; otherwise the CLI runner is used. Matches SDK useBunnyAgentDaemon / server BUNNY_AGENT_USE_DAEMON=1.",
     required: false,
     category: "api",
     placeholder: "Off — CLI runner in sandbox",
@@ -260,7 +260,7 @@ const ENV_CONFIGS: EnvConfig[] = [
   },
 ];
 
-export const STORAGE_KEY = "sandagent-config";
+export const STORAGE_KEY = "bunny-agent-config";
 
 export default function SettingsPage() {
   const [config, setConfig] = useState<Record<string, string>>({});
@@ -293,7 +293,7 @@ export default function SettingsPage() {
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
       // Dispatch custom event to notify other components
-      window.dispatchEvent(new CustomEvent("sandagent-config-updated"));
+      window.dispatchEvent(new CustomEvent("bunny-agent-config-updated"));
     } catch {
       alert("Failed to save configuration");
     }
@@ -304,7 +304,7 @@ export default function SettingsPage() {
       setConfig({});
       localStorage.removeItem(STORAGE_KEY);
       // Dispatch custom event to notify other components
-      window.dispatchEvent(new CustomEvent("sandagent-config-updated"));
+      window.dispatchEvent(new CustomEvent("bunny-agent-config-updated"));
     }
   };
 
@@ -350,7 +350,7 @@ export default function SettingsPage() {
           </Link>
           <h1 className="text-3xl font-bold text-foreground">Settings</h1>
           <p className="text-muted-foreground mt-2">
-            Configure your SandAgent environment. These values are stored in
+            Configure your BunnyAgent environment. These values are stored in
             your browser and passed to the API.
           </p>
         </div>
@@ -394,7 +394,7 @@ export default function SettingsPage() {
               <p className="text-sm text-muted-foreground mt-1">
                 Configuration is stored in your browser&apos;s localStorage and
                 sent with each API request. Your API keys never leave your
-                browser except when making requests to the SandAgent API.
+                browser except when making requests to the BunnyAgent API.
               </p>
             </div>
           </div>

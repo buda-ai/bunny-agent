@@ -10,8 +10,8 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: "SandAgent",
-    template: "%s | SandAgent",
+    default: "BunnyAgent",
+    template: "%s | BunnyAgent",
   },
   description:
     "Turn powerful Coding Agents into your product's superpower. AI SDK compatible.",

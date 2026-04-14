@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 /**
- * Build (and optionally push) the SandAgent Docker image.
+ * Build (and optionally push) the BunnyAgent Docker image.
  *
  * Usage (from project root):
- *   pnpm exec tsx docker/sandagent-claude/build-image.ts [options]
+ *   pnpm exec tsx docker/bunny-agent-claude/build-image.ts [options]
  *
  * Or from this directory:
  *   pnpm run image [-- options]
  *
  * Options:
- *   --name <name>        Image name (default: vikadata/sandagent)
+ *   --name <name>        Image name (default: vikadata/bunny-agent)
  *   --tag <tag>          Image tag (default: root package.json version)
  *   --image <image>      Full image name override (e.g., user/repo:tag)
  *   --repo <repo>        Repo/namespace for push (e.g., dockerhub username)
@@ -20,7 +20,7 @@
  *   --help, -h           Show this help message
  *
  * Environment:
- *   IMAGE_NAME           Default image name (fallback: vikadata/sandagent)
+ *   IMAGE_NAME           Default image name (fallback: vikadata/bunny-agent)
  *   IMAGE_TAG            Override image tag (default: root package.json version)
  *   DOCKERHUB_USERNAME   Default repo/namespace for push
  */
@@ -58,7 +58,7 @@ type Args = {
 function parseArgs(scriptDir: string): Args {
   const defaultTag = process.env.IMAGE_TAG || getPackageVersion(scriptDir);
   const args: Args = {
-    name: process.env.IMAGE_NAME || "vikadata/sandagent",
+    name: process.env.IMAGE_NAME || "vikadata/bunny-agent",
     tag: defaultTag,
     image: null,
     repo: process.env.DOCKERHUB_USERNAME || null,
@@ -93,25 +93,25 @@ function parseArgs(scriptDir: string): Args {
 Usage: pnpm run image [-- options]   or   tsx build-image.ts [options]
 
 Options:
-  --name <name>        Image name (default: vikadata/sandagent)
+  --name <name>        Image name (default: vikadata/bunny-agent)
   --tag <tag>          Image tag (default: root package.json version)
   --image <image>      Full image name override (e.g., user/repo:tag)
   --repo <repo>        Repo/namespace for push (e.g., dockerhub username)
   --platform <plat>    Build platform (default: linux/amd64)
-  --template <name>    Include template → vikadata/sandagent-<name>
+  --template <name>    Include template → vikadata/bunny-agent-<name>
   --context <path>     Build context (default: script directory)
   --push               Push image to registry after build
   --help, -h           Show this help message
 
 Environment:
-  IMAGE_NAME           Default image name (fallback: vikadata/sandagent)
+  IMAGE_NAME           Default image name (fallback: vikadata/bunny-agent)
   IMAGE_TAG            Override tag (default: root package.json version)
   DOCKERHUB_USERNAME   Default repo/namespace for push
 
 Examples:
   pnpm run image -- --push
   pnpm run image -- --template researcher --push
-  pnpm run image -- --push   # pushes vikadata/sandagent:0.1.0
+  pnpm run image -- --push   # pushes vikadata/bunny-agent:0.1.0
 `);
       process.exit(0);
     }
@@ -152,7 +152,7 @@ async function main() {
     ? resolve(buildContext, "Dockerfile")
     : resolve(context, "Dockerfile");
 
-  console.log("📦 SandAgent Docker Image Builder");
+  console.log("📦 BunnyAgent Docker Image Builder");
   console.log("========================");
   console.log(`  Image: ${localImage}`);
   console.log(`  Platform: ${args.platform}`);

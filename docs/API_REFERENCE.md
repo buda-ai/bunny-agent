@@ -1,19 +1,19 @@
 # API Reference
 
-**Complete API documentation for SandAgent**
+**Complete API documentation for Bunny Agent**
 
-This reference is for developers integrating SandAgent into their applications. If you're just getting started, see the [Quick Start Guide](./QUICK_START.md) first.
+This reference is for developers integrating Bunny Agent into their applications. If you're just getting started, see the [Quick Start Guide](./QUICK_START.md) first.
 
 ---
 
 ## Quick Example
 
 ```typescript
-import { SandAgent } from "@sandagent/core";
-import { E2BSandbox } from "@sandagent/sandbox-e2b";
+import { Bunny Agent } from "@bunny-agent/core";
+import { E2BSandbox } from "@bunny-agent/sandbox-e2b";
 
 // Create a specialized agent with one template
-const agent = new SandAgent({
+const agent = new BunnyAgent({
   id: "user-123-session",
   sandbox: new E2BSandbox(),
   runner: {
@@ -31,22 +31,22 @@ const response = await agent.stream({
 
 ---
 
-## @sandagent/core
+## @bunny-agent/core
 
-The core package provides the main `SandAgent` class and type definitions.
+The core package provides the main `Bunny Agent` class and type definitions.
 
-### SandAgent
+### Bunny Agent
 
 The main class for creating and managing agent instances.
 
 ```ts
-import { SandAgent } from "@sandagent/core";
+import { Bunny Agent } from "@bunny-agent/core";
 ```
 
 #### Constructor
 
 ```ts
-new SandAgent(options: SandAgentOptions)
+new BunnyAgent(options: BunnyAgentOptions)
 ```
 
 **Parameters:**
@@ -60,7 +60,7 @@ new SandAgent(options: SandAgentOptions)
 **Example:**
 
 ```ts
-const agent = new SandAgent({
+const agent = new BunnyAgent({
   id: "user-123-project-a",
   sandbox: new SandockSandbox(),
   runner: {
@@ -140,10 +140,10 @@ await agent.destroy();
 
 ### Types
 
-#### SandAgentOptions
+#### BunnyAgentOptions
 
 ```ts
-interface SandAgentOptions {
+interface BunnyAgentOptions {
   /** Unique identifier for the agent */
   id: string;
   /** Sandbox adapter to use */
@@ -239,14 +239,14 @@ interface ExecOptions {
 
 ---
 
-## @sandagent/sandbox-sandock
+## @bunny-agent/sandbox-sandock
 
 Docker-based sandbox adapter.
 
 ### SandockSandbox
 
 ```ts
-import { SandockSandbox } from "@sandagent/sandbox-sandock";
+import { SandockSandbox } from "@bunny-agent/sandbox-sandock";
 ```
 
 #### Constructor
@@ -260,7 +260,7 @@ new SandockSandbox(options?: SandockSandboxOptions)
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
 | `options.image` | `string` | `"node:20-slim"` | Docker image |
-| `options.volumePrefix` | `string` | `"/tmp/sandagent"` | Volume storage path |
+| `options.volumePrefix` | `string` | `"/tmp/bunny-agent"` | Volume storage path |
 | `options.networkEnabled` | `boolean` | `true` | Enable networking |
 | `options.memoryLimit` | `string` | `"1g"` | Memory limit |
 | `options.cpuLimit` | `number` | `2` | CPU limit |
@@ -271,21 +271,21 @@ new SandockSandbox(options?: SandockSandboxOptions)
 ```ts
 const sandbox = new SandockSandbox({
   image: "python:3.11-slim",
-  volumePrefix: "/var/sandagent/volumes",
+  volumePrefix: "/var/bunny-agent/volumes",
   memoryLimit: "2g",
 });
 ```
 
 ---
 
-## @sandagent/sandbox-e2b
+## @bunny-agent/sandbox-e2b
 
 E2B cloud sandbox adapter.
 
 ### E2BSandbox
 
 ```ts
-import { E2BSandbox } from "@sandagent/sandbox-e2b";
+import { E2BSandbox } from "@bunny-agent/sandbox-e2b";
 ```
 
 #### Constructor
@@ -314,16 +314,16 @@ const sandbox = new E2BSandbox({
 
 ---
 
-## @sandagent/sdk
+## @bunny-agent/sdk
 
 Next.js and server-side helpers.
 
-### createSandAgentHandler
+### createBunnyAgentHandler
 
 Creates a Next.js API route handler.
 
 ```ts
-import { createSandAgentHandler } from "@sandagent/sdk";
+import { createBunnyAgentHandler } from "@bunny-agent/sdk";
 ```
 
 **Parameters:**
@@ -337,10 +337,10 @@ import { createSandAgentHandler } from "@sandagent/sdk";
 **Example:**
 
 ```ts
-import { createSandAgentHandler } from "@sandagent/sdk";
-import { SandockSandbox } from "@sandagent/sandbox-sandock";
+import { createBunnyAgentHandler } from "@bunny-agent/sdk";
+import { SandockSandbox } from "@bunny-agent/sandbox-sandock";
 
-export const POST = createSandAgentHandler({
+export const POST = createBunnyAgentHandler({
   sandbox: () => new SandockSandbox(),
   runner: {
     kind: "claude-agent-sdk",
@@ -355,7 +355,7 @@ export const POST = createSandAgentHandler({
 
 ---
 
-## @sandagent/benchmark
+## @bunny-agent/benchmark
 
 GAIA benchmark runner for comparing agent CLIs.
 
@@ -363,13 +363,13 @@ GAIA benchmark runner for comparing agent CLIs.
 
 ```bash
 # Download GAIA dataset
-sandagent-benchmark download [--dataset validation|test]
+bunny-agent-benchmark download [--dataset validation|test]
 
 # Run benchmark
-sandagent-benchmark run --runner <runner> [options]
+bunny-agent-benchmark run --runner <runner> [options]
 
 # Compare results
-sandagent-benchmark compare
+bunny-agent-benchmark compare
 ```
 
 ### Programmatic API
@@ -378,13 +378,13 @@ sandagent-benchmark compare
 import {
   downloadGaiaDataset,
   runBenchmark,
-} from "@sandagent/benchmark";
+} from "@bunny-agent/benchmark";
 
 // Download dataset
 const tasks = await downloadGaiaDataset("validation");
 
 // Run benchmark
-const results = await runBenchmark(tasks, "sandagent", {
+const results = await runBenchmark(tasks, "bunny-agent", {
   dataset: "validation",
   level: 1,
   outputDir: "./results",

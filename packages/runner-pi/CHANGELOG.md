@@ -1,4 +1,4 @@
-# @sandagent/runner-pi
+# @bunny-agent/runner-pi
 
 ## 0.6.4-beta.0
 

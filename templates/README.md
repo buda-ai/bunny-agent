@@ -1,6 +1,6 @@
 # Agent Templates
 
-**Templates are the heart of SandAgent** — they turn a general-purpose coding agent into a specialized Super Agent for your use case.
+**Templates are the heart of Bunny Agent** — they turn a general-purpose coding agent into a specialized Super Agent for your use case.
 
 ## Why Templates?
 
@@ -85,13 +85,13 @@ MCP (Model Context Protocol) server configuration for additional capabilities:
 
 ## Using Templates
 
-### With SandAgent Core
+### With Bunny Agent Core
 
 ```typescript
-import { SandAgent } from "@sandagent/core";
-import { E2BSandbox } from "@sandagent/sandbox-e2b";
+import { Bunny Agent } from "@bunny-agent/core";
+import { E2BSandbox } from "@bunny-agent/sandbox-e2b";
 
-const agent = new SandAgent({
+const agent = new BunnyAgent({
   id: "my-session",
   sandbox: new E2BSandbox(),
   runner: {
@@ -106,10 +106,10 @@ const agent = new SandAgent({
 
 ```bash
 # Use a built-in template
-sandagent run --template coder -- "Build a REST API"
+bunny-agent run --template coder -- "Build a REST API"
 
 # Use a custom template path
-sandagent run --template ./my-custom-agent -- "Analyze this data"
+bunny-agent run --template ./my-custom-agent -- "Analyze this data"
 ```
 
 ## Creating Your Own Template

@@ -1,7 +1,7 @@
 {
-  "name": "@sandagent/sandbox-sandock",
+  "name": "@bunny-agent/sandbox-sandock",
   "version": "0.9.28",
-  "description": "Sandock sandbox adapter for SandAgent",
+  "description": "Sandock sandbox adapter for BunnyAgent",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -32,7 +32,7 @@
     "access": "public"
   },
   "dependencies": {
-    "@sandagent/manager": "workspace:*",
+    "@bunny-agent/manager": "workspace:*",
     "sandock": "^2.2.6"
   },
   "devDependencies": {

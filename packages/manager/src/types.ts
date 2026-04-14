@@ -19,7 +19,7 @@ export interface ExecOptions {
   /**
    * Environment variables for normal `exec` (merged into the subprocess env).
    * Not used by {@link streamCodingRunFromSandbox} — put runner vars in
-   * {@link SandAgentCodingRunBody.env} instead.
+   * {@link BunnyAgentCodingRunBody.env} instead.
    */
   env?: Record<string, string>;
   /** Timeout in milliseconds */
@@ -29,9 +29,9 @@ export interface ExecOptions {
 }
 
 /**
- * JSON body for sandagent-daemon `POST /api/coding/run` (same shape as apps/daemon).
+ * JSON body for bunny-agent-daemon `POST /api/coding/run` (same shape as apps/daemon).
  */
-export interface SandAgentCodingRunBody {
+export interface BunnyAgentCodingRunBody {
   runner?: string;
   model?: string;
   userInput: string;
@@ -142,7 +142,7 @@ export interface SandboxAdapter {
 
   /**
    * Get the runner command to execute in the sandbox.
-   * Returns the command array (e.g., ["sandagent", "run"] or ["node", "/path/to/bundle.mjs", "run"])
+   * Returns the command array (e.g., ["bunny-agent", "run"] or ["node", "/path/to/bundle.mjs", "run"])
    */
   getRunnerCommand?(): string[];
 }
@@ -163,7 +163,7 @@ export interface RunnerSpec {
   /** The model to use */
   model: string;
   /**
-   * CLI runner type: which implementation to use when running `sandagent run`
+   * CLI runner type: which implementation to use when running `bunny-agent run`
    * (e.g. claude, pi, codex, gemini, opencode). Default is "claude".
    */
   runnerType?: "claude" | "pi" | "codex" | "gemini" | "opencode";
@@ -180,15 +180,15 @@ export interface RunnerSpec {
   /**
    * When true, skip all tool approval checks (bypass permissions).
    * When false (default), runner pauses before executing any tool and waits for approval
-   * via the .sandagent/approvals/{toolUseID}.json file mechanism.
+   * via the .bunny-agent/approvals/{toolUseID}.json file mechanism.
    */
   yolo?: boolean;
 }
 
 /**
- * Options for creating a SandAgent instance
+ * Options for creating a BunnyAgent instance
  */
-export interface SandAgentOptions {
+export interface BunnyAgentOptions {
   /** Sandbox adapter to use */
   sandbox: SandboxAdapter;
   /** Runner specification */

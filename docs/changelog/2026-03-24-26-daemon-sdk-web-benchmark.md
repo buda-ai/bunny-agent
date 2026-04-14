@@ -19,23 +19,23 @@ Consolidated session notes (merges former `2026-03-24-sdk-daemon-unified-languag
 
 ---
 
-## SDK: unified daemon with SandAgent language model
+## SDK: unified daemon with Bunny Agent language model
 
-- **Single implementation**: HTTP daemon transport and in-process `SandAgent` both use `SandAgentLanguageModel`; only the byte stream source differs.
+- **Single implementation**: HTTP daemon transport and in-process `Bunny Agent` both use `BunnyAgentLanguageModel`; only the byte stream source differs.
 - **Same SSE pipeline**: Daemon runners emit AI SDK UI SSE (`data: …`); parsing matches the sandbox path (not line-delimited JSON).
-- **Configuration**: With `sandbox` + `daemonUrl`, the SDK uses `streamCodingRunFromSandbox` (upload JSON + `curl -N` inside the sandbox, including `LocalSandbox`). `DEFAULT_SANDAGENT_DAEMON_URL` matches the SandAgent Docker image (`http://127.0.0.1:3080` in-container).
-- **API**: Use `createSandAgent({ sandbox, daemonUrl?, … })` (legacy `createSandAgentDaemon` removed; `sandagent-daemon-provider.ts` removed).
+- **Configuration**: With `sandbox` + `daemonUrl`, the SDK uses `streamCodingRunFromSandbox` (upload JSON + `curl -N` inside the sandbox, including `LocalSandbox`). `DEFAULT_BUNNY_AGENT_DAEMON_URL` matches the Bunny Agent Docker image (`http://127.0.0.1:3080` in-container).
+- **API**: Use `createBunnyAgent({ sandbox, daemonUrl?, … })` (legacy `createBunnyAgentDaemon` removed; `bunny-agent-daemon-provider.ts` removed).
 - **`allowedTools`**: On provider settings, merged into `RunnerSpec` (including daemon).
-- **Sandbox required**: `createSandAgent` / `doStream` require a `sandbox` adapter; optional `daemonUrl` selects in-sandbox HTTP vs CLI runner (no host-only `fetch(daemonUrl)` path).
+- **Sandbox required**: `createBunnyAgent` / `doStream` require a `sandbox` adapter; optional `daemonUrl` selects in-sandbox HTTP vs CLI runner (no host-only `fetch(daemonUrl)` path).
 
-**Packages:** `packages/sdk/src/provider/types.ts`, `logging.ts`, `sandagent-language-model.ts`, `sandagent-provider.ts`, `index.ts`.
+**Packages:** `packages/sdk/src/provider/types.ts`, `logging.ts`, `bunny-agent-language-model.ts`, `bunny-agent-provider.ts`, `index.ts`.
 
 ---
 
 ## Manager: `streamCodingRunFromSandbox` and daemon health
 
 - `SandboxHandle.runCoding` removed in favor of `streamCodingRunFromSandbox`; `curl` argv built as a single array before `handle.exec`.
-- **`isSandagentDaemonHealthy`**: Probes `<base>/healthz` via `SandboxHandle.exec` and curl `-w '%{http_code}'` (true only on **200**; connect/max-time caps; default single attempt ~4s). Re-exported from **`@sandagent/sdk`**. Unit tests cover non-200, `000`, empty output, sync `exec` throw, and iterator rejection.
+- **`isSandagentDaemonHealthy`**: Probes `<base>/healthz` via `SandboxHandle.exec` and curl `-w '%{http_code}'` (true only on **200**; connect/max-time caps; default single attempt ~4s). Re-exported from **`@bunny-agent/sdk`**. Unit tests cover non-200, `000`, empty output, sync `exec` throw, and iterator rejection.
 - **With `daemonUrl`**, streams use `streamCodingRunFromSandbox` only — **no** automatic `/healthz` on each request; apps call `isSandagentDaemonHealthy` when they want readiness checks or CLI fallback.
 
 **Paths:** `packages/manager/src/coding-run.ts`, `daemon-health.ts`, `types.ts`, `index.ts`.
@@ -44,9 +44,9 @@ Consolidated session notes (merges former `2026-03-24-sdk-daemon-unified-languag
 
 ## Runner environment: daemon uses `process.env` only (no per-request header)
 
-- **Daemon** `POST /api/coding/run`: runner `env` is only the daemon process `process.env` (no `x-sandagent-runner-env` merge).
+- **Daemon** `POST /api/coding/run`: runner `env` is only the daemon process `process.env` (no `x-bunny-agent-runner-env` merge).
 - **Manager**: `streamCodingRunFromSandbox` does not send that header; removed `ExecOptions.codingRunDaemonEnv`.
-- **SDK** daemon path: does not forward `sandbox.getEnv()` / `createSandAgent({ env })` onto the daemon HTTP request.
+- **SDK** daemon path: does not forward `sandbox.getEnv()` / `createBunnyAgent({ env })` onto the daemon HTTP request.
 - **Daemon utils**: removed `decodeRunnerEnvHeader` / `mergeProcessEnvWithRunnerHeader`; related tests removed.
 - Orchestrators should set API keys on the **daemon/container environment** (or image).
 
@@ -54,7 +54,7 @@ Consolidated session notes (merges former `2026-03-24-sdk-daemon-unified-languag
 
 ---
 
-## `@sandagent/sandbox-sandock`
+## `@bunny-agent/sandbox-sandock`
 
 Removed attach-time daemon readiness (`daemon-health.ts`, `waitForSandagentDaemonIfConfigured`, related options and helpers).
 
@@ -62,15 +62,15 @@ Removed attach-time daemon readiness (`daemon-health.ts`, `waitForSandagentDaemo
 
 ## Web example (`apps/web`)
 
-- **`POST /api/ai`**: When `USE_SANDAGENT_DAEMON` is enabled (body `"1"`/`"true"` or env `SANDAGENT_USE_DAEMON=1`), probes in-sandbox health then passes `daemonUrl: DEFAULT_SANDAGENT_DAEMON_URL`. **`useSandagentDaemon`** is passed for **all** sandbox providers so cache keys match daemon vs CLI mode.
-- **Settings**: **Use SandAgent daemon** toggle (`USE_SANDAGENT_DAEMON`); redundant **Daemon URL** (`DAEMON_URL`) removed from the example UI (fixed in-sandbox URL only).
-- **`POST /api/daemon/coding-run`**: Dev proxy streams the body to `SANDAGENT_DAEMON_URL` (default `http://127.0.0.1:3080`) `/api/coding/run`. Enabled when `NODE_ENV !== production`; in production requires `SANDAGENT_ENABLE_DAEMON_PROXY=1`.
+- **`POST /api/ai`**: When `USE_BUNNY_AGENT_DAEMON` is enabled (body `"1"`/`"true"` or env `BUNNY_AGENT_USE_DAEMON=1`), probes in-sandbox health then passes `daemonUrl: DEFAULT_BUNNY_AGENT_DAEMON_URL`. **`useSandagentDaemon`** is passed for **all** sandbox providers so cache keys match daemon vs CLI mode.
+- **Settings**: **Use Bunny Agent daemon** toggle (`USE_BUNNY_AGENT_DAEMON`); redundant **Daemon URL** (`DAEMON_URL`) removed from the example UI (fixed in-sandbox URL only).
+- **`POST /api/daemon/coding-run`**: Dev proxy streams the body to `BUNNY_AGENT_DAEMON_URL` (default `http://127.0.0.1:3080`) `/api/coding/run`. Enabled when `NODE_ENV !== production`; in production requires `BUNNY_AGENT_ENABLE_DAEMON_PROXY=1`.
 
 ---
 
 ## Daemon package docs and scripts
 
-- Removed `pnpm --filter @sandagent/daemon dev:clean` and `scripts/run-standalone-clean.sh`.
+- Removed `pnpm --filter @bunny-agent/daemon dev:clean` and `scripts/run-standalone-clean.sh`.
 - **README**: Documents `POST /api/coding/run` uses daemon **`process.env`** for the runner.
 
 ---
@@ -82,10 +82,10 @@ Removed attach-time daemon readiness (`daemon-health.ts`, `waitForSandagentDaemo
 
 ---
 
-## benchmark-sandagent smoking
+## benchmark-bunny-agent smoking
 
 - **`run`**: `--transport cli|daemon` (default `cli`), optional `--daemon-url`. `daemon` uses `buildRunnerEnv` + `streamCodingRunFromSandbox` to in-container daemon (default `http://127.0.0.1:3080`). `--transport sandock` is a deprecated alias for `daemon`.
-- `run-benchmark-smoking.ts`; results under `benchmark-results/sandagent/smoking/sandagent-{transport}-{runner}-…json`.
+- `run-benchmark-smoking.ts`; results under `benchmark-results/bunny-agent/smoking/bunny-agent-{transport}-{runner}-…json`.
 - **`run-benchmark.sh`**: passes `--transport` / `--daemon-url`. Prefer `./run-benchmark.sh` from repo root (`source .env`); the benchmark CLI does not load `.env` itself.
 
 ---
@@ -99,7 +99,7 @@ Removed attach-time daemon readiness (`daemon-health.ts`, `waitForSandagentDaemo
 
 ## RunnerSpec and CLI
 
-- Removed **`RunnerSpec.kind`** (was always `claude-agent-sdk`). SDK no longer sets `kind`; **`apps/manager-cli`** `sandagent run` does not pass it.
+- Removed **`RunnerSpec.kind`** (was always `claude-agent-sdk`). SDK no longer sets `kind`; **`apps/manager-cli`** `bunny-agent run` does not pass it.
 
 ---
 
@@ -115,7 +115,7 @@ Removed attach-time daemon readiness (`daemon-health.ts`, `waitForSandagentDaemo
 
 ---
 
-## Docker (`docker/sandagent-claude/Dockerfile`)
+## Docker (`docker/bunny-agent-claude/Dockerfile`)
 
 - BuildKit **apt cache mounts** on apt steps; **nginx** folded into the first apt layer to drop an extra apt cycle.
 
@@ -123,5 +123,5 @@ Removed attach-time daemon readiness (`daemon-health.ts`, `waitForSandagentDaemo
 
 ## Changeset fixed group at `0.9.10` (2026-03-26)
 
-- Verified `.changeset/config.json` **fixed** packages (`@sandagent/daemon`, `manager`, `runner-cli`, `sandbox-e2b`, `sandbox-sandock`, `sandbox-daytona`, `sdk`) all at **`0.9.10`** in `package.json`.
+- Verified `.changeset/config.json` **fixed** packages (`@bunny-agent/daemon`, `manager`, `runner-cli`, `sandbox-e2b`, `sandbox-sandock`, `sandbox-daytona`, `sdk`) all at **`0.9.10`** in `package.json`.
 - Normalized each package `CHANGELOG.md`: **`## 0.9.10`** is the newest section (removed duplicate mid-file blocks and erroneous “Release v0.9.11” lines).

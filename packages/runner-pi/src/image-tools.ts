@@ -1,5 +1,5 @@
 /**
- * Image generation tool for sandagent pi runner.
+ * Image generation tool for bunny-agent pi runner.
  *
  * Reuses the chat model's provider config (baseUrl + apiKey) — only the model ID differs.
  * Returns filePath and the raw API response as details.

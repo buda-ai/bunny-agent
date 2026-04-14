@@ -2,7 +2,7 @@
 
 ## Overview
 
-SandAgent supports multiple benchmark datasets for different testing needs:
+Bunny Agent supports multiple benchmark datasets for different testing needs:
 
 | Dataset | Purpose | Size | Runtime | Status |
 |---------|---------|------|---------|--------|
@@ -89,7 +89,7 @@ pnpm benchmark:run -- --runner claude --level 1 --limit 10
 
 **Usage:**
 ```typescript
-import { getAllSmokingTests, getSmokingTest } from "@sandagent/benchmark-shared";
+import { getAllSmokingTests, getSmokingTest } from "@bunny-agent/benchmark-shared";
 
 // Get all tests
 const tests = getAllSmokingTests(); // 5 tests
@@ -132,7 +132,7 @@ pnpm benchmark:run -- --runner claude --dataset smoking --verbose
 
 ## Implementation
 
-All datasets are in `@sandagent/benchmark-shared`:
+All datasets are in `@bunny-agent/benchmark-shared`:
 
 ```
 packages/benchmark-shared/src/datasets/

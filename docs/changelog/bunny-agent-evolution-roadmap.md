@@ -12,7 +12,7 @@ Bunny Agent evolves through a **skills + benchmark flywheel**:
 
 **Goal:** Know where bunny stands. Establish baseline.
 
-### 1.1 Migrate sandagent benchmark → bunny
+### 1.1 Migrate bunny-agent benchmark → bunny
 - [x] Add `bunny` runner to `packages/benchmark-cli/src/runners/bunny.ts`
   - Uses pi's `--print` mode (non-interactive, plain text output)
   - Registered in `AgentRunner` type + runners registry

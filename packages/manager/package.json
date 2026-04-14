@@ -1,7 +1,7 @@
 {
-  "name": "@sandagent/manager",
+  "name": "@bunny-agent/manager",
   "version": "0.9.28",
-  "description": "SandAgent Manager - Manages sandbox and runner lifecycle, defines core interfaces",
+  "description": "BunnyAgent Manager - Manages sandbox and runner lifecycle, defines core interfaces",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -25,13 +25,13 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/vikadata/sandagent.git",
+    "url": "https://github.com/vikadata/bunny-agent.git",
     "directory": "packages/manager"
   },
   "keywords": [
     "sandbox",
     "agent",
-    "sandagent",
+    "bunny-agent",
     "runner",
     "manager"
   ],

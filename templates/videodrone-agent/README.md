@@ -128,6 +128,6 @@ S01-B01  →  场景 1, B-Roll 1
 S02-C01  →  场景 2, 镜头 1
 ```
 
-## 基于 SandAgent Default 模板
+## 基于 Bunny Agent Default 模板
 
-此模板基于 SandAgent 的 `default` 模板初始化，参考 `seo-agent` 的 skill 组织结构。
+此模板基于 Bunny Agent 的 `default` 模板初始化，参考 `seo-agent` 的 skill 组织结构。

@@ -5,30 +5,30 @@ import type {
   ProviderV3,
 } from "@ai-sdk/provider";
 import { NoSuchModelError } from "@ai-sdk/provider";
-import type { RunnerSpec } from "@sandagent/manager";
+import type { RunnerSpec } from "@bunny-agent/manager";
+import { BunnyAgentLanguageModel } from "./bunny-agent-language-model";
 import { getProviderLogger } from "./logging";
-import { SandAgentLanguageModel } from "./sandagent-language-model";
-import type { SandAgentModelId, SandAgentProviderSettings } from "./types";
+import type { BunnyAgentModelId, BunnyAgentProviderSettings } from "./types";
 
-export type { SandAgentProviderSettings } from "./types";
+export type { BunnyAgentProviderSettings } from "./types";
 
 /**
- * SandAgent provider interface that extends the AI SDK's ProviderV3.
+ * BunnyAgent provider interface that extends the AI SDK's ProviderV3.
  */
-export interface SandAgentProvider extends ProviderV3 {
+export interface BunnyAgentProvider extends ProviderV3 {
   (
-    modelId: SandAgentModelId,
-    options?: Partial<SandAgentProviderSettings>,
+    modelId: BunnyAgentModelId,
+    options?: Partial<BunnyAgentProviderSettings>,
   ): LanguageModelV3;
 
   languageModel(
-    modelId: SandAgentModelId,
-    options?: Partial<SandAgentProviderSettings>,
+    modelId: BunnyAgentModelId,
+    options?: Partial<BunnyAgentProviderSettings>,
   ): LanguageModelV3;
 
   chat(
-    modelId: SandAgentModelId,
-    options?: Partial<SandAgentProviderSettings>,
+    modelId: BunnyAgentModelId,
+    options?: Partial<BunnyAgentProviderSettings>,
   ): LanguageModelV3;
 
   embeddingModel(modelId: string): EmbeddingModelV3;
@@ -37,15 +37,15 @@ export interface SandAgentProvider extends ProviderV3 {
 }
 
 /**
- * Creates a SandAgent provider instance with the specified configuration.
+ * Creates a BunnyAgent provider instance with the specified configuration.
  *
  * @example
  * ```typescript
- * import { createSandAgent } from '@sandagent/sdk';
- * import { E2BSandbox } from '@sandagent/sandbox-e2b';
+ * import { createBunnyAgent } from '@bunny-agent/sdk';
+ * import { E2BSandbox } from '@bunny-agent/sandbox-e2b';
  * import { generateText } from 'ai';
  *
- * const sandagent = createSandAgent({
+ * const bunnyAgent = createBunnyAgent({
  *   sandbox: new E2BSandbox({ apiKey: process.env.E2B_API_KEY! }),
  *   env: {
  *     ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY!,
@@ -53,26 +53,26 @@ export interface SandAgentProvider extends ProviderV3 {
  * });
  *
  * const { text } = await generateText({
- *   model: sandagent('sonnet'),
+ *   model: bunnyAgent('sonnet'),
  *   prompt: 'Create a hello world program',
  * });
  * ```
  */
-export function createSandAgent(
-  defaultOptions: SandAgentProviderSettings,
-): SandAgentProvider {
+export function createBunnyAgent(
+  defaultOptions: BunnyAgentProviderSettings,
+): BunnyAgentProvider {
   const logger = getProviderLogger(defaultOptions);
 
   if (!defaultOptions.sandbox) {
     throw new Error(
       "Provide a `sandbox` adapter (e.g. E2BSandbox, LocalSandbox). " +
-        "Optional `daemonUrl` uses in-sandbox HTTP to sandagent-daemon (no automatic `/healthz` probe). Use `isSandagentDaemonHealthy` from `@sandagent/sdk` if you want to probe and omit `daemonUrl` for CLI fallback. Omit `daemonUrl` to always use CLI.",
+        "Optional `daemonUrl` uses in-sandbox HTTP to bunny-agent-daemon (no automatic `/healthz` probe). Use `isBunnyAgentDaemonHealthy` from `@bunny-agent/sdk` if you want to probe and omit `daemonUrl` for CLI fallback. Omit `daemonUrl` to always use CLI.",
     );
   }
 
   const createModel = (
-    modelId: SandAgentModelId,
-    options: Partial<SandAgentProviderSettings> = {},
+    modelId: BunnyAgentModelId,
+    options: Partial<BunnyAgentProviderSettings> = {},
   ): LanguageModelV3 => {
     const mergedSkillPaths =
       options.skillPaths !== undefined
@@ -112,25 +112,25 @@ export function createSandAgent(
         ...(defaultOptions.artifactProcessors ?? []),
         ...(options.artifactProcessors ?? []),
       ],
-    } as SandAgentProviderSettings & { runner: RunnerSpec };
+    } as BunnyAgentProviderSettings & { runner: RunnerSpec };
 
     logger.debug(
-      `[sandagent] Creating model: ${modelId}${runner.runnerType ? ` (runnerType: ${runner.runnerType})` : ""}${runner.skillPaths?.length ? ` skillPaths=${runner.skillPaths.length}` : ""}`,
+      `[bunny-agent] Creating model: ${modelId}${runner.runnerType ? ` (runnerType: ${runner.runnerType})` : ""}${runner.skillPaths?.length ? ` skillPaths=${runner.skillPaths.length}` : ""}`,
     );
 
-    return new SandAgentLanguageModel({
+    return new BunnyAgentLanguageModel({
       id: modelId,
       options: mergedOptions,
     });
   };
 
   const provider = function (
-    modelId: SandAgentModelId,
-    options?: Partial<SandAgentProviderSettings>,
+    modelId: BunnyAgentModelId,
+    options?: Partial<BunnyAgentProviderSettings>,
   ) {
     if (new.target) {
       throw new Error(
-        "The SandAgent model function cannot be called with the new keyword.",
+        "The BunnyAgent model function cannot be called with the new keyword.",
       );
     }
 
@@ -162,5 +162,5 @@ export function createSandAgent(
     });
   };
 
-  return provider as SandAgentProvider;
+  return provider as BunnyAgentProvider;
 }

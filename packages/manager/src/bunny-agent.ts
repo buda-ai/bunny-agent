@@ -1,27 +1,27 @@
 import type {
+  BunnyAgentOptions,
   Message,
   RunnerSpec,
-  SandAgentOptions,
   SandboxAdapter,
   SandboxHandle,
   StreamInput,
 } from "./types.js";
 
 /**
- * SandAgent - A sandboxed agent runtime that speaks AI SDK UI natively.
+ * BunnyAgent - A sandboxed agent runtime that speaks AI SDK UI natively.
  *
  * Represents one persistent agent instance with:
  * - An isolated sandbox
  * - A dedicated filesystem volume
  * - Direct passthrough of AI SDK UI messages
  */
-export class SandAgent {
+export class BunnyAgent {
   private readonly sandbox: SandboxAdapter;
   private readonly runner: RunnerSpec;
   private readonly env: Record<string, string>;
   private handle: SandboxHandle | null = null;
 
-  constructor(options: SandAgentOptions) {
+  constructor(options: BunnyAgentOptions) {
     this.sandbox = options.sandbox;
     this.runner = options.runner;
     this.env = options.env ?? {};
@@ -41,9 +41,9 @@ export class SandAgent {
    * Build the CLI command to execute
    */
   private buildCommand(input: StreamInput): string[] {
-    // Get runner command from sandbox, or use default "sandagent run"
+    // Get runner command from sandbox, or use default "bunny-agent run"
     const cmd: string[] = this.sandbox.getRunnerCommand?.() ?? [
-      "sandagent",
+      "bunny-agent",
       "run",
     ];
 
@@ -203,12 +203,12 @@ export class SandAgent {
         } catch (error) {
           if (error instanceof Error && error.name === "AbortError") {
             // Normal abort operation - log appropriately
-            console.log("[SandAgent] Operation aborted by user");
+            console.log("[BunnyAgent] Operation aborted by user");
           } else {
             // Other errors
             const errorMessage =
               error instanceof Error ? error.message : String(error);
-            console.error("[SandAgent] Error:", errorMessage);
+            console.error("[BunnyAgent] Error:", errorMessage);
             if (transcriptWriter) {
               await transcriptWriter.write({
                 timestamp: new Date().toISOString(),

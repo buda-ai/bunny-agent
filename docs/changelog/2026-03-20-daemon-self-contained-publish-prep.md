@@ -1,5 +1,5 @@
-- Prepared `@sandagent/daemon` for npm publishing as a self-contained package instead of requiring unpublished workspace runtime dependencies.
+- Prepared `@bunny-agent/daemon` for npm publishing as a self-contained package instead of requiring unpublished workspace runtime dependencies.
 - Updated the daemon build to bundle the main library entrypoints (`.` and `./nextjs`) in addition to the CLI bundle.
-- Moved `@sandagent/runner-core` from runtime `dependencies` to `devDependencies` so published consumers do not receive an unresolved `workspace:*` install requirement.
-- Added `@sandagent/daemon` to the Changesets fixed release group and both npm publish workflows so CI can publish it automatically on `main` pushes and tag releases.
-- Goal: allow downstream apps like Buda to depend on `@sandagent/daemon/nextjs` from npm without needing the whole local monorepo dependency graph.
+- Moved `@bunny-agent/runner-core` from runtime `dependencies` to `devDependencies` so published consumers do not receive an unresolved `workspace:*` install requirement.
+- Added `@bunny-agent/daemon` to the Changesets fixed release group and both npm publish workflows so CI can publish it automatically on `main` pushes and tag releases.
+- Goal: allow downstream apps like Buda to depend on `@bunny-agent/daemon/nextjs` from npm without needing the whole local monorepo dependency graph.

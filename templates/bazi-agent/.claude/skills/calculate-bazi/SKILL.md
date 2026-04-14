@@ -299,10 +299,10 @@ print(result['elements_balance'])
 **Command Line**:
 ```bash
 # Basic usage
-python /sandagent/.claude/lib/bazi_core.py 1990-05-15 10:00 北京
+python /bunny-agent/.claude/lib/bazi_core.py 1990-05-15 10:00 北京
 
 # With JSON output
-python /sandagent/.claude/lib/bazi_core.py 1990-05-15 10:00 北京 --json
+python /bunny-agent/.claude/lib/bazi_core.py 1990-05-15 10:00 北京 --json
 ```
 
 ### Manual Verification

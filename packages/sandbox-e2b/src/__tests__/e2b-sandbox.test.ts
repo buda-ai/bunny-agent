@@ -195,8 +195,8 @@ describe("E2BSandbox Timeout Configuration", () => {
 describe("E2BSandbox Metadata Usage", () => {
   it("should document metadata fields used for querying", () => {
     // The sandbox uses these metadata fields:
-    // - sandagentId: The session/agent ID
-    // - sandagentName: The sandbox name for reuse (if provided, business-defined)
+    // - bunnyAgentId: The session/agent ID
+    // - bunnyAgentName: The sandbox name for reuse (if provided, business-defined)
 
     const sandbox = new E2BSandbox({
       name: "my-project-python-user123", // Name includes all info needed for identification
@@ -205,7 +205,7 @@ describe("E2BSandbox Metadata Usage", () => {
 
     expect(sandbox).toBeInstanceOf(E2BSandbox);
     // When creating, metadata will include:
-    // { sandagentId: "...", sandagentName: "my-project-python-user123" }
+    // { bunnyAgentId: "...", bunnyAgentName: "my-project-python-user123" }
     // The name is used for sandbox reuse, determined by business layer
   });
 });
@@ -288,7 +288,7 @@ describe("E2BSandbox Reuse", () => {
 
   it("should support template-based naming strategy", () => {
     const template = "default";
-    const sandboxName = `sandagent-${template}`;
+    const sandboxName = `bunny-agent-${template}`;
 
     const sandbox = new E2BSandbox({
       name: sandboxName,

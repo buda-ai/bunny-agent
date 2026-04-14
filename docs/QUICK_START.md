@@ -24,12 +24,12 @@ By the end of this guide, you'll have:
 
 ## Option 1: Try the Web UI (Easiest)
 
-The fastest way to experience SandAgent:
+The fastest way to experience Bunny Agent:
 
 ```bash
 # Clone and setup
-git clone https://github.com/vikadata/sandagent.git
-cd sandagent
+git clone https://github.com/vikadata/bunny-agent.git
+cd bunny-agent
 pnpm install && pnpm build
 
 # Start the documentation site
@@ -55,7 +55,7 @@ pnpm dev
 
 ```bash
 # Install core and sandbox adapter
-pnpm add @sandagent/core @sandagent/sandbox-e2b
+pnpm add @bunny-agent/core @bunny-agent/sandbox-e2b
 ```
 
 ### Set up environment variables
@@ -77,10 +77,10 @@ E2B_API_KEY=e2b_...
 ### Creating an Agent
 
 ```ts
-import { SandAgent } from "@sandagent/core";
-import { E2BSandbox } from "@sandagent/sandbox-e2b";
+import { Bunny Agent } from "@bunny-agent/core";
+import { E2BSandbox } from "@bunny-agent/sandbox-e2b";
 
-const agent = new SandAgent({
+const agent = new BunnyAgent({
   id: "my-first-agent",
   sandbox: new E2BSandbox(),
   runner: {
@@ -129,13 +129,13 @@ await agent.destroy();
 Create `app/api/ai/route.ts`:
 
 ```ts
-import { SandAgent } from "@sandagent/core";
-import { SandockSandbox } from "@sandagent/sandbox-sandock";
+import { Bunny Agent } from "@bunny-agent/core";
+import { SandockSandbox } from "@bunny-agent/sandbox-sandock";
 
 export async function POST(req: Request) {
   const { messages, sessionId } = await req.json();
 
-  const agent = new SandAgent({
+  const agent = new BunnyAgent({
     id: sessionId,
     sandbox: new SandockSandbox(),
     runner: {
@@ -199,11 +199,11 @@ export default function Chat() {
 Best for local development and self-hosted deployments:
 
 ```ts
-import { SandockSandbox } from "@sandagent/sandbox-sandock";
+import { SandockSandbox } from "@bunny-agent/sandbox-sandock";
 
 const sandbox = new SandockSandbox({
   image: "node:20-slim",
-  volumePrefix: "/var/sandagent/volumes",
+  volumePrefix: "/var/bunny-agent/volumes",
   networkEnabled: true,
 });
 ```
@@ -215,7 +215,7 @@ const sandbox = new SandockSandbox({
 Best for production and scalability:
 
 ```ts
-import { E2BSandbox } from "@sandagent/sandbox-e2b";
+import { E2BSandbox } from "@bunny-agent/sandbox-e2b";
 
 const sandbox = new E2BSandbox({
   apiKey: process.env.E2B_API_KEY,
@@ -233,7 +233,7 @@ const sandbox = new E2BSandbox({
 ### Claude Agent SDK (Default)
 
 ```ts
-const agent = new SandAgent({
+const agent = new BunnyAgent({
   id: "my-agent",
   sandbox: new SandockSandbox(),
   runner: {
@@ -254,7 +254,7 @@ const agent = new SandAgent({
 
 ```ts
 function getAgentForSession(sessionId: string) {
-  return new SandAgent({
+  return new BunnyAgent({
     id: sessionId,
     sandbox: new SandockSandbox(),
     runner: {
@@ -335,5 +335,5 @@ Error: Sandbox execution timed out
 
 ## Getting Help
 
-- [GitHub Issues](https://github.com/vikadata/sandagent/issues)
+- [GitHub Issues](https://github.com/vikadata/bunny-agent/issues)
 - [Technical Specification](./TECHNICAL_SPEC.md)

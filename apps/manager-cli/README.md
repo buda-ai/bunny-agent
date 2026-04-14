@@ -1,6 +1,6 @@
-# @sandagent/manager-cli
+# @bunny-agent/manager-cli
 
-Start SandAgent from your terminal using templates, run tasks in E2B/Sandock/Daytona sandboxes, and manage sessions (list/stop).
+Start Bunny Agent from your terminal using templates, run tasks in E2B/Sandock/Daytona sandboxes, and manage sessions (list/stop).
 
 > Note: this is a monorepo internal CLI (`"private": true`) and is not published to npm. Run it from the repo source.
 
@@ -13,7 +13,7 @@ Prereqs: Node.js >= 20, `pnpm`, and at least one sandbox API key (e.g. `E2B_API_
 pnpm install
 
 # 2) Build the CLI
-pnpm --filter @sandagent/manager-cli build
+pnpm --filter @bunny-agent/manager-cli build
 
 # 3) Run (execute the built artifact with node)
 node apps/manager-cli/dist/cli.js info
@@ -42,8 +42,8 @@ node apps/manager-cli/dist/cli.js run --template coder "Build a REST API"
 - `E2B_API_KEY`: required for E2B
 - `SANDOCK_API_KEY` / `DOCKER_HOST`: for Sandock
 - `DAYTONA_API_KEY`: for Daytona
-- `SANDAGENT_TEMPLATE`: default template
-- `SANDAGENT_SANDBOX`: default sandbox (`e2b` / `sandock` / `daytona`)
+- `BUNNY_AGENT_TEMPLATE`: default template
+- `BUNNY_AGENT_SANDBOX`: default sandbox (`e2b` / `sandock` / `daytona`)
 
 ## License
 

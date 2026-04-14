@@ -1,6 +1,6 @@
-# Contributing to SandAgent
+# Contributing to Bunny Agent
 
-Thank you for your interest in contributing to SandAgent!
+Thank you for your interest in contributing to Bunny Agent!
 
 ---
 
@@ -15,8 +15,8 @@ Thank you for your interest in contributing to SandAgent!
 
 ```bash
 # Clone the repository
-git clone https://github.com/vikadata/sandagent.git
-cd sandagent
+git clone https://github.com/vikadata/bunny-agent.git
+cd bunny-agent
 
 # Install dependencies
 pnpm install
@@ -53,7 +53,7 @@ pnpm typecheck
 ## Project Structure
 
 ```
-sandagent/
+bunny-agent/
 ├── apps/
 │   ├── web/              # Official documentation site
 │   ├── manager-cli/      # Sandbox management CLI
@@ -117,7 +117,7 @@ Example:
 ```
 feat: add OpenAI runner implementation
 
-- Add @sandagent/runner-openai package
+- Add @bunny-agent/runner-openai package
 - Implement Runner interface for OpenAI Assistants API
 - Add tests for new runner
 ```
@@ -189,7 +189,7 @@ pnpm test
 ## Adding New Sandbox Adapters
 
 1. Create new package: `packages/sandbox-yourname/`
-2. Implement `SandboxAdapter` interface from `@sandagent/manager`
+2. Implement `SandboxAdapter` interface from `@bunny-agent/manager`
 3. Add tests
 4. Update documentation in `spec/SANDBOX_ADAPTERS.md`
 5. Add package to monorepo `pnpm-workspace.yaml`
@@ -199,7 +199,7 @@ pnpm test
 ## Adding New Runner Implementations
 
 1. Create new package: `packages/runner-yourname/`
-2. Implement `Runner` interface from `@sandagent/manager`
+2. Implement `Runner` interface from `@bunny-agent/manager`
 3. Add tests
 4. Update documentation
 5. Update runner-cli to support new runner via `--runner` flag
@@ -208,11 +208,11 @@ pnpm test
 
 ## Getting Help
 
-- Open an issue on [GitHub](https://github.com/vikadata/sandagent/issues)
-- Join discussions on [GitHub Discussions](https://github.com/vikadata/sandagent/discussions)
+- Open an issue on [GitHub](https://github.com/vikadata/bunny-agent/issues)
+- Join discussions on [GitHub Discussions](https://github.com/vikadata/bunny-agent/discussions)
 
 ---
 
 ## License
 
-By contributing to SandAgent, you agree that your contributions will be licensed under the Apache License 2.0.
+By contributing to Bunny Agent, you agree that your contributions will be licensed under the Apache License 2.0.

@@ -5,7 +5,7 @@
 ### 23:27
 - Started implementing native Gemini runner integration.
 - Reviewed `~/Documents/refs/gemini-cli` headless mode and streaming JSON event contract.
-- Confirmed compatibility with SandAgent runner architecture.
+- Confirmed compatibility with Bunny Agent runner architecture.
 
 ### 23:34
 - Added new package `packages/runner-gemini` with:
@@ -24,16 +24,16 @@
 ### 23:39
 - Verification completed:
   - `pnpm install`
-  - `pnpm --filter @sandagent/runner-gemini test`
-  - `pnpm --filter @sandagent/runner-gemini build`
-  - `pnpm --filter @sandagent/runner-gemini typecheck`
-  - `pnpm --filter @sandagent/runner-cli exec vitest run src/__tests__/runner.test.ts`
-  - `pnpm --filter @sandagent/runner-cli build`
+  - `pnpm --filter @bunny-agent/runner-gemini test`
+  - `pnpm --filter @bunny-agent/runner-gemini build`
+  - `pnpm --filter @bunny-agent/runner-gemini typecheck`
+  - `pnpm --filter @bunny-agent/runner-cli exec vitest run src/__tests__/runner.test.ts`
+  - `pnpm --filter @bunny-agent/runner-cli build`
   - `node apps/runner-cli/dist/bundle.mjs run --help` (confirmed `gemini` runner and env docs in help output)
 
 ### 23:58
 - Validated runtime behavior with isolated command:
-  - `node apps/runner-cli/dist/bundle.mjs run --runner gemini --cwd /tmp/sandagent-gemini-test -m gemini-2.5-flash -- "Return ONLY: OK"`
+  - `node apps/runner-cli/dist/bundle.mjs run --runner gemini --cwd /tmp/bunny-agent-gemini-test -m gemini-2.5-flash -- "Return ONLY: OK"`
   - Output returned `OK` successfully.
 - Identified `gemini-3.1-pro` model is unavailable for current account/endpoint (`ModelNotFoundError`, code 404).
 - Added compatibility mapping in Gemini runner:
@@ -41,11 +41,11 @@
 - Added unit test coverage for base URL env mapping in `packages/runner-gemini/src/__tests__/gemini-runner.test.ts`.
 
 ### 22:33
-- Removed unfinished `copilot` benchmark support from `@sandagent/benchmark-sandagent`:
-  - Updated runner type union in `packages/benchmark-sandagent/src/types.ts`.
-  - Updated CLI help string in `packages/benchmark-sandagent/src/cli.ts`.
-  - Removed placeholder mapping from `packages/benchmark-sandagent/src/runners/index.ts`.
-  - Removed copilot mention from `packages/benchmark-sandagent/README.md`.
+- Removed unfinished `copilot` benchmark support from `@bunny-agent/benchmark-bunny-agent`:
+  - Updated runner type union in `packages/benchmark-bunny-agent/src/types.ts`.
+  - Updated CLI help string in `packages/benchmark-bunny-agent/src/cli.ts`.
+  - Removed placeholder mapping from `packages/benchmark-bunny-agent/src/runners/index.ts`.
+  - Removed copilot mention from `packages/benchmark-bunny-agent/README.md`.
 - Updated `run-benchmark.sh` Gemini default model and examples:
   - `DEFAULT_GEMINI_MODEL="gemini-3-flash"`.
   - Help/examples now use `gemini-3-flash`.
@@ -54,7 +54,7 @@
 - Updated `.env.example` to clarify Gemini configuration for both Pi and Gemini runners:
   - Added `GOOGLE_API_KEY` alongside `GEMINI_API_KEY` in the Pi Gemini subsection.
   - Added dedicated `Gemini Runner (--runner gemini)` section with variable mapping notes.
-  - Documented that `GOOGLE_GEMINI_BASE_URL` is the preferred base URL variable for Gemini CLI and that SandAgent maps `GEMINI_BASE_URL` for compatibility.
+  - Documented that `GOOGLE_GEMINI_BASE_URL` is the preferred base URL variable for Gemini CLI and that Bunny Agent maps `GEMINI_BASE_URL` for compatibility.
   - Added explicit note that 404 errors can still happen when a model is not exposed by the configured provider/account.
 
 ### 22:40
@@ -74,37 +74,37 @@
   - `GEMINI_CLI_PATH=/tmp/gemini-yolo ./run-benchmark.sh --runner gemini --model gemini-2.5-flash --runs 1`
 - Result:
   - Passed `2/5`, failed `3/5`.
-  - Output file: `benchmark-results/sandagent/smoking/sandagent-gemini-gemini-2.5-flash-2026-03-05-22-47-17.json`.
+  - Output file: `benchmark-results/bunny-agent/smoking/bunny-agent-gemini-gemini-2.5-flash-2026-03-05-22-47-17.json`.
 - Observation:
   - Tool permission issues were reduced (file/shell tools became available), but current answer extraction logic still produced false negatives on chunk-split outputs (e.g., `Hello`/`, World!`, `5`/`79`).
 
 ### 22:51
 - Fixed benchmark answer extraction for AI SDK stream chunks:
-  - Updated `packages/benchmark-sandagent/src/runners/base.ts` to accumulate all `0:` text chunks via JSON parsing instead of keeping only the last chunk.
+  - Updated `packages/benchmark-bunny-agent/src/runners/base.ts` to accumulate all `0:` text chunks via JSON parsing instead of keeping only the last chunk.
   - This resolves false negatives caused by chunked streaming outputs.
 - Added test coverage:
-  - New file `packages/benchmark-sandagent/test/base-runner.test.ts`.
+  - New file `packages/benchmark-bunny-agent/test/base-runner.test.ts`.
   - Verified multi-chunk extraction (`5` + `79` => `579`) and escaped chunk handling.
 - Verification:
-  - `pnpm --filter @sandagent/benchmark-sandagent exec vitest run test/base-runner.test.ts` passed.
-  - `pnpm --filter @sandagent/benchmark-sandagent build` passed.
+  - `pnpm --filter @bunny-agent/benchmark-bunny-agent exec vitest run test/base-runner.test.ts` passed.
+  - `pnpm --filter @bunny-agent/benchmark-bunny-agent build` passed.
   - Reran benchmark with YOLO wrapper:
     - `GEMINI_CLI_PATH=/tmp/gemini-yolo ./run-benchmark.sh --runner gemini --model gemini-2.5-flash --runs 1`
     - Result improved to `4/5`.
-    - Output file: `benchmark-results/sandagent/smoking/sandagent-gemini-gemini-2.5-flash-2026-03-05-22-51-04.json`.
+    - Output file: `benchmark-results/bunny-agent/smoking/bunny-agent-gemini-gemini-2.5-flash-2026-03-05-22-51-04.json`.
 
 ### 22:59
 - Ran package tests for extraction fix:
-  - `pnpm --filter @sandagent/benchmark-sandagent exec vitest run` passed.
+  - `pnpm --filter @bunny-agent/benchmark-bunny-agent exec vitest run` passed.
 - Rebuilt benchmark package:
-  - `pnpm --filter @sandagent/benchmark-sandagent build` passed.
-- Ran full sandagent smoking benchmark across runners (`pi + claude + codex + gemini`):
+  - `pnpm --filter @bunny-agent/benchmark-bunny-agent build` passed.
+- Ran full bunny-agent smoking benchmark across runners (`pi + claude + codex + gemini`):
   - Command: `GEMINI_CLI_PATH=/tmp/gemini-yolo ./run-benchmark.sh --runner both --runs 1`
   - Pi (`openai:gpt-5.2`): `5/5`
-    - `benchmark-results/sandagent/smoking/sandagent-pi-openai-gpt-5.2-2026-03-05-22-54-08.json`
+    - `benchmark-results/bunny-agent/smoking/bunny-agent-pi-openai-gpt-5.2-2026-03-05-22-54-08.json`
   - Claude (`bedrock-claude-sonnet-4-6`): `4/5` (timeout on smoke-003)
-    - `benchmark-results/sandagent/smoking/sandagent-claude-bedrock-claude-sonnet-4-6-2026-03-05-22-56-55.json`
+    - `benchmark-results/bunny-agent/smoking/bunny-agent-claude-bedrock-claude-sonnet-4-6-2026-03-05-22-56-55.json`
   - Codex (`gpt-5.2`): `5/5` (with repeated WS 403 fallback warnings, still successful)
-    - `benchmark-results/sandagent/smoking/sandagent-codex-gpt-5.2-2026-03-05-22-58-20.json`
+    - `benchmark-results/bunny-agent/smoking/bunny-agent-codex-gpt-5.2-2026-03-05-22-58-20.json`
   - Gemini (`gemini-2.5-flash`, YOLO wrapper): `4/5` (failed smoke-001 due to response format/task-following)
-    - `benchmark-results/sandagent/smoking/sandagent-gemini-gemini-2.5-flash-2026-03-05-22-59-37.json`
+    - `benchmark-results/bunny-agent/smoking/bunny-agent-gemini-gemini-2.5-flash-2026-03-05-22-59-37.json`

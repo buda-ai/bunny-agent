@@ -17,12 +17,12 @@ Migrated from Docker Hub to **GitHub Container Registry (GHCR)**, which uses the
   - **Before**: `username: ${{ secrets.DOCKERHUB_USERNAME }}`, `password: ${{ secrets.DOCKERHUB_TOKEN }}`
   - **After**: `registry: ghcr.io`, `username: ${{ github.actor }}`, `password: ${{ secrets.GITHUB_TOKEN }}`
 - Updated pushed image tags:
-  - **Before**: `vikadata/sandagent:<version>` and `vikadata/sandagent:latest` (Docker Hub)
-  - **After**: `ghcr.io/vikadata/sandagent:<version>` and `ghcr.io/vikadata/sandagent:latest` (GHCR)
+  - **Before**: `vikadata/bunny-agent:<version>` and `vikadata/bunny-agent:latest` (Docker Hub)
+  - **After**: `ghcr.io/vikadata/bunny-agent:<version>` and `ghcr.io/vikadata/bunny-agent:latest` (GHCR)
 
 ## Image Location
 
 | Tag | URL |
 |-----|-----|
-| Latest | `ghcr.io/vikadata/sandagent:latest` |
-| Versioned | `ghcr.io/vikadata/sandagent:<version>` |
+| Latest | `ghcr.io/vikadata/bunny-agent:latest` |
+| Versioned | `ghcr.io/vikadata/bunny-agent:<version>` |

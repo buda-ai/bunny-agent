@@ -2,7 +2,7 @@
 
 **Choose where your agents run**
 
-SandAgent runs agents in isolated sandbox environments. You can choose between:
+Bunny Agent runs agents in isolated sandbox environments. You can choose between:
 - **E2B** — Cloud-hosted sandboxes (recommended for production)
 - **Sandock** — Docker-based sandboxes (great for development)
 
@@ -24,7 +24,7 @@ Both provide the same interface, so you can switch with one line of code.
 ## E2B (Recommended for Production)
 
 ```ts
-import { E2BSandbox } from "@sandagent/sandbox-e2b";
+import { E2BSandbox } from "@bunny-agent/sandbox-e2b";
 
 const sandbox = new E2BSandbox({
   apiKey: process.env.E2B_API_KEY,
@@ -59,11 +59,11 @@ Get your API key at [e2b.dev](https://e2b.dev).
 **Best for**: Development, self-hosted deployments, custom Docker images.
 
 ```bash
-pnpm add @sandagent/sandbox-sandock
+pnpm add @bunny-agent/sandbox-sandock
 ```
 
 ```ts
-import { SandockSandbox } from "@sandagent/sandbox-sandock";
+import { SandockSandbox } from "@bunny-agent/sandbox-sandock";
 
 const sandbox = new SandockSandbox({
   apiKey: process.env.SANDOCK_API_KEY,
@@ -94,8 +94,8 @@ Get your API key at [sandock.ai](https://sandock.ai).
 Switch sandbox providers with one line:
 
 ```typescript
-import { E2BSandbox } from "@sandagent/sandbox-e2b";
-import { SandockSandbox } from "@sandagent/sandbox-sandock";
+import { E2BSandbox } from "@bunny-agent/sandbox-e2b";
+import { SandockSandbox } from "@bunny-agent/sandbox-sandock";
 
 // Production: Use E2B
 const prodSandbox = new E2BSandbox();

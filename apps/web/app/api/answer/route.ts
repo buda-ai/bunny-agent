@@ -1,4 +1,4 @@
-import { type Question, submitAnswer } from "@sandagent/sdk";
+import { type Question, submitAnswer } from "@bunny-agent/sdk";
 import {
   type CreateSandboxParams,
   getOrCreateSandbox,

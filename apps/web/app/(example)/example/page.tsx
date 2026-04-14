@@ -1,6 +1,6 @@
 "use client";
 
-import { useSandAgentChat } from "@sandagent/sdk/react";
+import { useBunnyAgentChat } from "@bunny-agent/sdk/react";
 import type { DynamicToolUIPart, ToolUIPart, UIMessage } from "ai";
 import {
   Conversation,
@@ -162,7 +162,7 @@ function HomeContent() {
       const saved = localStorage.getItem(STORAGE_KEY);
       const config = saved ? JSON.parse(saved) : {};
       setClientConfig(config);
-      // LLM goes through sandagent-daemon; only sandbox keys matter for Ready.
+      // LLM goes through bunny-agent-daemon; only sandbox keys matter for Ready.
       const allRequiredSet = REQUIRED_KEYS.every((key) => !!config[key]);
       setConfigReady(allRequiredSet);
     } catch {
@@ -171,7 +171,7 @@ function HomeContent() {
   }, []);
 
   const { messages, status, error, isLoading, hasError, handleSubmit, stop } =
-    useSandAgentChat({
+    useBunnyAgentChat({
       apiEndpoint: "/api/ai",
       body: { template: selectedTemplate, ...clientConfig },
     });
@@ -197,7 +197,7 @@ function HomeContent() {
       <header className="flex items-center justify-between px-6 py-4 border-b border-border">
         <div className="flex items-center gap-4">
           <h1 className="text-lg font-semibold text-foreground">
-            SandAgent Chat
+            BunnyAgent Chat
           </h1>
           <select
             value={selectedTemplate}

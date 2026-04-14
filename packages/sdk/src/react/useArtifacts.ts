@@ -81,7 +81,7 @@ function getFileExtensionFromMimeType(mimeType: string): string {
  *
  * @example
  * ```tsx
- * import { useArtifacts } from "@sandagent/sdk/react";
+ * import { useArtifacts } from "@bunny-agent/sdk/react";
  *
  * function ArtifactPanel({ messages }) {
  *   const {

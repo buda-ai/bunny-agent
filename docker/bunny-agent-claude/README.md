@@ -1,6 +1,6 @@
-# SandAgent Claude Image
+# Bunny Agent Claude Image
 
-Docker image with **Claude Agent SDK** and `@sandagent/runner-cli` for Daytona, E2B, and Sandock.
+Docker image with **Claude Agent SDK** and `@bunny-agent/runner-cli` for Daytona, E2B, and Sandock.
 
 Bundle everything needed to run a Claude agent (Claude Agent SDK + runner-cli + templates) into an image/template for faster, consistent sandbox startup.
 
@@ -18,23 +18,23 @@ make help
 
 ### Docker image (generic)
 
-Build with the `sandagent` CLI (`--name` is the full image name):
+Build with the `bunny-agent` CLI (`--name` is the full image name):
 
 ```bash
 # Build
-sandagent image build --name vikadata/sandagent --tag 0.1.0
+bunny-agent image build --name vikadata/bunny-agent --tag 0.1.0
 
 # Build with template
-sandagent image build --name vikadata/sandagent-seo --tag 0.1.0 --template ../../templates/seo-agent
+bunny-agent image build --name vikadata/bunny-agent-seo --tag 0.1.0 --template ../../templates/seo-agent
 
 # Build + push
-sandagent image build --name vikadata/sandagent-seo --tag 0.1.0 --template ../../templates/seo-agent --push
+bunny-agent image build --name vikadata/bunny-agent-seo --tag 0.1.0 --template ../../templates/seo-agent --push
 ```
 
 Or with make:
 
 ```bash
-make image                        # build vikadata/sandagent:0.1.0
+make image                        # build vikadata/bunny-agent:0.1.0
 make image-push                   # build + push (docker login first)
 ```
 
@@ -70,8 +70,8 @@ Uses `IMAGE_NAME` / `IMAGE_TAG` from `.env` or defaults (see `make help`).
 Use when you changed `runner-claude` or `runner-cli` and want an image with your code without publishing to npm. Build context = repo root; uses `Dockerfile.local`.
 
 ```bash
-cd docker/sandagent-claude
-make image-local              # build vikadata/sandagent:0.1.0 (or IMAGE_TAG from .env)
+cd docker/bunny-agent-claude
+make image-local              # build vikadata/bunny-agent:0.1.0 (or IMAGE_TAG from .env)
 make image-local IMAGE_TAG=local
 make image-local-push          # build + push (docker login first)
 ```
@@ -79,7 +79,7 @@ make image-local-push          # build + push (docker login first)
 Or from repo root:
 
 ```bash
-docker build -f docker/sandagent-claude/Dockerfile.local -t vikadata/sandagent:local .
+docker build -f docker/bunny-agent-claude/Dockerfile.local -t vikadata/bunny-agent:local .
 ```
 
 ## Setup
@@ -114,8 +114,8 @@ docker build -f docker/sandagent-claude/Dockerfile.local -t vikadata/sandagent:l
 `--name` is the full Docker image name, matching `docker build -t` convention. No magic concatenation — what you pass is what you get.
 
 Examples:
-- `--name vikadata/sandagent` → `vikadata/sandagent:tag`
-- `--name vikadata/sandagent-seo` → `vikadata/sandagent-seo:tag`
+- `--name vikadata/bunny-agent` → `vikadata/bunny-agent:tag`
+- `--name vikadata/bunny-agent-seo` → `vikadata/bunny-agent-seo:tag`
 
 ## Templates
 
@@ -136,11 +136,11 @@ Templates live under `../../templates/`; `generate-dockerfile.sh` copies `.claud
 **Sandock**
 
 ```typescript
-import { SandockSandbox } from "@sandagent/sandbox-sandock";
+import { SandockSandbox } from "@bunny-agent/sandbox-sandock";
 
 const sandbox = new SandockSandbox({
-  image: "vikadata/sandagent:0.1.0",
-  // with template: "vikadata/sandagent-researcher:0.1.0"
+  image: "vikadata/bunny-agent:0.1.0",
+  // with template: "vikadata/bunny-agent-researcher:0.1.0"
   // ...
 });
 ```
@@ -148,10 +148,10 @@ const sandbox = new SandockSandbox({
 **Daytona**
 
 ```typescript
-import { DaytonaSandbox } from "@sandagent/sandbox-daytona";
+import { DaytonaSandbox } from "@bunny-agent/sandbox-daytona";
 
 const sandbox = new DaytonaSandbox({
-  snapshot: "sandagent-claude:0.1.0",
+  snapshot: "bunny-agent-claude:0.1.0",
   // ...
 });
 ```
@@ -159,10 +159,10 @@ const sandbox = new DaytonaSandbox({
 **E2B**
 
 ```typescript
-import { E2BSandbox } from "@sandagent/sandbox-e2b";
+import { E2BSandbox } from "@bunny-agent/sandbox-e2b";
 
 const sandbox = new E2BSandbox({
-  template: "sandagent-claude",
+  template: "bunny-agent-claude",
   // ...
 });
 ```

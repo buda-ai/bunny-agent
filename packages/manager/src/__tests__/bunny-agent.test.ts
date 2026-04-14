@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { SandAgent } from "../sand-agent.js";
+import { BunnyAgent } from "../bunny-agent.js";
 import type { SandboxAdapter, SandboxHandle } from "../types.js";
 
 /**
@@ -48,11 +48,11 @@ function createMockSandbox(): SandboxAdapter & { handle: SandboxHandle } {
   return adapter;
 }
 
-describe("SandAgent", () => {
+describe("BunnyAgent", () => {
   describe("stream", () => {
     it("should attach to sandbox and execute command", async () => {
       const sandbox = createMockSandbox();
-      const agent = new SandAgent({
+      const agent = new BunnyAgent({
         sandbox,
         runner: {
           model: "claude-sonnet-4-20250514",
@@ -69,7 +69,7 @@ describe("SandAgent", () => {
 
     it("should use default workspace path", async () => {
       const sandbox = createMockSandbox();
-      const agent = new SandAgent({
+      const agent = new BunnyAgent({
         sandbox,
         runner: {
           model: "claude-sonnet-4-20250514",
@@ -88,7 +88,7 @@ describe("SandAgent", () => {
 
     it("should use workspace path from sandbox handle", async () => {
       const sandbox = createMockSandbox();
-      const agent = new SandAgent({
+      const agent = new BunnyAgent({
         sandbox,
         runner: {
           model: "claude-sonnet-4-20250514",
@@ -108,7 +108,7 @@ describe("SandAgent", () => {
 
     it("should include user message in command", async () => {
       const sandbox = createMockSandbox();
-      const agent = new SandAgent({
+      const agent = new BunnyAgent({
         sandbox,
         runner: {
           model: "claude-sonnet-4-20250514",
@@ -136,7 +136,7 @@ describe("SandAgent", () => {
           createAsyncIterable([new TextEncoder().encode(testData)]),
         );
 
-      const agent = new SandAgent({
+      const agent = new BunnyAgent({
         sandbox,
         runner: {
           model: "claude-sonnet-4-20250514",
@@ -158,7 +158,7 @@ describe("SandAgent", () => {
   describe("uploadFiles", () => {
     it("should upload files to the sandbox", async () => {
       const sandbox = createMockSandbox();
-      const agent = new SandAgent({
+      const agent = new BunnyAgent({
         sandbox,
         runner: {
           model: "claude-sonnet-4-20250514",
@@ -175,7 +175,7 @@ describe("SandAgent", () => {
 
     it("should upload files to custom directory", async () => {
       const sandbox = createMockSandbox();
-      const agent = new SandAgent({
+      const agent = new BunnyAgent({
         sandbox,
         runner: {
           model: "claude-sonnet-4-20250514",
@@ -197,7 +197,7 @@ describe("SandAgent", () => {
   describe("destroy", () => {
     it("should destroy the sandbox", async () => {
       const sandbox = createMockSandbox();
-      const agent = new SandAgent({
+      const agent = new BunnyAgent({
         sandbox,
         runner: {
           model: "claude-sonnet-4-20250514",
@@ -217,7 +217,7 @@ describe("SandAgent", () => {
 
     it("should do nothing if not attached", async () => {
       const sandbox = createMockSandbox();
-      const agent = new SandAgent({
+      const agent = new BunnyAgent({
         sandbox,
         runner: {
           model: "claude-sonnet-4-20250514",
@@ -234,7 +234,7 @@ describe("SandAgent", () => {
   describe("AbortSignal support", () => {
     it("should pass signal to exec()", async () => {
       const sandbox = createMockSandbox();
-      const agent = new SandAgent({
+      const agent = new BunnyAgent({
         sandbox,
         runner: {
           model: "claude-sonnet-4-20250514",
@@ -257,7 +257,7 @@ describe("SandAgent", () => {
 
     it("should throw error if signal is already aborted", async () => {
       const sandbox = createMockSandbox();
-      const agent = new SandAgent({
+      const agent = new BunnyAgent({
         sandbox,
         runner: {
           model: "claude-sonnet-4-20250514",
@@ -286,7 +286,7 @@ describe("SandAgent", () => {
           createAsyncIterable([new TextEncoder().encode("test output")]),
         );
 
-      const agent = new SandAgent({
+      const agent = new BunnyAgent({
         sandbox,
         runner: {
           model: "claude-sonnet-4-20250514",
@@ -335,7 +335,7 @@ describe("SandAgent", () => {
         },
       });
 
-      const agent = new SandAgent({
+      const agent = new BunnyAgent({
         sandbox,
         runner: {
           model: "claude-sonnet-4-20250514",

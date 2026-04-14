@@ -11,7 +11,7 @@ useful information about which image was actually built and pushed.
 Added a **Write job summary** step at the end of the `publish-docker` job that
 writes a clean Markdown table to `$GITHUB_STEP_SUMMARY` showing:
 
-- The Docker image name (`vikadata/sandagent`)
+- The Docker image name (`vikadata/bunny-agent`)
 - The version tag and `latest` tag, each with a link to Docker Hub
 - The source Git tag
 - Target platforms (`linux/amd64`, `linux/arm64`)

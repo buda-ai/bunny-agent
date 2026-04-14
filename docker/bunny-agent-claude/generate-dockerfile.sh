@@ -42,16 +42,16 @@ if [ "$INCLUDE_TEMPLATE" = "true" ] && [ -n "$TEMPLATE" ]; then
     cp -r "$TEMPLATE_PATH/.claude" "$BUILD_CONTEXT_TEMPLATE/"
   fi
   
-  # Generate COPY commands - copy to /opt/sandagent/templates (won't be overwritten by volume)
-  TEMPLATE_FILES="# Copy template files to /opt/sandagent/templates (volume-safe location)"
-  TEMPLATE_FILES="$TEMPLATE_FILES\nRUN mkdir -p /opt/sandagent/templates"
+  # Generate COPY commands - copy to /opt/bunny-agent/templates (won't be overwritten by volume)
+  TEMPLATE_FILES="# Copy template files to /opt/bunny-agent/templates (volume-safe location)"
+  TEMPLATE_FILES="$TEMPLATE_FILES\nRUN mkdir -p /opt/bunny-agent/templates"
   
   if [ -f "$BUILD_CONTEXT_TEMPLATE/CLAUDE.md" ]; then
-    TEMPLATE_FILES="$TEMPLATE_FILES\nCOPY templates/$TEMPLATE/CLAUDE.md /opt/sandagent/templates/CLAUDE.md"
+    TEMPLATE_FILES="$TEMPLATE_FILES\nCOPY templates/$TEMPLATE/CLAUDE.md /opt/bunny-agent/templates/CLAUDE.md"
   fi
   
   if [ -d "$BUILD_CONTEXT_TEMPLATE/.claude" ]; then
-    TEMPLATE_FILES="$TEMPLATE_FILES\nCOPY templates/$TEMPLATE/.claude /opt/sandagent/templates/.claude"
+    TEMPLATE_FILES="$TEMPLATE_FILES\nCOPY templates/$TEMPLATE/.claude /opt/bunny-agent/templates/.claude"
   fi
 fi
 

@@ -13,11 +13,11 @@ const config = {
     root: path.resolve(__dirname, "../.."),
   },
   transpilePackages: [
-    "@sandagent/core",
-    "@sandagent/sdk",
-    "@sandagent/sandbox-e2b",
-    "@sandagent/sandbox-sandock",
-    "@sandagent/sandbox-daytona",
+    "@bunny-agent/core",
+    "@bunny-agent/sdk",
+    "@bunny-agent/sandbox-e2b",
+    "@bunny-agent/sandbox-sandock",
+    "@bunny-agent/sandbox-daytona",
     "kui",
   ],
   async rewrites() {

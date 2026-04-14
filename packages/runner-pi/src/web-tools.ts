@@ -1,5 +1,5 @@
 /**
- * Web search and content extraction tools for sandagent pi runner.
+ * Web search and content extraction tools for bunny-agent pi runner.
  *
  * Implements two tools:
  * - `web_search`: Search the web via pluggable providers (Brave, Tavily, DuckDuckGo)
@@ -390,7 +390,7 @@ export function buildWebSearchTool(
           lastError = e;
           if (isRateLimitError(e) && providers.length > 1) {
             console.error(
-              `[sandagent:pi] ${provider.label} rate-limited, trying next provider...`,
+              `[bunny-agent:pi] ${provider.label} rate-limited, trying next provider...`,
             );
             continue;
           }

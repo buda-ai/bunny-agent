@@ -1,7 +1,7 @@
 /**
  * Bunny Agent identity context — system prompt and core values.
  *
- * Centralised here so every runner (bunny-agent-tui, sandagent harness, etc.)
+ * Centralised here so every runner (bunny-agent-tui, bunny-agent harness, etc.)
  * uses the exact same identity and research methodology without duplication.
  *
  * Inspired by:

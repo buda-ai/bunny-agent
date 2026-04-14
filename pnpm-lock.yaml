@@ -31,12 +31,12 @@ importers:
 
   apps/bunny-agent-tui:
     dependencies:
+      '@bunny-agent/runner-harness':
+        specifier: workspace:*
+        version: link:../../packages/runner-harness
       '@mariozechner/pi-coding-agent':
         specifier: 0.66.1
         version: 0.66.1(patch_hash=69edfea015730e483a9f2d71b9a2af995d6baff2805038a4442fa957b61a8416)(ws@8.19.0)(zod@4.3.6)
-      '@sandagent/runner-harness':
-        specifier: workspace:*
-        version: link:../../packages/runner-harness
     devDependencies:
       '@types/node':
         specifier: ^20.10.0
@@ -72,7 +72,7 @@ importers:
 
   apps/daemon:
     devDependencies:
-      '@sandagent/runner-harness':
+      '@bunny-agent/runner-harness':
         specifier: workspace:*
         version: link:../../packages/runner-harness
       '@types/node':
@@ -90,16 +90,16 @@ importers:
 
   apps/manager-cli:
     dependencies:
-      '@sandagent/manager':
+      '@bunny-agent/manager':
         specifier: workspace:*
         version: link:../../packages/manager
-      '@sandagent/runner-claude':
+      '@bunny-agent/runner-claude':
         specifier: workspace:*
         version: link:../../packages/runner-claude
-      '@sandagent/sandbox-e2b':
+      '@bunny-agent/sandbox-e2b':
         specifier: workspace:*
         version: link:../../packages/sandbox-e2b
-      '@sandagent/sandbox-sandock':
+      '@bunny-agent/sandbox-sandock':
         specifier: workspace:*
         version: link:../../packages/sandbox-sandock
     devDependencies:
@@ -137,22 +137,22 @@ importers:
         specifier: ^4.0.0
         version: 4.3.6
     devDependencies:
-      '@sandagent/runner-claude':
+      '@bunny-agent/runner-claude':
         specifier: workspace:*
         version: link:../../packages/runner-claude
-      '@sandagent/runner-codex':
+      '@bunny-agent/runner-codex':
         specifier: workspace:*
         version: link:../../packages/runner-codex
-      '@sandagent/runner-gemini':
+      '@bunny-agent/runner-gemini':
         specifier: workspace:*
         version: link:../../packages/runner-gemini
-      '@sandagent/runner-harness':
+      '@bunny-agent/runner-harness':
         specifier: workspace:*
         version: link:../../packages/runner-harness
-      '@sandagent/runner-opencode':
+      '@bunny-agent/runner-opencode':
         specifier: workspace:*
         version: link:../../packages/runner-opencode
-      '@sandagent/runner-pi':
+      '@bunny-agent/runner-pi':
         specifier: workspace:*
         version: link:../../packages/runner-pi
       '@types/node':
@@ -173,39 +173,39 @@ importers:
       '@ai-sdk/react':
         specifier: ^3.0.52
         version: 3.0.107(react@19.2.4)(zod@4.3.6)
+      '@bunny-agent/sandbox-daytona':
+        specifier: workspace:*
+        version: link:../../packages/sandbox-daytona
+      '@bunny-agent/sandbox-e2b':
+        specifier: workspace:*
+        version: link:../../packages/sandbox-e2b
+      '@bunny-agent/sandbox-sandock':
+        specifier: workspace:*
+        version: link:../../packages/sandbox-sandock
+      '@bunny-agent/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
       '@next/third-parties':
         specifier: ^16.1.6
         version: 16.1.6(next@16.1.6(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)
-      '@sandagent/sandbox-daytona':
-        specifier: workspace:*
-        version: link:../../packages/sandbox-daytona
-      '@sandagent/sandbox-e2b':
-        specifier: workspace:*
-        version: link:../../packages/sandbox-e2b
-      '@sandagent/sandbox-sandock':
-        specifier: workspace:*
-        version: link:../../packages/sandbox-sandock
-      '@sandagent/sdk':
-        specifier: workspace:*
-        version: link:../../packages/sdk
       ai:
         specifier: ^6.0.105
         version: 6.0.105(zod@4.3.6)
       fumadocs-core:
         specifier: 16.5.4
-        version: 16.5.4(@mdx-js/mdx@3.1.1)(@types/estree-jsx@1.0.5)(@types/hast@3.0.4)(@types/mdast@4.0.4)(@types/react@19.2.14)(lucide-react@0.563.0(react@19.2.4))(next@16.1.6(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.3.6)
+        version: 16.5.4(@mdx-js/mdx@3.1.1)(@types/estree-jsx@1.0.5)(@types/hast@3.0.4)(@types/mdast@4.0.4)(@types/react@19.2.14)(lucide-react@0.577.0(react@19.2.4))(next@16.1.6(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.3.6)
       fumadocs-mdx:
         specifier: 14.2.7
-        version: 14.2.7(@types/mdast@4.0.4)(@types/mdx@2.0.13)(@types/react@19.2.14)(fumadocs-core@16.5.4(@mdx-js/mdx@3.1.1)(@types/estree-jsx@1.0.5)(@types/hast@3.0.4)(@types/mdast@4.0.4)(@types/react@19.2.14)(lucide-react@0.563.0(react@19.2.4))(next@16.1.6(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.3.6))(mdast-util-mdx-jsx@3.2.0)(next@16.1.6(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)
+        version: 14.2.7(@types/mdast@4.0.4)(@types/mdx@2.0.13)(@types/react@19.2.14)(fumadocs-core@16.5.4(@mdx-js/mdx@3.1.1)(@types/estree-jsx@1.0.5)(@types/hast@3.0.4)(@types/mdast@4.0.4)(@types/react@19.2.14)(lucide-react@0.577.0(react@19.2.4))(next@16.1.6(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.3.6))(mdast-util-mdx-jsx@3.2.0)(next@16.1.6(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)
       fumadocs-ui:
         specifier: 16.5.4
-        version: 16.5.4(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(fumadocs-core@16.5.4(@mdx-js/mdx@3.1.1)(@types/estree-jsx@1.0.5)(@types/hast@3.0.4)(@types/mdast@4.0.4)(@types/react@19.2.14)(lucide-react@0.563.0(react@19.2.4))(next@16.1.6(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.3.6))(next@16.1.6(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(tailwindcss@4.1.18)
+        version: 16.5.4(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(fumadocs-core@16.5.4(@mdx-js/mdx@3.1.1)(@types/estree-jsx@1.0.5)(@types/hast@3.0.4)(@types/mdast@4.0.4)(@types/react@19.2.14)(lucide-react@0.577.0(react@19.2.4))(next@16.1.6(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.3.6))(next@16.1.6(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(tailwindcss@4.1.18)
       kui:
         specifier: workspace:*
         version: link:../../packages/kui
       lucide-react:
-        specifier: ^0.563.0
-        version: 0.563.0(react@19.2.4)
+        specifier: ^0.577.0
+        version: 0.577.0(react@19.2.4)
       next:
         specifier: 16.1.6
         version: 16.1.6(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -250,7 +250,7 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
 
-  docker/sandagent-claude:
+  docker/bunny-agent-claude:
     dependencies:
       '@daytonaio/sdk':
         specifier: ^0.134.0
@@ -524,19 +524,19 @@ importers:
 
   packages/runner-harness:
     dependencies:
-      '@sandagent/runner-claude':
+      '@bunny-agent/runner-claude':
         specifier: workspace:*
         version: link:../runner-claude
-      '@sandagent/runner-codex':
+      '@bunny-agent/runner-codex':
         specifier: workspace:*
         version: link:../runner-codex
-      '@sandagent/runner-gemini':
+      '@bunny-agent/runner-gemini':
         specifier: workspace:*
         version: link:../runner-gemini
-      '@sandagent/runner-opencode':
+      '@bunny-agent/runner-opencode':
         specifier: workspace:*
         version: link:../runner-opencode
-      '@sandagent/runner-pi':
+      '@bunny-agent/runner-pi':
         specifier: workspace:*
         version: link:../runner-pi
       ai:
@@ -587,12 +587,12 @@ importers:
 
   packages/sandbox-daytona:
     dependencies:
+      '@bunny-agent/manager':
+        specifier: workspace:*
+        version: link:../manager
       '@daytonaio/sdk':
         specifier: ^0.130.0
         version: 0.130.0(ws@8.19.0)
-      '@sandagent/manager':
-        specifier: workspace:*
-        version: link:../manager
     devDependencies:
       '@types/node':
         specifier: ^20.10.0
@@ -606,7 +606,7 @@ importers:
 
   packages/sandbox-e2b:
     dependencies:
-      '@sandagent/manager':
+      '@bunny-agent/manager':
         specifier: workspace:*
         version: link:../manager
       e2b:
@@ -625,7 +625,7 @@ importers:
 
   packages/sandbox-sandock:
     dependencies:
-      '@sandagent/manager':
+      '@bunny-agent/manager':
         specifier: workspace:*
         version: link:../manager
       sandock:
@@ -650,7 +650,7 @@ importers:
       '@ai-sdk/react':
         specifier: ^3.0.105
         version: 3.0.107(react@19.2.4)(zod@4.3.6)
-      '@sandagent/manager':
+      '@bunny-agent/manager':
         specifier: workspace:*
         version: link:../manager
       ai:
@@ -4883,6 +4883,11 @@ packages:
 
   lucide-react@0.563.0:
     resolution: {integrity: sha512-8dXPB2GI4dI8jV4MgUDGBeLdGk8ekfqVZ0BdLcrRzocGgG75ltNEmWS+gE7uokKF/0oSUuczNDT+g9hFJ23FkA==}
+    peerDependencies:
+      react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
+
+  lucide-react@0.577.0:
+    resolution: {integrity: sha512-4LjoFv2eEPwYDPg/CUdBJQSDfPyzXCRrVW1X7jrx/trgxnxkHFjnVZINbzvzxjN70dxychOfg+FTYwBiS3pQ5A==}
     peerDependencies:
       react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
@@ -10747,7 +10752,7 @@ snapshots:
   fsevents@2.3.3:
     optional: true
 
-  fumadocs-core@16.5.4(@mdx-js/mdx@3.1.1)(@types/estree-jsx@1.0.5)(@types/hast@3.0.4)(@types/mdast@4.0.4)(@types/react@19.2.14)(lucide-react@0.563.0(react@19.2.4))(next@16.1.6(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.3.6):
+  fumadocs-core@16.5.4(@mdx-js/mdx@3.1.1)(@types/estree-jsx@1.0.5)(@types/hast@3.0.4)(@types/mdast@4.0.4)(@types/react@19.2.14)(lucide-react@0.577.0(react@19.2.4))(next@16.1.6(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.3.6):
     dependencies:
       '@formatjs/intl-localematcher': 0.8.1
       '@orama/orama': 3.1.18
@@ -10778,7 +10783,7 @@ snapshots:
       '@types/hast': 3.0.4
       '@types/mdast': 4.0.4
       '@types/react': 19.2.14
-      lucide-react: 0.563.0(react@19.2.4)
+      lucide-react: 0.577.0(react@19.2.4)
       next: 16.1.6(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       react: 19.2.4
       react-dom: 19.2.4(react@19.2.4)
@@ -10786,14 +10791,14 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  fumadocs-mdx@14.2.7(@types/mdast@4.0.4)(@types/mdx@2.0.13)(@types/react@19.2.14)(fumadocs-core@16.5.4(@mdx-js/mdx@3.1.1)(@types/estree-jsx@1.0.5)(@types/hast@3.0.4)(@types/mdast@4.0.4)(@types/react@19.2.14)(lucide-react@0.563.0(react@19.2.4))(next@16.1.6(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.3.6))(mdast-util-mdx-jsx@3.2.0)(next@16.1.6(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4):
+  fumadocs-mdx@14.2.7(@types/mdast@4.0.4)(@types/mdx@2.0.13)(@types/react@19.2.14)(fumadocs-core@16.5.4(@mdx-js/mdx@3.1.1)(@types/estree-jsx@1.0.5)(@types/hast@3.0.4)(@types/mdast@4.0.4)(@types/react@19.2.14)(lucide-react@0.577.0(react@19.2.4))(next@16.1.6(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.3.6))(mdast-util-mdx-jsx@3.2.0)(next@16.1.6(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4):
     dependencies:
       '@mdx-js/mdx': 3.1.1
       '@standard-schema/spec': 1.1.0
       chokidar: 5.0.0
       esbuild: 0.27.3
       estree-util-value-to-estree: 3.5.0
-      fumadocs-core: 16.5.4(@mdx-js/mdx@3.1.1)(@types/estree-jsx@1.0.5)(@types/hast@3.0.4)(@types/mdast@4.0.4)(@types/react@19.2.14)(lucide-react@0.563.0(react@19.2.4))(next@16.1.6(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.3.6)
+      fumadocs-core: 16.5.4(@mdx-js/mdx@3.1.1)(@types/estree-jsx@1.0.5)(@types/hast@3.0.4)(@types/mdast@4.0.4)(@types/react@19.2.14)(lucide-react@0.577.0(react@19.2.4))(next@16.1.6(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.3.6)
       js-yaml: 4.1.1
       mdast-util-to-markdown: 2.1.2
       picocolors: 1.1.1
@@ -10816,7 +10821,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  fumadocs-ui@16.5.4(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(fumadocs-core@16.5.4(@mdx-js/mdx@3.1.1)(@types/estree-jsx@1.0.5)(@types/hast@3.0.4)(@types/mdast@4.0.4)(@types/react@19.2.14)(lucide-react@0.563.0(react@19.2.4))(next@16.1.6(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.3.6))(next@16.1.6(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(tailwindcss@4.1.18):
+  fumadocs-ui@16.5.4(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(fumadocs-core@16.5.4(@mdx-js/mdx@3.1.1)(@types/estree-jsx@1.0.5)(@types/hast@3.0.4)(@types/mdast@4.0.4)(@types/react@19.2.14)(lucide-react@0.577.0(react@19.2.4))(next@16.1.6(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.3.6))(next@16.1.6(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(tailwindcss@4.1.18):
     dependencies:
       '@fumadocs/tailwind': 0.0.2(tailwindcss@4.1.18)
       '@radix-ui/react-accordion': 1.2.12(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -10830,7 +10835,7 @@ snapshots:
       '@radix-ui/react-slot': 1.2.4(@types/react@19.2.14)(react@19.2.4)
       '@radix-ui/react-tabs': 1.1.13(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       class-variance-authority: 0.7.1
-      fumadocs-core: 16.5.4(@mdx-js/mdx@3.1.1)(@types/estree-jsx@1.0.5)(@types/hast@3.0.4)(@types/mdast@4.0.4)(@types/react@19.2.14)(lucide-react@0.563.0(react@19.2.4))(next@16.1.6(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.3.6)
+      fumadocs-core: 16.5.4(@mdx-js/mdx@3.1.1)(@types/estree-jsx@1.0.5)(@types/hast@3.0.4)(@types/mdast@4.0.4)(@types/react@19.2.14)(lucide-react@0.577.0(react@19.2.4))(next@16.1.6(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.3.6)
       lucide-react: 0.563.0(react@19.2.4)
       motion: 12.34.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       next-themes: 0.4.6(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -11399,6 +11404,10 @@ snapshots:
       react: 19.2.4
 
   lucide-react@0.563.0(react@19.2.4):
+    dependencies:
+      react: 19.2.4
+
+  lucide-react@0.577.0(react@19.2.4):
     dependencies:
       react: 19.2.4
 

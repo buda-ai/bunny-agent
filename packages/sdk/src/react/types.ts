@@ -13,13 +13,13 @@ export interface ArtifactData {
 }
 
 // ============================================================================
-// useSandAgentChat Types
+// useBunnyAgentChat Types
 // ============================================================================
 
 /**
- * Options for useSandAgentChat hook
+ * Options for useBunnyAgentChat hook
  */
-export interface UseSandAgentChatOptions {
+export interface UseBunnyAgentChatOptions {
   /** API endpoint for chat (default: /api/ai) */
   apiEndpoint?: string;
   /** Additional body params to pass to API on each request */
@@ -27,9 +27,9 @@ export interface UseSandAgentChatOptions {
 }
 
 /**
- * Return type for useSandAgentChat hook
+ * Return type for useBunnyAgentChat hook
  */
-export interface UseSandAgentChatReturn {
+export interface UseBunnyAgentChatReturn {
   /** All chat messages */
   messages: UIMessage[];
   /** Current chat status */

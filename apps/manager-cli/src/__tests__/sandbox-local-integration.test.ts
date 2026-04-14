@@ -1,17 +1,17 @@
-import { LocalSandbox, SandAgent } from "@sandagent/manager";
+import { BunnyAgent, LocalSandbox } from "@bunny-agent/manager";
 import { describe, expect, it } from "vitest";
 
 /**
- * Integration tests for SandAgent with LocalSandbox
+ * Integration tests for BunnyAgent with LocalSandbox
  *
- * These tests verify the actual integration between SandAgent and LocalSandbox,
+ * These tests verify the actual integration between BunnyAgent and LocalSandbox,
  * ensuring that commands execute correctly in the local environment.
  */
-describe("SandAgent + LocalSandbox Integration", () => {
+describe("BunnyAgent + LocalSandbox Integration", () => {
   describe("Real Command Execution Tests", () => {
     it("should execute echo command and return output", async () => {
       const sandbox = new LocalSandbox();
-      const _agent = new SandAgent({
+      const _agent = new BunnyAgent({
         sandbox,
         runner: {
           model: "claude-sonnet-4-20250514",
@@ -32,11 +32,11 @@ describe("SandAgent + LocalSandbox Integration", () => {
       // Create a test file
       await handle.upload(
         [{ path: "test.txt", content: "test content" }],
-        "/tmp/sandagent-test",
+        "/tmp/bunny-agent-test",
       );
 
       // List files
-      const result = await handle.runCommand("ls /tmp/sandagent-test");
+      const result = await handle.runCommand("ls /tmp/bunny-agent-test");
 
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain("test.txt");
@@ -55,12 +55,12 @@ describe("SandAgent + LocalSandbox Integration", () => {
               "console.log('Hello from Node.js'); console.log(process.version);",
           },
         ],
-        "/tmp/sandagent-test",
+        "/tmp/bunny-agent-test",
       );
 
       // Execute the script
       const result = await handle.runCommand(
-        "node /tmp/sandagent-test/test.js",
+        "node /tmp/bunny-agent-test/test.js",
       );
 
       expect(result.exitCode).toBe(0);
@@ -97,12 +97,12 @@ describe("SandAgent + LocalSandbox Integration", () => {
 
       // Create directory and files
       await handle.runCommand(
-        "mkdir -p /tmp/sandagent-fileops && echo 'content1' > /tmp/sandagent-fileops/file1.txt && echo 'content2' > /tmp/sandagent-fileops/file2.txt",
+        "mkdir -p /tmp/bunny-agent-fileops && echo 'content1' > /tmp/bunny-agent-fileops/file1.txt && echo 'content2' > /tmp/bunny-agent-fileops/file2.txt",
       );
 
       // Verify files exist
       const result = await handle.runCommand(
-        "cat /tmp/sandagent-fileops/file1.txt && cat /tmp/sandagent-fileops/file2.txt",
+        "cat /tmp/bunny-agent-fileops/file1.txt && cat /tmp/bunny-agent-fileops/file2.txt",
       );
 
       expect(result.exitCode).toBe(0);
@@ -123,12 +123,12 @@ describe("SandAgent + LocalSandbox Integration", () => {
               "print('Hello from Python')\nfor i in range(3): print(f'Count: {i}')",
           },
         ],
-        "/tmp/sandagent-test",
+        "/tmp/bunny-agent-test",
       );
 
       // Execute Python script
       const result = await handle.runCommand(
-        "python3 /tmp/sandagent-test/test.py",
+        "python3 /tmp/bunny-agent-test/test.py",
       );
 
       expect(result.exitCode).toBe(0);

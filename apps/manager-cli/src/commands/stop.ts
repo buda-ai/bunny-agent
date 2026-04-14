@@ -1,5 +1,5 @@
 /**
- * sandagent-manager stop command
+ * bunny-agent-manager stop command
  *
  * Stop a sandbox by ID.
  */
@@ -21,14 +21,14 @@ export async function stopCommand(args: string[]): Promise<void> {
 
   if (values.help) {
     console.log(`
-sandagent-manager stop - Stop a sandbox by ID
+bunny-agent-manager stop - Stop a sandbox by ID
 
 Usage:
-  sandagent-manager stop <session-id>
+  bunny-agent-manager stop <session-id>
 
 Examples:
-  sandagent-manager stop session-123
-  sandagent-manager stop my-project-sandbox
+  bunny-agent-manager stop session-123
+  bunny-agent-manager stop my-project-sandbox
 `);
     return;
   }
@@ -37,7 +37,7 @@ Examples:
 
   if (!sessionId) {
     console.error("❌ Error: Session ID is required");
-    console.error("Usage: sandagent-manager stop <session-id>");
+    console.error("Usage: bunny-agent-manager stop <session-id>");
     process.exit(1);
   }
 
@@ -54,7 +54,7 @@ Examples:
   );
   console.log("");
   console.log("For Docker (Sandock) sandboxes:");
-  console.log(`  Run: docker stop sandagent-${sessionId}`);
+  console.log(`  Run: docker stop bunny-agent-${sessionId}`);
   console.log("");
   console.log("Tip: Sandboxes are automatically cleaned up after inactivity.");
 }

@@ -1,10 +1,10 @@
 /**
- * Session ID persistence: read/write .sandagent/session-id in cwd.
+ * Session ID persistence: read/write .bunny-agent/session-id in cwd.
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-const DIR = ".sandagent";
+const DIR = ".bunny-agent";
 const FILE = "session-id";
 
 function sessionPath(cwd: string): string {

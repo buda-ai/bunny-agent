@@ -6,7 +6,7 @@
       "command": "npx",
       "args": ["-y", "mcp-server-gsc"],
       "env": {
-        "GOOGLE_APPLICATION_CREDENTIALS": "/Users/qikun/sandagent/templates/seo-keywords-analytics/gsc-credentials.json"
+        "GOOGLE_APPLICATION_CREDENTIALS": "/Users/qikun/bunny-agent/templates/seo-keywords-analytics/gsc-credentials.json"
       }
     },
     "filesystem": {

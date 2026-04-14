@@ -50,7 +50,7 @@ You have access to 17 specialized SEO skills organized into five categories:
 
 ## Environment
 
-- **Working Directory**: `/sandagent`
+- **Working Directory**: `/bunny-agent`
 - **Output Directory**: `./output/` (all generated files should be saved here)
 - **Persistence**: All research, reports, and content persist across sessions
 - **Tools Available**: bash, read_file, write_file

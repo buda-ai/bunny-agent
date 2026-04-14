@@ -1,4 +1,4 @@
-import type { SandboxAdapter } from "@sandagent/manager";
+import type { SandboxAdapter } from "@bunny-agent/manager";
 import type { SubmitAnswerParams } from "./types";
 
 /**
@@ -7,18 +7,18 @@ import type { SubmitAnswerParams } from "./types";
 export interface SubmitAnswerOptions {
   /**
    * Optional base path prefix for approval files
-   * @default ".sandagent/approvals"
+   * @default ".bunny-agent/approvals"
    */
   basePath?: string;
 }
 
 /**
  * Submit user's answer for an AskUserQuestion tool call.
- * Writes the answer file to `.sandagent/approvals/{toolCallId}.json` in the sandbox workdir.
+ * Writes the answer file to `.bunny-agent/approvals/{toolCallId}.json` in the sandbox workdir.
  *
  * @example
  * ```typescript
- * import { submitAnswer } from "@sandagent/sdk";
+ * import { submitAnswer } from "@bunny-agent/sdk";
  *
  * await submitAnswer(sandbox, {
  *   toolCallId: "tool-456",
@@ -33,7 +33,7 @@ export async function submitAnswer(
   options?: SubmitAnswerOptions,
 ): Promise<void> {
   const { toolCallId, questions, answers } = params;
-  const basePath = options?.basePath ?? ".sandagent/approvals";
+  const basePath = options?.basePath ?? ".bunny-agent/approvals";
 
   const allAnswered = questions.every(
     (q) => answers[q.question] !== undefined && answers[q.question] !== "",
@@ -48,7 +48,7 @@ export async function submitAnswer(
 
   const filename = `${toolCallId}.json`;
   const handle = sandbox.getHandle() ?? (await sandbox.attach());
-  // Absolute path so remote sandboxes (Sandock) write to the same path the runner reads (/workspace/.sandagent/approvals).
+  // Absolute path so remote sandboxes (Sandock) write to the same path the runner reads (/workspace/.bunny-agent/approvals).
   const workdir = handle.getWorkdir();
   const targetDir = workdir
     ? `${workdir.replace(/\/$/, "")}/${basePath}`

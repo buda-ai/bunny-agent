@@ -40,7 +40,7 @@ describe("redactSecrets", () => {
   it("does not redact Unix filesystem paths", () => {
     const text = "working dir is /agent/workspace";
     const result = redactSecrets(text, {
-      SANDAGENT_WORKSPACE: "/agent/workspace",
+      BUNNY_AGENT_WORKSPACE: "/agent/workspace",
     });
     expect(result).toBe("working dir is /agent/workspace");
   });

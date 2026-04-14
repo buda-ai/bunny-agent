@@ -51,7 +51,7 @@ You have access to 15 specialized video production skills organized into six pha
 
 ## Environment
 
-- **Working Directory**: `/sandagent`
+- **Working Directory**: `/bunny-agent`
 - **Output Directory**: `./output/` (all generated files should be saved here)
 - **Persistence**: All materials, scripts, and videos persist across sessions
 - **Tools Available**: bash, read_file, write_file, API integrations
@@ -232,7 +232,7 @@ You have access to 15 specialized video production skills organized into six pha
 All outputs should follow this structure:
 
 ```
-/sandagent/output/
+/bunny-agent/output/
 ├── context/
 │   ├── project-context.md              # 品牌与项目上下文
 │   └── website-analysis-*.md           # 网站分析报告

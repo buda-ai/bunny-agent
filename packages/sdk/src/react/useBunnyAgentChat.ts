@@ -5,12 +5,12 @@ import { DefaultChatTransport, type UIMessage } from "ai";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   ArtifactData,
-  UseSandAgentChatOptions,
-  UseSandAgentChatReturn,
+  UseBunnyAgentChatOptions,
+  UseBunnyAgentChatReturn,
 } from "./types";
 
 /**
- * useSandAgentChat - Core hook for SandAgent chat functionality
+ * useBunnyAgentChat - Core hook for BunnyAgent chat functionality
  *
  * Provides all the logic needed for a chat interface:
  * - Message management
@@ -19,7 +19,7 @@ import type {
  *
  * @example
  * ```tsx
- * import { useSandAgentChat } from "@sandagent/sdk/react";
+ * import { useBunnyAgentChat } from "@bunny-agent/sdk/react";
  *
  * const {
  *   messages,
@@ -28,16 +28,16 @@ import type {
  *   artifacts,
  *   selectedArtifact,
  *   setSelectedArtifact,
- * } = useSandAgentChat({
+ * } = useBunnyAgentChat({
  *   apiEndpoint: "/api/ai",
  *   body: { template: "default" },
  * });
  * ```
  */
-export function useSandAgentChat({
+export function useBunnyAgentChat({
   apiEndpoint = "/api/ai",
   body = {},
-}: UseSandAgentChatOptions = {}): UseSandAgentChatReturn {
+}: UseBunnyAgentChatOptions = {}): UseBunnyAgentChatReturn {
   // Artifact selection state
   const [selectedArtifact, setSelectedArtifact] = useState<ArtifactData | null>(
     null,
@@ -59,10 +59,12 @@ export function useSandAgentChat({
     for (const part of message.parts) {
       if (part.type === "text") {
         const providerMetadata = (
-          part as { providerMetadata?: { sandagent?: { sessionId?: string } } }
+          part as {
+            providerMetadata?: { "bunny-agent"?: { sessionId?: string } };
+          }
         ).providerMetadata;
-        if (providerMetadata?.sandagent?.sessionId) {
-          return providerMetadata.sandagent.sessionId;
+        if (providerMetadata?.["bunny-agent"]?.sessionId) {
+          return providerMetadata["bunny-agent"].sessionId;
         }
       }
     }

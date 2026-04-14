@@ -1,8 +1,8 @@
 {
-  "name": "@sandagent/runner-pi",
+  "name": "@bunny-agent/runner-pi",
   "version": "0.6.4-beta.0",
   "private": true,
-  "description": "Pi agent runtime for SandAgent",
+  "description": "Pi agent runtime for BunnyAgent",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -32,11 +32,11 @@
     "vitest": "^1.6.1"
   },
   "keywords": [
-    "sandagent",
+    "bunny-agent",
     "pi",
     "agent",
     "runner"
   ],
-  "author": "SandAgent",
+  "author": "BunnyAgent",
   "license": "Apache-2.0"
 }

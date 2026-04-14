@@ -1,5 +1,5 @@
 {
-  "name": "@sandagent/docker-sandagent-claude",
+  "name": "@bunny-agent/docker-bunny-agent-claude",
   "version": "0.6.2",
   "private": true,
   "type": "module",

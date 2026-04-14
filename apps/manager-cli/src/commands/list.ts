@@ -1,5 +1,5 @@
 /**
- * sandagent-manager list command
+ * bunny-agent-manager list command
  *
  * List running sandboxes.
  */
@@ -21,10 +21,10 @@ export async function listCommand(args: string[]): Promise<void> {
 
   if (values.help) {
     console.log(`
-sandagent-manager list - List running sandboxes
+bunny-agent-manager list - List running sandboxes
 
 Usage:
-  sandagent-manager list
+  bunny-agent-manager list
 
 This command shows all currently running sandboxes.
 Note: Sandbox state is managed by the sandbox provider (E2B or Docker).
@@ -40,9 +40,9 @@ Note: Sandbox state is managed by the sandbox provider (E2B or Docker).
   console.log("  Visit https://e2b.dev/dashboard to manage running sandboxes");
   console.log("");
   console.log("For Docker (Sandock) sandboxes:");
-  console.log("  Run: docker ps --filter 'label=sandagent'");
+  console.log("  Run: docker ps --filter 'label=bunny-agent'");
   console.log("");
   console.log(
-    "Tip: Use 'sandagent-manager stop <session-id>' to stop a specific sandbox.",
+    "Tip: Use 'bunny-agent-manager stop <session-id>' to stop a specific sandbox.",
   );
 }

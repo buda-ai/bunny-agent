@@ -87,17 +87,17 @@ jobs:
           fi
 
       # Publish only the fixed set of packages to npm.
-      # Per-package npm tags (e.g. @sandagent/sdk@x.y.z) are not created here;
+      # Per-package npm tags (e.g. @bunny-agent/sdk@x.y.z) are not created here;
       # the pushed v*.*.* git tag serves as the release marker.
       # set -e ensures the step fails immediately if any publish command fails.
       - name: Publish to npm
         run: |
           set -e
-          pnpm --filter @sandagent/sdk publish --access public --no-git-checks
-          pnpm --filter @sandagent/manager publish --access public --no-git-checks
-          pnpm --filter @sandagent/sandbox-sandock publish --access public --no-git-checks
-          pnpm --filter @sandagent/runner-cli publish --access public --no-git-checks
-          pnpm --filter @sandagent/daemon publish --access public --no-git-checks
+          pnpm --filter @bunny-agent/sdk publish --access public --no-git-checks
+          pnpm --filter @bunny-agent/manager publish --access public --no-git-checks
+          pnpm --filter @bunny-agent/sandbox-sandock publish --access public --no-git-checks
+          pnpm --filter @bunny-agent/runner-cli publish --access public --no-git-checks
+          pnpm --filter @bunny-agent/daemon publish --access public --no-git-checks
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN || secrets.NODE_AUTH_TOKEN || secrets.NPM_PUBLISH_TOKEN }}
 

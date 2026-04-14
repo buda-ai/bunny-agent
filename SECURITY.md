@@ -2,7 +2,7 @@
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability in SandAgent, please report it privately.
+If you discover a security vulnerability in Bunny Agent, please report it privately.
 
 **Do NOT open a public issue.**
 
@@ -40,7 +40,7 @@ Security fixes are backported to the latest supported version.
 
 ## Security Best Practices
 
-When using SandAgent:
+When using Bunny Agent:
 
 ### API Keys
 
@@ -56,7 +56,7 @@ When using SandAgent:
 - Regularly update sandbox images
 - Monitor sandbox resource usage
 
-### Running SandAgent
+### Running Bunny Agent
 
 - Keep dependencies updated: `pnpm update`
 - Review dependencies for known vulnerabilities: `npm audit`
@@ -75,7 +75,7 @@ When using SandAgent:
 
 ### Sandbox Isolation
 
-SandAgent uses sandboxed environments for code execution:
+Bunny Agent uses sandboxed environments for code execution:
 - **Local mode**: Runs on your local filesystem with your permissions
 - **Cloud mode**: Runs in isolated containers (E2B, Sandock, Daytona)
 
@@ -109,4 +109,4 @@ We will announce security updates through:
 
 For security-related questions:
 - Email: security@vikadata.com
-- GitHub: https://github.com/vikadata/sandagent/security
+- GitHub: https://github.com/vikadata/bunny-agent/security

@@ -1,6 +1,6 @@
-import type { RunnerType } from "@sandagent/sdk";
+import type { RunnerType } from "@bunny-agent/sdk";
 
-export type { RunnerType } from "@sandagent/sdk";
+export type { RunnerType } from "@bunny-agent/sdk";
 
 export const RUNNER_OPTIONS: { value: RunnerType; label: string }[] = [
   { value: "claude", label: "Claude (Anthropic)" },

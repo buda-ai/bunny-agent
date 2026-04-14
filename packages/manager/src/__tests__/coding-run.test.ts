@@ -23,7 +23,7 @@ describe("coding-run", () => {
   it("buildCodingRunShellScript registers trap and curl with quoted paths", () => {
     const script = buildCodingRunShellScript(
       "http://127.0.0.1:3080/",
-      "/tmp/.sandagent-req.json",
+      "/tmp/.bunny-agent-req.json",
     );
     expect(script).toContain("trap 'rm -f \"$REQ\"' EXIT INT TERM");
     expect(script).toContain("curl --fail -sS -N -X POST");

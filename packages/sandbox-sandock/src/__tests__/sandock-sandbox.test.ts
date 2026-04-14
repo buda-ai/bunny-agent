@@ -496,7 +496,7 @@ describe("SandockSandbox Volume Persistence", () => {
     const volumeName = "my-project-volume";
 
     const sandbox = new SandockSandbox({
-      volumes: [{ volumeName, volumeMountPath: "/sandagent" }],
+      volumes: [{ volumeName, volumeMountPath: "/bunny-agent" }],
     });
 
     const handle = await sandbox.attach();
@@ -506,7 +506,7 @@ describe("SandockSandbox Volume Persistence", () => {
 
   it("should create volume if it doesn't exist", async () => {
     const sandbox = new SandockSandbox({
-      volumes: [{ volumeName: "new-volume", volumeMountPath: "/sandagent" }],
+      volumes: [{ volumeName: "new-volume", volumeMountPath: "/bunny-agent" }],
     });
 
     const handle = await sandbox.attach();
@@ -517,7 +517,7 @@ describe("SandockSandbox Volume Persistence", () => {
   it("should use existing volume if it exists", async () => {
     const sandbox = new SandockSandbox({
       volumes: [
-        { volumeName: "existing-volume", volumeMountPath: "/sandagent" },
+        { volumeName: "existing-volume", volumeMountPath: "/bunny-agent" },
       ],
     });
 
@@ -532,7 +532,7 @@ describe("SandockSandbox Volume Persistence", () => {
     });
 
     expect(sandbox).toBeInstanceOf(SandockSandbox);
-    // Volume would be mounted at /custom/path instead of default /sandagent
+    // Volume would be mounted at /custom/path instead of default /bunny-agent
   });
 
   it("should skip initialization when files exist in volume", async () => {
@@ -542,7 +542,7 @@ describe("SandockSandbox Volume Persistence", () => {
 
     const sandbox = new SandockSandbox({
       volumes: [
-        { volumeName: "existing-volume", volumeMountPath: "/sandagent" },
+        { volumeName: "existing-volume", volumeMountPath: "/bunny-agent" },
       ],
     });
 
@@ -552,7 +552,7 @@ describe("SandockSandbox Volume Persistence", () => {
 
   it("should wait for volume to be ready", async () => {
     const sandbox = new SandockSandbox({
-      volumes: [{ volumeName: "test-volume", volumeMountPath: "/sandagent" }],
+      volumes: [{ volumeName: "test-volume", volumeMountPath: "/bunny-agent" }],
     });
 
     const handle = await sandbox.attach();
@@ -564,7 +564,7 @@ describe("SandockSandbox Volume Persistence", () => {
     const volumeName = "existing-volume";
 
     const sandbox = new SandockSandbox({
-      volumes: [{ volumeName, volumeMountPath: "/sandagent" }],
+      volumes: [{ volumeName, volumeMountPath: "/bunny-agent" }],
     });
 
     // First attach would create and initialize

@@ -1,5 +1,5 @@
 /**
- * sandagent-manager info command
+ * bunny-agent-manager info command
  *
  * Show environment and configuration information.
  */
@@ -23,23 +23,23 @@ export async function infoCommand(args: string[]): Promise<void> {
 
   if (values.help) {
     console.log(`
-sandagent-manager info - Show environment and configuration
+bunny-agent-manager info - Show environment and configuration
 
 Usage:
-  sandagent-manager info
+  bunny-agent-manager info
 
-This command displays your SandAgent configuration and environment status.
+This command displays your BunnyAgent configuration and environment status.
 `);
     return;
   }
 
-  const { hasClaudeAuth } = await import("@sandagent/runner-claude");
+  const { hasClaudeAuth } = await import("@bunny-agent/runner-claude");
   const hasClaudeAuthSet = hasClaudeAuth();
   const hasAnthropicKey = !!process.env.ANTHROPIC_API_KEY;
   const hasE2BKey = !!process.env.E2B_API_KEY;
   const dockerHost = process.env.DOCKER_HOST || "unix:///var/run/docker.sock";
 
-  console.log("ℹ️  SandAgent Configuration");
+  console.log("ℹ️  BunnyAgent Configuration");
   console.log("");
   console.log("Environment:");
   console.log(`  Node.js:           ${process.version}`);
@@ -74,13 +74,13 @@ This command displays your SandAgent configuration and environment status.
   console.log("");
   console.log("Sandbox Configuration:");
   console.log(
-    `  Default Sandbox:   ${process.env.SANDAGENT_SANDBOX || "e2b (default)"}`,
+    `  Default Sandbox:   ${process.env.BUNNY_AGENT_SANDBOX || "e2b (default)"}`,
   );
   console.log(`  Docker Host:       ${dockerHost}`);
   console.log("");
   console.log("Template Configuration:");
   console.log(
-    `  Default Template:  ${process.env.SANDAGENT_TEMPLATE || "default"}`,
+    `  Default Template:  ${process.env.BUNNY_AGENT_TEMPLATE || "default"}`,
   );
   console.log(`  Templates Dir:     ${findTemplatesDir() || "Not found"}`);
   console.log("");
@@ -105,20 +105,20 @@ This command displays your SandAgent configuration and environment status.
   }
 
   console.log("Quick Start:");
-  console.log('  sandagent-manager run "Create a hello world script"');
+  console.log('  bunny-agent-manager run "Create a hello world script"');
   console.log("");
   console.log("Documentation:");
-  console.log("  https://github.com/vikadata/sandagent");
+  console.log("  https://github.com/vikadata/bunny-agent");
 }
 
 function findTemplatesDir(): string | null {
-  const envPath = process.env.SANDAGENT_TEMPLATES_DIR;
+  const envPath = process.env.BUNNY_AGENT_TEMPLATES_DIR;
   if (envPath && fs.existsSync(envPath)) {
     return envPath;
   }
 
   // Standard sandbox location
-  const sandboxPath = "/sandagent/templates";
+  const sandboxPath = "/bunny-agent/templates";
   if (fs.existsSync(sandboxPath)) {
     return sandboxPath;
   }

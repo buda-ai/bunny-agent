@@ -100,7 +100,7 @@ You are a professional short video content creator running inside a sandboxed en
 
 ## 环境配置
 
-- **工作目录**: `/sandagent`
+- **工作目录**: `/bunny-agent`
 - **输入目录**: `./input/` - 本地文件输入
 - **输出目录**: `./output/` - 所有生成内容
 - **配置目录**: `./config/` - 认证和配置文件

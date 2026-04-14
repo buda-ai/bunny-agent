@@ -1,14 +1,14 @@
-# SandAgent Technical Specification
+# Bunny Agent Technical Specification
 
-**For developers who want to understand how SandAgent works under the hood**
+**For developers who want to understand how Bunny Agent works under the hood**
 
 ---
 
 ## Overview
 
-SandAgent enables you to transform powerful coding agents (like Claude Code) into specialized Super Agents for any vertical use case — without rebuilding the agent from scratch.
+Bunny Agent enables you to transform powerful coding agents (like Claude Code) into specialized Super Agents for any vertical use case — without rebuilding the agent from scratch.
 
-This document covers the technical architecture. If you just want to use SandAgent, see the [Quick Start Guide](./QUICK_START.md).
+This document covers the technical architecture. If you just want to use Bunny Agent, see the [Quick Start Guide](./QUICK_START.md).
 
 ---
 
@@ -16,7 +16,7 @@ This document covers the technical architecture. If you just want to use SandAge
 
 ### In Scope
 
-SandAgent provides:
+Bunny Agent provides:
 
 * A **persistent agent runtime**
 * A **sandboxed execution environment**
@@ -26,14 +26,14 @@ SandAgent provides:
 
 ### Explicit Non-goals
 
-SandAgent does **not**:
+Bunny Agent does **not**:
 
 * define a generic agent event protocol
 * translate or reinterpret agent output
 * provide a UI-agnostic abstraction
 * manage frontend rendering logic
 
-> SandAgent is a **runtime + transport**, not an event bus.
+> Bunny Agent is a **runtime + transport**, not an event bus.
 
 ---
 
@@ -61,7 +61,7 @@ SandAgent does **not**:
       │
 ┌─────┴──────┐
 │   CLI      │
-│ sandagent  │
+│ bunny-agent  │
 └─────▲──────┘
       │
 ┌─────┴──────┐
@@ -79,12 +79,12 @@ SandAgent does **not**:
 
 ## 3. Core Abstractions
 
-### 3.1 `SandAgent` (Core)
+### 3.1 `Bunny Agent` (Core)
 
 Represents **one persistent agent instance**.
 
 ```ts
-interface SandAgentOptions {
+interface BunnyAgentOptions {
   id: string;                    // identity = sandbox + volume
   sandbox: SandboxAdapter;
   runner: RunnerSpec;
@@ -143,14 +143,14 @@ Runner logic lives **inside the CLI**, not in the server.
 
 ---
 
-## 4. CLI Specification (`sandagent`)
+## 4. CLI Specification (`bunny-agent`)
 
 ### 4.1 Execution Model
 
 The CLI is executed **inside the sandbox**.
 
 ```bash
-sandagent run [options] -- "<user input>"
+bunny-agent run [options] -- "<user input>"
 ```
 
 The CLI:
@@ -176,7 +176,7 @@ stdout = UI stream
 stderr = diagnostics only
 ```
 
-SandAgent **must never parse stdout**.
+Bunny Agent **must never parse stdout**.
 
 ---
 
@@ -193,7 +193,7 @@ The CLI is a **pure producer**.
 ### 4.4 CLI Arguments
 
 ```bash
-sandagent run [options] -- "<user input>"
+bunny-agent run [options] -- "<user input>"
 ```
 
 **Required:**
@@ -217,8 +217,8 @@ sandagent run [options] -- "<user input>"
 | Variable | Description |
 | -------- | ----------- |
 | `ANTHROPIC_API_KEY` | Anthropic API key (required) |
-| `SANDAGENT_WORKSPACE` | Default workspace path |
-| `SANDAGENT_LOG_LEVEL` | Logging level (debug, info, warn, error) |
+| `BUNNY_AGENT_WORKSPACE` | Default workspace path |
+| `BUNNY_AGENT_LOG_LEVEL` | Logging level (debug, info, warn, error) |
 
 ---
 
@@ -272,7 +272,7 @@ Client render
 ### Identity Semantics
 
 ```ts
-new SandAgent({ id: "project-x" })
+new BunnyAgent({ id: "project-x" })
 ```
 
 Means:
@@ -315,21 +315,21 @@ No error translation layer exists.
 
 ## 9. Versioning Strategy
 
-SandAgent follows **AI SDK compatibility**:
+Bunny Agent follows **AI SDK compatibility**:
 
 * CLI output protocol follows AI SDK UI spec
 * Breaking changes track AI SDK major versions
-* SandAgent does not version its own protocol
+* Bunny Agent does not version its own protocol
 
 ```text
-SandAgent vX  →  AI SDK vX
+Bunny Agent vX  →  AI SDK vX
 ```
 
 ---
 
 ## 10. Trade-offs (Explicit)
 
-SandAgent intentionally trades:
+Bunny Agent intentionally trades:
 
 | Choice         | Result                |
 | -------------- | --------------------- |
@@ -358,7 +358,7 @@ This is a **deliberate design**, not a limitation.
 
 ## 12. Implementation Checklist
 
-- [x] `SandAgent` lifecycle implemented
+- [x] `Bunny Agent` lifecycle implemented
 - [x] Sandbox adapter implemented (E2B, Sandock)
 - [x] CLI runner streams UI messages
 - [x] Server passthrough is zero-copy
@@ -370,4 +370,4 @@ This is a **deliberate design**, not a limitation.
 
 ## One-line Technical Summary
 
-> **SandAgent is a sandboxed agent runtime that treats AI SDK UI messages as the execution protocol itself.**
+> **Bunny Agent is a sandboxed agent runtime that treats AI SDK UI messages as the execution protocol itself.**

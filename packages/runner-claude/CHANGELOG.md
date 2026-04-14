@@ -1,4 +1,4 @@
-# @sandagent/runner-claude
+# @bunny-agent/runner-claude
 
 ## 0.1.2
 

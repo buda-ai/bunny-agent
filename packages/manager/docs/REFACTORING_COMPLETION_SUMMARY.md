@@ -4,23 +4,23 @@ This is a concise summary of the architecture refactor work and test results.
 
 ## Completed Work
 
-1. Updated SandAgent tests to include `sandboxId`
+1. Updated Bunny Agent tests to include `sandboxId`
 2. Improved Sandock ID-based cache and reuse
 3. Moved sandbox-local integration tests to `manager-cli`
 4. Added real integration tests for `runner-cli`
 5. Added real integration tests for `ai-provider`
 6. Enhanced `LocalSandbox` with `runCommand` and `env`
-7. Fixed `SandAgentProviderSettings` to make `sandboxId` optional
+7. Fixed `BunnyAgentProviderSettings` to make `sandboxId` optional
 8. Updated package dependencies
 
 ## Test Results
 
-- `@sandagent/manager`: 41/41
-- `@sandagent/sandbox-local`: 23/23
-- `@sandagent/manager-cli`: 8/8
-- `@sandagent/ai-provider`: 19/19
-- `@sandagent/benchmark`: 42/45 (3 skipped)
-- `@sandagent/runner-claude`: 17/18 (1 pre-existing failure)
+- `@bunny-agent/manager`: 41/41
+- `@bunny-agent/sandbox-local`: 23/23
+- `@bunny-agent/manager-cli`: 8/8
+- `@bunny-agent/ai-provider`: 19/19
+- `@bunny-agent/benchmark`: 42/45 (3 skipped)
+- `@bunny-agent/runner-claude`: 17/18 (1 pre-existing failure)
 
 ## Key Improvements
 

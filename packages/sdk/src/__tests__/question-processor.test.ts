@@ -1,4 +1,4 @@
-import type { SandboxAdapter, SandboxHandle } from "@sandagent/manager";
+import type { SandboxAdapter, SandboxHandle } from "@bunny-agent/manager";
 import { describe, expect, it, vi } from "vitest";
 import { submitAnswer } from "../provider/question-processor";
 
@@ -32,7 +32,7 @@ describe("submitAnswer", () => {
 
     const [files, targetDir] = (handle.upload as ReturnType<typeof vi.fn>).mock
       .calls[0];
-    expect(targetDir).toBe(".sandagent/approvals");
+    expect(targetDir).toBe(".bunny-agent/approvals");
     expect(files).toHaveLength(1);
     expect(files[0].path).toBe("tool-123.json");
 

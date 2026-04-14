@@ -1,11 +1,11 @@
-# @sandagent/runner-gemini
+# @bunny-agent/runner-gemini
 
-Gemini CLI runner for SandAgent using ACP (Agent Client Protocol).
+Gemini CLI runner for Bunny Agent using ACP (Agent Client Protocol).
 
 ## Installation
 
 ```bash
-npm install @sandagent/runner-gemini
+npm install @bunny-agent/runner-gemini
 ```
 
 ## Prerequisites
@@ -16,7 +16,7 @@ npm install @sandagent/runner-gemini
 ## Usage
 
 ```typescript
-import { createGeminiRunner } from '@sandagent/runner-gemini';
+import { createGeminiRunner } from '@bunny-agent/runner-gemini';
 
 const runner = createGeminiRunner({
   model: 'gemini-2.0-flash-exp',
@@ -39,7 +39,7 @@ for await (const chunk of runner.run('Create a hello world script')) {
 
 ## How it works
 
-This runner spawns the `gemini --experimental-acp` command and communicates via ACP protocol over stdio. It converts ACP messages to AI SDK UI format for compatibility with SandAgent.
+This runner spawns the `gemini --experimental-acp` command and communicates via ACP protocol over stdio. It converts ACP messages to AI SDK UI format for compatibility with Bunny Agent.
 
 ## License
 

@@ -1,7 +1,7 @@
 packages:
   - packages/*
   - apps/*
-  - docker/sandagent-claude
+  - docker/bunny-agent-claude
 ignoredBuiltDependencies:
   - '@biomejs/biome'
   - esbuild

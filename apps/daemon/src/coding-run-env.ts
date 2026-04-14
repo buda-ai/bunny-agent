@@ -1,6 +1,6 @@
 /**
  * Merge `POST /api/coding/run` body `env` into the daemon process environment.
- * Kept in-package so `@sandagent/daemon` does not depend on `@sandagent/manager`.
+ * Kept in-package so `@bunny-agent/daemon` does not depend on `@bunny-agent/manager`.
  * Only string values and valid env-style keys are accepted.
  */
 

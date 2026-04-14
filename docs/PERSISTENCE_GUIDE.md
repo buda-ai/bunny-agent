@@ -2,13 +2,13 @@
 
 **Keep your agent's work across sessions**
 
-One of SandAgent's key features is **persistent sessions** — your agent remembers files it created, code it wrote, and data it processed. This guide explains how to use this effectively.
+One of Bunny Agent's key features is **persistent sessions** — your agent remembers files it created, code it wrote, and data it processed. This guide explains how to use this effectively.
 
 ---
 
 ## Why Persistence Matters
 
-Without persistence, every conversation starts from scratch. With SandAgent:
+Without persistence, every conversation starts from scratch. With Bunny Agent:
 - ✅ Agent can continue working on a project across multiple sessions
 - ✅ Files created in one session are available in the next
 - ✅ Users can come back days later and pick up where they left off
@@ -17,7 +17,7 @@ Without persistence, every conversation starts from scratch. With SandAgent:
 
 ## How It Works
 
-SandAgent uses a simple **identity model**. Each agent instance is tied to a unique `id` that determines:
+Bunny Agent uses a simple **identity model**. Each agent instance is tied to a unique `id` that determines:
 
 1. Which sandbox to attach to
 2. Which filesystem volume to mount
@@ -26,14 +26,14 @@ SandAgent uses a simple **identity model**. Each agent instance is tied to a uni
 ### The Identity Model
 
 ```ts
-const agent = new SandAgent({
+const agent = new BunnyAgent({
   id: "user-123-project-a",  // <-- This is the identity key
   sandbox: new SandockSandbox(),
   runner: { kind: "claude-agent-sdk", model: "claude-sonnet-4-20250514" },
 });
 ```
 
-The `id` parameter is the **persistence key**. When you create a SandAgent with a given `id`:
+The `id` parameter is the **persistence key**. When you create a Bunny Agent with a given `id`:
 
 1. **First time**: A new sandbox and volume are created
 2. **Subsequent times**: The existing sandbox and volume are attached
@@ -61,7 +61,7 @@ Use a session ID that persists for the user's session:
 export async function POST(req: Request) {
   const { messages, sessionId } = await req.json();
   
-  const agent = new SandAgent({
+  const agent = new BunnyAgent({
     id: sessionId,  // User's session ID
     sandbox: new SandockSandbox(),
     runner: { kind: "claude-agent-sdk", model: "claude-sonnet-4-20250514" },
@@ -78,7 +78,7 @@ export async function POST(req: Request) {
 Use a project identifier for long-term persistence:
 
 ```ts
-const agent = new SandAgent({
+const agent = new BunnyAgent({
   id: `user-${userId}-project-${projectId}`,
   sandbox: new SandockSandbox(),
   runner: { kind: "claude-agent-sdk", model: "claude-sonnet-4-20250514" },
@@ -94,7 +94,7 @@ Use a unique ID for each request:
 ```ts
 import { randomUUID } from "crypto";
 
-const agent = new SandAgent({
+const agent = new BunnyAgent({
   id: randomUUID(),  // New ID each time
   sandbox: new SandockSandbox(),
   runner: { kind: "claude-agent-sdk", model: "claude-sonnet-4-20250514" },
@@ -229,7 +229,7 @@ async function cleanupStaleSessions() {
   });
   
   for (const session of staleSessions) {
-    const agent = new SandAgent({
+    const agent = new BunnyAgent({
       id: session.id,
       sandbox: new SandockSandbox(),
       runner: { kind: "claude-agent-sdk", model: "claude-sonnet-4-20250514" },
@@ -248,7 +248,7 @@ async function cleanupStaleSessions() {
 ### Sandock (Docker-based)
 
 ```ts
-import { SandockSandbox } from "@sandagent/sandbox-sandock";
+import { SandockSandbox } from "@bunny-agent/sandbox-sandock";
 
 const sandbox = new SandockSandbox({
   image: "node:20-slim",        // Docker image to use
@@ -262,7 +262,7 @@ const sandbox = new SandockSandbox({
 ### E2B (Cloud-based)
 
 ```ts
-import { E2BSandbox } from "@sandagent/sandbox-e2b";
+import { E2BSandbox } from "@bunny-agent/sandbox-e2b";
 
 const sandbox = new E2BSandbox({
   apiKey: process.env.E2B_API_KEY,
@@ -290,7 +290,7 @@ const id = randomUUID();  // Only for ephemeral sessions
 
 ### 2. Handle Concurrent Access
 
-SandAgent doesn't prevent concurrent access to the same ID. Implement your own locking if needed:
+Bunny Agent doesn't prevent concurrent access to the same ID. Implement your own locking if needed:
 
 ```ts
 async function withLock(sessionId: string, fn: () => Promise<Response>) {
@@ -308,7 +308,7 @@ async function withLock(sessionId: string, fn: () => Promise<Response>) {
 Track sandbox resources in your observability stack:
 
 ```ts
-const agent = new SandAgent({ id, sandbox, runner });
+const agent = new BunnyAgent({ id, sandbox, runner });
 
 // Log session activity
 logger.info("Agent session started", { 
@@ -323,7 +323,7 @@ logger.info("Agent session started", {
 Clean up active sandboxes on server shutdown:
 
 ```ts
-const activeSessions = new Map<string, SandAgent>();
+const activeSessions = new Map<string, Bunny Agent>();
 
 process.on("SIGTERM", async () => {
   console.log("Shutting down, cleaning up sandboxes...");

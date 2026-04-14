@@ -380,7 +380,7 @@ describe("createPiRunner", () => {
     for await (const _ of runner.run("hi")) {
       break;
     }
-    // systemPrompt is now injected via SandagentResourceLoader.getAppendSystemPrompt(),
+    // systemPrompt is now injected via BunnyAgentResourceLoader.getAppendSystemPrompt(),
     // not via session.agent.setSystemPrompt(). Verify session was created.
     expect(createdSessions.length).toBeGreaterThan(0);
   });

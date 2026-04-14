@@ -15,7 +15,7 @@ import {
   loadSkills,
 } from "@mariozechner/pi-coding-agent";
 
-const LOG_PREFIX = "[sandagent:pi]";
+const LOG_PREFIX = "[bunny-agent:pi]";
 
 function logSkillLoad(
   cwd: string,
@@ -49,7 +49,7 @@ function logSkillLoad(
   console.error(lines.join("\n"));
 }
 
-export interface SandagentResourceLoaderOptions {
+export interface BunnyAgentResourceLoaderOptions {
   cwd?: string;
   agentDir?: string;
   settingsManager?: SettingsManager;
@@ -60,10 +60,10 @@ export interface SandagentResourceLoaderOptions {
 }
 
 /**
- * Custom ResourceLoader for sandagent that supports additional skillPaths.
+ * Custom ResourceLoader for bunny-agent that supports additional skillPaths.
  * Extends DefaultResourceLoader and overrides skill loading.
  */
-export class SandagentResourceLoader implements ResourceLoader {
+export class BunnyAgentResourceLoader implements ResourceLoader {
   private delegate: DefaultResourceLoader;
   private skillPaths: string[];
   private cwd: string;
@@ -71,7 +71,7 @@ export class SandagentResourceLoader implements ResourceLoader {
   private extraAppendPrompt?: string;
   private cachedSkills?: { skills: Skill[]; diagnostics: ResourceDiagnostic[] };
 
-  constructor(options: SandagentResourceLoaderOptions = {}) {
+  constructor(options: BunnyAgentResourceLoaderOptions = {}) {
     this.cwd = options.cwd ?? process.cwd();
     this.agentDir = options.agentDir ?? join(homedir(), ".pi", "agent");
     this.skillPaths = options.skillPaths ?? [];
