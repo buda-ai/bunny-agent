@@ -11,7 +11,7 @@
  * // Backend - Provider
  * import { createBunnyAgent } from "@bunny-agent/sdk";
  * const bunnyAgent = createBunnyAgent({ sandbox, env });
- * const model = bunny-agent("sonnet");
+ * const model = bunnyAgent("sonnet");
  *
  * // Frontend - React hooks
  * import { useBunnyAgentChat } from "@bunny-agent/sdk/react";

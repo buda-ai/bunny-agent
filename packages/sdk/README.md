@@ -84,7 +84,7 @@ export async function POST(request: Request) {
   const stream = createUIMessageStream({
     execute: async ({ writer }) => {
       const result = streamText({
-        model: bunny-agent("sonnet"),
+        model: bunnyAgent("sonnet"),
         messages: await convertToModelMessages(messages),
         abortSignal: request.signal,
       });
@@ -267,7 +267,7 @@ const bunnyAgent = createBunnyAgent({
   verbose?: boolean,             // Debug logging
 });
 
-const model = bunny-agent("claude-sonnet-4-20250514");
+const model = bunnyAgent("claude-sonnet-4-20250514");
 ```
 
 #### Daemon HTTP transport (same provider)

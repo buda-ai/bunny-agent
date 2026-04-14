@@ -110,7 +110,7 @@ export async function POST(request: Request) {
       });
 
       const result = streamText({
-        model: bunny-agent(model),
+        model: bunnyAgent(model),
         messages,
       });
 

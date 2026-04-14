@@ -74,7 +74,7 @@ const bunnyAgent = createBunnyAgent({
 });
 
 const { text } = await generateText({
-  model: bunny-agent('sonnet'),
+  model: bunnyAgent('sonnet'),
   prompt: 'Create a hello world program',
 });
 ```

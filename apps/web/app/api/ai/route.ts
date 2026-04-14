@@ -259,7 +259,7 @@ export async function POST(request: Request) {
         artifactProcessors: [artifactProcessor],
         resume,
         systemPrompt: "============test============",
-        // Passed to RunnerSpec via createBunnyAgent merge (not only bunny-agent(model, { skillPaths }))
+        // Passed to RunnerSpec via createBunnyAgent merge (not only bunnyAgent(model, { skillPaths }))
         skillPaths: [
           "/Users/zhengxu/vika/kapps/apps/buda/agent-templates/system-skills",
           "/Users/zhengxu/vika/kapps/apps/buda/agent-templates/company-templates/entire-company/finance-agent/.agents/skills",
@@ -268,7 +268,7 @@ export async function POST(request: Request) {
       const bunnyAgent = createBunnyAgent(bunnyAgentOptions);
 
       const result = streamText({
-        model: bunny-agent(model),
+        model: bunnyAgent(model),
         messages: normalizedMessages,
         abortSignal: signal,
       });
