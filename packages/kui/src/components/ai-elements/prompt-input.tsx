@@ -869,13 +869,13 @@ export const PromptInput = ({
     [usingProvider],
   );
 
-  const _handleChange: ChangeEventHandler<HTMLInputElement> = (event) => {
+  const handleChange: ChangeEventHandler<HTMLInputElement> = (event) => {
     if (event.currentTarget.files) {
       add(event.currentTarget.files);
     }
   };
 
-  const _convertBlobUrlToDataUrl = async (url: string): Promise<string> => {
+  const convertBlobUrlToDataUrl = async (url: string): Promise<string> => {
     const response = await fetch(url);
     const blob = await response.blob();
     return new Promise((resolve, reject) => {
@@ -886,7 +886,7 @@ export const PromptInput = ({
     });
   };
 
-  const _ctx = useMemo<AttachmentsContext>(
+  const ctx = useMemo<AttachmentsContext>(
     () => ({
       files: files.map((item) => ({ ...item, id: item.id })),
       add,
@@ -899,7 +899,7 @@ export const PromptInput = ({
     [files, add, remove, clear, retry, openFileDialog],
   );
 
-  const _handleSubmit: FormEventHandler<HTMLFormElement> = (event) => {
+  const handleSubmit: FormEventHandler<HTMLFormElement> = (event) => {
     event.preventDefault();
 
     const form = event.currentTarget;
