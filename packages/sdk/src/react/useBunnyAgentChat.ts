@@ -178,12 +178,21 @@ export function useBunnyAgentChat({
 
   // Handle submit for PromptInput compatibility
   const handleSubmit = useCallback(
-    (message: { text: string }) => {
+    (message: { text: string; files?: import("ai").FileUIPart[] }) => {
       if (!isLoading) {
+        const parts: import("ai").UIMessage["parts"] = [];
         if (message.text) {
+          parts.push({ type: "text", text: message.text.trim() });
+        }
+        if (message.files && message.files.length > 0) {
+          for (const file of message.files) {
+            parts.push(file);
+          }
+        }
+        if (parts.length > 0) {
           sendMessageInternal({
             role: "user",
-            parts: [{ type: "text", text: message.text.trim() }],
+            parts,
           });
         } else {
           sendMessageInternal();

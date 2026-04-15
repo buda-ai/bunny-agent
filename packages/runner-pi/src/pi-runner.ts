@@ -368,6 +368,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
             (await modelRegistry.authStorage.getApiKey(provider)) ?? "";
           customTools.push(
             buildImageGenerateTool(cwd, imageModelName, model.baseUrl, apiKey),
+            buildImageEditTool(cwd, imageModelName, model.baseUrl, apiKey),
           );
         }
 

@@ -111,6 +111,25 @@ function ChatMessage({
             if (part.type === "text") {
               return <MessageResponse key={key}>{part.text}</MessageResponse>;
             }
+            if (part.type === "file") {
+              const filePart = part as import("ai").FileUIPart;
+              if (filePart.mediaType?.startsWith("image/")) {
+                return (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    key={key}
+                    src={filePart.url}
+                    alt="User attachment"
+                    className="max-w-xs rounded-lg"
+                  />
+                );
+              }
+              return (
+                <div key={key} className="text-xs text-muted-foreground">
+                  📎 {filePart.filename || "Attachment"}
+                </div>
+              );
+            }
             if (part.type === "dynamic-tool") {
               const toolPart = part as DynamicToolUIPart;
               if (toolPart.toolName === "AskUserQuestion") {
@@ -294,11 +313,26 @@ function HomeContent() {
         <div className="mx-auto max-w-3xl">
           <PromptInput
             onSubmit={handleSubmit}
+            accept="image/*"
+            multiple
+            maxFiles={5}
+            maxFileSize={10 * 1024 * 1024}
             className="border shadow-sm rounded-xl overflow-hidden"
           >
+            <PromptInputAttachments />
             <PromptInputTextarea placeholder="Type a message..." />
             <PromptInputFooter className="px-3 pb-2">
-              <PromptInputTools />
+              <div className="flex items-center gap-1">
+                <PromptInputActionMenu>
+                  <PromptInputActionMenuTrigger>
+                    <PlusIcon className="size-4" />
+                  </PromptInputActionMenuTrigger>
+                  <PromptInputActionMenuContent>
+                    <PromptInputActionAddAttachments label="Upload image" />
+                  </PromptInputActionMenuContent>
+                </PromptInputActionMenu>
+                <PromptInputTools />
+              </div>
               <PromptInputSubmit
                 status={status}
                 onClick={(e) => {

@@ -191,3 +191,227 @@ export function buildImageGenerateTool(
     },
   };
 }
+
+const editImageSchema = {
+  type: "object",
+  properties: {
+    image: {
+      type: "string",
+      description:
+        "Path to the source image file to edit (relative to working directory or absolute).",
+    },
+    prompt: {
+      type: "string",
+      description:
+        "Text description of the desired final image. Describe the full result, not just the change.",
+    },
+    mask: {
+      type: "string",
+      description:
+        "Optional path to a mask image (PNG with transparent areas indicating where to edit). " +
+        "If omitted, the model decides what to change based on the prompt.",
+    },
+    filename: {
+      type: "string",
+      description:
+        "Output filename with extension, e.g. 'edited_cat.png'. Defaults to a timestamp-based name.",
+    },
+    size: {
+      type: "string",
+      enum: ["1024x1024", "1024x1536", "1536x1024", "auto"],
+      description: "Output image dimensions. Defaults to auto.",
+    },
+    quality: {
+      type: "string",
+      enum: ["low", "medium", "high", "auto"],
+      description: "Image quality. Defaults to auto.",
+    },
+  },
+  required: ["image", "prompt"],
+  additionalProperties: false,
+};
+
+/**
+ * Build a multipart/form-data body from fields and file entries.
+ * Returns { body: Buffer, contentType: string }.
+ */
+function buildMultipartBody(
+  fields: Array<{ name: string; value: string }>,
+  files: Array<{
+    name: string;
+    filename: string;
+    buffer: Buffer;
+    mime: string;
+  }>,
+): { body: Buffer; contentType: string } {
+  const boundary = `----SandagentBoundary${Date.now()}${Math.random().toString(36).slice(2)}`;
+  const parts: Buffer[] = [];
+
+  for (const { name, value } of fields) {
+    parts.push(
+      Buffer.from(
+        `--${boundary}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`,
+      ),
+    );
+  }
+
+  for (const { name, filename, buffer, mime } of files) {
+    parts.push(
+      Buffer.from(
+        `--${boundary}\r\nContent-Disposition: form-data; name="${name}"; filename="${filename}"\r\nContent-Type: ${mime}\r\n\r\n`,
+      ),
+    );
+    parts.push(buffer);
+    parts.push(Buffer.from("\r\n"));
+  }
+
+  parts.push(Buffer.from(`--${boundary}--\r\n`));
+
+  return {
+    body: Buffer.concat(parts),
+    contentType: `multipart/form-data; boundary=${boundary}`,
+  };
+}
+
+export function buildImageEditTool(
+  cwd: string,
+  imageModelId: string,
+  baseUrl: string,
+  apiKey: string,
+): ToolDefinition {
+  return {
+    name: "edit_image",
+    label: "edit image",
+    description:
+      "Edit an existing image based on a text prompt. Optionally use a mask to control which areas to modify. " +
+      "Saves the result to disk and returns the file path.",
+    promptSnippet:
+      "edit_image(image, prompt, mask?, filename?, size?, quality?) - edit an existing image",
+    promptGuidelines: [
+      "Use edit_image when the user wants to modify, retouch, or transform an existing image.",
+      "The prompt should describe the full desired final image, not just the change.",
+      "Provide the source image path. Use a mask image (PNG with transparent areas) to control where edits happen.",
+      "Without a mask, the model decides what to change based on the prompt.",
+    ],
+    // biome-ignore lint/suspicious/noExplicitAny: plain JSON Schema compatible with TypeBox TSchema
+    parameters: editImageSchema as any,
+    async execute(_toolCallId, params, _signal, _onUpdate) {
+      const { readFileSync, existsSync } = await import("node:fs");
+      const { resolve, basename } = await import("node:path");
+
+      const p = params as Record<string, unknown>;
+      const imagePath = p.image as string;
+      const prompt = p.prompt as string;
+      const maskPath = p.mask as string | undefined;
+      const size = (p.size as string) ?? "auto";
+      const quality = (p.quality as string) ?? "auto";
+      const rawFilename = p.filename as string | undefined;
+
+      // Resolve source image
+      const resolvedImage = resolve(cwd, imagePath);
+      if (!existsSync(resolvedImage)) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Image edit error: source image not found at ${resolvedImage}`,
+            },
+          ],
+          details: undefined,
+        };
+      }
+
+      // Output filename
+      const filename = rawFilename
+        ? extname(rawFilename)
+          ? rawFilename
+          : `${rawFilename}.png`
+        : `edited_${Date.now()}.png`;
+      const filePath = join(cwd, filename.replace(/[^a-zA-Z0-9_\-./]/g, "_"));
+
+      try {
+        const imageBuffer = readFileSync(resolvedImage);
+
+        const fields: Array<{ name: string; value: string }> = [
+          { name: "model", value: imageModelId },
+          { name: "prompt", value: prompt },
+          { name: "size", value: size },
+          { name: "quality", value: quality },
+        ];
+
+        const files: Array<{
+          name: string;
+          filename: string;
+          buffer: Buffer;
+          mime: string;
+        }> = [
+          {
+            name: "image",
+            filename: basename(resolvedImage),
+            buffer: imageBuffer,
+            mime: "image/png",
+          },
+        ];
+
+        // Optional mask
+        if (maskPath) {
+          const resolvedMask = resolve(cwd, maskPath);
+          if (existsSync(resolvedMask)) {
+            files.push({
+              name: "mask",
+              filename: basename(resolvedMask),
+              buffer: readFileSync(resolvedMask),
+              mime: "image/png",
+            });
+          }
+        }
+
+        const { body: multipartBody, contentType } = buildMultipartBody(
+          fields,
+          files,
+        );
+
+        const url = `${baseUrl.replace(/\/$/, "")}/v1/images/edits`;
+        const res = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": contentType,
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: multipartBody,
+        });
+
+        if (!res.ok) {
+          throw new Error(
+            `Image edit failed (${res.status}): ${await res.text()}`,
+          );
+        }
+
+        const json = (await res.json()) as ImageGenerationResponse;
+        const item = json.data?.[0] ?? {};
+        const savedPath = await saveImageItem(item, filePath);
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: savedPath ?? "Image edited but could not be saved.",
+            },
+          ],
+          details: {
+            filePath: savedPath,
+            response: json,
+          } satisfies ImageToolDetails,
+        };
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        return {
+          content: [
+            { type: "text" as const, text: `Image edit error: ${msg}` },
+          ],
+          details: undefined,
+        };
+      }
+    },
+  };
+}
