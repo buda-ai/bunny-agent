@@ -18,6 +18,14 @@ import {
   PromptInputTools,
 } from "kui/ai-elements";
 import {
+  PromptInputActionAddAttachments,
+  PromptInputActionMenu,
+  PromptInputActionMenuContent,
+  PromptInputActionMenuTrigger,
+  PromptInputAttachment,
+  PromptInputAttachments,
+} from "kui/ai-elements/prompt-input";
+import {
   Tool,
   ToolContent,
   ToolHeader,
@@ -29,6 +37,7 @@ import {
   BookOpen,
   BotIcon,
   CheckCircle,
+  PlusIcon,
   Settings,
   UserIcon,
 } from "lucide-react";
@@ -319,7 +328,9 @@ function HomeContent() {
             maxFileSize={10 * 1024 * 1024}
             className="border shadow-sm rounded-xl overflow-hidden"
           >
-            <PromptInputAttachments />
+            <PromptInputAttachments>
+              {(file) => <PromptInputAttachment key={file.id} data={file} />}
+            </PromptInputAttachments>
             <PromptInputTextarea placeholder="Type a message..." />
             <PromptInputFooter className="px-3 pb-2">
               <div className="flex items-center gap-1">
