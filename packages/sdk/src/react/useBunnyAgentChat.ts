@@ -82,8 +82,10 @@ export function useBunnyAgentChat({
     transport: new DefaultChatTransport({
       api: apiEndpoint,
       body: () => {
-        const lastMessage = messagesRef.current[messagesRef.current.length - 1];
-        const resume = getResumeFromMessage(lastMessage);
+        const lastAssistantMessage = [...messagesRef.current]
+          .reverse()
+          .find((m) => m.role === "assistant");
+        const resume = getResumeFromMessage(lastAssistantMessage);
         return {
           resume,
           ...bodyRef.current,
