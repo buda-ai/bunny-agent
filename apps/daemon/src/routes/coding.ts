@@ -71,6 +71,8 @@ export async function bunnyAgentRun(
       yolo: req.yolo,
       env,
       abortController,
+      // API: caller owns resume/session; do not read/write cwd/.bunny-agent or auto-load CLAUDE.md.
+      autoInject: false,
     });
 
     for await (const chunk of stream) {
@@ -129,6 +131,7 @@ export function codingRunStream(
           yolo: req.yolo,
           env,
           abortController,
+          autoInject: false,
         });
         for await (const chunk of stream) {
           controller.enqueue(encoder.encode(chunk));

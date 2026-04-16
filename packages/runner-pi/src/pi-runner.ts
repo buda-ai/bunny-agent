@@ -12,6 +12,7 @@ import {
 import { BunnyAgentResourceLoader } from "./bunny-agent-resource-loader.js";
 import {
   buildImageGenerateTool,
+  buildImageEditTool,
   type ImageToolDetails,
 } from "./image-tools.js";
 import { buildSecretAwareTools, redactSecrets } from "./tool-overrides.js";
@@ -306,7 +307,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
   }
   applyModelOverrides(model, provider, options.env);
 
-  // Resolve image model from IMAGE_GENERATION_MODEL env var (same provider only)
+  // Unified image model for both generate_image and edit_image.
   const imageModelName = resolveImageModelName(provider, options.env);
 
   return {
@@ -585,7 +586,8 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
                 }
                 // Collect token usage from image tool results (details.response.usage)
                 if (
-                  event.toolName === "generate_image" &&
+                  (event.toolName === "generate_image" ||
+                    event.toolName === "edit_image") &&
                   event.result !== null &&
                   typeof event.result === "object"
                 ) {

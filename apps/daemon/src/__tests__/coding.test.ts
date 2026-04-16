@@ -296,6 +296,17 @@ describe("path safety edge cases", () => {
 });
 
 describe("yolo flag", () => {
+  it("passes autoInject=false so API does not use cwd .bunny-agent", async () => {
+    const before = createRunnerCalls.length;
+    await fetch(`${BASE}/api/coding/run`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userInput: "autoinject", runner: "claude" }),
+    });
+    const call = createRunnerCalls[before];
+    expect(call.autoInject).toBe(false);
+  });
+
   it("passes yolo=true to createRunner via standalone server", async () => {
     const before = createRunnerCalls.length;
     await fetch(`${BASE}/api/coding/run`, {
