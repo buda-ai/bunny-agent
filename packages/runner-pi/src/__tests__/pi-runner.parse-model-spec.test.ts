@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  parseModelSpec,
-  resolveImageModelName,
-} from "../pi-runner.js";
+import { parseModelSpec, resolveImageModelName } from "../pi-runner.js";
 
 describe("parseModelSpec", () => {
   it("parses standard provider:model format", () => {

@@ -11,8 +11,8 @@ import {
 } from "@mariozechner/pi-coding-agent";
 import { BunnyAgentResourceLoader } from "./bunny-agent-resource-loader.js";
 import {
-  buildImageGenerateTool,
   buildImageEditTool,
+  buildImageGenerateTool,
   type ImageToolDetails,
 } from "./image-tools.js";
 import { buildSecretAwareTools, redactSecrets } from "./tool-overrides.js";
