@@ -875,7 +875,7 @@ export const PromptInput = ({
     }
   };
 
-  const _convertBlobUrlToDataUrl = async (url: string): Promise<string> => {
+  const convertBlobUrlToDataUrl = async (url: string): Promise<string> => {
     const response = await fetch(url);
     const blob = await response.blob();
     return new Promise((resolve, reject) => {
@@ -917,56 +917,55 @@ export const PromptInput = ({
     }
 
     // Process files: use custom upload handler if provided, otherwise convert to base64
-    // const processFiles = async (): Promise<FileUIPart[]> => {
-    //   const fileParts = files.map(({ id, ...item }) => item);
+    const processFiles = async (): Promise<FileUIPart[]> => {
+      const fileParts: FileUIPart[] = files.map(
+        ({ id: _id, uploading: _u, error: _e, ...item }) => item,
+      );
 
-    //   if (onFileUpload) {
-    //     // Use custom upload handler (e.g., S3 upload)
-    //     return onFileUpload(fileParts);
-    //   }
+      if (onFileUpload) {
+        // Use custom upload handler (e.g., S3 upload)
+        return onFileUpload(fileParts);
+      }
 
-    //   // Default: convert blob URLs to data URLs
-    //   return Promise.all(
-    //     fileParts.map(async (item) => {
-    //       if (item.url?.startsWith("blob:")) {
-    //         return {
-    //           ...item,
-    //           url: await convertBlobUrlToDataUrl(item.url),
-    //         };
-    //       }
-    //       return item;
-    //     }),
-    //   );
-    // };
+      // Default: convert blob URLs to data URLs so the server can read them
+      return Promise.all(
+        fileParts.map(async (item) => {
+          if (item.url?.startsWith("blob:")) {
+            return {
+              ...item,
+              url: await convertBlobUrlToDataUrl(item.url),
+            };
+          }
+          return item;
+        }),
+      );
+    };
 
-    // processFiles().then((convertedFiles: FileUIPart[]) => {
-    //   try {
+    processFiles()
+      .then((convertedFiles: FileUIPart[]) => {
+        const result = onSubmit({ text, files: convertedFiles }, event);
 
-    const result = onSubmit({ text, files: items }, event);
-
-    // Handle both sync and async onSubmit
-    if (result instanceof Promise) {
-      result
-        .then(() => {
+        if (result instanceof Promise) {
+          result
+            .then(() => {
+              clear();
+              if (usingProvider) {
+                controller.textInput.clear();
+              }
+            })
+            .catch(() => {
+              // Don't clear on error - user may want to retry
+            });
+        } else {
           clear();
           if (usingProvider) {
             controller.textInput.clear();
           }
-        })
-        .catch(() => {
-          // Don't clear on error - user may want to retry
-        });
-    } else {
-      // Sync function completed without throwing, clear attachments
-      clear();
-      if (usingProvider) {
-        controller.textInput.clear();
-      }
-    }
-    // } catch (_error) {
-    //   // Don't clear on error - user may want to retry
-    // }
-    // });
+        }
+      })
+      .catch((err) => {
+        console.error("[PromptInput] Failed to process files:", err);
+      });
   };
 
   // Render with or without local provider

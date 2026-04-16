@@ -557,6 +557,71 @@ describe("createPiRunner", () => {
     expect(data.messageMetadata?.usage?.input_tokens).toBe(122);
     expect(data.messageMetadata?.usage?.output_tokens).toBe(1320);
   });
+
+  it("accumulates edit_image tool usage into finish messageMetadata", async () => {
+    const { createAgentSession: mockCreateAgentSession } = await import(
+      "@mariozechner/pi-coding-agent"
+    );
+    vi.mocked(mockCreateAgentSession).mockImplementationOnce(async () => {
+      const session = new MockSession();
+      session.prompt = async function (_input: string) {
+        this["emit"]({
+          type: "tool_execution_start",
+          toolCallId: "img_edit_1",
+          toolName: "edit_image",
+          args: { image: "input.png", prompt: "remove watermark" },
+        });
+        this["emit"]({
+          type: "tool_execution_end",
+          toolCallId: "img_edit_1",
+          toolName: "edit_image",
+          result: {
+            content: [{ type: "text", text: "/tmp/edited.png" }],
+            details: {
+              filePath: "/tmp/edited.png",
+              response: {
+                data: [{ b64_json: "" }],
+                usage: {
+                  total_tokens: 130,
+                  input_tokens: 20,
+                  output_tokens: 110,
+                },
+              },
+            },
+          },
+          isError: false,
+        });
+        this["emit"]({
+          type: "agent_end",
+          messages: [
+            {
+              role: "assistant",
+              usage: { input: 10, output: 20, cacheRead: 0, cacheWrite: 0 },
+            },
+          ],
+        });
+      };
+      createdSessions.push(session);
+      return { session } as unknown as Awaited<
+        ReturnType<typeof mockCreateAgentSession>
+      >;
+    });
+
+    const runner = createPiRunner({ model: "openai:gpt-image-1" });
+    const chunks: string[] = [];
+    for await (const chunk of runner.run("remove watermark from input.png")) {
+      chunks.push(chunk);
+    }
+
+    const finishChunk = chunks.find((c) => c.includes('"type":"finish"'));
+    expect(finishChunk).toBeDefined();
+    const data = JSON.parse(finishChunk!.replace(/^data: /, "").trim()) as {
+      messageMetadata?: { usage?: Record<string, number> };
+    };
+
+    expect(data.messageMetadata?.usage?.input_tokens).toBe(30);
+    expect(data.messageMetadata?.usage?.output_tokens).toBe(130);
+  });
 });
 
 it("emits isError flag when a tool execution fails", async () => {

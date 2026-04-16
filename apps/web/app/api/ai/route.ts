@@ -1,3 +1,5 @@
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   type BunnyAgentProviderSettings,
   createBunnyAgent,
@@ -7,6 +9,7 @@ import {
 import {
   createUIMessageStream,
   createUIMessageStreamResponse,
+  type FileUIPart,
   isToolUIPart,
   lastAssistantMessageIsCompleteWithToolCalls,
   streamText,
@@ -18,6 +21,7 @@ import {
   evictSandbox,
   getOrCreateSandbox,
 } from "@/lib/example/create-sandbox";
+
 import { DEFAULT_RUNNER, type RunnerType } from "@/lib/runner";
 
 /**
@@ -150,12 +154,52 @@ export async function POST(request: Request) {
       content: JSON.stringify(toolResult.output || {}),
     };
   } else {
-    const textPart = lastMessage.parts
-      ?.map((part: UIMessage["parts"][number]) =>
-        part.type === "text" ? part.text : "",
-      )
-      .join(" ");
-    normalizedMessage = { role: lastMessage.role, content: textPart || "" };
+    const textParts: string[] = [];
+    const filePaths: string[] = [];
+
+    // Workspace directory for saving uploaded files
+    const workspaceDir = join(process.cwd(), "workspace");
+
+    for (const part of lastMessage.parts ?? []) {
+      if (part.type === "text") {
+        textParts.push(part.text);
+      } else if (part.type === "file") {
+        const filePart = part as FileUIPart;
+        // Save file to workspace and record the path
+        try {
+          const url = filePart.url ?? "";
+          const ext =
+            filePart.mediaType?.split("/")[1]?.replace("jpeg", "jpg") ?? "png";
+          const filename = `upload_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+          const filePath = join(workspaceDir, filename);
+
+          let buffer: Buffer | undefined;
+          if (url.startsWith("data:")) {
+            // data URL → base64
+            const b64 = url.split(",")[1];
+            if (b64) {
+              buffer = Buffer.from(b64, "base64");
+            }
+          }
+
+          if (buffer) {
+            mkdirSync(workspaceDir, { recursive: true });
+            writeFileSync(filePath, buffer);
+            filePaths.push(filePath);
+          }
+        } catch (e) {
+          console.error("[api/ai] Failed to save uploaded file:", e);
+        }
+      }
+    }
+
+    let content = textParts.join(" ");
+    if (filePaths.length > 0) {
+      const pathList = filePaths.map((p) => `  - ${p}`).join("\n");
+      content += `\n\n[User uploaded ${filePaths.length} file(s) to the workspace:\n${pathList}\n]`;
+    }
+
+    normalizedMessage = { role: lastMessage.role, content: content || "" };
   }
 
   const normalizedMessages = [normalizedMessage];

@@ -1,7 +1,7 @@
-import type { DynamicToolUIPart, UIMessage } from "ai";
+import type { DynamicToolUIPart, FileUIPart, UIMessage } from "ai";
 
 // Re-export ai types
-export type { UIMessage, DynamicToolUIPart };
+export type { UIMessage, DynamicToolUIPart, FileUIPart };
 
 /**
  * Artifact data structure
@@ -51,7 +51,7 @@ export interface UseBunnyAgentChatReturn {
   /** Stop the current stream */
   stop: () => void;
   /** Handle form submit (for use with PromptInput) */
-  handleSubmit: (message: { text: string }) => void;
+  handleSubmit: (message: { text: string; files?: FileUIPart[] }) => void;
 }
 
 // ============================================================================
