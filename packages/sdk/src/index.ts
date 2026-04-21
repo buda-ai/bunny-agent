@@ -57,6 +57,8 @@ export type {
 export {
   BunnyAgentLanguageModel,
   createBunnyAgent,
+  getBunnyAgentMetadata,
+  getBunnyAgentUsage,
   submitAnswer,
 } from "./provider";
 

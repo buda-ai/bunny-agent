@@ -1,5 +1,6 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { inspect } from "node:util";
 import {
   type BunnyAgentProviderSettings,
   createBunnyAgent,
@@ -315,6 +316,39 @@ export async function POST(request: Request) {
         model: bunnyAgent(model),
         messages: normalizedMessages,
         abortSignal: signal,
+        onFinish: (event) => {
+          const stepMetadata = (event.steps ?? [])
+            .map((step, index) => ({
+              step: index,
+              finishReason: step.finishReason,
+              usage: step.usage,
+              providerMetadata: step.providerMetadata,
+              bunnyAgentMetadata: step.providerMetadata?.["bunny-agent"],
+            }))
+            .filter(
+              (entry) =>
+                entry.providerMetadata != null || entry.bunnyAgentMetadata != null,
+            );
+
+          const finishLog = {
+            finishReason: event.finishReason,
+            usage: event.usage,
+            totalUsage: event.totalUsage,
+            responseId: event.response?.id,
+            steps: event.steps?.length ?? 0,
+            providerMetadata: event.providerMetadata,
+            bunnyAgentMetadata: event.providerMetadata?.["bunny-agent"],
+            stepMetadata,
+          };
+          console.log(
+            "[api/ai] streamText finished\n%s",
+            inspect(finishLog, {
+              depth: null,
+              colors: false,
+              maxArrayLength: null,
+            }),
+          );
+        },
       });
 
       writer.merge(result.toUIMessageStream({ sendSources: true }));

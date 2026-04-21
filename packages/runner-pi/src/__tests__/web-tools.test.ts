@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { resolveSearchProvider, resolveSearchProviders } from "../web-tools.js";
+import {
+  buildWebSearchTool,
+  resolveSearchProvider,
+  resolveSearchProviders,
+} from "../web-tools.js";
 
 describe("resolveSearchProviders", () => {
   const originalEnv = { ...process.env };
@@ -92,5 +96,68 @@ describe("resolveSearchProvider", () => {
     const result = resolveSearchProvider({ TAVILY_API_KEY: "tvly-456" });
     expect(result).not.toBeNull();
     expect(result!.provider.id).toBe("tavily");
+  });
+});
+
+describe("buildWebSearchTool", () => {
+  const originalEnv = { ...process.env };
+  const originalFetch = globalThis.fetch;
+
+  afterEach(() => {
+    process.env = { ...originalEnv };
+    globalThis.fetch = originalFetch;
+  });
+
+  it("returns Brave usage details in tool result", async () => {
+    globalThis.fetch = (async () =>
+      ({
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        json: async () => ({
+          web: {
+            results: [
+              {
+                title: "Iran - BBC News",
+                url: "https://www.bbc.com/example",
+                description: "Latest updates",
+                age: "1 day ago",
+              },
+            ],
+          },
+        }),
+        text: async () => "",
+        bytes: async () => new Uint8Array(),
+      }) as unknown as Response) as typeof fetch;
+
+    const tool = buildWebSearchTool({ BRAVE_API_KEY: "bsk-test" });
+    const result = await (tool.execute as (
+      ...args: unknown[]
+    ) => Promise<{
+      content: Array<{ type: string; text?: string }>;
+      details?: unknown;
+    }>)(
+      "call_1",
+      { query: "iran latest news", count: 1 },
+      undefined,
+      undefined,
+      {},
+    );
+
+    expect(result.content[0]?.type).toBe("text");
+    if (result.content[0]?.type !== "text") {
+      throw new Error("Expected text content");
+    }
+    expect(result.content[0].text).toContain("[Brave Search] 1 result(s)");
+    expect(result.details).toMatchObject({
+      usage: {
+        raw: {
+          brave: {
+            requests: 1,
+            fetchedPages: 0,
+          },
+        },
+      },
+    });
   });
 });

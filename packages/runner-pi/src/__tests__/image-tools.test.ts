@@ -140,6 +140,7 @@ describe("buildImageGenerateTool", () => {
     expect(details.response.usage?.input_tokens).toBe(22);
     expect(details.response.usage?.output_tokens).toBe(1120);
     expect(details.response.usage?.total_tokens).toBe(1404);
+    expect(details.usage?.raw["gpt-image-1"]).toEqual(baseApiResponse.usage);
   });
 
   it("details.response keeps full image response payload", async () => {

@@ -8,6 +8,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, extname, join } from "node:path";
 import type { ToolDefinition } from "@mariozechner/pi-coding-agent";
+import type { ToolDetailsWithUsage, ToolUsageDetails } from "./tool-details.js";
 
 export interface ImageGenerationUsage {
   total_tokens?: number;
@@ -30,10 +31,18 @@ export interface ImageGenerationResponse {
   usage?: ImageGenerationUsage;
 }
 
-export interface ImageToolDetails {
-  filePath: string | undefined;
-  response: ImageGenerationResponse;
-}
+/** Usage payload for image tools (`details.usage`); `raw[imageModelId]` is the API usage object. */
+export interface ImageToolUsageDetails
+  extends ToolUsageDetails<ImageGenerationUsage> {}
+
+export type ImageToolDetails = ToolDetailsWithUsage<
+  ImageGenerationUsage,
+  {
+    filePath: string | undefined;
+    /** Full provider JSON (may include `usage` from the vendor). */
+    response: ImageGenerationResponse;
+  }
+>;
 
 const generateImageSchema = {
   type: "object",
@@ -350,13 +359,7 @@ export function buildImageGenerateTool(
           );
         }
 
-        const json = (await res.json()) as {
-          data: Array<{
-            b64_json?: string;
-            url?: string;
-            revised_prompt?: string;
-          }>;
-        };
+        const json = (await res.json()) as ImageGenerationResponse;
 
         const item = pickImageItem(json as ImageGenerationResponse);
         const savedPath = await saveImageItem(item, filePath, apiKey);
@@ -372,6 +375,9 @@ export function buildImageGenerateTool(
           ],
           details: {
             filePath: savedPath,
+            ...(json.usage != null
+              ? { usage: { raw: { [imageModelId]: json.usage } } }
+              : {}),
             response: json,
           } satisfies ImageToolDetails,
         };
@@ -638,6 +644,9 @@ export function buildImageEditTool(
           ],
           details: {
             filePath: savedPath,
+            ...(json.usage != null
+              ? { usage: { raw: { [imageModelId]: json.usage } } }
+              : {}),
             response: json,
           } satisfies ImageToolDetails,
         };

@@ -17,6 +17,7 @@ export type { BunnyAgentLanguageModelOptions } from "./bunny-agent-language-mode
 export { BunnyAgentLanguageModel } from "./bunny-agent-language-model";
 export type { BunnyAgentProvider } from "./bunny-agent-provider";
 export { createBunnyAgent } from "./bunny-agent-provider";
+export { getBunnyAgentMetadata, getBunnyAgentUsage } from "./usage";
 export type { SubmitAnswerOptions } from "./question-processor";
 export { submitAnswer } from "./question-processor";
 export type {
