@@ -431,6 +431,8 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
         } catch (error) {
           if (error instanceof Error && error.name === "AbortError") {
             self.logger.info("[bunny-agent] Stream aborted by user");
+            controller.close();
+            return;
           } else {
             self.logger.error(
               `[bunny-agent] Stream error: ${formatErrorForLog(error)}`,
