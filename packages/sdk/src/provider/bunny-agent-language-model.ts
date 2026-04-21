@@ -119,6 +119,21 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
   private toolNameMap: Map<string, string> = new Map();
   private legacyTextPartCounter = 0;
 
+  private logUnparsedStreamLine(candidate: string, error: unknown): void {
+    const trimmed = candidate.trim();
+    if (!trimmed) return;
+    const looksLikeError = /\b(error|failed|exception|traceback|fatal)\b/i.test(
+      trimmed,
+    );
+    if (looksLikeError) {
+      const snippet = trimmed.slice(0, 500);
+      const msg = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `[bunny-agent] Unparsed stream line (likely runner error): ${snippet} | parser: ${msg}`,
+      );
+    }
+  }
+
   constructor(modelOptions: BunnyAgentLanguageModelOptions) {
     this.modelId = modelOptions.id;
     this.options = modelOptions.options;
@@ -413,13 +428,9 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
                   }
                 }
               } catch (e) {
-                // daemon /api/coding/run may emit plain text lines; ignore non-JSON fragments.
-                const msg = e instanceof Error ? e.message : String(e);
-                if (!msg.includes("Unexpected token")) {
-                  self.logger.error(
-                    `[bunny-agent] Failed to parse stream data: ${e}`,
-                  );
-                }
+                // daemon /api/coding/run or CLI runner may emit plain text lines.
+                // Log suspicious lines so silent "finish: other" can be diagnosed.
+                self.logUnparsedStreamLine(candidate, e);
               }
             }
 
@@ -456,8 +467,8 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
       try {
         const parsedParts = this.parseSSEData(candidate);
         parts.push(...parsedParts);
-      } catch {
-        // ignore trailing non-JSON lines on stream close
+      } catch (e) {
+        this.logUnparsedStreamLine(candidate, e);
       }
     }
 

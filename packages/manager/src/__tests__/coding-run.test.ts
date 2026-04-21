@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   buildCodingRunShellScript,
   buildDefaultDaemonCodingRunExecCommand,
+  streamCodingRunFromSandbox,
 } from "../coding-run.js";
+import type { SandboxHandle } from "../types.js";
 
 describe("coding-run", () => {
   it("builds curl POST with Content-Type and body file", () => {
@@ -30,5 +32,41 @@ describe("coding-run", () => {
     expect(script).toContain("http://127.0.0.1:3080/api/coding/run");
     expect(script).toContain('--data-binary @"$REQ"');
     expect(script).toMatch(/^REQ='/);
+  });
+
+  it("prefers sandbox-native streamCodingRun when available", async () => {
+    const streamed = [new TextEncoder().encode("data: ok\n\n")];
+    let called = false;
+
+    const handle: SandboxHandle = {
+      getSandboxId: () => "sbx_1",
+      getVolumes: () => null,
+      getWorkdir: () => "/workspace",
+      exec: async function* () {},
+      upload: async () => {},
+      readFile: async () => "",
+      destroy: async () => {},
+      streamCodingRun: async function* () {
+        called = true;
+        yield* streamed;
+      },
+    };
+
+    const chunks: Uint8Array[] = [];
+    for await (const chunk of streamCodingRunFromSandbox(
+      handle,
+      "http://127.0.0.1:3080",
+      {
+        runner: "claude",
+        model: "claude-3-5-sonnet",
+        userInput: "hello",
+        cwd: "/workspace",
+      },
+    )) {
+      chunks.push(chunk);
+    }
+
+    expect(called).toBe(true);
+    expect(chunks).toEqual(streamed);
   });
 });

@@ -47,9 +47,9 @@ export function useBunnyAgentChat({
   const bodyRef = useRef(body);
   const messagesRef = useRef<UIMessage[]>([]);
 
-  useEffect(() => {
-    bodyRef.current = body;
-  }, [body]);
+  // Keep transport body in sync on every render (not only after useEffect) so
+  // the first fetch after hydration includes the latest client config.
+  bodyRef.current = body;
 
   // Helper to extract resume value (sessionId) from message parts' providerMetadata.
   const getResumeFromMessage = (

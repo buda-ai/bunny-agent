@@ -6,9 +6,9 @@
 export
 
 # Default configuration (unified image name)
-# IMAGE_NAME can be overridden in .env; for "make image" we use BUILD_IMAGE_NAME so default is always vikadata/sandagent
-IMAGE_NAME ?= vikadata/sandagent
-BUILD_IMAGE_NAME ?= vikadata/sandagent
+# IMAGE_NAME can be overridden in .env; for "make image" we use BUILD_IMAGE_NAME so default is always vikadata/bunny-agent
+IMAGE_NAME ?= vikadata/bunny-agent
+BUILD_IMAGE_NAME ?= vikadata/bunny-agent
 # Image tag: from .env IMAGE_TAG, or root package.json version (single source of truth)
 MAKEFILE_DIR := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 DEFAULT_IMAGE_TAG := $(shell cd "$(MAKEFILE_DIR)" && node -p "try{require('../../package.json').version}catch(e){'0.1.0'}")

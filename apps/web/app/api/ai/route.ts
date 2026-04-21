@@ -24,6 +24,36 @@ import {
 
 import { DEFAULT_RUNNER, type RunnerType } from "@/lib/runner";
 
+/** POST /api/ai JSON body; nested `env` is merged so clients can group credentials. */
+interface AiChatRequestBody {
+  messages?: UIMessage[];
+  template?: string;
+  resume?: string;
+  RUNNER?: string;
+  MODEL_ID?: string;
+  ANTHROPIC_API_KEY?: string;
+  ANTHROPIC_BASE_URL?: string;
+  AWS_BEARER_TOKEN_BEDROCK?: string;
+  ANTHROPIC_AUTH_TOKEN?: string;
+  LITELLM_MASTER_KEY?: string;
+  ANTHROPIC_BEDROCK_BASE_URL?: string;
+  CLAUDE_CODE_USE_BEDROCK?: string;
+  CLAUDE_CODE_SKIP_BEDROCK_AUTH?: string;
+  OPENAI_API_KEY?: string;
+  OPENAI_BASE_URL?: string;
+  GEMINI_API_KEY?: string;
+  GEMINI_BASE_URL?: string;
+  E2B_API_KEY?: string;
+  SANDOCK_API_KEY?: string;
+  DAYTONA_API_KEY?: string;
+  SANDBOX_PROVIDER?: string;
+  BRAVE_API_KEY?: string;
+  TAVILY_API_KEY?: string;
+  USE_BUNNY_AGENT_DAEMON?: string | number | boolean;
+  /** Stripped after merge; only nested keys are lifted into the top level. */
+  env?: Record<string, unknown>;
+}
+
 /**
  * POST /api/ai
  *
@@ -32,7 +62,13 @@ import { DEFAULT_RUNNER, type RunnerType } from "@/lib/runner";
  * stream finishes.
  */
 export async function POST(request: Request) {
-  const body = await request.json();
+  const raw = (await request.json()) as Record<string, unknown>;
+  const nestedEnv =
+    raw.env != null && typeof raw.env === "object" && !Array.isArray(raw.env)
+      ? (raw.env as Record<string, unknown>)
+      : {};
+  const { env: _nestedEnvOmitted, ...topLevel } = raw;
+  const body = { ...nestedEnv, ...topLevel } as AiChatRequestBody;
   const {
     messages,
     template = "default",
@@ -151,7 +187,7 @@ export async function POST(request: Request) {
     );
     normalizedMessage = {
       role: "user",
-      content: JSON.stringify(toolResult.output || {}),
+      content: JSON.stringify(toolResult?.output ?? {}),
     };
   } else {
     const textParts: string[] = [];
@@ -248,7 +284,7 @@ export async function POST(request: Request) {
   // Pi expects "<provider>:<model>" (e.g. openai:gpt-5.4, anthropic:claude-opus-4-6-v1)
   if (runnerType === "pi") {
     if (model.includes(":")) {
-      // Already in provider:model form
+      // Already in provider:model form; keep as-is.
     } else if (model.startsWith("global.anthropic.")) {
       model = `anthropic:${model.slice("global.anthropic.".length)}`;
     } else if (model.includes("/")) {
@@ -289,10 +325,23 @@ export async function POST(request: Request) {
           DEFAULT_BUNNY_AGENT_DAEMON_URL,
           { cwd: handle.getWorkdir(), signal },
         );
+        console.info("[api/ai] daemon health check", {
+          sandboxProvider: SANDBOX_PROVIDER,
+          sandboxId: handle.getSandboxId(),
+          daemonUrl: DEFAULT_BUNNY_AGENT_DAEMON_URL,
+          daemonOk,
+        });
         if (daemonOk) {
           daemonUrl = DEFAULT_BUNNY_AGENT_DAEMON_URL;
         }
       }
+
+      console.info("[api/ai] runner mode", {
+        useBunnyAgentDaemon,
+        daemonEnabled: daemonUrl != null,
+        runnerType,
+        model,
+      });
 
       const bunnyAgentOptions: BunnyAgentProviderSettings = {
         sandbox,
@@ -315,6 +364,21 @@ export async function POST(request: Request) {
         model: bunnyAgent(model),
         messages: normalizedMessages,
         abortSignal: signal,
+        onFinish: (event) => {
+          const stepMetadata = event.steps
+            .map((step) => step.providerMetadata)
+            .filter((meta) => meta != null);
+          console.info("[api/ai] stream finished", {
+            finishReason: event.finishReason,
+            usage: event.usage,
+            totalUsage: event.totalUsage,
+            providerMetadata: event.providerMetadata,
+            stepMetadataCount: stepMetadata.length,
+          });
+        },
+        onError: (event) => {
+          console.error("[api/ai] stream error", event.error);
+        },
       });
 
       writer.merge(result.toUIMessageStream({ sendSources: true }));

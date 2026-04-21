@@ -22,7 +22,7 @@ const SANDBOX_IMAGE =
 /**
  * Sandock on Kubernetes replaces Docker ENTRYPOINT with a shell keep-alive, so
  * we pass the image entrypoint explicitly. Args mirror Dockerfile:
- * ENTRYPOINT bunny-agent-entrypoint + CMD ["sleep", "infinity"].
+ * ENTRYPOINT (image-specific) + CMD ["sleep", "infinity"].
  * Set SANDOCK_CONTAINER_SLEEP_SEC=1800 (or another duration) if you need a
  * numeric `sleep` instead of `infinity`.
  * Override the entrypoint binary with SANDOCK_BUNNY_AGENT_ENTRYPOINT if your image
@@ -39,23 +39,36 @@ const SANDBOX_IMAGE =
  */
 const SANDOCK_SLEEP_ARG = process.env.SANDOCK_CONTAINER_SLEEP_SEC ?? "infinity";
 
-const BUNNY_AGENT_SANDOCK_ENTRYPOINT =
-  process.env.SANDOCK_BUNNY_AGENT_ENTRYPOINT?.trim() ||
-  "/usr/local/bin/bunny-agent-entrypoint";
+function resolveSandockEntrypoint(image: string): string {
+  const overridden = process.env.SANDOCK_BUNNY_AGENT_ENTRYPOINT?.trim();
+  if (overridden) return overridden;
 
-const BUNNY_AGENT_SANDOCK_COMMAND = [
-  BUNNY_AGENT_SANDOCK_ENTRYPOINT,
-  "sleep",
-  SANDOCK_SLEEP_ARG,
-] as const;
+  const i = image.toLowerCase();
+  // New image naming uses sandagent; keep entrypoint name aligned across images.
+  if (
+    i.includes("vikadata/sandagent") ||
+    i.includes("/sandagent:") ||
+    i.endsWith("/sandagent") ||
+    i === "sandagent"
+  ) {
+    return "/usr/local/bin/sandagent-entrypoint";
+  }
+
+  // Legacy bunny-agent images use bunny-agent entrypoint.
+  return "/usr/local/bin/bunny-agent-entrypoint";
+}
 
 function sandockImageNeedsSandagentEntrypoint(image: string): boolean {
   const i = image.toLowerCase();
   return (
     i.includes("vikadata/bunny-agent") ||
+    i.includes("vikadata/sandagent") ||
     i.includes("/bunny-agent:") ||
+    i.includes("/sandagent:") ||
     i.endsWith("/bunny-agent") ||
-    i === "bunny-agent"
+    i.endsWith("/sandagent") ||
+    i === "bunny-agent" ||
+    i === "sandagent"
   );
 }
 
@@ -225,7 +238,13 @@ async function buildSandbox(
       name: sandboxName,
       sandboxId: cachedId,
       ...(sandockImageNeedsSandagentEntrypoint(image)
-        ? { command: [...BUNNY_AGENT_SANDOCK_COMMAND] }
+        ? {
+            command: [
+              resolveSandockEntrypoint(image),
+              "sleep",
+              SANDOCK_SLEEP_ARG,
+            ],
+          }
         : {}),
     });
   }
