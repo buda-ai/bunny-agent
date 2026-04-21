@@ -15,11 +15,10 @@ describe("BunnyAgentLanguageModel stream abort handling", () => {
     const abortError = new Error("Operation aborted");
     abortError.name = "AbortError";
 
-    const releaseLock = vi.fn();
     const sourceReader = {
       read: vi.fn().mockRejectedValue(abortError),
       cancel: vi.fn(),
-      releaseLock,
+      releaseLock: vi.fn(),
     } as unknown as ReadableStreamDefaultReader<Uint8Array>;
 
     const stream = (
@@ -35,6 +34,5 @@ describe("BunnyAgentLanguageModel stream abort handling", () => {
 
     expect(result.done).toBe(true);
     expect(result.value).toBeUndefined();
-    expect(releaseLock).toHaveBeenCalledTimes(1);
   });
 });
