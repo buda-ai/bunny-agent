@@ -114,7 +114,7 @@ function scheduleRemoveCodingRunRequestFile(
  * in platform command history and cannot be deleted like a file.
  *
  * Runner credentials belong in {@link BunnyAgentCodingRunBody.env} on `body`.
- * {@link ExecOptions.env} is not used for the POST JSON.
+ * {@link ExecOptions.env} is not used for the POST JSON (put vars in `body.env`).
  *
  * Errors from `upload` / `exec` propagate to the caller unchanged. If `exec` throws after a successful
  * `upload`, a `catch` path schedules best-effort `rm` without awaiting (the remote `trap` may not have run yet).
@@ -125,6 +125,12 @@ export async function* streamCodingRunFromSandbox(
   body: BunnyAgentCodingRunBody,
   opts?: ExecOptions,
 ): AsyncIterable<Uint8Array> {
+  // Prefer sandbox-native coding-run streaming when available (Sandock path).
+  if (handle.streamCodingRun != null) {
+    yield* handle.streamCodingRun(body, opts);
+    return;
+  }
+
   const workdir = opts?.cwd ?? handle.getWorkdir();
   const tmpDir = SANDBOX_CODING_RUN_TMP_DIR;
 

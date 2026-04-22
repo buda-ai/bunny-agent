@@ -56,15 +56,29 @@ function asyncIterableToReadableStream(
   const iterator = iterable[Symbol.asyncIterator]();
   return new ReadableStream<Uint8Array>({
     async pull(controller) {
-      while (true) {
-        const { done, value } = await iterator.next();
-        if (done) {
-          controller.close();
-          return;
+      try {
+        while (true) {
+          const { done, value } = await iterator.next();
+          if (done) {
+            controller.close();
+            return;
+          }
+          if (value.byteLength > 0) {
+            controller.enqueue(value);
+            return;
+          }
         }
-        if (value.byteLength > 0) {
-          controller.enqueue(value);
-          return;
+      } catch (error) {
+        const isAbort =
+          (error instanceof Error && error.name === "AbortError") ||
+          (typeof DOMException !== "undefined" &&
+            error instanceof DOMException &&
+            error.name === "AbortError") ||
+          (error instanceof Error && /abort/i.test(error.message));
+        if (isAbort) {
+          controller.close();
+        } else {
+          controller.error(error);
         }
       }
     },
@@ -118,6 +132,21 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
   private sessionId: string | undefined;
   private toolNameMap: Map<string, string> = new Map();
   private legacyTextPartCounter = 0;
+
+  private logUnparsedStreamLine(candidate: string, error: unknown): void {
+    const trimmed = candidate.trim();
+    if (!trimmed) return;
+    const looksLikeError = /\b(error|failed|exception|traceback|fatal)\b/i.test(
+      trimmed,
+    );
+    if (looksLikeError) {
+      const snippet = trimmed.slice(0, 500);
+      const msg = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `[bunny-agent] Unparsed stream line (likely runner error): ${snippet} | parser: ${msg}`,
+      );
+    }
+  }
 
   constructor(modelOptions: BunnyAgentLanguageModelOptions) {
     this.modelId = modelOptions.id;
@@ -413,13 +442,8 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
                   }
                 }
               } catch (e) {
-                // daemon /api/coding/run may emit plain text lines; ignore non-JSON fragments.
-                const msg = e instanceof Error ? e.message : String(e);
-                if (!msg.includes("Unexpected token")) {
-                  self.logger.error(
-                    `[bunny-agent] Failed to parse stream data: ${e}`,
-                  );
-                }
+                // daemon /api/coding/run or CLI runner may emit plain text lines.
+                self.logUnparsedStreamLine(candidate, e);
               }
             }
 
@@ -429,14 +453,21 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
             }
           }
         } catch (error) {
-          if (error instanceof Error && error.name === "AbortError") {
+          const isAbort =
+            (error instanceof Error && error.name === "AbortError") ||
+            (typeof DOMException !== "undefined" &&
+              error instanceof DOMException &&
+              error.name === "AbortError") ||
+            (error instanceof Error && /abort/i.test(error.message));
+          if (isAbort) {
             self.logger.info("[bunny-agent] Stream aborted by user");
+            controller.close();
           } else {
             self.logger.error(
               `[bunny-agent] Stream error: ${formatErrorForLog(error)}`,
             );
+            controller.error(error);
           }
-          controller.error(error);
         }
       },
 
@@ -456,8 +487,8 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
       try {
         const parsedParts = this.parseSSEData(candidate);
         parts.push(...parsedParts);
-      } catch {
-        // ignore trailing non-JSON lines on stream close
+      } catch (e) {
+        this.logUnparsedStreamLine(candidate, e);
       }
     }
 

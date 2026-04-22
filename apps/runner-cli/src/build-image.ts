@@ -39,6 +39,7 @@ function getShippedDockerfile(): string {
   // Look for Dockerfile in several locations:
   // 1. Package root (apps/runner-cli/Dockerfile) — shipped with npm package
   // 2. docker/bunny-agent-claude/Dockerfile — monorepo development
+  // 3. CWD-relative docker/bunny-agent-claude/Dockerfile — global install invoked from repo root
   const packageRoot = getPackageRoot();
   const candidates = [
     join(packageRoot, "Dockerfile"),
@@ -50,6 +51,7 @@ function getShippedDockerfile(): string {
       "bunny-agent-claude",
       "Dockerfile",
     ),
+    resolve(process.cwd(), "docker", "bunny-agent-claude", "Dockerfile"),
   ];
   for (const p of candidates) {
     if (existsSync(p)) return p;

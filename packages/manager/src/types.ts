@@ -98,6 +98,16 @@ export interface SandboxHandle {
   readFile(filePath: string): Promise<string>;
 
   /**
+   * Optional fast path for daemon coding runs.
+   * When implemented (e.g. Sandock), callers can stream coding-run output
+   * without uploading request JSON into sandbox temp files.
+   */
+  streamCodingRun?(
+    body: BunnyAgentCodingRunBody,
+    opts?: ExecOptions,
+  ): AsyncIterable<Uint8Array>;
+
+  /**
    * Destroy the sandbox and release resources
    */
   destroy(): Promise<void>;

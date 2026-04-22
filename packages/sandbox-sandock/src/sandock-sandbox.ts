@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import type {
+  BunnyAgentCodingRunBody,
   ExecOptions,
   SandboxAdapter,
   SandboxHandle,
@@ -94,6 +95,8 @@ export interface SandockSandboxOptions {
  */
 export class SandockSandbox implements SandboxAdapter {
   private readonly client: SandockClient;
+  private readonly baseUrl: string;
+  private readonly authHeaders?: Record<string, string>;
   private readonly image: string;
   private readonly workdir: string;
   private readonly memoryLimitMb?: number;
@@ -113,8 +116,22 @@ export class SandockSandbox implements SandboxAdapter {
   private currentHandle: SandockHandle | null = null;
   private _sandboxId: string | null = null;
 
+  private shouldUseSandagentCli(): boolean {
+    const img = this.image.toLowerCase();
+    return (
+      img.includes("vikadata/sandagent") ||
+      img.includes("/sandagent:") ||
+      img.endsWith("/sandagent") ||
+      img === "sandagent"
+    );
+  }
+
   constructor(options: SandockSandboxOptions = {}) {
     const apiKey = options.apiKey ?? process.env.SANDOCK_API_KEY;
+    this.baseUrl = options.baseUrl ?? "https://sandock.ai";
+    this.authHeaders = apiKey
+      ? { Authorization: `Bearer ${apiKey}` }
+      : undefined;
 
     if (!apiKey) {
       console.warn(
@@ -124,8 +141,8 @@ export class SandockSandbox implements SandboxAdapter {
     }
 
     this.client = createSandockClient({
-      baseUrl: options.baseUrl ?? "https://sandock.ai",
-      headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : undefined,
+      baseUrl: this.baseUrl,
+      headers: this.authHeaders,
     });
 
     this.image = options.image ?? "sandockai/sandock-code:latest";
@@ -161,10 +178,15 @@ export class SandockSandbox implements SandboxAdapter {
 
   /**
    * Get the runner command to execute in the sandbox.
-   * When skipBootstrap is true, use image's bunny-agent; otherwise use npm-installed runner.
+   * When skipBootstrap is true, use the image-bundled CLI command.
+   * For sandagent images, prefer `sandagent run`; otherwise `bunny-agent run`.
+   * When skipBootstrap is false, use npm-installed runner in workdir.
    */
   getRunnerCommand(): string[] {
     if (this.skipBootstrap) {
+      if (this.shouldUseSandagentCli()) {
+        return ["sandagent", "run"];
+      }
       return ["bunny-agent", "run"];
     }
     return [`${this.workdir}/node_modules/.bin/bunny-agent`, "run"];
@@ -222,6 +244,8 @@ export class SandockSandbox implements SandboxAdapter {
       const volumeMounts = await this.resolveVolumeMounts();
       const handle = new SandockHandle(
         this.client,
+        this.baseUrl,
+        this.authHeaders,
         id,
         this.workdir,
         this.timeout,
@@ -250,6 +274,8 @@ export class SandockSandbox implements SandboxAdapter {
     const { sandboxId } = await this.createAndStartSandbox(volumeMounts);
     const handle = new SandockHandle(
       this.client,
+      this.baseUrl,
+      this.authHeaders,
       sandboxId,
       this.workdir,
       this.timeout,
@@ -429,6 +455,8 @@ export class SandockSandbox implements SandboxAdapter {
  */
 class SandockHandle implements SandboxHandle {
   private readonly client: SandockClient;
+  private readonly baseUrl: string;
+  private readonly authHeaders?: Record<string, string>;
   private readonly sandboxId: string;
   private readonly defaultWorkdir: string;
   private readonly timeout: number;
@@ -439,6 +467,8 @@ class SandockHandle implements SandboxHandle {
 
   constructor(
     client: SandockClient,
+    baseUrl: string,
+    authHeaders: Record<string, string> | undefined,
     sandboxId: string,
     defaultWorkdir: string,
     timeout: number,
@@ -448,6 +478,8 @@ class SandockHandle implements SandboxHandle {
     volumes: Volume[] | null = null,
   ) {
     this.client = client;
+    this.baseUrl = baseUrl;
+    this.authHeaders = authHeaders;
     this.sandboxId = sandboxId;
     this.defaultWorkdir = defaultWorkdir;
     this.timeout = timeout;
@@ -476,6 +508,51 @@ class SandockHandle implements SandboxHandle {
    */
   getWorkdir(): string {
     return this.defaultWorkdir;
+  }
+
+  /**
+   * Direct Sandock coding-run stream.
+   * Prefer API streaming to avoid writing request JSON into sandbox /tmp.
+   */
+  streamCodingRun(
+    body: BunnyAgentCodingRunBody,
+    opts?: ExecOptions,
+  ): AsyncIterable<Uint8Array> {
+    const self = this;
+    return {
+      async *[Symbol.asyncIterator](): AsyncIterator<Uint8Array> {
+        const base = self.baseUrl.replace(/\/$/, "");
+        const endpoint = `${base}/api/v1/sandbox/${self.sandboxId}/coding/run`;
+        const res = await fetch(endpoint, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "text/event-stream",
+            ...(self.authHeaders ?? {}),
+          },
+          body: JSON.stringify(body),
+          signal: opts?.signal,
+        });
+        if (!res.ok || !res.body) {
+          const errText = await res.text().catch(() => "");
+          const errorMsg = `${res.status} ${res.statusText} ${errText}`.trim();
+          throw new Error(
+            `Failed to stream Sandock coding run: ${errorMsg || "no response body"}`,
+          );
+        }
+
+        const reader = res.body.getReader();
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            if (value != null) yield value;
+          }
+        } finally {
+          reader.releaseLock();
+        }
+      },
+    };
   }
 
   /**
