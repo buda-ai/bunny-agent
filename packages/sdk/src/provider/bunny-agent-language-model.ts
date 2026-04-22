@@ -365,7 +365,9 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
       systemPrompt: this.options.systemPrompt ?? runner.systemPrompt,
       maxTurns: this.options.maxTurns ?? runner.maxTurns,
       allowedTools:
-        allowedToolsOverride ?? runner.allowedTools ?? this.options.allowedTools,
+        allowedToolsOverride ??
+        runner.allowedTools ??
+        this.options.allowedTools,
       skillPaths: runner.skillPaths ?? this.options.skillPaths,
       yolo: this.options.yolo,
     };

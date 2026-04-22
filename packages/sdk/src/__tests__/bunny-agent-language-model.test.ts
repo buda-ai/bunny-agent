@@ -31,9 +31,9 @@ function resolveAllowedTools(
 ) {
   return (
     model as unknown as {
-      resolveAllowedTools: (value: LanguageModelV3CallOptions) =>
-        | string[]
-        | undefined;
+      resolveAllowedTools: (
+        value: LanguageModelV3CallOptions,
+      ) => string[] | undefined;
     }
   ).resolveAllowedTools({
     prompt: [],
