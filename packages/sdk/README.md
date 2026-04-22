@@ -270,6 +270,9 @@ const bunnyAgent = createBunnyAgent({
 const model = bunnyAgent("claude-sonnet-4-20250514");
 ```
 
+When using `streamText({ model, tools })`, the SDK forwards the provided tool
+names as the runner's per-request allowed tool list.
+
 #### Daemon HTTP transport (same provider)
 
 **With any sandbox adapter** (E2B, Sandock, `LocalSandbox`, etc.): pass **`sandbox` + `daemonUrl`**. The URL is resolved **inside** the sandbox (the `vikadata/bunny-agent` image starts `bunny-agent-daemon` on port 3080). The SDK streams via `streamCodingRunFromSandbox` (`curl -N` in the sandbox, including `LocalSandbox`), not `fetch` from your server. It does **not** call `/healthz` for you — use `isBunnyAgentDaemonHealthy` from `@bunny-agent/sdk` when you want a probe before setting `daemonUrl` (e.g. to fall back to the CLI runner).

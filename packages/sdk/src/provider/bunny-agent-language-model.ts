@@ -275,6 +275,7 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
   ): Promise<LanguageModelV3StreamResult> {
     const { prompt, abortSignal } = options;
     const messages = this.convertPromptToMessages(prompt);
+    const allowedTools = this.resolveAllowedTools(options);
 
     this.resetStreamState();
 
@@ -296,7 +297,7 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
       const sandboxEnv = sandbox.getEnv?.() ?? {};
       const runnerEnv = { ...sandboxEnv, ...this.options.env };
       const body: BunnyAgentCodingRunBody = {
-        ...this.buildCodingRunBody(messages, handle.getWorkdir()),
+        ...this.buildCodingRunBody(messages, handle.getWorkdir(), allowedTools),
         ...(Object.keys(runnerEnv).length > 0 ? { env: runnerEnv } : {}),
       };
       const execOpts = {
@@ -319,7 +320,10 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
 
     const agent = new BunnyAgent({
       sandbox,
-      runner: this.options.runner,
+      runner: {
+        ...this.options.runner,
+        ...(allowedTools !== undefined ? { allowedTools } : {}),
+      },
       env: { ...sandboxEnv, ...this.options.env },
     });
 
@@ -348,6 +352,7 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
   private buildCodingRunBody(
     messages: Message[],
     cwdFallback: string,
+    allowedToolsOverride?: string[],
   ): BunnyAgentCodingRunBody {
     const runner = this.options.runner;
     const cwd = this.options.cwd ?? cwdFallback;
@@ -359,10 +364,25 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
       resume: this.options.resume,
       systemPrompt: this.options.systemPrompt ?? runner.systemPrompt,
       maxTurns: this.options.maxTurns ?? runner.maxTurns,
-      allowedTools: runner.allowedTools ?? this.options.allowedTools,
+      allowedTools:
+        allowedToolsOverride ?? runner.allowedTools ?? this.options.allowedTools,
       skillPaths: runner.skillPaths ?? this.options.skillPaths,
       yolo: this.options.yolo,
     };
+  }
+
+  private resolveAllowedTools(
+    options: LanguageModelV3CallOptions,
+  ): string[] | undefined {
+    if (options.tools === undefined) {
+      return this.options.runner.allowedTools ?? this.options.allowedTools;
+    }
+
+    const names = options.tools
+      .map((tool) => tool.name.trim())
+      .filter((name) => name.length > 0);
+
+    return [...new Set(names)];
   }
 
   private buildStreamResult(
