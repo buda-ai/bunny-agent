@@ -13,6 +13,9 @@
   - dedupe/trim handling,
   - explicit empty-tool behavior.
 - Updated `packages/sdk/README.md` API reference to document `streamText({ tools })` passthrough behavior.
+- Addressed automated code review polish feedback:
+  - Added JSDoc to tool-resolution helper.
+  - Renamed `allowedToolsOverride` parameter to `requestAllowedTools` for clearer intent.
 
 ## Validation log
 

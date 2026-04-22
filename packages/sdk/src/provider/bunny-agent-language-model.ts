@@ -352,7 +352,7 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
   private buildCodingRunBody(
     messages: Message[],
     cwdFallback: string,
-    allowedToolsOverride?: string[],
+    requestAllowedTools?: string[],
   ): BunnyAgentCodingRunBody {
     const runner = this.options.runner;
     const cwd = this.options.cwd ?? cwdFallback;
@@ -365,14 +365,17 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
       systemPrompt: this.options.systemPrompt ?? runner.systemPrompt,
       maxTurns: this.options.maxTurns ?? runner.maxTurns,
       allowedTools:
-        allowedToolsOverride ??
-        runner.allowedTools ??
-        this.options.allowedTools,
+        requestAllowedTools ?? runner.allowedTools ?? this.options.allowedTools,
       skillPaths: runner.skillPaths ?? this.options.skillPaths,
       yolo: this.options.yolo,
     };
   }
 
+  /**
+   * Resolves per-request allowed tools from AI SDK call options.
+   * - When `streamText` provides `tools`, their names are used for this request.
+   * - When `tools` is omitted, provider/runner defaults are used.
+   */
   private resolveAllowedTools(
     options: LanguageModelV3CallOptions,
   ): string[] | undefined {
