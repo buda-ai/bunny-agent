@@ -1,6 +1,7 @@
 import { appendFileSync, existsSync, unlinkSync } from "node:fs";
+import { homedir } from "node:os";
 import { join } from "node:path";
-import { getModel, type Api, type Model } from "@mariozechner/pi-ai";
+import { type Api, getModel, type Model } from "@mariozechner/pi-ai";
 import {
   type AgentSessionEvent,
   AuthStorage,
@@ -14,14 +15,14 @@ import {
   buildImageEditTool,
   buildImageGenerateTool,
 } from "./image-tools.js";
-import { buildSecretAwareTools, redactSecrets } from "./tool-overrides.js";
-import {
-  getUsageFromAgentEndMessages,
-} from "./usage-metadata.js";
 import {
   extractToolResultText,
   PiAISDKStreamConverter,
 } from "./stream-converter.js";
+import { buildSecretAwareTools, redactSecrets } from "./tool-overrides.js";
+import {
+  getUsageFromAgentEndMessages,
+} from "./usage-metadata.js";
 
 const LOG_PREFIX = "[bunny-agent:pi]";
 
@@ -254,18 +255,20 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
         > => {
           if (resume !== undefined && resume !== "") {
             if (resume.includes("/")) {
+              // Full path provided — open directly
               return SessionManager.open(resume);
             }
-            const sessions = await SessionManager.list(cwd);
-            const found = sessions.find((s) => s.id === resume);
-            return found
-              ? SessionManager.open(found.path)
-              : SessionManager.create(cwd);
+            // id-only: construct path directly without listing all sessions
+            // Mirrors pi-coding-agent's getDefaultSessionDir logic
+            const agentDir = join(homedir(), ".pi", "agent");
+            const safePath = `--${cwd.replace(/^[/\\]/, "").replace(/[/\\:]/g, "-")}--`;
+            const sessionPath = join(agentDir, "sessions", safePath, `${resume}.jsonl`);
+            if (existsSync(sessionPath)) {
+              return SessionManager.open(sessionPath);
+            }
+            // Session file not found — start fresh
+            return SessionManager.create(cwd);
           }
-          // Always start a fresh session when no explicit resume is requested.
-          // Using continueRecent() would load stale session data from previous
-          // runs, which can confuse the LLM context and cause errors such as
-          // "Model tried to call unavailable tool 'bash'. No tools are available."
           return SessionManager.create(cwd);
         })();
 
@@ -350,7 +353,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
         try {
           traceRawMessage(cwd, null, true, options.env);
 
-          const promptText = userInput;
+          let promptText = userInput;
           const promptPromise = session.prompt(promptText);
 
           const streamConverter = new PiAISDKStreamConverter({

@@ -1,11 +1,11 @@
-import type { AgentSessionEvent } from "@mariozechner/pi-coding-agent";
 import type { Usage } from "@mariozechner/pi-ai";
+import type { AgentSessionEvent } from "@mariozechner/pi-coding-agent";
 import {
-  buildToolUsage,
   type BillingModel,
   buildFinishUsageMetadata,
   buildImageCostFromTokenTally,
   buildModelSummaries,
+  buildToolUsage,
   buildWebSearchFinishMetadata,
   getToolUsageFromResult,
   llmChargeMessageMetadata,
@@ -65,7 +65,8 @@ export function extractToolResultText(result: unknown): string {
 }
 
 export class PiAISDKStreamConverter {
-  private readonly messageId = `msg_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  private readonly messageId =
+    `msg_${Date.now()}_${Math.random().toString(36).slice(2)}`;
   private readonly imageToolUsage = { input_tokens: 0, output_tokens: 0 };
   private readonly webSearchUsage = {
     raw: {} as Record<string, { requests: number; fetchedPages: number }>,
@@ -108,7 +109,10 @@ export class PiAISDKStreamConverter {
     }
 
     if (event.type === "message_update") {
-      const sub = event.assistantMessageEvent as { type: string; delta?: string };
+      const sub = event.assistantMessageEvent as {
+        type: string;
+        delta?: string;
+      };
       if (sub.type === "text_start") {
         chunks.push(...this.endTextStreamIfOpen(), ...this.openTextStream());
       } else if (sub.type === "text_delta") {
@@ -162,7 +166,27 @@ export class PiAISDKStreamConverter {
       const output = this.options.redactText(
         this.options.normalizeToolOutput(event.result),
       );
-      const toolUsage = getToolUsageFromResult<Record<string, number>>(event.result);
+      const toolUsage = getToolUsageFromResult<Record<string, number>>(
+        event.result,
+      );
+
+      // Accumulate web_search usage into the run-level tally for finish metadata
+      if (event.toolName === "web_search" && toolUsage != null) {
+        for (const [providerId, row] of Object.entries(toolUsage.raw)) {
+          const existing = this.webSearchUsage.raw[providerId];
+          const r = row as { requests?: number; fetchedPages?: number };
+          if (existing) {
+            existing.requests += r.requests ?? 0;
+            existing.fetchedPages += r.fetchedPages ?? 0;
+          } else {
+            this.webSearchUsage.raw[providerId] = {
+              requests: r.requests ?? 0,
+              fetchedPages: r.fetchedPages ?? 0,
+            };
+          }
+        }
+      }
+
       const toolOutputMeta = mergeMetadata(buildToolUsage(toolUsage));
       const toolOutputPayload: Record<string, unknown> = {
         type: "tool-output-available",
@@ -185,10 +209,14 @@ export class PiAISDKStreamConverter {
       if (aborted) {
         chunks.push(...this.finishError("Run aborted by signal."));
       } else {
-        const errorMsg = this.options.getErrorFromAgentEndMessages(event.messages);
+        const errorMsg = this.options.getErrorFromAgentEndMessages(
+          event.messages,
+        );
         if (errorMsg) chunks.push(...this.finishError(errorMsg));
         else {
-          const usage = this.options.getUsageFromAgentEndMessages(event.messages);
+          const usage = this.options.getUsageFromAgentEndMessages(
+            event.messages,
+          );
           chunks.push(...this.finishSuccess(usage));
         }
       }
@@ -244,7 +272,9 @@ export class PiAISDKStreamConverter {
     } = { type: "finish", finishReason: "stop" };
     const usageMeta = buildFinishUsageMetadata(usage, this.imageToolUsage);
     const llmMeta =
-      usage != null ? llmChargeMessageMetadata(this.options.model, usage) : undefined;
+      usage != null
+        ? llmChargeMessageMetadata(this.options.model, usage)
+        : undefined;
     const imageMeta = buildImageCostFromTokenTally(
       this.imageToolUsage,
       this.options.imagePricingModel,
@@ -265,7 +295,10 @@ export class PiAISDKStreamConverter {
       })(),
     );
     if (finishMeta != null) finishPayload.messageMetadata = finishMeta;
-    chunks.push(`data: ${JSON.stringify(finishPayload)}\n\n`, "data: [DONE]\n\n");
+    chunks.push(
+      `data: ${JSON.stringify(finishPayload)}\n\n`,
+      "data: [DONE]\n\n",
+    );
     this.hasFinished = true;
     return chunks;
   }
