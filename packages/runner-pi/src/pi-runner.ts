@@ -491,9 +491,19 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           const ensureStartEvent = async function* () {
             if (!hasStarted) {
               yield `data: ${JSON.stringify({ type: "start", messageId })}\n\n`;
+              // Emit sessionFile (full file path) alongside sessionId so the
+              // harness can persist the path and resume via SessionManager.open()
+              // on the next run, avoiding the memory-intensive SessionManager.list()
+              // scan that causes OOM with constrained Node.js heap sizes.
+              const sessionMeta: Record<string, string> = {
+                sessionId: session.sessionId,
+              };
+              if (session.sessionFile != null) {
+                sessionMeta.sessionFile = session.sessionFile;
+              }
               yield `data: ${JSON.stringify({
                 type: "message-metadata",
-                messageMetadata: { sessionId: session.sessionId },
+                messageMetadata: sessionMeta,
               })}\n\n`;
               hasStarted = true;
             }

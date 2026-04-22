@@ -103,24 +103,38 @@ function dispatchRunner(
 }
 
 /**
- * Pass-through that extracts sessionId from stream chunks and persists it.
+ * Pass-through that extracts session info from stream chunks and persists it.
+ * Prefers sessionFile (full path) over sessionId when available so that on
+ * the next run the pi runner resolves the session via SessionManager.open(path)
+ * instead of SessionManager.list(cwd), which avoids an expensive full-scan
+ * that can cause OOM crashes when the Node.js heap is tightly constrained
+ * (e.g. NODE_OPTIONS="--max-old-space-size=350").
  */
 async function* captureSessionId(
   stream: AsyncIterable<string>,
   cwd: string,
 ): AsyncIterable<string> {
   for await (const chunk of stream) {
-    if (chunk.includes('"sessionId"') || chunk.includes('"session_id"')) {
+    if (
+      chunk.includes('"sessionId"') ||
+      chunk.includes('"session_id"') ||
+      chunk.includes('"sessionFile"')
+    ) {
       try {
         const payload = chunk.replace(/^data:\s*/, "").trim();
         if (payload && payload !== "[DONE]") {
           const json = JSON.parse(payload);
+          // Prefer the full file path (sessionFile) so the next run uses
+          // SessionManager.open(path) directly, bypassing SessionManager.list().
+          const sessionFile =
+            json?.messageMetadata?.sessionFile ?? json?.sessionFile;
           const sessionId =
             json?.messageMetadata?.sessionId ??
             json?.messageMetadata?.session_id ??
             json?.sessionId;
-          if (sessionId && typeof sessionId === "string") {
-            writeSessionId(cwd, sessionId);
+          const toStore = sessionFile ?? sessionId;
+          if (toStore && typeof toStore === "string") {
+            writeSessionId(cwd, toStore);
           }
         }
       } catch {}

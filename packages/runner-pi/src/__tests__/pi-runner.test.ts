@@ -7,6 +7,7 @@ type Listener = (event: unknown) => void;
 class MockSession {
   agent = { state: {}, setSystemPrompt: vi.fn() };
   sessionId = "mock-session-id";
+  sessionFile: string | undefined = "/mock/.pi/sessions/mock-session-id.jsonl";
   private listeners: Listener[] = [];
   private behavior:
     | "normal"
@@ -343,6 +344,29 @@ describe("createPiRunner", () => {
     ).toBe(true);
     expect(chunks.some((c) => c.includes('"type":"finish"'))).toBe(true);
     expect(chunks.some((c) => c.includes("[DONE]"))).toBe(true);
+  });
+
+  it("emits sessionFile in message-metadata to avoid SessionManager.list() on resume", async () => {
+    const runner = createPiRunner({ model: "google:gemini-2.5-pro" });
+    const chunks: string[] = [];
+
+    for await (const chunk of runner.run("say hello")) {
+      chunks.push(chunk);
+    }
+
+    const metaChunk = chunks.find((c) =>
+      c.includes('"type":"message-metadata"'),
+    );
+    expect(metaChunk).toBeDefined();
+    const data = JSON.parse(metaChunk!.replace(/^data: /, "").trim()) as {
+      messageMetadata: { sessionId: string; sessionFile?: string };
+    };
+    expect(data.messageMetadata.sessionId).toBe("mock-session-id");
+    // sessionFile must be emitted so the harness can resume via
+    // SessionManager.open(path) instead of the OOM-prone SessionManager.list().
+    expect(data.messageMetadata.sessionFile).toBe(
+      "/mock/.pi/sessions/mock-session-id.jsonl",
+    );
   });
 
   it("tool-output-available emits a plain string output (not raw pi object)", async () => {
