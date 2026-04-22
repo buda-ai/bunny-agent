@@ -5,7 +5,11 @@ import { createGeminiRunner } from "@bunny-agent/runner-gemini";
 import { createOpenCodeRunner } from "@bunny-agent/runner-opencode";
 import { createPiRunner } from "@bunny-agent/runner-pi";
 import { loadSystemPrompt } from "./prompt.js";
-import { readSessionId, writeSessionId } from "./session.js";
+import {
+  lookupSessionFilePath,
+  readSessionId,
+  writeSessionId,
+} from "./session.js";
 import { discoverSkillPaths } from "./skills.js";
 
 export interface RunnerCoreOptions extends BaseRunnerOptions {
@@ -38,8 +42,18 @@ export function createRunner(
     options.systemPrompt ?? (autoInject ? loadSystemPrompt(cwd) : undefined);
 
   // Auto-resume session if not explicitly set
-  const resume =
+  const rawResume =
     options.resume ?? (autoInject ? readSessionId(cwd) : undefined);
+
+  // If resume is a bare session ID (no path separator), resolve it to the
+  // full session file path from the local cache so the pi-runner can call
+  // SessionManager.open(path) directly without the expensive
+  // SessionManager.list() full-scan, regardless of whether the caller is
+  // using autoInject or managing the session ID itself.
+  const resume =
+    rawResume && !rawResume.includes("/")
+      ? (lookupSessionFilePath(cwd, rawResume) ?? rawResume)
+      : rawResume;
 
   const base = {
     model: options.model,
