@@ -66,13 +66,14 @@ export const SMOKING_TESTS: SmokingTask[] = [
   {
     id: "smoke-006",
     name: "Session Resume",
-    description: "Remember this secret code: PINEAPPLE-42. Reply with OK.",
+    description:
+      "My favorite color is blue and my lucky number is 7. Reply with just OK.",
     expectedOutput: /OK/i,
     category: "reasoning",
     timeoutMs: 30000,
     /** Second turn prompt — runner should resume the session from turn 1. */
-    resumePrompt: "What was the secret code I told you?",
-    resumeExpectedOutput: /PINEAPPLE-42/,
+    resumePrompt: "What is my favorite color and lucky number?",
+    resumeExpectedOutput: /blue.*7|7.*blue/i,
   },
 ];
 

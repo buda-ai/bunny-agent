@@ -16,7 +16,7 @@ import {
 import { SandagentResourceLoader } from "./sandagent-resource-loader.js";
 import { buildSecretAwareTools, redactSecrets } from "./tool-overrides.js";
 import {
-  extractLastCompactionSummary,
+  extractSessionContext,
   isSessionFileTooLarge,
   resolveSessionPathById,
 } from "./session-utils.js";
@@ -338,14 +338,14 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
               // Extract the last compaction summary so the new session
               // retains context from the previous conversation.
               if (isSessionFileTooLarge(sessionPath)) {
-                const summary = extractLastCompactionSummary(sessionPath);
+                const context = extractSessionContext(sessionPath);
                 console.error(
-                  `${LOG_PREFIX} session file too large, starting fresh${summary ? " (with compaction summary)" : ""}`,
+                  `${LOG_PREFIX} session file too large, starting fresh${context ? " (with context)" : ""}`,
                 );
                 const newMgr = SessionManager.create(cwd);
-                if (summary) {
+                if (context) {
                   const firstId = newMgr.getEntries()[0]?.id ?? "";
-                  newMgr.appendCompaction(summary, firstId, 0);
+                  newMgr.appendCompaction(context, firstId, 0);
                 }
                 return newMgr;
               }

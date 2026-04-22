@@ -342,6 +342,78 @@ export async function executeSmokingBenchmark(
           console.log(`   Got: ${answer}`);
         }
 
+        // Handle resume turn if the test defines one and first turn passed
+        if (success && test.resumePrompt && test.resumeExpectedOutput) {
+          console.log(`   🔄 Running resume turn...`);
+          // Extract sessionId from first turn output
+          const sessionIdMatch = output.match(/"sessionId"\s*:\s*"([^"]+)"/);
+          const sessionId = sessionIdMatch?.[1];
+          if (sessionId) {
+            hooks.log(`Resume turn with sessionId: ${sessionId}`);
+            const resumeTest: SmokingTask = {
+              ...test,
+              id: `${test.id}-resume`,
+              name: `${test.name} (resume)`,
+              description: test.resumePrompt,
+              expectedOutput: test.resumeExpectedOutput,
+            };
+            // Inject --resume before the -- separator
+            const resumeCmd = ctx.runnerHandler.buildCommand(resumeTest);
+            const sepIdx = resumeCmd.args.indexOf("--");
+            if (sepIdx !== -1) {
+              resumeCmd.args.splice(sepIdx, 0, "--resume", sessionId);
+            }
+            try {
+              const resumeOutput = await runCommand(
+                resumeCmd.command,
+                resumeCmd.args,
+                test.timeoutMs,
+                ctx.logFile,
+                ctx.log,
+              );
+              const resumeAnswer =
+                ctx.runnerHandler.extractAnswer(resumeOutput);
+              hooks.log(`Resume answer: ${resumeAnswer.substring(0, 200)}`);
+              const resumeSuccess = evaluateAnswer(
+                resumeAnswer,
+                test.resumeExpectedOutput,
+              );
+              const resumeResult: BenchmarkResult = {
+                taskId: `${test.id}-resume`,
+                success: resumeSuccess,
+                answer: resumeAnswer,
+                expectedAnswer: test.resumeExpectedOutput,
+                rawOutput: resumeOutput,
+                durationMs: Date.now() - startTime,
+              };
+              hooks.onResult(resumeResult);
+              if (resumeSuccess) {
+                console.log(`   ✅ RESUME PASS`);
+              } else {
+                console.log(`   ❌ RESUME FAIL`);
+                console.log(`   Expected: ${test.resumeExpectedOutput}`);
+                console.log(`   Got: ${resumeAnswer}`);
+              }
+            } catch (resumeError) {
+              hooks.onResult({
+                taskId: `${test.id}-resume`,
+                success: false,
+                error:
+                  resumeError instanceof Error
+                    ? resumeError.message
+                    : String(resumeError),
+                durationMs: Date.now() - startTime,
+              });
+              console.log(
+                `   ❌ RESUME ERROR: ${resumeError instanceof Error ? resumeError.message : resumeError}`,
+              );
+            }
+          } else {
+            hooks.log("No sessionId found in output, skipping resume turn");
+            console.log(`   ⚠️  No sessionId in output, skipping resume`);
+          }
+        }
+
         if (options.verbose && output) {
           console.log(`   Output preview: ${output.substring(0, 120)}...`);
         }
