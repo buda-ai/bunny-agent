@@ -104,6 +104,7 @@ jobs:
       # Open a PR that carries the version-bump commits back into main so that
       # package.json files and CHANGELOGs stay in sync with what was published.
       - name: Create Version PR
+        id: create_version_pr
         uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -121,3 +122,11 @@ jobs:
           branch: changeset-release/main
           base: main
           delete-branch: true
+
+      - name: Enable auto-merge for Version PR
+        if: ${{ steps.create_version_pr.outputs.pull-request-number != '' }}
+        uses: peter-evans/enable-pull-request-automerge@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          pull-request-number: ${{ steps.create_version_pr.outputs.pull-request-number }}
+          merge-method: squash
