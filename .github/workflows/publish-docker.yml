@@ -66,27 +66,6 @@ jobs:
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "Detected version: ${VERSION} (from tag: ${TAG})"
 
-      - name: Resolve Docker build context from tag code
-        id: docker_context
-        shell: bash
-        run: |
-          if [ -f "docker/bunny-agent-claude/Dockerfile" ]; then
-            DOCKER_CONTEXT="./docker/bunny-agent-claude"
-            DOCKER_FILE="./docker/bunny-agent-claude/Dockerfile"
-          elif [ -f "docker/sandagent-claude/Dockerfile" ]; then
-            DOCKER_CONTEXT="./docker/sandagent-claude"
-            DOCKER_FILE="./docker/sandagent-claude/Dockerfile"
-          else
-            echo "::error::No supported Docker context found in release tag source code."
-            echo "::error::Expected one of: docker/bunny-agent-claude/Dockerfile or docker/sandagent-claude/Dockerfile"
-            exit 1
-          fi
-
-          echo "context=${DOCKER_CONTEXT}" >> "$GITHUB_OUTPUT"
-          echo "file=${DOCKER_FILE}" >> "$GITHUB_OUTPUT"
-          echo "Using Docker context: ${DOCKER_CONTEXT}"
-          echo "Using Dockerfile: ${DOCKER_FILE}"
-
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
@@ -103,8 +82,8 @@ jobs:
         id: build
         uses: docker/build-push-action@v6
         with:
-          context: ${{ steps.docker_context.outputs.context }}
-          file: ${{ steps.docker_context.outputs.file }}
+          context: ./docker/bunny-agent-claude
+          file: ./docker/bunny-agent-claude/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
           build-args: |
