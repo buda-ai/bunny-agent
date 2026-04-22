@@ -69,6 +69,12 @@ describe("fs", () => {
     expect(r.ok).toBe(true);
     expect(r.data.is_dir).toBe(false);
     expect(r.data.size).toBe(5);
+    expect(
+      typeof r.data.created_at === "string" || r.data.created_at === null,
+    ).toBe(true);
+    expect(
+      typeof r.data.modified_at === "string" || r.data.modified_at === null,
+    ).toBe(true);
   });
 
   it("exists true/false", async () => {
