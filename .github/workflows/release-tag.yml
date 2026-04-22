@@ -128,3 +128,22 @@ jobs:
         if: steps.create_version_pr.outcome == 'failure'
         run: |
           echo "::warning::Version PR creation failed. Publishing succeeded, but the token used lacks pull request creation rights. Add a repository secret named GH_PAT (fine-grained PAT with 'Contents: write' and 'Pull requests: write' for this repo) to enable automatic Version PRs."
+
+      # Enable auto-merge so the Version PR merges itself once CI passes.
+      # Requires: (1) GH_PAT secret with pull-requests:write, (2) auto-merge enabled
+      # in the repository settings (Settings → General → Allow auto-merge).
+      - name: Enable auto-merge on Version PR
+        id: enable_automerge
+        if: steps.create_version_pr.outcome == 'success' && steps.create_version_pr.outputs.pull-request-number != ''
+        continue-on-error: true
+        run: |
+          gh pr merge "${{ steps.create_version_pr.outputs.pull-request-number }}" \
+            --auto --squash \
+            --repo "${{ github.repository }}"
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+
+      - name: Warn when auto-merge could not be enabled
+        if: steps.enable_automerge.outcome == 'failure'
+        run: |
+          echo "::warning::Auto-merge could not be enabled on the Version PR. Either the GH_PAT secret is missing / lacks permissions, or auto-merge is not enabled for this repository (Settings → General → Allow auto-merge). The PR was still created and can be merged manually."
