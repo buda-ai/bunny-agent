@@ -378,6 +378,9 @@ export async function POST(request: Request) {
             stepMetadataCount: stepMetadata.length,
           });
         },
+        onAbort: () => {
+          console.info("[api/ai] stream aborted by client");
+        },
         onError: (event) => {
           console.error("[api/ai] stream error", event.error);
         },

@@ -56,15 +56,29 @@ function asyncIterableToReadableStream(
   const iterator = iterable[Symbol.asyncIterator]();
   return new ReadableStream<Uint8Array>({
     async pull(controller) {
-      while (true) {
-        const { done, value } = await iterator.next();
-        if (done) {
-          controller.close();
-          return;
+      try {
+        while (true) {
+          const { done, value } = await iterator.next();
+          if (done) {
+            controller.close();
+            return;
+          }
+          if (value.byteLength > 0) {
+            controller.enqueue(value);
+            return;
+          }
         }
-        if (value.byteLength > 0) {
-          controller.enqueue(value);
-          return;
+      } catch (error) {
+        const isAbort =
+          (error instanceof Error && error.name === "AbortError") ||
+          (typeof DOMException !== "undefined" &&
+            error instanceof DOMException &&
+            error.name === "AbortError") ||
+          (error instanceof Error && /abort/i.test(error.message));
+        if (isAbort) {
+          controller.close();
+        } else {
+          controller.error(error);
         }
       }
     },
@@ -429,7 +443,6 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
                 }
               } catch (e) {
                 // daemon /api/coding/run or CLI runner may emit plain text lines.
-                // Log suspicious lines so silent "finish: other" can be diagnosed.
                 self.logUnparsedStreamLine(candidate, e);
               }
             }
@@ -440,14 +453,21 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
             }
           }
         } catch (error) {
-          if (error instanceof Error && error.name === "AbortError") {
+          const isAbort =
+            (error instanceof Error && error.name === "AbortError") ||
+            (typeof DOMException !== "undefined" &&
+              error instanceof DOMException &&
+              error.name === "AbortError") ||
+            (error instanceof Error && /abort/i.test(error.message));
+          if (isAbort) {
             self.logger.info("[bunny-agent] Stream aborted by user");
+            controller.close();
           } else {
             self.logger.error(
               `[bunny-agent] Stream error: ${formatErrorForLog(error)}`,
             );
+            controller.error(error);
           }
-          controller.error(error);
         }
       },
 

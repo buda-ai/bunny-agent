@@ -201,11 +201,16 @@ export class BunnyAgent {
           controller.close();
           controllerClosed = true;
         } catch (error) {
-          if (error instanceof Error && error.name === "AbortError") {
-            // Normal abort operation - log appropriately
+          const isAbort =
+            (error instanceof Error && error.name === "AbortError") ||
+            (typeof DOMException !== "undefined" &&
+              error instanceof DOMException &&
+              error.name === "AbortError") ||
+            (error instanceof Error && /abort/i.test(error.message));
+
+          if (isAbort) {
             console.log("[BunnyAgent] Operation aborted by user");
           } else {
-            // Other errors
             const errorMessage =
               error instanceof Error ? error.message : String(error);
             console.error("[BunnyAgent] Error:", errorMessage);
@@ -219,8 +224,10 @@ export class BunnyAgent {
           }
 
           // Only call controller.error if controller hasn't been closed yet
-          if (!controllerClosed) {
+          if (!controllerClosed && !isAbort) {
             controller.error(error);
+          } else if (!controllerClosed) {
+            controller.close();
           }
         }
       },
