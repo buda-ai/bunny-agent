@@ -36,6 +36,10 @@ export function createDaemon(config: DaemonConfig): http.Server {
           string,
           unknown
         >;
+        if (!body.userInput || typeof body.userInput !== "string") {
+          sendJson(res, 400, fail("userInput is required and must be a string"));
+          return;
+        }
         const mergedEnv = mergeCodingRunProcessEnv(env, body);
         return bunnyAgentRun(
           body as unknown as Parameters<typeof bunnyAgentRun>[0],

@@ -96,14 +96,16 @@ describe("POST /api/coding/run (standalone server)", () => {
     expect(payloads[payloads.length - 1]).toBe("[DONE]");
   });
 
-  it("returns error for missing userInput", async () => {
+  it("returns 400 for missing userInput", async () => {
     const res = await fetch(`${BASE}/api/coding/run`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({}),
     });
-    // createRunner will be called with undefined userInput — still streams
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json.ok).toBe(false);
+    expect(json.error).toMatch(/userInput/);
   });
 });
 

@@ -42,6 +42,11 @@ export function createNextHandler(opts: { root: string; prefix?: string }) {
     // Streaming: /api/coding/run → NDJSON stream
     if (method === "POST" && pathname === "/api/coding/run") {
       const body = (await req.json().catch(() => ({}))) as RunRequest;
+      if (!body.userInput || typeof body.userInput !== "string") {
+        return Response.json(fail("userInput is required and must be a string"), {
+          status: 400,
+        });
+      }
       const mergedEnv = mergeCodingRunProcessEnv(env, body);
       return codingRunStream(body, mergedEnv);
     }
