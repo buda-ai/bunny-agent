@@ -106,7 +106,7 @@ RUN printf '%s\n' \
     '  echo "Copied /skills to $HOME/.claude/skills"' \
     'fi' \
     'bunny-agent-daemon &' \
-    'start-cdp' \
+    '[ "$ENABLE_CDP" != "false" ] && start-cdp' \
     'exec "$@"' > /usr/local/bin/bunny-entrypoint && \
     chmod +x /usr/local/bin/bunny-entrypoint && \
     mkdir -p /etc/bunny-agent-init.d

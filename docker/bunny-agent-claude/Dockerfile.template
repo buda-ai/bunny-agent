@@ -91,7 +91,7 @@ RUN printf '%s\n' \
     '  echo "Copied /skills to $HOME/.claude/skills"' \
     'fi' \
     'sandagent-daemon &' \
-    'start-cdp' \
+    '[ "$ENABLE_CDP" != "false" ] && start-cdp' \
     'exec "$@"' > /usr/local/bin/sandagent-entrypoint && \
     chmod +x /usr/local/bin/sandagent-entrypoint
 ENV NODE_PATH=/opt/sandagent/node_modules
