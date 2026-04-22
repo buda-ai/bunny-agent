@@ -16,6 +16,9 @@
 - Addressed automated code review polish feedback:
   - Added JSDoc to tool-resolution helper.
   - Renamed `allowedToolsOverride` parameter to `requestAllowedTools` for clearer intent.
+- Hardened tool-name extraction and testability:
+  - Extracted `resolveRequestAllowedTools(...)` as a module-level helper with defensive `tool.name` handling.
+  - Updated tests to validate the helper directly (no private-method access).
 
 ## Validation log
 

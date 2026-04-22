@@ -117,6 +117,28 @@ function createEmptyUsage(): LanguageModelV3Usage {
 }
 
 /**
+ * Resolves per-request allowed tools from AI SDK call options.
+ * - When `streamText` provides `tools`, their names are used for this request.
+ * - When `tools` is omitted, provided default tool names are used.
+ */
+export function resolveRequestAllowedTools(
+  options: LanguageModelV3CallOptions,
+  defaultAllowedTools: string[] | undefined,
+): string[] | undefined {
+  if (options.tools === undefined) {
+    return defaultAllowedTools;
+  }
+
+  const names = options.tools
+    .map((tool) =>
+      typeof tool.name === "string" ? tool.name.trim() : undefined,
+    )
+    .filter((name): name is string => Boolean(name && name.length > 0));
+
+  return [...new Set(names)];
+}
+
+/**
  * BunnyAgent Language Model implementation for AI SDK.
  */
 export class BunnyAgentLanguageModel implements LanguageModelV3 {
@@ -275,7 +297,10 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
   ): Promise<LanguageModelV3StreamResult> {
     const { prompt, abortSignal } = options;
     const messages = this.convertPromptToMessages(prompt);
-    const allowedTools = this.resolveAllowedTools(options);
+    const allowedTools = resolveRequestAllowedTools(
+      options,
+      this.options.runner.allowedTools ?? this.options.allowedTools,
+    );
 
     this.resetStreamState();
 
@@ -369,25 +394,6 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
       skillPaths: runner.skillPaths ?? this.options.skillPaths,
       yolo: this.options.yolo,
     };
-  }
-
-  /**
-   * Resolves per-request allowed tools from AI SDK call options.
-   * - When `streamText` provides `tools`, their names are used for this request.
-   * - When `tools` is omitted, provider/runner defaults are used.
-   */
-  private resolveAllowedTools(
-    options: LanguageModelV3CallOptions,
-  ): string[] | undefined {
-    if (options.tools === undefined) {
-      return this.options.runner.allowedTools ?? this.options.allowedTools;
-    }
-
-    const names = options.tools
-      .map((tool) => tool.name.trim())
-      .filter((name) => name.length > 0);
-
-    return [...new Set(names)];
   }
 
   private buildStreamResult(
