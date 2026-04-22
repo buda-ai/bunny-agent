@@ -11,6 +11,10 @@ export interface SmokingTask {
   expectedOutput: string | RegExp;
   category: "file" | "code" | "bash" | "reasoning";
   timeoutMs: number;
+  /** If set, run a second turn with this prompt (resuming the session). */
+  resumePrompt?: string;
+  /** Expected output for the resume turn. */
+  resumeExpectedOutput?: string | RegExp;
 }
 
 /**
@@ -46,7 +50,7 @@ export const SMOKING_TESTS: SmokingTask[] = [
     id: "smoke-004",
     name: "Write Python Script",
     description: "Create a Python script that prints 'Hello from Python'",
-    expectedOutput: /print.*Hello from Python/i,
+    expectedOutput: /print.*Hello\s*from\s*Python/i,
     category: "code",
     timeoutMs: 90000,
   },
@@ -58,6 +62,17 @@ export const SMOKING_TESTS: SmokingTask[] = [
     expectedOutput: /test/,
     category: "reasoning",
     timeoutMs: 30000,
+  },
+  {
+    id: "smoke-006",
+    name: "Session Resume",
+    description: "Remember this secret code: PINEAPPLE-42. Reply with OK.",
+    expectedOutput: /OK/i,
+    category: "reasoning",
+    timeoutMs: 30000,
+    /** Second turn prompt — runner should resume the session from turn 1. */
+    resumePrompt: "What was the secret code I told you?",
+    resumeExpectedOutput: /PINEAPPLE-42/,
   },
 ];
 

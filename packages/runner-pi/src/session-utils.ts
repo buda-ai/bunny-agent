@@ -17,8 +17,10 @@ import {
 import { join } from "node:path";
 import { SessionManager } from "@mariozechner/pi-coding-agent";
 
-/** Maximum session file size (bytes) before we skip resume to avoid OOM. */
-export const MAX_SESSION_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
+/** Maximum session file size (bytes) before we skip resume to avoid OOM.
+ *  Override with env var SANDAGENT_MAX_SESSION_BYTES for testing. */
+export const MAX_SESSION_FILE_BYTES =
+  Number(process.env.SANDAGENT_MAX_SESSION_BYTES) || 10 * 1024 * 1024; // 10 MB
 
 /**
  * Resolve a session file path by id without loading/parsing session contents.
