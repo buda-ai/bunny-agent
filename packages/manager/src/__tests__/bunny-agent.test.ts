@@ -352,8 +352,9 @@ describe("BunnyAgent", () => {
       // Read first chunk
       await reader.read();
 
-      // Try to read next chunk - should throw
-      await expect(reader.read()).rejects.toThrow();
+      // Try to read next chunk - should close cleanly (not reject)
+      const result = await reader.read();
+      expect(result.done).toBe(true);
 
       // Check that start entry was written
       const startEntry = transcriptEntries.find(
