@@ -104,6 +104,8 @@ jobs:
       # Open a PR that carries the version-bump commits back into main so that
       # package.json files and CHANGELOGs stay in sync with what was published.
       - name: Create Version PR
+        id: create_version_pr
+        continue-on-error: true
         uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -121,3 +123,8 @@ jobs:
           branch: changeset-release/main
           base: main
           delete-branch: true
+
+      - name: Warn when Version PR creation is blocked
+        if: steps.create_version_pr.outcome == 'failure'
+        run: |
+          echo "::warning::Version PR creation failed. Publishing succeeded, but this repository currently blocks pull request creation from GitHub Actions. Enable the repository setting 'Allow GitHub Actions to create and approve pull requests' or provide a token with pull request permissions."
