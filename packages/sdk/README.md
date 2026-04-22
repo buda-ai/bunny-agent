@@ -270,8 +270,13 @@ const bunnyAgent = createBunnyAgent({
 const model = bunnyAgent("claude-sonnet-4-20250514");
 ```
 
-When using `streamText({ model, tools })`, the SDK forwards the provided tool
-names as the runner's per-request allowed tool list.
+When using `streamText({ model, tools })`, any tools with an `execute` function
+are treated as **external tools** — they execute on your server, not inside the
+sandbox. Their schemas are injected into the agent's system prompt so the LLM
+knows about them. When the agent wants to call one it emits a structured
+`__BUNNY_TOOL_CALL__:` JSON line; the SDK converts that to a `tool-call` stream
+part (without `providerExecuted`) so the AI SDK can run `execute()` on your
+server and feed the result back in the next `maxSteps` step.
 
 #### Daemon HTTP transport (same provider)
 
