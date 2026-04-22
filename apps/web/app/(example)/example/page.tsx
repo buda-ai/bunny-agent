@@ -182,21 +182,20 @@ function HomeContent() {
   const [selectedTemplate, setSelectedTemplate] = useState(() => {
     return searchParams.get("template") || "default";
   });
-  const [clientConfig, setClientConfig] = useState<Record<string, string>>({});
-
-  // Check configuration status from localStorage on mount
-  useEffect(() => {
+  const [clientConfig] = useState<Record<string, string>>(() => {
+    if (typeof window === "undefined") return {};
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
-      const config = saved ? JSON.parse(saved) : {};
-      setClientConfig(config);
-      // LLM goes through bunny-agent-daemon; only sandbox keys matter for Ready.
-      const allRequiredSet = REQUIRED_KEYS.every((key) => !!config[key]);
-      setConfigReady(allRequiredSet);
+      return saved ? JSON.parse(saved) : {};
     } catch {
-      setConfigReady(false);
+      return {};
     }
-  }, []);
+  });
+
+  useEffect(() => {
+    const allRequiredSet = REQUIRED_KEYS.every((key) => !!clientConfig[key]);
+    setConfigReady(allRequiredSet);
+  }, [clientConfig]);
 
   const { messages, status, error, isLoading, hasError, handleSubmit, stop } =
     useBunnyAgentChat({

@@ -1,6 +1,5 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { inspect } from "node:util";
 import {
   type BunnyAgentProviderSettings,
   createBunnyAgent,
@@ -25,6 +24,37 @@ import {
 
 import { DEFAULT_RUNNER, type RunnerType } from "@/lib/runner";
 
+/** POST /api/ai JSON body; nested `env` is merged so clients can group credentials. */
+interface AiChatRequestBody {
+  messages?: UIMessage[];
+  template?: string;
+  resume?: string;
+  RUNNER?: string;
+  MODEL_ID?: string;
+  ANTHROPIC_API_KEY?: string;
+  ANTHROPIC_BASE_URL?: string;
+  AWS_BEARER_TOKEN_BEDROCK?: string;
+  ANTHROPIC_AUTH_TOKEN?: string;
+  LITELLM_MASTER_KEY?: string;
+  ANTHROPIC_BEDROCK_BASE_URL?: string;
+  CLAUDE_CODE_USE_BEDROCK?: string;
+  CLAUDE_CODE_SKIP_BEDROCK_AUTH?: string;
+  OPENAI_API_KEY?: string;
+  OPENAI_BASE_URL?: string;
+  GEMINI_API_KEY?: string;
+  GEMINI_BASE_URL?: string;
+  E2B_API_KEY?: string;
+  SANDOCK_API_KEY?: string;
+  SANDOCK_BASE_URL?: string;
+  DAYTONA_API_KEY?: string;
+  SANDBOX_PROVIDER?: string;
+  BRAVE_API_KEY?: string;
+  TAVILY_API_KEY?: string;
+  USE_BUNNY_AGENT_DAEMON?: string | number | boolean;
+  /** Stripped after merge; only nested keys are lifted into the top level. */
+  env?: Record<string, unknown>;
+}
+
 /**
  * POST /api/ai
  *
@@ -33,7 +63,13 @@ import { DEFAULT_RUNNER, type RunnerType } from "@/lib/runner";
  * stream finishes.
  */
 export async function POST(request: Request) {
-  const body = await request.json();
+  const raw = (await request.json()) as Record<string, unknown>;
+  const nestedEnv =
+    raw.env != null && typeof raw.env === "object" && !Array.isArray(raw.env)
+      ? (raw.env as Record<string, unknown>)
+      : {};
+  const { env: _nestedEnvOmitted, ...topLevel } = raw;
+  const body = { ...nestedEnv, ...topLevel } as AiChatRequestBody;
   const {
     messages,
     template = "default",
@@ -54,6 +90,7 @@ export async function POST(request: Request) {
     GEMINI_BASE_URL,
     E2B_API_KEY,
     SANDOCK_API_KEY,
+    SANDOCK_BASE_URL,
     DAYTONA_API_KEY,
     SANDBOX_PROVIDER = "e2b",
     BRAVE_API_KEY,
@@ -87,56 +124,44 @@ export async function POST(request: Request) {
   if (runnerType === "pi") {
     if (!hasPiAuth) {
       return new Response(
-        JSON.stringify({
-          error:
-            "Pi runner requires at least one provider key: OPENAI_API_KEY, GEMINI_API_KEY, or Claude/Bedrock auth. Configure in Settings.",
-        }),
-        { status: 400, headers: { "Content-Type": "application/json" } },
+        "Pi runner requires at least one provider key: OPENAI_API_KEY, GEMINI_API_KEY, or Claude/Bedrock auth. Configure in Settings.",
+        { status: 400, headers: { "Content-Type": "text/plain" } },
       );
     }
   } else if (!hasClaudeAuth) {
     return new Response(
-      JSON.stringify({
-        error:
-          "Claude auth is required. Set one of: ANTHROPIC_API_KEY, AWS_BEARER_TOKEN_BEDROCK, ANTHROPIC_AUTH_TOKEN, LITELLM_MASTER_KEY, or Bedrock proxy (CLAUDE_CODE_USE_BEDROCK=1 + ANTHROPIC_BEDROCK_BASE_URL). Configure in Settings.",
-      }),
-      { status: 400, headers: { "Content-Type": "application/json" } },
+      "Claude auth is required. Set one of: ANTHROPIC_API_KEY, AWS_BEARER_TOKEN_BEDROCK, ANTHROPIC_AUTH_TOKEN, LITELLM_MASTER_KEY, or Bedrock proxy (CLAUDE_CODE_USE_BEDROCK=1 + ANTHROPIC_BEDROCK_BASE_URL). Configure in Settings.",
+      { status: 400, headers: { "Content-Type": "text/plain" } },
     );
   }
 
   if (SANDBOX_PROVIDER === "e2b" && !E2B_API_KEY) {
-    return new Response(
-      JSON.stringify({
-        error: "E2B_API_KEY is required when using E2B sandbox.",
-      }),
-      { status: 400, headers: { "Content-Type": "application/json" } },
-    );
+    return new Response("E2B_API_KEY is required when using E2B sandbox.", {
+      status: 400,
+      headers: { "Content-Type": "text/plain" },
+    });
   }
 
   if (SANDBOX_PROVIDER === "sandock" && !SANDOCK_API_KEY) {
     return new Response(
-      JSON.stringify({
-        error: "SANDOCK_API_KEY is required when using Sandock sandbox.",
-      }),
-      { status: 400, headers: { "Content-Type": "application/json" } },
+      "SANDOCK_API_KEY is required when using Sandock sandbox.",
+      { status: 400, headers: { "Content-Type": "text/plain" } },
     );
   }
 
   if (SANDBOX_PROVIDER === "daytona" && !DAYTONA_API_KEY) {
     return new Response(
-      JSON.stringify({
-        error: "DAYTONA_API_KEY is required when using Daytona sandbox.",
-      }),
-      { status: 400, headers: { "Content-Type": "application/json" } },
+      "DAYTONA_API_KEY is required when using Daytona sandbox.",
+      { status: 400, headers: { "Content-Type": "text/plain" } },
     );
   }
 
   // --- Normalize last message -----------------------------------------------
   const lastMessage = messages?.[messages.length - 1];
   if (!lastMessage) {
-    return new Response(JSON.stringify({ error: "No messages provided" }), {
+    return new Response("No messages provided", {
       status: 400,
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "text/plain" },
     });
   }
 
@@ -152,7 +177,7 @@ export async function POST(request: Request) {
     );
     normalizedMessage = {
       role: "user",
-      content: JSON.stringify(toolResult.output || {}),
+      content: JSON.stringify(toolResult?.output ?? {}),
     };
   } else {
     const textParts: string[] = [];
@@ -211,6 +236,7 @@ export async function POST(request: Request) {
     runnerType,
     E2B_API_KEY,
     SANDOCK_API_KEY,
+    SANDOCK_BASE_URL,
     DAYTONA_API_KEY,
     ANTHROPIC_API_KEY,
     ANTHROPIC_BASE_URL,
@@ -234,7 +260,18 @@ export async function POST(request: Request) {
     },
   };
 
-  const sandbox = await getOrCreateSandbox(sandboxParams);
+  let sandbox: Awaited<ReturnType<typeof getOrCreateSandbox>>;
+  try {
+    sandbox = await getOrCreateSandbox(sandboxParams);
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : "Failed to create sandbox";
+    console.error("[api/ai] sandbox creation failed:", err);
+    return new Response(message, {
+      status: 500,
+      headers: { "Content-Type": "text/plain" },
+    });
+  }
 
   // Clean up cached sandbox when the client disconnects
   signal.addEventListener("abort", () => evictSandbox(sandboxParams), {
@@ -249,7 +286,7 @@ export async function POST(request: Request) {
   // Pi expects "<provider>:<model>" (e.g. openai:gpt-5.4, anthropic:claude-opus-4-6-v1)
   if (runnerType === "pi") {
     if (model.includes(":")) {
-      // Already in provider:model form
+      // Already in provider:model form; keep as-is.
     } else if (model.startsWith("global.anthropic.")) {
       model = `anthropic:${model.slice("global.anthropic.".length)}`;
     } else if (model.includes("/")) {
@@ -290,10 +327,23 @@ export async function POST(request: Request) {
           DEFAULT_BUNNY_AGENT_DAEMON_URL,
           { cwd: handle.getWorkdir(), signal },
         );
+        console.info("[api/ai] daemon health check", {
+          sandboxProvider: SANDBOX_PROVIDER,
+          sandboxId: handle.getSandboxId(),
+          daemonUrl: DEFAULT_BUNNY_AGENT_DAEMON_URL,
+          daemonOk,
+        });
         if (daemonOk) {
           daemonUrl = DEFAULT_BUNNY_AGENT_DAEMON_URL;
         }
       }
+
+      console.info("[api/ai] runner mode", {
+        useBunnyAgentDaemon,
+        daemonEnabled: daemonUrl != null,
+        runnerType,
+        model,
+      });
 
       const bunnyAgentOptions: BunnyAgentProviderSettings = {
         sandbox,
@@ -317,37 +367,22 @@ export async function POST(request: Request) {
         messages: normalizedMessages,
         abortSignal: signal,
         onFinish: (event) => {
-          const stepMetadata = (event.steps ?? [])
-            .map((step, index) => ({
-              step: index,
-              finishReason: step.finishReason,
-              usage: step.usage,
-              providerMetadata: step.providerMetadata,
-              bunnyAgentMetadata: step.providerMetadata?.["bunny-agent"],
-            }))
-            .filter(
-              (entry) =>
-                entry.providerMetadata != null || entry.bunnyAgentMetadata != null,
-            );
-
-          const finishLog = {
+          const stepMetadata = event.steps
+            .map((step) => step.providerMetadata)
+            .filter((meta) => meta != null);
+          console.info("[api/ai] stream finished", {
             finishReason: event.finishReason,
             usage: event.usage,
             totalUsage: event.totalUsage,
-            responseId: event.response?.id,
-            steps: event.steps?.length ?? 0,
             providerMetadata: event.providerMetadata,
-            bunnyAgentMetadata: event.providerMetadata?.["bunny-agent"],
-            stepMetadata,
-          };
-          console.log(
-            "[api/ai] streamText finished\n%s",
-            inspect(finishLog, {
-              depth: null,
-              colors: false,
-              maxArrayLength: null,
-            }),
-          );
+            stepMetadataCount: stepMetadata.length,
+          });
+        },
+        onAbort: () => {
+          console.info("[api/ai] stream aborted by client");
+        },
+        onError: (event) => {
+          console.error("[api/ai] stream error", event.error);
         },
       });
 

@@ -319,7 +319,7 @@ export function buildImageGenerateTool(
     ],
     // biome-ignore lint/suspicious/noExplicitAny: plain JSON Schema compatible with TypeBox TSchema
     parameters: generateImageSchema as any,
-    async execute(_toolCallId, params, _signal, _onUpdate) {
+    async execute(_toolCallId, params, signal, _onUpdate) {
       const p = params as Record<string, unknown>;
       const prompt = p.prompt as string;
       const size = (p.size as string) ?? "1024x1024";
@@ -351,6 +351,7 @@ export function buildImageGenerateTool(
             response_format: "b64_json",
             output_format: "png",
           }),
+          signal,
         });
 
         if (!res.ok) {
@@ -499,7 +500,7 @@ export function buildImageEditTool(
     ],
     // biome-ignore lint/suspicious/noExplicitAny: plain JSON Schema compatible with TypeBox TSchema
     parameters: editImageSchema as any,
-    async execute(_toolCallId, params, _signal, _onUpdate) {
+    async execute(_toolCallId, params, signal, _onUpdate) {
       const { readFileSync, existsSync } = await import("node:fs");
       const { resolve, basename } = await import("node:path");
 
@@ -592,6 +593,7 @@ export function buildImageEditTool(
               Authorization: `Bearer ${apiKey}`,
             },
             body,
+            signal,
           });
 
           if (!res.ok) {

@@ -49,6 +49,7 @@ export interface WebSearchProvider {
     count: number;
     country?: string;
     freshness?: string;
+    signal?: AbortSignal;
   }): Promise<SearchExecutionResult>;
 }
 
@@ -81,7 +82,7 @@ const braveProvider: WebSearchProvider = {
   id: "brave",
   label: "Brave Search",
   envKeys: ["BRAVE_API_KEY"],
-  async search({ apiKey, query, count, country, freshness }) {
+  async search({ apiKey, query, count, country, freshness, signal }) {
     const params = new URLSearchParams({
       q: query,
       count: String(Math.min(count, 20)),
@@ -97,6 +98,7 @@ const braveProvider: WebSearchProvider = {
           "Accept-Encoding": "gzip",
           "X-Subscription-Token": apiKey!,
         },
+        signal,
       },
     );
     if (!res.ok) {
@@ -129,7 +131,7 @@ const tavilyProvider: WebSearchProvider = {
   id: "tavily",
   label: "Tavily",
   envKeys: ["TAVILY_API_KEY"],
-  async search({ apiKey, query, count }) {
+  async search({ apiKey, query, count, signal }) {
     const res = await fetch("https://api.tavily.com/search", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -139,6 +141,7 @@ const tavilyProvider: WebSearchProvider = {
         max_results: Math.min(count, 10),
         include_answer: false,
       }),
+      signal,
     });
     if (!res.ok) {
       const body = await res.text().catch(() => "");
@@ -246,9 +249,16 @@ function htmlToText(html: string): string {
     .trim();
 }
 
-async function fetchPageContent(url: string): Promise<string> {
+async function fetchPageContent(
+  url: string,
+  externalSignal?: AbortSignal,
+): Promise<string> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15_000);
+  // If external signal fires, also abort our controller
+  externalSignal?.addEventListener("abort", () => controller.abort(), {
+    once: true,
+  });
   try {
     const res = await fetch(url, {
       headers: {
@@ -377,7 +387,7 @@ export function buildWebSearchTool(
     ],
     // biome-ignore lint/suspicious/noExplicitAny: plain JSON Schema compatible with TypeBox TSchema
     parameters: webSearchSchema as any,
-    async execute(_toolCallId, params, _signal, _onUpdate) {
+    async execute(_toolCallId, params, signal, _onUpdate) {
       const p = params as Record<string, unknown>;
       const query = p.query as string;
       const count = (p.count as number) ?? 5;
@@ -395,12 +405,13 @@ export function buildWebSearchTool(
             count,
             country,
             freshness,
+            signal,
           });
 
           let fetchedPages = 0;
           if (shouldFetchContent) {
             for (const r of results) {
-              r.content = await fetchPageContent(r.link);
+              r.content = await fetchPageContent(r.link, signal);
               fetchedPages += 1;
             }
           }
@@ -471,11 +482,11 @@ export function buildWebFetchTool(): ToolDefinition {
     ],
     // biome-ignore lint/suspicious/noExplicitAny: plain JSON Schema compatible with TypeBox TSchema
     parameters: webFetchSchema as any,
-    async execute(_toolCallId, params, _signal, _onUpdate) {
+    async execute(_toolCallId, params, signal, _onUpdate) {
       const p = params as Record<string, unknown>;
       const url = p.url as string;
       try {
-        const content = await fetchPageContent(url);
+        const content = await fetchPageContent(url, signal);
         return {
           content: [{ type: "text" as const, text: content }],
           details: undefined,

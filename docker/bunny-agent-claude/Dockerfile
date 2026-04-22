@@ -13,7 +13,7 @@ FROM node:20-slim
 
 # Version of @bunny-agent/runner-cli to install.
 # Override at build time: docker build --build-arg RUNNER_CLI_VERSION=1.2.3 ...
-ARG RUNNER_CLI_VERSION=0.9.27-beta.0
+ARG RUNNER_CLI_VERSION=0.9.29-beta.0
 
 LABEL org.opencontainers.image.title="bunny-agent"
 LABEL org.opencontainers.image.description="Bunny Agent with Claude Agent SDK pre-installed"
@@ -81,15 +81,15 @@ fi\n\
 exec "$@"' > /usr/local/bin/bunny-agent-init && \
     chmod +x /usr/local/bin/bunny-agent-init
 
-# Create bunny as system command in /usr/local/bin
-RUN echo '#!/usr/bin/env node' > /usr/local/bin/bunny && \
-    echo 'import("/opt/bunny-agent/node_modules/@bunny-agent/runner-cli/dist/bundle.mjs")' >> /usr/local/bin/bunny && \
-    chmod +x /usr/local/bin/bunny
+# Create runner CLI command in /usr/local/bin
+RUN echo '#!/usr/bin/env node' > /usr/local/bin/bunny-agent && \
+    echo 'import("/opt/bunny-agent/node_modules/@bunny-agent/runner-cli/dist/bundle.mjs")' >> /usr/local/bin/bunny-agent && \
+    chmod +x /usr/local/bin/bunny-agent
 
 # bunny-agent-daemon: HTTP gateway (fs, git, volumes, /api/coding/run)
-RUN echo '#!/usr/bin/env node' > /usr/local/bin/bunny-daemon && \
-    echo 'import("/opt/bunny-agent/node_modules/@bunny-agent/daemon/dist/bundle.mjs")' >> /usr/local/bin/bunny-daemon && \
-    chmod +x /usr/local/bin/bunny-daemon
+RUN echo '#!/usr/bin/env node' > /usr/local/bin/bunny-agent-daemon && \
+    echo 'import("/opt/bunny-agent/node_modules/@bunny-agent/daemon/dist/bundle.mjs")' >> /usr/local/bin/bunny-agent-daemon && \
+    chmod +x /usr/local/bin/bunny-agent-daemon
 
 # Entrypoint: run init hooks, copy /skills, start daemon + CDP, then exec CMD
 RUN printf '%s\n' \
@@ -107,8 +107,8 @@ RUN printf '%s\n' \
     'fi' \
     'bunny-agent-daemon &' \
     'start-cdp' \
-    'exec "$@"' > /usr/local/bin/bunny-entrypoint && \
-    chmod +x /usr/local/bin/bunny-entrypoint && \
+    'exec "$@"' > /usr/local/bin/bunny-agent-entrypoint && \
+    chmod +x /usr/local/bin/bunny-agent-entrypoint && \
     mkdir -p /etc/bunny-agent-init.d
 
 # Set environment variables
@@ -156,7 +156,7 @@ USER agent
 # Template files (optional, added by build script)
 
 # Copy /skills into ~/.claude/skills at startup, then keep container running (for Daytona)
-ENTRYPOINT ["/usr/local/bin/bunny-entrypoint"]
+ENTRYPOINT ["/usr/local/bin/bunny-agent-entrypoint"]
 
 # Expose bunny-agent-daemon HTTP (healthz, fs, git, coding) and CDP (browser automation)
 EXPOSE 3080
