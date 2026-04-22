@@ -4,7 +4,7 @@ export { loadSystemPrompt } from "./prompt.js";
 export type { RunnerCoreOptions } from "./runner.js";
 export { createRunner } from "./runner.js";
 
-export { clearSessionId, readSessionId, writeSessionId } from "./session.js";
+export { cacheSessionFilePath, clearSessionId, lookupSessionFilePath, readSessionId, writeSessionId } from "./session.js";
 export { discoverSkillPaths } from "./skills.js";
 export type { RunnerChunk } from "./stream.js";
 export { parseRunnerStream } from "./stream.js";

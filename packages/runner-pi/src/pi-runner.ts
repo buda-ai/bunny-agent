@@ -9,6 +9,10 @@ import {
   SessionManager,
   type ToolDefinition,
 } from "@mariozechner/pi-coding-agent";
+import {
+  cacheSessionFilePath,
+  lookupSessionFilePath,
+} from "@bunny-agent/runner-harness";
 import { BunnyAgentResourceLoader } from "./bunny-agent-resource-loader.js";
 import {
   buildImageEditTool,
@@ -324,6 +328,13 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
             if (resume.includes("/")) {
               return SessionManager.open(resume);
             }
+            // Check the local sessionId→sessionFile cache first to avoid the
+            // memory-intensive SessionManager.list() full-scan (OOM risk under
+            // tight heap limits, e.g. NODE_OPTIONS="--max-old-space-size=350").
+            const cachedPath = lookupSessionFilePath(cwd, resume);
+            if (cachedPath) {
+              return SessionManager.open(cachedPath);
+            }
             const sessions = await SessionManager.list(cwd);
             const found = sessions.find((s) => s.id === resume);
             return found
@@ -381,6 +392,15 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           resourceLoader,
           customTools,
         });
+
+        // Persist sessionId → sessionFile to the local cache so that
+        // subsequent runs can open the session directly via
+        // SessionManager.open(path) without calling the expensive
+        // SessionManager.list() full-scan, regardless of whether the
+        // client is using autoInject or manages the session ID itself.
+        if (session.sessionFile != null) {
+          cacheSessionFilePath(cwd, session.sessionId, session.sessionFile);
+        }
 
         const eventQueue: AgentSessionEvent[] = [];
         let isComplete = false;
