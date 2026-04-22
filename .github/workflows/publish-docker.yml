@@ -89,8 +89,8 @@ jobs:
           build-args: |
             RUNNER_CLI_VERSION=${{ steps.version.outputs.version }}
           tags: |
-            vikadata/sandagent:${{ steps.version.outputs.version }}
-            vikadata/sandagent:latest
+            vikadata/bunny-agent:${{ steps.version.outputs.version }}
+            vikadata/bunny-agent:latest
 
       - name: Write job summary
         if: always()
@@ -111,9 +111,9 @@ jobs:
 
           | Field      | Value |
           |------------|-------|
-          | **Image**  | \`vikadata/sandagent\` |
-          | **Version tag** | [\`${VERSION}\`](https://hub.docker.com/r/vikadata/sandagent/tags?name=${VERSION}) |
-          | **Latest tag**  | [\`latest\`](https://hub.docker.com/r/vikadata/sandagent/tags?name=latest) |
+          | **Image**  | \`vikadata/bunny-agent\` |
+          | **Version tag** | [\`${VERSION}\`](https://hub.docker.com/r/vikadata/bunny-agent/tags?name=${VERSION}) |
+          | **Latest tag**  | [\`latest\`](https://hub.docker.com/r/vikadata/bunny-agent/tags?name=latest) |
           | **Git tag** | \`${TAG}\` |
           | **Platforms** | \`linux/amd64\`, \`linux/arm64\` |
           | **Digest** | \`${DIGEST}\` |
@@ -122,8 +122,8 @@ jobs:
           ### Pull the image
 
           \`\`\`bash
-          docker pull vikadata/sandagent:${VERSION}
+          docker pull vikadata/bunny-agent:${VERSION}
           # or
-          docker pull vikadata/sandagent:latest
+          docker pull vikadata/bunny-agent:latest
           \`\`\`
           EOF
