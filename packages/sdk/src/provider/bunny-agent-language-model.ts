@@ -5,6 +5,7 @@ import type {
   LanguageModelV3CallOptions,
   LanguageModelV3Content,
   LanguageModelV3FinishReason,
+  LanguageModelV3FunctionTool,
   LanguageModelV3GenerateResult,
   LanguageModelV3Prompt,
   LanguageModelV3StreamPart,
@@ -99,6 +100,18 @@ function getLastUserTextFromMessages(messages: Message[]): string {
     .join("\n");
 }
 
+/** Safely parse a JSON string to a plain object, returning `{}` on failure. */
+function safeParseJson(value: string): Record<string, unknown> {
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return typeof parsed === "object" && parsed !== null
+      ? (parsed as Record<string, unknown>)
+      : {};
+  } catch {
+    return {};
+  }
+}
+
 function createEmptyUsage(): LanguageModelV3Usage {
   return {
     inputTokens: {
@@ -120,6 +133,13 @@ function createEmptyUsage(): LanguageModelV3Usage {
  * Resolves per-request allowed tools from AI SDK call options.
  * - When `streamText` provides `tools`, their names are used for this request.
  * - When `tools` is omitted, provided default tool names are used.
+ *
+ * @remarks
+ * This utility is exported for callers who want to explicitly derive
+ * `allowedTools` from `streamText` call options.  It is **not** applied
+ * automatically inside `doStream` — `streamText` tools are treated as
+ * user-defined external tools that execute on the caller's server, not as
+ * agent built-in tools.
  */
 export function resolveRequestAllowedTools(
   options: LanguageModelV3CallOptions,
@@ -136,6 +156,186 @@ export function resolveRequestAllowedTools(
     .filter((name): name is string => Boolean(name && name.length > 0));
 
   return [...new Set(names)];
+}
+
+/** Prefix that the agent outputs (on its own line) to signal an external tool call. */
+export const EXTERNAL_TOOL_CALL_MARKER = "__BUNNY_TOOL_CALL__:";
+/** Prefix that the SDK injects into the conversation to deliver a tool result. */
+export const EXTERNAL_TOOL_RESULT_MARKER = "__BUNNY_TOOL_RESULT__:";
+
+/**
+ * Attempts to parse a `__BUNNY_TOOL_CALL__:` marker line emitted by the agent.
+ * Returns the parsed call payload, or `null` if the line is not a valid marker.
+ */
+export function parseExternalToolCallMarker(
+  line: string,
+): { id: string; name: string; args: Record<string, unknown> } | null {
+  const trimmed = line.trim();
+  if (!trimmed.startsWith(EXTERNAL_TOOL_CALL_MARKER)) return null;
+  try {
+    const json = trimmed.slice(EXTERNAL_TOOL_CALL_MARKER.length).trim();
+    const parsed = JSON.parse(json) as Record<string, unknown>;
+    if (
+      typeof parsed.name === "string" &&
+      typeof parsed.args === "object" &&
+      parsed.args !== null
+    ) {
+      return {
+        id:
+          typeof parsed.id === "string"
+            ? parsed.id
+            : `ext-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        name: parsed.name,
+        args: parsed.args as Record<string, unknown>,
+      };
+    }
+  } catch {
+    // Not a valid marker — fall through
+  }
+  return null;
+}
+
+/**
+ * Builds the system-prompt section that describes the available external tools
+ * and the calling convention the agent must follow.
+ */
+export function buildExternalToolsSection(
+  tools: LanguageModelV3FunctionTool[],
+): string {
+  if (tools.length === 0) return "";
+
+  const toolDefs = tools
+    .map(
+      (t) =>
+        `- **${t.name}**: ${t.description ?? "(no description)"}\n` +
+        `  Parameters: ${JSON.stringify(t.inputSchema)}`,
+    )
+    .join("\n");
+
+  return [
+    "",
+    "---",
+    "## External Custom Tools",
+    "The following tools execute on the caller's server, NOT inside this sandbox.",
+    `To call one, output EXACTLY this JSON on its own line then stop immediately:`,
+    `${EXTERNAL_TOOL_CALL_MARKER} {"id":"<unique-id>","name":"<toolName>","args":{...}}`,
+    "The tool result will be delivered in the next message as:",
+    `${EXTERNAL_TOOL_RESULT_MARKER} {"id":"<same-id>","name":"<toolName>","result":{...}}`,
+    "",
+    toolDefs,
+    "---",
+  ].join("\n");
+}
+
+/**
+ * Wraps a `LanguageModelV3StreamPart` stream and intercepts lines that match
+ * the external-tool-call marker, converting them to proper `tool-call` events
+ * that the AI SDK can execute server-side.  All other events pass through
+ * unchanged.
+ */
+export function applyExternalToolMarkerFilter(
+  stream: ReadableStream<LanguageModelV3StreamPart>,
+  externalToolNames: ReadonlySet<string>,
+): ReadableStream<LanguageModelV3StreamPart> {
+  if (externalToolNames.size === 0) return stream;
+
+  const reader = stream.getReader();
+  // Per-text-part line buffer (keyed by text-part id)
+  const pendingLines = new Map<string, string>();
+
+  // Use `start` (not `pull`) so we can loop and consume multiple upstream
+  // events before enqueuing anything downstream — necessary when a text-delta
+  // carries only an incomplete line that should be buffered.
+  return new ReadableStream<LanguageModelV3StreamPart>({
+    async start(controller) {
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) {
+            controller.close();
+            break;
+          }
+
+          if (value.type === "text-start") {
+            pendingLines.set(value.id, "");
+            controller.enqueue(value);
+            continue;
+          }
+
+          if (value.type === "text-delta") {
+            const id = value.id;
+            let buffer = (pendingLines.get(id) ?? "") + value.delta;
+            let visibleText = "";
+
+            // Process complete lines (terminated by "\n")
+            let nlIdx: number;
+            while ((nlIdx = buffer.indexOf("\n")) !== -1) {
+              const line = buffer.slice(0, nlIdx);
+              buffer = buffer.slice(nlIdx + 1);
+
+              const marker = parseExternalToolCallMarker(line);
+              if (marker && externalToolNames.has(marker.name)) {
+                // Flush accumulated visible text first
+                if (visibleText) {
+                  controller.enqueue({
+                    type: "text-delta",
+                    id,
+                    delta: visibleText,
+                  });
+                  visibleText = "";
+                }
+                controller.enqueue({
+                  type: "tool-call",
+                  toolCallId: marker.id,
+                  toolName: marker.name,
+                  input: JSON.stringify(marker.args),
+                });
+              } else {
+                visibleText += line + "\n";
+              }
+            }
+
+            pendingLines.set(id, buffer);
+
+            if (visibleText) {
+              controller.enqueue({ type: "text-delta", id, delta: visibleText });
+            }
+            continue;
+          }
+
+          if (value.type === "text-end") {
+            const id = value.id;
+            const remaining = pendingLines.get(id) ?? "";
+            pendingLines.delete(id);
+
+            if (remaining) {
+              const marker = parseExternalToolCallMarker(remaining);
+              if (marker && externalToolNames.has(marker.name)) {
+                controller.enqueue({
+                  type: "tool-call",
+                  toolCallId: marker.id,
+                  toolName: marker.name,
+                  input: JSON.stringify(marker.args),
+                });
+              } else {
+                controller.enqueue({ type: "text-delta", id, delta: remaining });
+              }
+            }
+
+            controller.enqueue(value);
+            continue;
+          }
+
+          controller.enqueue(value);
+        }
+      } catch (e) {
+        controller.error(e);
+      }
+    },
+    cancel() {
+      reader.cancel();
+    },
+  });
 }
 
 /**
@@ -297,15 +497,25 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
   ): Promise<LanguageModelV3StreamResult> {
     const { prompt, abortSignal } = options;
     const messages = this.convertPromptToMessages(prompt);
-    const allowedTools = resolveRequestAllowedTools(
-      options,
-      this.options.runner.allowedTools ?? this.options.allowedTools,
+
+    // Extract user-defined external tools from the streamText call.
+    // These tools execute on the caller's server (via the AI SDK execute() function),
+    // NOT inside the sandbox.  They are NOT forwarded as agent allowedTools.
+    // Instead, their schemas are injected into the system prompt so the agent's
+    // internal LLM can call them using the __BUNNY_TOOL_CALL__ marker protocol.
+    const externalTools: LanguageModelV3FunctionTool[] = (
+      options.tools ?? []
+    ).filter(
+      (t: { type: string }): t is LanguageModelV3FunctionTool =>
+        t.type === "function",
     );
+    const externalToolNames = new Set<string>(externalTools.map((t) => t.name));
+    const externalToolsSection = buildExternalToolsSection(externalTools);
 
     this.resetStreamState();
 
     this.logger.debug(
-      `[bunny-agent] Starting stream with ${messages.length} messages`,
+      `[bunny-agent] Starting stream with ${messages.length} messages, ${externalTools.length} external tool(s)`,
     );
 
     const sandbox = this.options.sandbox;
@@ -322,7 +532,7 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
       const sandboxEnv = sandbox.getEnv?.() ?? {};
       const runnerEnv = { ...sandboxEnv, ...this.options.env };
       const body: BunnyAgentCodingRunBody = {
-        ...this.buildCodingRunBody(messages, handle.getWorkdir(), allowedTools),
+        ...this.buildCodingRunBody(messages, handle.getWorkdir(), externalToolsSection),
         ...(Object.keys(runnerEnv).length > 0 ? { env: runnerEnv } : {}),
       };
       const execOpts = {
@@ -336,18 +546,27 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
         execOpts,
       );
       const bytesStream = asyncIterableToReadableStream(iterable);
-      return this.buildStreamResult(bytesStream, messages);
+      return this.buildStreamResult(bytesStream, messages, externalToolNames);
     }
 
     const sandboxEnv = sandbox.getEnv?.() ?? {};
     const sandboxWorkdir =
       this.options.cwd ?? sandbox.getWorkdir?.() ?? "/workspace";
 
+    // Augment the runner system prompt with external tool definitions.
+    const baseSystemPrompt =
+      this.options.systemPrompt ?? this.options.runner.systemPrompt;
+    const augmentedSystemPrompt = externalToolsSection
+      ? (baseSystemPrompt ?? "") + externalToolsSection
+      : baseSystemPrompt;
+
     const agent = new BunnyAgent({
       sandbox,
       runner: {
         ...this.options.runner,
-        ...(allowedTools !== undefined ? { allowedTools } : {}),
+        ...(augmentedSystemPrompt !== undefined
+          ? { systemPrompt: augmentedSystemPrompt }
+          : {}),
       },
       env: { ...sandboxEnv, ...this.options.env },
     });
@@ -361,7 +580,7 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
         resume: this.options.resume,
         signal: abortSignal,
       });
-      return this.buildStreamResult(bytesStream, messages);
+      return this.buildStreamResult(bytesStream, messages, externalToolNames);
     } catch (error) {
       await agent.destroy().catch(() => {});
       throw error;
@@ -377,20 +596,23 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
   private buildCodingRunBody(
     messages: Message[],
     cwdFallback: string,
-    requestAllowedTools?: string[],
+    externalToolsSection: string,
   ): BunnyAgentCodingRunBody {
     const runner = this.options.runner;
     const cwd = this.options.cwd ?? cwdFallback;
+    const baseSystemPrompt = this.options.systemPrompt ?? runner.systemPrompt;
+    const systemPrompt = externalToolsSection
+      ? (baseSystemPrompt ?? "") + externalToolsSection
+      : baseSystemPrompt;
     return {
       runner: runner.runnerType ?? "claude",
       model: this.modelId,
       userInput: getLastUserTextFromMessages(messages),
       cwd,
       resume: this.options.resume,
-      systemPrompt: this.options.systemPrompt ?? runner.systemPrompt,
+      systemPrompt,
       maxTurns: this.options.maxTurns ?? runner.maxTurns,
-      allowedTools:
-        requestAllowedTools ?? runner.allowedTools ?? this.options.allowedTools,
+      allowedTools: runner.allowedTools ?? this.options.allowedTools,
       skillPaths: runner.skillPaths ?? this.options.skillPaths,
       yolo: this.options.yolo,
     };
@@ -399,11 +621,13 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
   private buildStreamResult(
     bytesStream: ReadableStream<Uint8Array>,
     messages: Message[],
+    externalToolNames: ReadonlySet<string> = new Set(),
   ): LanguageModelV3StreamResult {
     const reader = bytesStream.getReader();
+    const baseStream = this.createLanguageModelStreamFromSseReader(reader);
 
     return {
-      stream: this.createLanguageModelStreamFromSseReader(reader),
+      stream: applyExternalToolMarkerFilter(baseStream, externalToolNames),
       request: {
         body: JSON.stringify({ messages }),
       },
@@ -774,23 +998,65 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
         }
 
         case "assistant": {
-          const textParts = message.content
-            .filter(
-              (part): part is { type: "text"; text: string } =>
-                part.type === "text",
-            )
-            .map((part) => part.text);
+          // Include text parts and any tool-call markers emitted during a
+          // previous step so the agent can reconstruct the conversation.
+          const lines: string[] = [];
 
-          if (textParts.length > 0) {
-            messages.push({
-              role: "assistant",
-              content: textParts.join("\n"),
-            });
+          for (const part of message.content as Array<{
+            type: string;
+            text?: string;
+            toolCallId?: string;
+            toolName?: string;
+            input?: string;
+          }>) {
+            if (part.type === "text") {
+              if (part.text) lines.push(part.text);
+            } else if (part.type === "tool-call") {
+              // Reconstruct the marker the agent originally emitted so the
+              // resumed session sees a consistent conversation history.
+              lines.push(
+                `${EXTERNAL_TOOL_CALL_MARKER} ${JSON.stringify({
+                  id: part.toolCallId,
+                  name: part.toolName,
+                  args: safeParseJson(part.input ?? "{}"),
+                })}`,
+              );
+            }
+          }
+
+          if (lines.length > 0) {
+            messages.push({ role: "assistant", content: lines.join("\n") });
           }
           break;
         }
 
         case "tool": {
+          // Convert tool results from the AI SDK multi-step loop into user
+          // messages the agent can read on the next resumed turn.
+          const resultLines: string[] = [];
+
+          for (const part of message.content as Array<{
+            type: string;
+            toolCallId?: string;
+            toolName?: string;
+            result?: JSONValue;
+            isError?: boolean;
+          }>) {
+            if (part.type === "tool-result") {
+              resultLines.push(
+                `${EXTERNAL_TOOL_RESULT_MARKER} ${JSON.stringify({
+                  id: part.toolCallId,
+                  name: part.toolName,
+                  result: part.result,
+                  ...(part.isError ? { isError: true } : {}),
+                })}`,
+              );
+            }
+          }
+
+          if (resultLines.length > 0) {
+            messages.push({ role: "user", content: resultLines.join("\n") });
+          }
           break;
         }
       }

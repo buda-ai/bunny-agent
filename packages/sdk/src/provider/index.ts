@@ -14,7 +14,15 @@ export type {
   TranscriptEntry,
 } from "@bunny-agent/manager";
 export type { BunnyAgentLanguageModelOptions } from "./bunny-agent-language-model";
-export { BunnyAgentLanguageModel } from "./bunny-agent-language-model";
+export {
+  applyExternalToolMarkerFilter,
+  buildExternalToolsSection,
+  BunnyAgentLanguageModel,
+  EXTERNAL_TOOL_CALL_MARKER,
+  EXTERNAL_TOOL_RESULT_MARKER,
+  parseExternalToolCallMarker,
+  resolveRequestAllowedTools,
+} from "./bunny-agent-language-model";
 export type { BunnyAgentProvider } from "./bunny-agent-provider";
 export { createBunnyAgent } from "./bunny-agent-provider";
 export type { SubmitAnswerOptions } from "./question-processor";

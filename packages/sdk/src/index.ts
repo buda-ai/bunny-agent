@@ -55,8 +55,14 @@ export type {
 } from "./provider";
 // Provider exports
 export {
+  applyExternalToolMarkerFilter,
+  buildExternalToolsSection,
   BunnyAgentLanguageModel,
   createBunnyAgent,
+  EXTERNAL_TOOL_CALL_MARKER,
+  EXTERNAL_TOOL_RESULT_MARKER,
+  parseExternalToolCallMarker,
+  resolveRequestAllowedTools,
   submitAnswer,
 } from "./provider";
 
