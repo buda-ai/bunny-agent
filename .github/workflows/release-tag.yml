@@ -108,7 +108,7 @@ jobs:
         continue-on-error: true
         uses: peter-evans/create-pull-request@v7
         with:
-          token: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: "chore: version packages (${{ github.ref_name }})"
           title: "chore: Version Packages (${{ github.ref_name }})"
           body: |
@@ -127,7 +127,7 @@ jobs:
       - name: Warn when Version PR creation is blocked
         if: steps.create_version_pr.outcome == 'failure'
         run: |
-          echo "::warning::Version PR creation failed. Publishing succeeded, but the token used lacks pull request creation rights. Add a repository secret named GH_PAT (fine-grained PAT with 'Contents: write' and 'Pull requests: write' for this repo) to enable automatic Version PRs."
+          echo "::warning::Version PR creation failed. Publishing succeeded, but GITHUB_TOKEN may lack pull request creation rights. Ensure 'pull-requests: write' is set in the workflow permissions."
 
       # Enable auto-merge so the Version PR merges itself once CI passes.
       # Requires auto-merge to be enabled in repository settings
