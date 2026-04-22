@@ -45,6 +45,7 @@ interface AiChatRequestBody {
   GEMINI_BASE_URL?: string;
   E2B_API_KEY?: string;
   SANDOCK_API_KEY?: string;
+  SANDOCK_BASE_URL?: string;
   DAYTONA_API_KEY?: string;
   SANDBOX_PROVIDER?: string;
   BRAVE_API_KEY?: string;
@@ -89,6 +90,7 @@ export async function POST(request: Request) {
     GEMINI_BASE_URL,
     E2B_API_KEY,
     SANDOCK_API_KEY,
+    SANDOCK_BASE_URL,
     DAYTONA_API_KEY,
     SANDBOX_PROVIDER = "e2b",
     BRAVE_API_KEY,
@@ -122,56 +124,44 @@ export async function POST(request: Request) {
   if (runnerType === "pi") {
     if (!hasPiAuth) {
       return new Response(
-        JSON.stringify({
-          error:
-            "Pi runner requires at least one provider key: OPENAI_API_KEY, GEMINI_API_KEY, or Claude/Bedrock auth. Configure in Settings.",
-        }),
-        { status: 400, headers: { "Content-Type": "application/json" } },
+        "Pi runner requires at least one provider key: OPENAI_API_KEY, GEMINI_API_KEY, or Claude/Bedrock auth. Configure in Settings.",
+        { status: 400, headers: { "Content-Type": "text/plain" } },
       );
     }
   } else if (!hasClaudeAuth) {
     return new Response(
-      JSON.stringify({
-        error:
-          "Claude auth is required. Set one of: ANTHROPIC_API_KEY, AWS_BEARER_TOKEN_BEDROCK, ANTHROPIC_AUTH_TOKEN, LITELLM_MASTER_KEY, or Bedrock proxy (CLAUDE_CODE_USE_BEDROCK=1 + ANTHROPIC_BEDROCK_BASE_URL). Configure in Settings.",
-      }),
-      { status: 400, headers: { "Content-Type": "application/json" } },
+      "Claude auth is required. Set one of: ANTHROPIC_API_KEY, AWS_BEARER_TOKEN_BEDROCK, ANTHROPIC_AUTH_TOKEN, LITELLM_MASTER_KEY, or Bedrock proxy (CLAUDE_CODE_USE_BEDROCK=1 + ANTHROPIC_BEDROCK_BASE_URL). Configure in Settings.",
+      { status: 400, headers: { "Content-Type": "text/plain" } },
     );
   }
 
   if (SANDBOX_PROVIDER === "e2b" && !E2B_API_KEY) {
-    return new Response(
-      JSON.stringify({
-        error: "E2B_API_KEY is required when using E2B sandbox.",
-      }),
-      { status: 400, headers: { "Content-Type": "application/json" } },
-    );
+    return new Response("E2B_API_KEY is required when using E2B sandbox.", {
+      status: 400,
+      headers: { "Content-Type": "text/plain" },
+    });
   }
 
   if (SANDBOX_PROVIDER === "sandock" && !SANDOCK_API_KEY) {
     return new Response(
-      JSON.stringify({
-        error: "SANDOCK_API_KEY is required when using Sandock sandbox.",
-      }),
-      { status: 400, headers: { "Content-Type": "application/json" } },
+      "SANDOCK_API_KEY is required when using Sandock sandbox.",
+      { status: 400, headers: { "Content-Type": "text/plain" } },
     );
   }
 
   if (SANDBOX_PROVIDER === "daytona" && !DAYTONA_API_KEY) {
     return new Response(
-      JSON.stringify({
-        error: "DAYTONA_API_KEY is required when using Daytona sandbox.",
-      }),
-      { status: 400, headers: { "Content-Type": "application/json" } },
+      "DAYTONA_API_KEY is required when using Daytona sandbox.",
+      { status: 400, headers: { "Content-Type": "text/plain" } },
     );
   }
 
   // --- Normalize last message -----------------------------------------------
   const lastMessage = messages?.[messages.length - 1];
   if (!lastMessage) {
-    return new Response(JSON.stringify({ error: "No messages provided" }), {
+    return new Response("No messages provided", {
       status: 400,
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "text/plain" },
     });
   }
 
@@ -246,6 +236,7 @@ export async function POST(request: Request) {
     runnerType,
     E2B_API_KEY,
     SANDOCK_API_KEY,
+    SANDOCK_BASE_URL,
     DAYTONA_API_KEY,
     ANTHROPIC_API_KEY,
     ANTHROPIC_BASE_URL,
@@ -269,7 +260,18 @@ export async function POST(request: Request) {
     },
   };
 
-  const sandbox = await getOrCreateSandbox(sandboxParams);
+  let sandbox: Awaited<ReturnType<typeof getOrCreateSandbox>>;
+  try {
+    sandbox = await getOrCreateSandbox(sandboxParams);
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : "Failed to create sandbox";
+    console.error("[api/ai] sandbox creation failed:", err);
+    return new Response(message, {
+      status: 500,
+      headers: { "Content-Type": "text/plain" },
+    });
+  }
 
   // Clean up cached sandbox when the client disconnects
   signal.addEventListener("abort", () => evictSandbox(sandboxParams), {

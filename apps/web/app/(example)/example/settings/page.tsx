@@ -127,6 +127,15 @@ const ENV_CONFIGS: EnvConfig[] = [
     isSecret: true,
   },
   {
+    name: "Sandock Base URL",
+    key: "SANDOCK_BASE_URL",
+    description:
+      "Optional. Custom base URL for Sandock sandbox API. Defaults to https://api.sandock.ai if not set.",
+    required: false,
+    category: "sandbox",
+    placeholder: "https://api.sandock.ai",
+  },
+  {
     name: "Daytona API Key",
     key: "DAYTONA_API_KEY",
     description:

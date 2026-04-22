@@ -78,6 +78,7 @@ export interface CreateSandboxParams {
   runnerType?: RunnerType;
   E2B_API_KEY?: string;
   SANDOCK_API_KEY?: string;
+  SANDOCK_BASE_URL?: string;
   DAYTONA_API_KEY?: string;
   ANTHROPIC_API_KEY?: string;
   ANTHROPIC_BASE_URL?: string;
@@ -172,6 +173,7 @@ async function buildSandbox(
     runnerType,
     E2B_API_KEY,
     SANDOCK_API_KEY,
+    SANDOCK_BASE_URL,
     DAYTONA_API_KEY,
     ANTHROPIC_API_KEY,
     ANTHROPIC_BASE_URL,
@@ -229,6 +231,7 @@ async function buildSandbox(
     const image = params.SANDBOX_IMAGE ?? SANDBOX_IMAGE;
     return new SandockSandbox({
       apiKey: SANDOCK_API_KEY,
+      ...(SANDOCK_BASE_URL ? { baseUrl: SANDOCK_BASE_URL } : {}),
       image,
       skipBootstrap: true,
       templatesPath: path.join(TEMPLATES_PATH, template),
