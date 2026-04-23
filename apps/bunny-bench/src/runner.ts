@@ -5,6 +5,7 @@ import type { Task, TaskResult } from "./types.js";
 /**
  * Run a single task.
  * - TBLite tasks (id starts with "tblite-") use the Docker-based runner.
+ * - Tasks with resumePrompt run a second turn with --resume <sessionId>.
  * - All other tasks use the plain agent CLI runner.
  */
 export async function runTask(
@@ -54,6 +55,52 @@ export async function runTask(
 
     const output = stdout.trim() || stderr.trim();
     const passed = score(output, task.expected);
+
+    // Two-turn session resume test
+    if (passed && task.resumePrompt && task.resumeExpectedOutput) {
+      const sessionId = extractSessionId(output);
+      if (sessionId) {
+        const resumeArgs = buildResumeArgs(parts, sessionId, task.resumePrompt);
+        if (opts.model) resumeArgs.push("--model", opts.model);
+        try {
+          const resumeResult = await exec(cmd, resumeArgs, {
+            cwd: taskCwd,
+            timeout: task.timeoutMs,
+            env: {
+              ...process.env,
+              NODE_PATH: `${projectRoot}/node_modules`,
+            } as Record<string, string>,
+          });
+          const resumeOutput =
+            resumeResult.stdout.trim() || resumeResult.stderr.trim();
+          const resumePassed = score(resumeOutput, task.resumeExpectedOutput);
+          return {
+            task,
+            output: resumeOutput,
+            passed: resumePassed,
+            durationMs: Date.now() - start,
+          };
+        } catch (e: unknown) {
+          const error = e instanceof Error ? e.message : String(e);
+          return {
+            task,
+            output: "",
+            passed: false,
+            durationMs: Date.now() - start,
+            error: `resume turn failed: ${error}`,
+          };
+        }
+      }
+      // No sessionId found — mark as failed
+      return {
+        task,
+        output,
+        passed: false,
+        durationMs: Date.now() - start,
+        error: "no sessionId in output; cannot run resume turn",
+      };
+    }
+
     return { task, output, passed, durationMs: Date.now() - start };
   } catch (e: unknown) {
     const error = e instanceof Error ? e.message : String(e);
@@ -65,6 +112,54 @@ export async function runTask(
       error,
     };
   }
+}
+
+/**
+ * Extract the session ID emitted by the runner in its AI SDK UI stream output.
+ * Matches `{"type":"message-metadata","messageMetadata":{"sessionId":"..."}}` and
+ * simpler `{"sessionId":"..."}` or `{"messageMetadata":{"sessionId":"..."}}` shapes.
+ */
+function extractSessionId(output: string): string | undefined {
+  for (const line of output.split("\n")) {
+    const payload = line.replace(/^data:\s*/, "").trim();
+    if (!payload || payload === "[DONE]") continue;
+    try {
+      const json = JSON.parse(payload);
+      const sessionId =
+        json?.messageMetadata?.sessionId ??
+        json?.messageMetadata?.session_id ??
+        json?.sessionId;
+      if (sessionId && typeof sessionId === "string") return sessionId;
+    } catch {
+      // not valid JSON, skip
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Build args for the resume turn.
+ *
+ * If the runner command uses `--` as a prompt separator (e.g. `bunny-agent run --runner pi --`)
+ * the `--resume <id>` flag is inserted before `--`. Otherwise it is placed right before the prompt.
+ */
+function buildResumeArgs(
+  parts: string[],
+  sessionId: string,
+  resumePrompt: string,
+): string[] {
+  const baseArgs = parts.slice(1); // without cmd
+  const dashDashIdx = baseArgs.indexOf("--");
+  if (dashDashIdx !== -1) {
+    return [
+      ...baseArgs.slice(0, dashDashIdx),
+      "--resume",
+      sessionId,
+      "--",
+      resumePrompt,
+    ];
+  }
+  return [...baseArgs, "--resume", sessionId, resumePrompt];
 }
 
 function score(output: string, expected: string | RegExp): boolean {

@@ -90,6 +90,19 @@ export const SMOKING: Task[] = [
     category: "tool:code",
     timeoutMs: 90_000,
   },
+
+  // --- Session resume ---
+  {
+    id: "s-009",
+    name: "Session resume",
+    prompt:
+      "My favorite color is blue and my lucky number is 7. Reply with just OK.",
+    expected: /OK/i,
+    category: "reasoning",
+    timeoutMs: 30_000,
+    resumePrompt: "What is my favorite color and lucky number?",
+    resumeExpectedOutput: /blue.*7|7.*blue/i,
+  },
 ];
 
 export const DATASETS: Record<string, Task[]> = {

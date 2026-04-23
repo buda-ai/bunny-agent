@@ -10,6 +10,10 @@ export interface Task {
   expected: string | RegExp;
   category: "reasoning" | "tool:web" | "tool:code" | "tool:file";
   timeoutMs: number;
+  /** If set, run a second turn with this prompt (resuming the prior session). */
+  resumePrompt?: string;
+  /** Expected output for the resume turn. */
+  resumeExpectedOutput?: string | RegExp;
 }
 
 export interface TaskResult {
