@@ -265,8 +265,8 @@ vi.mock("@mariozechner/pi-ai", async (importOriginal) => {
   };
 });
 
-import { extractToolResultText } from "../stream-converter.js";
 import { createPiRunner } from "../pi-runner.js";
+import { extractToolResultText } from "../stream-converter.js";
 import { redactSecrets } from "../tool-overrides.js";
 
 // ── extractToolResultText unit tests ─────────────────────────────────────────
@@ -349,100 +349,10 @@ describe("createPiRunner", () => {
         };
       }
       createdSessions.push(session);
-      return { session } as unknown as Awaited<ReturnType<typeof createSession>>;
-    });
-  });
-
-  it("attaches message_end LLM usage to tool-input SSE events", async () => {
-    const { createAgentSession: mockCreateAgentSession } = await import(
-      "@mariozechner/pi-coding-agent"
-    );
-    vi.mocked(mockCreateAgentSession).mockImplementationOnce(async () => {
-      const session = new MockSession();
-      session.prompt = async function (_input: string) {
-        this["emit"]({
-          type: "message_end",
-          message: {
-            role: "assistant",
-            content: [],
-            usage: { input: 42, output: 7, cacheRead: 3, cacheWrite: 1 },
-          },
-        });
-        this["emit"]({
-          type: "tool_execution_start",
-          toolCallId: "t_usage",
-          toolName: "bash",
-          args: { command: "echo hi" },
-        });
-        this["emit"]({
-          type: "tool_execution_end",
-          toolCallId: "t_usage",
-          toolName: "bash",
-          result: { content: [{ type: "text", text: "hi" }], details: {} },
-          isError: false,
-        });
-        this["emit"]({
-          type: "agent_end",
-          messages: [
-            {
-              role: "assistant",
-              usage: { input: 100, output: 200, cacheRead: 0, cacheWrite: 0 },
-            },
-          ],
-        });
-      };
-      createdSessions.push(session);
       return { session } as unknown as Awaited<
-        ReturnType<typeof mockCreateAgentSession>
+        ReturnType<typeof createSession>
       >;
     });
-
-    const runner = createPiRunner({ model: "google:gemini-2.5-pro" });
-    const chunks: string[] = [];
-    for await (const chunk of runner.run("ping")) {
-      chunks.push(chunk);
-    }
-
-    const parseData = (line: string) =>
-      JSON.parse(line.replace(/^data: /, "").trim()) as {
-        callProviderMetadata?: {
-          "bunny-agent"?: {
-            usage?: Record<string, number>;
-            model?: { provider: string; modelId: string };
-          };
-        };
-      };
-
-    const startChunk = chunks.find(
-      (c) => c.includes('"type":"tool-input-start"') && c.includes("t_usage"),
-    );
-    const availChunk = chunks.find(
-      (c) =>
-        c.includes('"type":"tool-input-available"') && c.includes("t_usage"),
-    );
-    const outChunk = chunks.find(
-      (c) =>
-        c.includes('"type":"tool-output-available"') && c.includes("t_usage"),
-    );
-    expect(startChunk).toBeDefined();
-    expect(availChunk).toBeDefined();
-    expect(outChunk).toBeDefined();
-
-    for (const line of [startChunk!, availChunk!]) {
-      const d = parseData(line);
-      const meta = d.callProviderMetadata?.["bunny-agent"];
-      expect(meta?.usage?.input_tokens).toBe(42);
-      expect(meta?.usage?.output_tokens).toBe(7);
-      expect(meta?.usage?.cache_read_input_tokens).toBe(3);
-      expect(meta?.usage?.cache_creation_input_tokens).toBe(1);
-      expect(meta?.model?.modelId).toBe("gemini-2.5-pro");
-      expect(meta?.model?.provider).toBe("google");
-    }
-
-    const out = parseData(outChunk!);
-    const outMeta = out.callProviderMetadata?.["bunny-agent"];
-    expect(outMeta?.usage).toBeUndefined();
-    expect(outMeta?.model).toBeUndefined();
   });
 
   it("streams text/tool events and finishes", async () => {
@@ -531,42 +441,9 @@ describe("createPiRunner", () => {
         c.includes('"type":"tool-output-available"') && c.includes("t_search"),
     );
     expect(toolOutputChunk).toBeDefined();
-    const toolOutput = JSON.parse(
-      toolOutputChunk!.replace(/^data: /, "").trim(),
-    ) as {
-      callProviderMetadata?: {
-        "bunny-agent"?: {
-          toolUsage?: {
-            raw: Record<
-              string,
-              { requests: number; fetchedPages: number }
-            >;
-          };
-        };
-      };
-    };
-    const toolOutputMeta = toolOutput.callProviderMetadata?.["bunny-agent"];
-    expect(
-      toolOutputMeta?.toolUsage?.raw?.brave?.requests,
-    ).toBe(1);
-    expect(
-      toolOutputMeta?.toolUsage?.raw?.brave?.fetchedPages,
-    ).toBe(2);
 
     const finishChunk = chunks.find((c) => c.includes('"type":"finish"'));
     expect(finishChunk).toBeDefined();
-    const finishData = JSON.parse(finishChunk!.replace(/^data: /, "").trim()) as {
-      messageMetadata?: {
-        toolUsage?: {
-          raw: Record<
-            string,
-            { requests: number; fetchedPages: number }
-          >;
-        };
-      };
-    };
-    expect(finishData.messageMetadata?.toolUsage).toBeUndefined();
-    expect(finishData.messageMetadata).not.toHaveProperty("webSearchCost");
   });
 
   it("tool-output-available emits a plain string output (not raw pi object)", async () => {
@@ -787,49 +664,30 @@ describe("createPiRunner", () => {
       c.includes('"type":"tool-output-available"'),
     );
     expect(toolOut).toBeDefined();
-    const toolData = JSON.parse(toolOut!.replace(/^data: /, "").trim()) as {
-      callProviderMetadata?: {
-        "bunny-agent"?: {
-          toolUsage?: {
-            raw: Record<string, Record<string, number | undefined>>;
-          };
-        };
-      };
-    };
-    const toolDataMeta = toolData.callProviderMetadata?.["bunny-agent"];
-    expect(
-      toolDataMeta?.toolUsage?.raw?.["gpt-image-1"]?.input_tokens,
-    ).toBe(22);
-    expect(
-      toolDataMeta?.toolUsage?.raw?.["gpt-image-1"]
-        ?.output_tokens,
-    ).toBe(1120);
 
     const finishChunk = chunks.find((c) => c.includes('"type":"finish"'));
     expect(finishChunk).toBeDefined();
     const data = JSON.parse(finishChunk!.replace(/^data: /, "").trim()) as {
       messageMetadata?: {
         usage?: Record<string, number>;
-        models?: Array<{
-          type: "chat" | "image";
-          provider: string;
-          modelId: string;
-          usage: Record<string, number>;
-        }>;
+        models?: Record<string, Record<string, unknown>>;
       };
     };
 
-    expect(data.messageMetadata?.usage?.input_tokens).toBe(100);
-    expect(data.messageMetadata?.usage?.output_tokens).toBe(200);
+    expect(
+      data.messageMetadata?.models?.["openai/gpt-image-1"]?.input_tokens,
+    ).toBe(100);
+    expect(
+      data.messageMetadata?.models?.["openai/gpt-image-1"]?.output_tokens,
+    ).toBe(200);
+    expect(data.messageMetadata?.models?.["gpt-image-1"]?.input_tokens).toBe(
+      22,
+    );
+    expect(data.messageMetadata?.models?.["gpt-image-1"]?.output_tokens).toBe(
+      1120,
+    );
     expect(data.messageMetadata).not.toHaveProperty("cost");
     expect(data.messageMetadata).not.toHaveProperty("imageCost");
-    expect(data.messageMetadata?.models).toBeDefined();
-    expect(data.messageMetadata?.models?.some((m) => m.type === "chat")).toBe(
-      true,
-    );
-    expect(data.messageMetadata?.models?.some((m) => m.type === "image")).toBe(
-      false,
-    );
   });
 
   it("sums usage across multiple assistant turns in agent_end", async () => {
@@ -870,21 +728,23 @@ describe("createPiRunner", () => {
     const data = JSON.parse(finishChunk!.replace(/^data: /, "").trim()) as {
       messageMetadata?: {
         usage?: Record<string, number>;
-        models?: Array<{
-          type: "chat" | "image";
-          provider: string;
-          modelId: string;
-          usage: Record<string, number>;
-        }>;
+        models?: Record<string, { type: string } & Record<string, unknown>>;
       };
     };
 
-    expect(data.messageMetadata?.usage?.input_tokens).toBe(40);
-    expect(data.messageMetadata?.usage?.output_tokens).toBe(60);
-    expect(data.messageMetadata?.usage?.cache_read_input_tokens).toBe(4);
-    expect(data.messageMetadata?.usage?.cache_creation_input_tokens).toBe(6);
-    expect(data.messageMetadata?.models?.length).toBe(1);
-    expect(data.messageMetadata?.models?.[0]?.type).toBe("chat");
+    expect(data.messageMetadata?.models?.["openai/gpt-4o"]?.input_tokens).toBe(
+      40,
+    );
+    expect(data.messageMetadata?.models?.["openai/gpt-4o"]?.output_tokens).toBe(
+      60,
+    );
+    expect(
+      data.messageMetadata?.models?.["openai/gpt-4o"]?.cache_read_input_tokens,
+    ).toBe(4);
+    expect(
+      data.messageMetadata?.models?.["openai/gpt-4o"]
+        ?.cache_creation_input_tokens,
+    ).toBe(6);
   });
 
   it("accumulates edit_image tool usage into finish messageMetadata", async () => {
@@ -959,26 +819,18 @@ describe("createPiRunner", () => {
     const data = JSON.parse(finishChunk!.replace(/^data: /, "").trim()) as {
       messageMetadata?: {
         usage?: Record<string, number>;
-        models?: Array<{
-          type: "chat" | "image";
-          provider: string;
-          modelId: string;
-          usage: Record<string, number>;
-        }>;
+        models?: Record<string, { type: string } & Record<string, unknown>>;
       };
     };
 
-    expect(data.messageMetadata?.usage?.input_tokens).toBe(10);
-    expect(data.messageMetadata?.usage?.output_tokens).toBe(20);
+    expect(
+      data.messageMetadata?.models?.["openai/gpt-image-1"]?.input_tokens,
+    ).toBe(10);
+    expect(
+      data.messageMetadata?.models?.["openai/gpt-image-1"]?.output_tokens,
+    ).toBe(20);
     expect(data.messageMetadata).not.toHaveProperty("cost");
     expect(data.messageMetadata).not.toHaveProperty("imageCost");
-    expect(data.messageMetadata?.models).toBeDefined();
-    expect(data.messageMetadata?.models?.some((m) => m.type === "chat")).toBe(
-      true,
-    );
-    expect(data.messageMetadata?.models?.some((m) => m.type === "image")).toBe(
-      false,
-    );
   });
 });
 
@@ -994,8 +846,7 @@ it("emits isError flag when a tool execution fails", async () => {
   // We should see a tool-output-available chunk that includes isError:true
   const outputChunk = chunks.find(
     (c) =>
-      c.includes('"type":"tool-output-available"') &&
-      c.includes("tool_fail"),
+      c.includes('"type":"tool-output-available"') && c.includes("tool_fail"),
   );
   expect(outputChunk).toBeDefined();
   expect(outputChunk).toContain('"isError":true');

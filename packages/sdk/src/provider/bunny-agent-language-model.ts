@@ -20,12 +20,12 @@ import {
   streamCodingRunFromSandbox,
 } from "@bunny-agent/manager";
 import { getProviderLogger } from "./logging";
-import { normalizeBunnyAgentUsage } from "./usage";
 import type {
   BunnyAgentModelId,
   BunnyAgentProviderSettings,
   Logger,
 } from "./types";
+import { normalizeBunnyAgentUsage } from "./usage";
 
 /**
  * Options for creating a BunnyAgent language model instance.
@@ -152,9 +152,7 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
     this.modelId = modelOptions.id;
     this.options = modelOptions.options;
     this.logger = getProviderLogger(modelOptions.options);
-    this.provider = modelOptions.options.daemonUrl
-      ? "bunny-agent-daemon"
-      : "bunny-agent";
+    this.provider = "bunny-agent";
   }
 
   async doGenerate(
@@ -811,5 +809,4 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
         return { unified: "other", raw: reason ?? "unknown" };
     }
   }
-
 }
