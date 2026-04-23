@@ -101,32 +101,16 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN || secrets.NODE_AUTH_TOKEN || secrets.NPM_PUBLISH_TOKEN }}
 
-      # Open a PR that carries the version-bump commits back into main so that
-      # package.json files and CHANGELOGs stay in sync with what was published.
-      - name: Create Version PR
-        id: create_version_pr
-        uses: peter-evans/create-pull-request@v7
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "chore: version packages (${{ github.ref_name }})"
-          title: "chore: Version Packages (${{ github.ref_name }})"
-          body: |
-            ## Version Packages — ${{ github.ref_name }}
+      # Commit and push the version-bump changes directly so the sync is fully
+      # automatic after a tag is created (no review/approval flow required).
+      - name: Commit and push version updates
+        shell: bash
+        run: |
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No version-sync changes to commit."
+            exit 0
+          fi
 
-            This PR was automatically created by the **Release on Tag** workflow.
-
-            It contains the `package.json` version bumps
-            that were applied and published to npm when tag `${{ github.ref_name }}` was pushed.
-
-            Please review and merge to keep the repository in sync.
-          branch: changeset-release/main
-          base: main
-          delete-branch: true
-
-      - name: Enable auto-merge for Version PR
-        if: ${{ steps.create_version_pr.outputs.pull-request-number != '' }}
-        uses: peter-evans/enable-pull-request-automerge@v3
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          pull-request-number: ${{ steps.create_version_pr.outputs.pull-request-number }}
-          merge-method: squash
+          git commit -m "chore: version packages (${{ github.ref_name }})"
+          git push origin HEAD:main
