@@ -153,6 +153,7 @@ vi.mock("@mariozechner/pi-coding-agent", () => {
   const mockAuthStorage = {
     setRuntimeApiKey: vi.fn(),
     removeRuntimeApiKey: vi.fn(),
+    getApiKey: vi.fn().mockResolvedValue("test-api-key"),
   };
   const mockModelRegistry = {
     authStorage: mockAuthStorage,
@@ -243,16 +244,29 @@ vi.mock("@mariozechner/pi-coding-agent", () => {
   };
 });
 
-vi.mock("@mariozechner/pi-ai", () => ({
-  getModel: vi
-    .fn()
-    .mockImplementation((_provider: string, modelName: string) => ({
-      name: modelName,
-      baseUrl: "https://example.com",
-    })),
-}));
+vi.mock("@mariozechner/pi-ai", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@mariozechner/pi-ai")>();
+  return {
+    ...actual,
+    getModel: vi
+      .fn()
+      .mockImplementation((provider: string, modelName: string) => ({
+        id: modelName,
+        name: modelName,
+        provider,
+        baseUrl: "https://example.com",
+        api: "openai-completions",
+        reasoning: false,
+        input: ["text", "image"],
+        contextWindow: 128000,
+        maxTokens: 8192,
+        cost: { input: 3, output: 30, cacheRead: 1, cacheWrite: 2 },
+      })),
+  };
+});
 
-import { createPiRunner, extractToolResultText } from "../pi-runner.js";
+import { createPiRunner } from "../pi-runner.js";
+import { extractToolResultText } from "../stream-converter.js";
 import { redactSecrets } from "../tool-overrides.js";
 
 // ── extractToolResultText unit tests ─────────────────────────────────────────
@@ -318,11 +332,27 @@ describe("extractToolResultText", () => {
 });
 
 describe("createPiRunner", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     createdSessions.length = 0;
     nextSessionBehavior = "normal";
     mockPiAgentState.baseSystemPrompt = undefined;
     mockCreateCodingToolsState.lastOptions = undefined;
+    const { createAgentSession: createSession } = await import(
+      "@mariozechner/pi-coding-agent"
+    );
+    vi.mocked(createSession).mockImplementation(async () => {
+      const session = new MockSession();
+      session.setBehavior(nextSessionBehavior);
+      if (mockPiAgentState.baseSystemPrompt !== undefined) {
+        session.agent.state = {
+          systemPrompt: mockPiAgentState.baseSystemPrompt,
+        };
+      }
+      createdSessions.push(session);
+      return { session } as unknown as Awaited<
+        ReturnType<typeof createSession>
+      >;
+    });
   });
 
   it("streams text/tool events and finishes", async () => {
@@ -343,6 +373,77 @@ describe("createPiRunner", () => {
     ).toBe(true);
     expect(chunks.some((c) => c.includes('"type":"finish"'))).toBe(true);
     expect(chunks.some((c) => c.includes("[DONE]"))).toBe(true);
+  });
+
+  it("emits web_search billing metadata on tool output and finish", async () => {
+    const { createAgentSession: mockCreateAgentSession } = await import(
+      "@mariozechner/pi-coding-agent"
+    );
+    vi.mocked(mockCreateAgentSession).mockImplementationOnce(async () => {
+      const session = new MockSession();
+      session.prompt = async function (_input: string) {
+        this["emit"]({
+          type: "message_end",
+          message: {
+            role: "assistant",
+            content: [],
+            usage: { input: 20, output: 8, cacheRead: 0, cacheWrite: 0 },
+          },
+        });
+        this["emit"]({
+          type: "tool_execution_start",
+          toolCallId: "t_search",
+          toolName: "web_search",
+          args: { query: "pi usage metadata" },
+        });
+        this["emit"]({
+          type: "tool_execution_end",
+          toolCallId: "t_search",
+          toolName: "web_search",
+          result: {
+            content: [{ type: "text", text: "[Brave Search] 1 result(s)" }],
+            details: {
+              usage: {
+                raw: {
+                  brave: {
+                    requests: 1,
+                    fetchedPages: 2,
+                  },
+                },
+              },
+            },
+          },
+          isError: false,
+        });
+        this["emit"]({
+          type: "agent_end",
+          messages: [
+            {
+              role: "assistant",
+              usage: { input: 20, output: 8, cacheRead: 0, cacheWrite: 0 },
+            },
+          ],
+        });
+      };
+      return { session } as unknown as Awaited<
+        ReturnType<typeof mockCreateAgentSession>
+      >;
+    });
+
+    const runner = createPiRunner({ model: "google:gemini-2.5-pro" });
+    const chunks: string[] = [];
+    for await (const chunk of runner.run("search once")) {
+      chunks.push(chunk);
+    }
+
+    const toolOutputChunk = chunks.find(
+      (c) =>
+        c.includes('"type":"tool-output-available"') && c.includes("t_search"),
+    );
+    expect(toolOutputChunk).toBeDefined();
+
+    const finishChunk = chunks.find((c) => c.includes('"type":"finish"'));
+    expect(finishChunk).toBeDefined();
   });
 
   it("tool-output-available emits a plain string output (not raw pi object)", async () => {
@@ -491,7 +592,7 @@ describe("createPiRunner", () => {
   });
 
   it("accumulates generate_image tool usage into finish messageMetadata", async () => {
-    // Emit a generate_image tool_execution_end with details.response.usage,
+    // Emit a generate_image tool_execution_end with details.usage.raw[modelId],
     // then agent_end with LLM usage — finish should sum both.
     const { createAgentSession: mockCreateAgentSession } = await import(
       "@mariozechner/pi-coding-agent"
@@ -513,6 +614,15 @@ describe("createPiRunner", () => {
             content: [{ type: "text", text: "/tmp/cat.png" }],
             details: {
               filePath: "/tmp/cat.png",
+              usage: {
+                raw: {
+                  "gpt-image-1": {
+                    total_tokens: 1404,
+                    input_tokens: 22,
+                    output_tokens: 1120,
+                  },
+                },
+              },
               response: {
                 data: [{ b64_json: "" }],
                 usage: {
@@ -541,21 +651,104 @@ describe("createPiRunner", () => {
       >;
     });
 
-    const runner = createPiRunner({ model: "openai:gpt-image-1" });
+    const runner = createPiRunner({
+      model: "openai:gpt-image-1",
+      env: { IMAGE_GENERATION_MODEL: "openai:gpt-image-1" },
+    });
     const chunks: string[] = [];
     for await (const chunk of runner.run("generate a cat image")) {
+      chunks.push(chunk);
+    }
+
+    const toolOut = chunks.find((c) =>
+      c.includes('"type":"tool-output-available"'),
+    );
+    expect(toolOut).toBeDefined();
+
+    const finishChunk = chunks.find((c) => c.includes('"type":"finish"'));
+    expect(finishChunk).toBeDefined();
+    const data = JSON.parse(finishChunk!.replace(/^data: /, "").trim()) as {
+      messageMetadata?: {
+        usage?: Record<string, unknown>;
+        models?: Record<string, Record<string, unknown>>;
+      };
+    };
+
+    // usage has chat tokens spread at top level
+    expect(data.messageMetadata?.usage?.input_tokens).toBe(100);
+    expect(data.messageMetadata?.usage?.output_tokens).toBe(200);
+    // raw map has tool usage (image tool overwrites chat entry for same model id)
+    expect(
+      (
+        data.messageMetadata?.usage?.raw as
+          | Record<string, Record<string, unknown>>
+          | undefined
+      )?.["gpt-image-1"]?.input_tokens,
+    ).toBe(22);
+    expect(
+      (
+        data.messageMetadata?.usage?.raw as
+          | Record<string, Record<string, unknown>>
+          | undefined
+      )?.["gpt-image-1"]?.output_tokens,
+    ).toBe(1120);
+    expect(data.messageMetadata).not.toHaveProperty("cost");
+    expect(data.messageMetadata).not.toHaveProperty("imageCost");
+  });
+
+  it("sums usage across multiple assistant turns in agent_end", async () => {
+    const { createAgentSession: mockCreateAgentSession } = await import(
+      "@mariozechner/pi-coding-agent"
+    );
+    vi.mocked(mockCreateAgentSession).mockImplementationOnce(async () => {
+      const session = new MockSession();
+      session.prompt = async function (_input: string) {
+        this["emit"]({
+          type: "agent_end",
+          messages: [
+            {
+              role: "assistant",
+              usage: { input: 10, output: 20, cacheRead: 1, cacheWrite: 2 },
+            },
+            {
+              role: "assistant",
+              usage: { input: 30, output: 40, cacheRead: 3, cacheWrite: 4 },
+            },
+          ],
+        });
+      };
+      createdSessions.push(session);
+      return { session } as unknown as Awaited<
+        ReturnType<typeof mockCreateAgentSession>
+      >;
+    });
+
+    const runner = createPiRunner({ model: "openai:gpt-4o" });
+    const chunks: string[] = [];
+    for await (const chunk of runner.run("sum turns")) {
       chunks.push(chunk);
     }
 
     const finishChunk = chunks.find((c) => c.includes('"type":"finish"'));
     expect(finishChunk).toBeDefined();
     const data = JSON.parse(finishChunk!.replace(/^data: /, "").trim()) as {
-      messageMetadata?: { usage?: Record<string, number> };
+      messageMetadata?: {
+        usage?: Record<string, unknown>;
+        models?: Record<string, { type: string } & Record<string, unknown>>;
+      };
     };
 
-    // LLM usage: input=100, output=200; image tool usage: input=22, output=1120
-    expect(data.messageMetadata?.usage?.input_tokens).toBe(122);
-    expect(data.messageMetadata?.usage?.output_tokens).toBe(1320);
+    expect(data.messageMetadata?.usage?.input_tokens).toBe(30);
+    expect(data.messageMetadata?.usage?.output_tokens).toBe(40);
+    expect(data.messageMetadata?.usage?.cache_read_input_tokens).toBe(3);
+    expect(data.messageMetadata?.usage?.cache_creation_input_tokens).toBe(4);
+    expect(
+      (
+        data.messageMetadata?.usage?.raw as
+          | Record<string, Record<string, unknown>>
+          | undefined
+      )?.["gpt-4o"]?.type,
+    ).toBe("chat");
   });
 
   it("accumulates edit_image tool usage into finish messageMetadata", async () => {
@@ -579,6 +772,15 @@ describe("createPiRunner", () => {
             content: [{ type: "text", text: "/tmp/edited.png" }],
             details: {
               filePath: "/tmp/edited.png",
+              usage: {
+                raw: {
+                  "gpt-image-1": {
+                    total_tokens: 130,
+                    input_tokens: 20,
+                    output_tokens: 110,
+                  },
+                },
+              },
               response: {
                 data: [{ b64_json: "" }],
                 usage: {
@@ -607,7 +809,10 @@ describe("createPiRunner", () => {
       >;
     });
 
-    const runner = createPiRunner({ model: "openai:gpt-image-1" });
+    const runner = createPiRunner({
+      model: "openai:gpt-image-1",
+      env: { IMAGE_GENERATION_MODEL: "openai:gpt-image-1" },
+    });
     const chunks: string[] = [];
     for await (const chunk of runner.run("remove watermark from input.png")) {
       chunks.push(chunk);
@@ -616,11 +821,16 @@ describe("createPiRunner", () => {
     const finishChunk = chunks.find((c) => c.includes('"type":"finish"'));
     expect(finishChunk).toBeDefined();
     const data = JSON.parse(finishChunk!.replace(/^data: /, "").trim()) as {
-      messageMetadata?: { usage?: Record<string, number> };
+      messageMetadata?: {
+        usage?: Record<string, unknown>;
+        models?: Record<string, { type: string } & Record<string, unknown>>;
+      };
     };
 
-    expect(data.messageMetadata?.usage?.input_tokens).toBe(30);
-    expect(data.messageMetadata?.usage?.output_tokens).toBe(130);
+    expect(data.messageMetadata?.usage?.input_tokens).toBe(10);
+    expect(data.messageMetadata?.usage?.output_tokens).toBe(20);
+    expect(data.messageMetadata).not.toHaveProperty("cost");
+    expect(data.messageMetadata).not.toHaveProperty("imageCost");
   });
 });
 
@@ -634,8 +844,9 @@ it("emits isError flag when a tool execution fails", async () => {
   }
 
   // We should see a tool-output-available chunk that includes isError:true
-  const outputChunk = chunks.find((c) =>
-    c.includes('"type":"tool-output-available"'),
+  const outputChunk = chunks.find(
+    (c) =>
+      c.includes('"type":"tool-output-available"') && c.includes("tool_fail"),
   );
   expect(outputChunk).toBeDefined();
   expect(outputChunk).toContain('"isError":true');

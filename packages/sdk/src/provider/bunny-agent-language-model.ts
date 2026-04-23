@@ -1,5 +1,4 @@
 import type {
-  JSONObject,
   JSONValue,
   LanguageModelV3,
   LanguageModelV3CallOptions,
@@ -26,6 +25,7 @@ import type {
   BunnyAgentProviderSettings,
   Logger,
 } from "./types";
+import { normalizeBunnyAgentUsage } from "./usage";
 
 /**
  * Options for creating a BunnyAgent language model instance.
@@ -152,9 +152,7 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
     this.modelId = modelOptions.id;
     this.options = modelOptions.options;
     this.logger = getProviderLogger(modelOptions.options);
-    this.provider = modelOptions.options.daemonUrl
-      ? "bunny-agent-daemon"
-      : "bunny-agent";
+    this.provider = "bunny-agent";
   }
 
   async doGenerate(
@@ -656,11 +654,10 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
           finishReason = this.mapFinishReason(rawFinishReason as string);
         }
 
-        const messageMetadata = parsed.messageMetadata as
-          | { usage?: Record<string, unknown> }
-          | undefined;
-        const rawUsage = messageMetadata?.usage;
-        const usage = this.convertUsage(rawUsage);
+        const usage =
+          normalizeBunnyAgentUsage(
+            (parsed.messageMetadata as Record<string, unknown>) ?? undefined,
+          ) ?? createEmptyUsage();
 
         parts.push({
           type: "finish",
@@ -787,66 +784,5 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
       default:
         return { unified: "other", raw: reason ?? "unknown" };
     }
-  }
-
-  private convertUsage(
-    data: Record<string, unknown> | undefined,
-  ): LanguageModelV3Usage {
-    if (!data) {
-      return createEmptyUsage();
-    }
-
-    if ("inputTokens" in data && "outputTokens" in data) {
-      const inputTokens = data.inputTokens as Record<string, number>;
-      const outputTokens = data.outputTokens as Record<string, number>;
-      // Check if there's a raw field in the data
-      const rawData =
-        "raw" in data ? (data.raw as Record<string, unknown>) : data;
-
-      return {
-        inputTokens: {
-          total: inputTokens.total ?? 0,
-          noCache: inputTokens.noCache ?? 0,
-          cacheRead: inputTokens.cacheRead ?? 0,
-          cacheWrite: inputTokens.cacheWrite ?? 0,
-        },
-        outputTokens: {
-          total: outputTokens.total ?? 0,
-          text: outputTokens.text ?? outputTokens.textTokens ?? undefined,
-          reasoning:
-            outputTokens.reasoning ?? outputTokens.reasoningTokens ?? undefined,
-        },
-        raw: rawData as JSONObject,
-      };
-    }
-
-    const usage = (data.usage ?? data) as Record<string, number | undefined>;
-
-    if ("input_tokens" in usage || "output_tokens" in usage) {
-      const inputTokens = (usage.input_tokens as number) ?? 0;
-      const outputTokens = (usage.output_tokens as number) ?? 0;
-      const cacheWrite = (usage.cache_creation_input_tokens as number) ?? 0;
-      const cacheRead = (usage.cache_read_input_tokens as number) ?? 0;
-      // Check for text/reasoning tokens if available
-      const textTokens = (usage.text_tokens as number) ?? undefined;
-      const reasoningTokens = (usage.reasoning_tokens as number) ?? undefined;
-
-      return {
-        inputTokens: {
-          total: inputTokens + cacheWrite + cacheRead,
-          noCache: inputTokens,
-          cacheRead,
-          cacheWrite,
-        },
-        outputTokens: {
-          total: outputTokens,
-          text: textTokens,
-          reasoning: reasoningTokens,
-        },
-        raw: usage as JSONObject,
-      };
-    }
-
-    return createEmptyUsage();
   }
 }

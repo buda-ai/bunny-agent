@@ -29,3 +29,4 @@ export type {
   StreamWriter,
   SubmitAnswerParams,
 } from "./types";
+export { getBunnyAgentMetadata, getBunnyAgentUsage } from "./usage";

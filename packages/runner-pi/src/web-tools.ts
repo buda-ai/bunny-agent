@@ -13,6 +13,7 @@
  */
 
 import type { ToolDefinition } from "@mariozechner/pi-coding-agent";
+import type { ToolUsageDetails } from "./tool-details.js";
 
 // ---------------------------------------------------------------------------
 // Search result type (shared across providers)
@@ -24,6 +25,10 @@ export interface SearchResult {
   snippet: string;
   age?: string;
   content?: string;
+}
+
+interface SearchExecutionResult {
+  results: SearchResult[];
 }
 
 // ---------------------------------------------------------------------------
@@ -45,7 +50,28 @@ export interface WebSearchProvider {
     country?: string;
     freshness?: string;
     signal?: AbortSignal;
-  }): Promise<SearchResult[]>;
+  }): Promise<SearchExecutionResult>;
+}
+
+/** Per-provider search usage row under `WebSearchUsageDetails.raw`. */
+export type WebSearchProviderUsage = {
+  requests: number;
+  fetchedPages: number;
+};
+
+/** Usage payload for `web_search` tool results (`details.usage`). */
+export interface WebSearchUsageDetails
+  extends ToolUsageDetails<WebSearchProviderUsage> {}
+
+/**
+ * Normalised web search billing for metadata (synthesised from `details.usage.raw`;
+ * not present on the tool result payload).
+ */
+export interface WebSearchBillingDetails {
+  type: "web_search";
+  providerId: string;
+  requests: number;
+  fetchedPages: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -93,7 +119,7 @@ const braveProvider: WebSearchProvider = {
         });
       }
     }
-    return results;
+    return { results };
   },
 };
 
@@ -133,7 +159,7 @@ const tavilyProvider: WebSearchProvider = {
         });
       }
     }
-    return results;
+    return { results };
   },
 };
 
@@ -373,7 +399,7 @@ export function buildWebSearchTool(
       let lastError: unknown;
       for (const { provider, apiKey } of providers) {
         try {
-          const results = await provider.search({
+          const { results } = await provider.search({
             apiKey,
             query,
             count,
@@ -382,11 +408,22 @@ export function buildWebSearchTool(
             signal,
           });
 
+          let fetchedPages = 0;
           if (shouldFetchContent) {
             for (const r of results) {
               r.content = await fetchPageContent(r.link, signal);
+              fetchedPages += 1;
             }
           }
+
+          const usage: WebSearchUsageDetails = {
+            raw: {
+              [provider.id]: {
+                requests: 1,
+                fetchedPages,
+              },
+            },
+          };
 
           return {
             content: [
@@ -395,7 +432,9 @@ export function buildWebSearchTool(
                 text: formatSearchResults(results, provider.label),
               },
             ],
-            details: undefined,
+            details: {
+              usage,
+            },
           };
         } catch (e: unknown) {
           lastError = e;

@@ -1,6 +1,6 @@
 import { appendFileSync, existsSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
-import { getModel, type Usage } from "@mariozechner/pi-ai";
+import { type Api, getModel, type Model } from "@mariozechner/pi-ai";
 import {
   type AgentSessionEvent,
   AuthStorage,
@@ -10,17 +10,18 @@ import {
   type ToolDefinition,
 } from "@mariozechner/pi-coding-agent";
 import { BunnyAgentResourceLoader } from "./bunny-agent-resource-loader.js";
-import {
-  buildImageEditTool,
-  buildImageGenerateTool,
-  type ImageToolDetails,
-} from "./image-tools.js";
+import { buildImageEditTool, buildImageGenerateTool } from "./image-tools.js";
 import {
   extractSessionContext,
   isSessionFileTooLarge,
   resolveSessionPathById,
 } from "./session-utils.js";
+import {
+  extractToolResultText,
+  PiAISDKStreamConverter,
+} from "./stream-converter.js";
 import { buildSecretAwareTools, redactSecrets } from "./tool-overrides.js";
+import { getUsageFromAgentEndMessages } from "./usage-metadata.js";
 
 const LOG_PREFIX = "[bunny-agent:pi]";
 
@@ -98,8 +99,7 @@ function getEnvValue(
 }
 
 function applyModelOverrides(
-  // biome-ignore lint/suspicious/noExplicitAny: pi-ai model type is generic and extensible.
-  model: any,
+  model: { baseUrl?: string } | null | undefined,
   provider: string,
   optionsEnv?: Record<string, string>,
 ): void {
@@ -118,79 +118,6 @@ function applyModelOverrides(
   }
 }
 
-function emitStreamError(errorText: string): string[] {
-  return [
-    `data: ${JSON.stringify({ type: "error", errorText })}\n\n`,
-    `data: ${JSON.stringify({ type: "finish", finishReason: "error" })}\n\n`,
-    "data: [DONE]\n\n",
-  ];
-}
-
-/**
- * Extract plain text from pi's ToolResult format.
- *
- * Pi tools return results in the shape:
- *   { content: [{ type: "text", text: "..." }, ...], details: { ... } }
- *
- * When this object is serialised as-is into the `tool-output-available` SSE
- * event and the UI renders it, users see raw JSON like
- *   {"content":[{"type":"text","text":"Command timed out after 10 seconds"}],"details":{}}
- * instead of a readable message.
- *
- * This function unwraps the content array and joins all text parts so the
- * downstream SDK and UI always receive a plain string.
- */
-export function extractToolResultText(result: unknown): string {
-  if (result !== null && typeof result === "object") {
-    const r = result as {
-      content?: Array<{ type?: string; text?: string }>;
-    };
-    if (Array.isArray(r.content) && r.content.length > 0) {
-      const text = r.content
-        .filter((c) => c.type === "text" && typeof c.text === "string")
-        .map((c) => c.text as string)
-        .join("\n");
-      if (text.length > 0) {
-        return text;
-      }
-    }
-  }
-  // Fallback: stringify whatever we received so the caller always gets a string.
-  if (typeof result === "string") return result;
-  try {
-    return JSON.stringify(result);
-  } catch {
-    return String(result);
-  }
-}
-
-/**
- * Map pi-ai Usage to the shape expected by the SDK (messageMetadata.usage).
- * SDK convertUsage accepts input_tokens, output_tokens, cache_read_input_tokens, cache_creation_input_tokens.
- */
-function usageToMessageMetadata(usage: Usage): Record<string, number> {
-  return {
-    input_tokens: usage.input,
-    output_tokens: usage.output,
-    cache_read_input_tokens: usage.cacheRead,
-    cache_creation_input_tokens: usage.cacheWrite,
-  };
-}
-
-/**
- * Get usage from the last assistant message in agent_end.messages.
- */
-function getUsageFromAgentEndMessages(
-  messages: Array<{ role: string; usage?: Usage }>,
-): Usage | undefined {
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const m = messages[i];
-    if (m.role === "assistant" && m.usage != null) {
-      return m.usage;
-    }
-  }
-  return undefined;
-}
 /**
  * Extract error message from agent_end messages (e.g. 401 auth errors, model errors).
  * Pi agent sets stopReason:"error" and errorMessage on the assistant message.
@@ -271,8 +198,8 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
   const modelRegistry = ModelRegistry.inMemory(AuthStorage.create());
   // biome-ignore lint/suspicious/noExplicitAny: getModel accepts provider string unions.
   const defaultModel = getModel(provider as any, modelName);
-  // biome-ignore lint/suspicious/noExplicitAny: model type is complex
-  let model = (defaultModel ?? modelRegistry.find(provider, modelName)) as any;
+  let model = (defaultModel ??
+    modelRegistry.find(provider, modelName)) as Model<Api>;
   if (model == null) {
     // Auto-register: use <PROVIDER>_BASE_URL or fallback to OPENAI_BASE_URL
     const baseUrlEnvKey = `${provider.toUpperCase().replace(/-/g, "_")}_BASE_URL`;
@@ -327,6 +254,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
         > => {
           if (resume !== undefined && resume !== "") {
             if (resume.includes("/")) {
+              // Full path provided — open directly
               return SessionManager.open(resume);
             }
             // Find session file by id without parsing contents (OOM fix)
@@ -354,10 +282,6 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
             }
             return SessionManager.create(cwd);
           }
-          // Always start a fresh session when no explicit resume is requested.
-          // Using continueRecent() would load stale session data from previous
-          // runs, which can confuse the LLM context and cause errors such as
-          // "Model tried to call unavailable tool 'bash'. No tools are available."
           return SessionManager.create(cwd);
         })();
 
@@ -442,207 +366,39 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
         try {
           traceRawMessage(cwd, null, true, options.env);
 
-          let promptText = userInput;
-          let images:
-            | Array<{ type: "image"; data: string; mimeType: string }>
-            | undefined;
+          const promptText = userInput;
+          const promptPromise = session.prompt(promptText);
 
-          // Try to parse userInput as a JSON array of parts (if passed from bunny-agent SDK)
-          try {
-            if (userInput.startsWith("[") && userInput.endsWith("]")) {
-              const parsed = JSON.parse(userInput);
-              if (Array.isArray(parsed)) {
-                promptText = parsed
-                  .filter((p) => p.type === "text")
-                  .map((p) => p.text)
-                  .join("\n");
-
-                const imageParts = parsed.filter((p) => p.type === "image");
-                if (imageParts.length > 0) {
-                  images = imageParts.map((p) => ({
-                    type: "image",
-                    data: p.data,
-                    mimeType: p.mimeType,
-                  }));
-                }
+          const streamConverter = new PiAISDKStreamConverter({
+            sessionId: session.sessionId,
+            model,
+            redactText: (value: string) => {
+              if (options.env && Object.keys(options.env).length > 0) {
+                return redactSecrets(value, options.env);
               }
-            }
-          } catch (_e) {
-            // Fallback to raw string if parsing fails
-          }
-
-          const promptPromise = session.prompt(
-            promptText,
-            images ? { images } : undefined,
-          );
-
-          const messageId = `msg_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-          let hasStarted = false;
-          let hasFinished = false;
-
-          /** Accumulated token usage from image tool calls (details.response.usage). */
-          const imageToolUsage = { input_tokens: 0, output_tokens: 0 };
-
-          /** Fresh id for each assistant text segment so the UI keeps tool/text order as separate parts. */
-          const newTextPartId = () =>
-            `text_${Date.now()}_${Math.random().toString(36).slice(2)}_${Math.random().toString(36).slice(2)}`;
-
-          let activeTextPartId: string | null = null;
-          let textStreamOpen = false;
-
-          const endTextStreamIfOpen = function* (): Generator<
-            string,
-            void,
-            unknown
-          > {
-            if (textStreamOpen && activeTextPartId != null) {
-              yield `data: ${JSON.stringify({ type: "text-end", id: activeTextPartId })}\n\n`;
-              textStreamOpen = false;
-              activeTextPartId = null;
-            }
-          };
-
-          const beginTextStream = function* (): Generator<
-            string,
-            void,
-            unknown
-          > {
-            activeTextPartId = newTextPartId();
-            yield `data: ${JSON.stringify({ type: "text-start", id: activeTextPartId })}\n\n`;
-            textStreamOpen = true;
-          };
-
-          const ensureStartEvent = async function* () {
-            if (!hasStarted) {
-              yield `data: ${JSON.stringify({ type: "start", messageId })}\n\n`;
-              yield `data: ${JSON.stringify({
-                type: "message-metadata",
-                messageMetadata: { sessionId: session.sessionId },
-              })}\n\n`;
-              hasStarted = true;
-            }
-          };
-
-          const finishSuccess = async function* (usage?: Usage) {
-            yield* endTextStreamIfOpen();
-            const finishPayload: {
-              type: "finish";
-              finishReason: string;
-              messageMetadata?: { usage: Record<string, number> };
-            } = { type: "finish", finishReason: "stop" };
-            const hasImageUsage =
-              imageToolUsage.input_tokens > 0 ||
-              imageToolUsage.output_tokens > 0;
-            if (usage != null || hasImageUsage) {
-              const base = usage != null ? usageToMessageMetadata(usage) : {};
-              finishPayload.messageMetadata = {
-                usage: {
-                  ...base,
-                  input_tokens:
-                    (base.input_tokens ?? 0) + imageToolUsage.input_tokens,
-                  output_tokens:
-                    (base.output_tokens ?? 0) + imageToolUsage.output_tokens,
-                },
-              };
-            }
-            yield `data: ${JSON.stringify(finishPayload)}\n\n`;
-            yield "data: [DONE]\n\n";
-            hasFinished = true;
-          };
-
-          const finishError = async function* (errorText: string) {
-            for (const chunk of emitStreamError(errorText)) {
-              yield chunk;
-            }
-            hasFinished = true;
-          };
+              return value;
+            },
+            normalizeToolOutput: extractToolResultText,
+            getUsageFromAgentEndMessages,
+            getErrorFromAgentEndMessages,
+          });
 
           while (!isComplete || eventQueue.length > 0) {
             while (eventQueue.length > 0) {
               const event = eventQueue.shift()!;
               traceRawMessage(cwd, event, false, options.env);
-
-              yield* ensureStartEvent();
-
-              if (event.type === "message_start") {
-                const msg = (
-                  event as {
-                    message?: { role?: string };
-                  }
-                ).message;
-                if (msg?.role === "assistant") {
-                  yield* endTextStreamIfOpen();
-                }
-              } else if (event.type === "message_update") {
-                const sub = event.assistantMessageEvent as {
-                  type: string;
-                  delta?: string;
-                };
-                if (sub.type === "text_start") {
-                  yield* endTextStreamIfOpen();
-                  yield* beginTextStream();
-                } else if (sub.type === "text_delta") {
-                  let delta = sub.delta;
-                  if (delta) {
-                    if (options.env && Object.keys(options.env).length > 0) {
-                      delta = redactSecrets(delta, options.env);
-                    }
-                    if (!textStreamOpen) {
-                      yield* beginTextStream();
-                    }
-                    yield `data: ${JSON.stringify({
-                      type: "text-delta",
-                      id: activeTextPartId,
-                      delta,
-                    })}\n\n`;
-                  }
-                } else if (sub.type === "toolcall_start") {
-                  yield* endTextStreamIfOpen();
-                }
-              } else if (event.type === "tool_execution_start") {
-                yield* endTextStreamIfOpen();
-                yield `data: ${JSON.stringify({ type: "tool-input-start", toolCallId: event.toolCallId, toolName: event.toolName, dynamic: true, providerExecuted: true })}\n\n`;
-                yield `data: ${JSON.stringify({ type: "tool-input-available", toolCallId: event.toolCallId, toolName: event.toolName, input: event.args, dynamic: true, providerExecuted: true })}\n\n`;
-              } else if (event.type === "tool_execution_end") {
-                let output = extractToolResultText(event.result);
-                if (options.env && Object.keys(options.env).length > 0) {
-                  output = redactSecrets(output, options.env);
-                }
-                // Collect token usage from image tool results (details.response.usage)
-                if (
-                  (event.toolName === "generate_image" ||
-                    event.toolName === "edit_image") &&
-                  event.result !== null &&
-                  typeof event.result === "object"
-                ) {
-                  const details = (
-                    event.result as { details?: ImageToolDetails }
-                  ).details;
-                  const u = details?.response?.usage;
-                  if (u) {
-                    imageToolUsage.input_tokens += u.input_tokens ?? 0;
-                    imageToolUsage.output_tokens += u.output_tokens ?? 0;
-                  }
-                }
-                yield `data: ${JSON.stringify({ type: "tool-output-available", toolCallId: event.toolCallId, output, isError: event.isError, dynamic: true, providerExecuted: true })}\n\n`;
-              } else if (event.type === "agent_end") {
-                if (aborted) {
-                  yield* finishError("Run aborted by signal.");
-                } else {
-                  const errorMsg = getErrorFromAgentEndMessages(event.messages);
-                  if (errorMsg) {
-                    yield* finishError(errorMsg);
-                  } else {
-                    const usage = getUsageFromAgentEndMessages(event.messages);
-                    yield* finishSuccess(usage);
-                  }
-                }
+              const chunks = streamConverter.handleEvent(event, aborted);
+              for (const chunk of chunks) {
+                yield chunk;
               }
             }
 
-            if (aborted && !hasFinished) {
-              yield* ensureStartEvent();
-              yield* finishError("Run aborted by signal.");
+            if (aborted && !streamConverter.finished) {
+              for (const chunk of streamConverter.forceError(
+                "Run aborted by signal.",
+              )) {
+                yield chunk;
+              }
               break;
             }
 
@@ -653,25 +409,29 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
             }
           }
 
-          if (hasFinished) {
+          if (streamConverter.finished) {
             return;
           }
 
           try {
             await promptPromise;
           } catch (error) {
-            if (!hasFinished) {
-              yield* ensureStartEvent();
+            if (!streamConverter.finished) {
               const message =
                 error instanceof Error ? error.message : "Pi agent run failed.";
-              yield* finishError(message);
+              for (const chunk of streamConverter.forceError(message)) {
+                yield chunk;
+              }
             }
             return;
           }
 
-          if (!hasFinished && session.agent.state.error) {
-            yield* ensureStartEvent();
-            yield* finishError(session.agent.state.error);
+          if (!streamConverter.finished && session.agent.state.error) {
+            for (const chunk of streamConverter.forceError(
+              session.agent.state.error,
+            )) {
+              yield chunk;
+            }
           }
         } finally {
           if (abortSignal) {
