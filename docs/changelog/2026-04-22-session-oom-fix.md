@@ -24,7 +24,7 @@ Lightweight session utilities that avoid loading full session files:
   threshold (aligned with OpenClaw's `rotateBytes` setting). Returns true if
   the file would likely OOM during `SessionManager.open()`.
 
-- **`extractLastCompactionSummary(sessionPath)`** — Reads only the last 256KB
+- **`extractLastCompactionSummary(sessionPath)`** — Reads only the last 1MB
   of the file to find the most recent compaction summary. Avoids loading the
   entire file. The summary is used to seed a new session so the agent retains
   context from the previous conversation.
