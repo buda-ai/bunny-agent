@@ -39,10 +39,6 @@ Updated session resume logic:
    summary from the old file, and write it as a `CompactionEntry` in the new
    session via `SessionManager.appendCompaction()`
 
-### `packages/benchmark-shared/tsconfig.json`
-
-Added `"types": ["node"]` to fix `console` not found build error on v0.9.28.
-
 ## Testing
 
 - Added `session-utils.test.ts` with 9 tests covering all three utilities
