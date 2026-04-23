@@ -16,6 +16,11 @@ import {
   type ImageToolDetails,
 } from "./image-tools.js";
 import { buildSecretAwareTools, redactSecrets } from "./tool-overrides.js";
+import {
+  extractSessionContext,
+  isSessionFileTooLarge,
+  resolveSessionPathById,
+} from "./session-utils.js";
 
 const LOG_PREFIX = "[bunny-agent:pi]";
 
@@ -324,11 +329,30 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
             if (resume.includes("/")) {
               return SessionManager.open(resume);
             }
-            const sessions = await SessionManager.list(cwd);
-            const found = sessions.find((s) => s.id === resume);
-            return found
-              ? SessionManager.open(found.path)
-              : SessionManager.create(cwd);
+            // Find session file by id without parsing contents (OOM fix)
+            const sessionPath = resolveSessionPathById(cwd, resume);
+            console.error(
+              `${LOG_PREFIX} resume: id=${resume} path=${sessionPath ?? "(not found)"}`,
+            );
+            if (sessionPath) {
+              // Skip loading oversized session files to avoid OOM.
+              // Extract the last compaction summary so the new session
+              // retains context from the previous conversation.
+              if (isSessionFileTooLarge(sessionPath)) {
+                const context = extractSessionContext(sessionPath);
+                console.error(
+                  `${LOG_PREFIX} session file too large, starting fresh${context ? " (with context)" : ""}`,
+                );
+                const newMgr = SessionManager.create(cwd);
+                if (context) {
+                  const firstId = newMgr.getEntries()[0]?.id ?? "";
+                  newMgr.appendCompaction(context, firstId, 0);
+                }
+                return newMgr;
+              }
+              return SessionManager.open(sessionPath);
+            }
+            return SessionManager.create(cwd);
           }
           // Always start a fresh session when no explicit resume is requested.
           // Using continueRecent() would load stale session data from previous
