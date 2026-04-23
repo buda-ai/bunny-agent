@@ -213,13 +213,15 @@ export class PiAISDKStreamConverter {
   private finishSuccess(usage?: Usage): string[] {
     const chunks = [...this.endTextStreamIfOpen()];
     const raw: Record<string, Record<string, unknown>> = {};
-    const modelId = this.options.model.id;
+    // Capture chat-level usage before tool tally may overwrite the same key.
+    let chatUsage: Record<string, unknown> | undefined;
     if (usage) {
       const { id } = this.options.model;
-      raw[id] = {
+      chatUsage = {
         type: "chat",
         ...usageToMessageMetadata(usage),
       };
+      raw[id] = chatUsage;
     }
     for (const [key, tally] of Object.entries(this.toolUsageTally)) {
       raw[key] = { ...tally };
@@ -229,7 +231,7 @@ export class PiAISDKStreamConverter {
       finishReason: "stop",
     };
     if (usage) {
-      finishPayload.messageMetadata = { usage: { ...raw[modelId], raw } };
+      finishPayload.messageMetadata = { usage: { ...chatUsage, raw } };
     }
     chunks.push(sseData(finishPayload), "data: [DONE]\n\n");
     this.hasFinished = true;
