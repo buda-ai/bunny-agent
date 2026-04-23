@@ -669,23 +669,29 @@ describe("createPiRunner", () => {
     expect(finishChunk).toBeDefined();
     const data = JSON.parse(finishChunk!.replace(/^data: /, "").trim()) as {
       messageMetadata?: {
-        usage?: Record<string, number>;
+        usage?: Record<string, unknown>;
         models?: Record<string, Record<string, unknown>>;
       };
     };
 
+    // usage has chat tokens spread at top level
+    expect(data.messageMetadata?.usage?.input_tokens).toBe(100);
+    expect(data.messageMetadata?.usage?.output_tokens).toBe(200);
+    // raw map has tool usage (image tool overwrites chat entry for same model id)
     expect(
-      data.messageMetadata?.models?.["openai/gpt-image-1"]?.input_tokens,
-    ).toBe(100);
+      (
+        data.messageMetadata?.usage?.raw as
+          | Record<string, Record<string, unknown>>
+          | undefined
+      )?.["gpt-image-1"]?.input_tokens,
+    ).toBe(22);
     expect(
-      data.messageMetadata?.models?.["openai/gpt-image-1"]?.output_tokens,
-    ).toBe(200);
-    expect(data.messageMetadata?.models?.["gpt-image-1"]?.input_tokens).toBe(
-      22,
-    );
-    expect(data.messageMetadata?.models?.["gpt-image-1"]?.output_tokens).toBe(
-      1120,
-    );
+      (
+        data.messageMetadata?.usage?.raw as
+          | Record<string, Record<string, unknown>>
+          | undefined
+      )?.["gpt-image-1"]?.output_tokens,
+    ).toBe(1120);
     expect(data.messageMetadata).not.toHaveProperty("cost");
     expect(data.messageMetadata).not.toHaveProperty("imageCost");
   });
@@ -727,24 +733,22 @@ describe("createPiRunner", () => {
     expect(finishChunk).toBeDefined();
     const data = JSON.parse(finishChunk!.replace(/^data: /, "").trim()) as {
       messageMetadata?: {
-        usage?: Record<string, number>;
+        usage?: Record<string, unknown>;
         models?: Record<string, { type: string } & Record<string, unknown>>;
       };
     };
 
-    expect(data.messageMetadata?.models?.["openai/gpt-4o"]?.input_tokens).toBe(
-      40,
-    );
-    expect(data.messageMetadata?.models?.["openai/gpt-4o"]?.output_tokens).toBe(
-      60,
-    );
+    expect(data.messageMetadata?.usage?.input_tokens).toBe(30);
+    expect(data.messageMetadata?.usage?.output_tokens).toBe(40);
+    expect(data.messageMetadata?.usage?.cache_read_input_tokens).toBe(3);
+    expect(data.messageMetadata?.usage?.cache_creation_input_tokens).toBe(4);
     expect(
-      data.messageMetadata?.models?.["openai/gpt-4o"]?.cache_read_input_tokens,
-    ).toBe(4);
-    expect(
-      data.messageMetadata?.models?.["openai/gpt-4o"]
-        ?.cache_creation_input_tokens,
-    ).toBe(6);
+      (
+        data.messageMetadata?.usage?.raw as
+          | Record<string, Record<string, unknown>>
+          | undefined
+      )?.["gpt-4o"]?.type,
+    ).toBe("chat");
   });
 
   it("accumulates edit_image tool usage into finish messageMetadata", async () => {
@@ -818,17 +822,13 @@ describe("createPiRunner", () => {
     expect(finishChunk).toBeDefined();
     const data = JSON.parse(finishChunk!.replace(/^data: /, "").trim()) as {
       messageMetadata?: {
-        usage?: Record<string, number>;
+        usage?: Record<string, unknown>;
         models?: Record<string, { type: string } & Record<string, unknown>>;
       };
     };
 
-    expect(
-      data.messageMetadata?.models?.["openai/gpt-image-1"]?.input_tokens,
-    ).toBe(10);
-    expect(
-      data.messageMetadata?.models?.["openai/gpt-image-1"]?.output_tokens,
-    ).toBe(20);
+    expect(data.messageMetadata?.usage?.input_tokens).toBe(10);
+    expect(data.messageMetadata?.usage?.output_tokens).toBe(20);
     expect(data.messageMetadata).not.toHaveProperty("cost");
     expect(data.messageMetadata).not.toHaveProperty("imageCost");
   });

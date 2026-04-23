@@ -1,3 +1,4 @@
+export type { ImageToolDetails, ImageToolUsageDetails } from "./image-tools.js";
 export {
   createPiRunner,
   type PiRunner,
@@ -9,5 +10,3 @@ export type {
   WebSearchProviderUsage,
   WebSearchUsageDetails,
 } from "./web-tools.js";
-export type { ImageToolDetails, ImageToolUsageDetails } from "./image-tools.js";
-export type { MessageMetadata } from "./usage-metadata.js";

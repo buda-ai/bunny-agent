@@ -11,18 +11,13 @@ import {
   type ToolDefinition,
 } from "@mariozechner/pi-coding-agent";
 import { BunnyAgentResourceLoader } from "./bunny-agent-resource-loader.js";
-import {
-  buildImageEditTool,
-  buildImageGenerateTool,
-} from "./image-tools.js";
+import { buildImageEditTool, buildImageGenerateTool } from "./image-tools.js";
 import {
   extractToolResultText,
   PiAISDKStreamConverter,
 } from "./stream-converter.js";
 import { buildSecretAwareTools, redactSecrets } from "./tool-overrides.js";
-import {
-  getUsageFromAgentEndMessages,
-} from "./usage-metadata.js";
+import { getUsageFromAgentEndMessages } from "./usage-metadata.js";
 
 const LOG_PREFIX = "[bunny-agent:pi]";
 
@@ -262,7 +257,12 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
             // Mirrors pi-coding-agent's getDefaultSessionDir logic
             const agentDir = join(homedir(), ".pi", "agent");
             const safePath = `--${cwd.replace(/^[/\\]/, "").replace(/[/\\:]/g, "-")}--`;
-            const sessionPath = join(agentDir, "sessions", safePath, `${resume}.jsonl`);
+            const sessionPath = join(
+              agentDir,
+              "sessions",
+              safePath,
+              `${resume}.jsonl`,
+            );
             if (existsSync(sessionPath)) {
               return SessionManager.open(sessionPath);
             }
@@ -353,21 +353,12 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
         try {
           traceRawMessage(cwd, null, true, options.env);
 
-          let promptText = userInput;
+          const promptText = userInput;
           const promptPromise = session.prompt(promptText);
 
           const streamConverter = new PiAISDKStreamConverter({
             sessionId: session.sessionId,
             model,
-            imagePricingModel:
-              imageModelName != null
-                ? (getModel(
-                    // biome-ignore lint/suspicious/noExplicitAny: Pi KnownProvider union vs runtime model spec
-                    provider as any,
-                    imageModelName,
-                  ) ??
-                  modelRegistry.find(provider, imageModelName))
-                : undefined,
             redactText: (value: string) => {
               if (options.env && Object.keys(options.env).length > 0) {
                 return redactSecrets(value, options.env);

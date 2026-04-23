@@ -367,18 +367,12 @@ export async function POST(request: Request) {
         messages: normalizedMessages,
         abortSignal: signal,
         onFinish: (event) => {
-          const stepsUsage = event.steps.map((s) => ({
-            usage: s.usage,
-            providerMetadata: s.providerMetadata,
-          }));
           console.info(
             "[api/ai] stream finished",
             JSON.stringify(
               {
-                finishReason: event.finishReason,
-                usage: event.usage,
                 totalUsage: event.totalUsage,
-                stepsUsage,
+                providerMetadata: event.providerMetadata,
               },
               null,
               2,

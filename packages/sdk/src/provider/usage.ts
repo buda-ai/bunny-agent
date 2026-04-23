@@ -61,7 +61,9 @@ export function normalizeBunnyAgentUsage(
   const inputTokens =
     typeof usageSource.input_tokens === "number" ? usageSource.input_tokens : 0;
   const outputTokens =
-    typeof usageSource.output_tokens === "number" ? usageSource.output_tokens : 0;
+    typeof usageSource.output_tokens === "number"
+      ? usageSource.output_tokens
+      : 0;
   const cacheRead =
     typeof usageSource.cache_read_input_tokens === "number"
       ? usageSource.cache_read_input_tokens

@@ -78,8 +78,8 @@ const generateImageSchema = {
     },
     quality: {
       type: "string",
-      enum: ["standard", "hd"],
-      description: "Image quality (OpenAI only). Defaults to standard.",
+      enum: ["low", "medium", "high", "auto"],
+      description: "Image quality. Defaults to auto.",
     },
   },
   required: ["prompt"],
@@ -323,7 +323,7 @@ export function buildImageGenerateTool(
       const p = params as Record<string, unknown>;
       const prompt = p.prompt as string;
       const size = (p.size as string) ?? "1024x1024";
-      const quality = (p.quality as string) ?? "standard";
+      const quality = (p.quality as string) ?? "auto";
       const rawFilename = p.filename as string | undefined;
 
       // Ensure filename has an extension
