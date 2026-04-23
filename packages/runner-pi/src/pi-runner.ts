@@ -15,12 +15,12 @@ import {
   buildImageGenerateTool,
   type ImageToolDetails,
 } from "./image-tools.js";
-import { buildSecretAwareTools, redactSecrets } from "./tool-overrides.js";
 import {
   extractSessionContext,
   isSessionFileTooLarge,
   resolveSessionPathById,
 } from "./session-utils.js";
+import { buildSecretAwareTools, redactSecrets } from "./tool-overrides.js";
 
 const LOG_PREFIX = "[bunny-agent:pi]";
 
