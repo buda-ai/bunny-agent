@@ -131,12 +131,12 @@ describe("buildWebSearchTool", () => {
       }) as unknown as Response) as typeof fetch;
 
     const tool = buildWebSearchTool({ BRAVE_API_KEY: "bsk-test" });
-    const result = await (tool.execute as (
-      ...args: unknown[]
-    ) => Promise<{
-      content: Array<{ type: string; text?: string }>;
-      details?: unknown;
-    }>)(
+    const result = await (
+      tool.execute as (...args: unknown[]) => Promise<{
+        content: Array<{ type: string; text?: string }>;
+        details?: unknown;
+      }>
+    )(
       "call_1",
       { query: "iran latest news", count: 1 },
       undefined,

@@ -475,21 +475,6 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
     });
   }
 
-  /** Map runner `messageMetadata` on tool SSE events into AI SDK `providerMetadata`. */
-  private toolEventProviderMetadata(
-    messageMetadata: unknown,
-  ): SharedV3ProviderMetadata | undefined {
-    if (messageMetadata == null || typeof messageMetadata !== "object") {
-      return undefined;
-    }
-    return {
-      "bunny-agent": {
-        ...(messageMetadata as Record<string, unknown>),
-        sessionId: this.sessionId,
-      } as unknown as SharedV3ProviderMetadata,
-    };
-  }
-
   private parseSSEBuffer(buffer: string): LanguageModelV3StreamPart[] {
     const parts: LanguageModelV3StreamPart[] = [];
     const lines = buffer.split("\n");
@@ -603,9 +588,6 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
           toolName: parsed.toolName as string,
           dynamic: parsed.dynamic as boolean,
           providerExecuted: parsed.providerExecuted as boolean,
-          providerMetadata: this.toolEventProviderMetadata(
-            parsed.messageMetadata,
-          ),
         });
         break;
       }
@@ -630,9 +612,6 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
           input: JSON.stringify(input),
           dynamic: parsed.dynamic as boolean,
           providerExecuted: parsed.providerExecuted as boolean,
-          providerMetadata: this.toolEventProviderMetadata(
-            parsed.messageMetadata,
-          ),
         });
         break;
       }
@@ -646,9 +625,6 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
           result: parsed.output as NonNullable<JSONValue>,
           isError: parsed.isError as boolean,
           dynamic: parsed.dynamic as boolean,
-          providerMetadata: this.toolEventProviderMetadata(
-            parsed.messageMetadata,
-          ),
         });
         break;
       }

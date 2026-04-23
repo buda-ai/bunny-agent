@@ -12,16 +12,17 @@ import {
 import { BunnyAgentResourceLoader } from "./bunny-agent-resource-loader.js";
 import { buildImageEditTool, buildImageGenerateTool } from "./image-tools.js";
 import {
+  extractSessionContext,
+  isSessionFileTooLarge,
+  resolveSessionPathById,
+} from "./session-utils.js";
+import {
   extractToolResultText,
   PiAISDKStreamConverter,
 } from "./stream-converter.js";
 import { buildSecretAwareTools, redactSecrets } from "./tool-overrides.js";
 import { getUsageFromAgentEndMessages } from "./usage-metadata.js";
-import {
-  extractSessionContext,
-  isSessionFileTooLarge,
-  resolveSessionPathById,
-} from "./session-utils.js";
+
 const LOG_PREFIX = "[bunny-agent:pi]";
 
 export interface PiRunnerOptions {

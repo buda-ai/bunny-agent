@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  getBunnyAgentMetadata,
-  getBunnyAgentUsage,
-} from "../provider/usage";
+import { getBunnyAgentMetadata, getBunnyAgentUsage } from "../provider/usage";
 
 describe("usage helpers", () => {
   it("extracts bunny-agent metadata", () => {
@@ -62,6 +59,8 @@ describe("usage helpers", () => {
     expect(getBunnyAgentMetadata(undefined)).toBeUndefined();
     expect(getBunnyAgentMetadata({})).toBeUndefined();
     expect(getBunnyAgentUsage({ "bunny-agent": {} })).toBeUndefined();
-    expect(getBunnyAgentUsage({ "bunny-agent": { usage: "invalid" } })).toBeUndefined();
+    expect(
+      getBunnyAgentUsage({ "bunny-agent": { usage: "invalid" } }),
+    ).toBeUndefined();
   });
 });
