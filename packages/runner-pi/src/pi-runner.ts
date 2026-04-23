@@ -1,5 +1,4 @@
 import { appendFileSync, existsSync, unlinkSync } from "node:fs";
-import { homedir } from "node:os";
 import { join } from "node:path";
 import { type Api, getModel, type Model } from "@mariozechner/pi-ai";
 import {
@@ -18,7 +17,11 @@ import {
 } from "./stream-converter.js";
 import { buildSecretAwareTools, redactSecrets } from "./tool-overrides.js";
 import { getUsageFromAgentEndMessages } from "./usage-metadata.js";
-
+import {
+  extractSessionContext,
+  isSessionFileTooLarge,
+  resolveSessionPathById,
+} from "./session-utils.js";
 const LOG_PREFIX = "[bunny-agent:pi]";
 
 export interface PiRunnerOptions {
@@ -253,20 +256,29 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
               // Full path provided — open directly
               return SessionManager.open(resume);
             }
-            // id-only: construct path directly without listing all sessions
-            // Mirrors pi-coding-agent's getDefaultSessionDir logic
-            const agentDir = join(homedir(), ".pi", "agent");
-            const safePath = `--${cwd.replace(/^[/\\]/, "").replace(/[/\\:]/g, "-")}--`;
-            const sessionPath = join(
-              agentDir,
-              "sessions",
-              safePath,
-              `${resume}.jsonl`,
+            // Find session file by id without parsing contents (OOM fix)
+            const sessionPath = resolveSessionPathById(cwd, resume);
+            console.error(
+              `${LOG_PREFIX} resume: id=${resume} path=${sessionPath ?? "(not found)"}`,
             );
-            if (existsSync(sessionPath)) {
+            if (sessionPath) {
+              // Skip loading oversized session files to avoid OOM.
+              // Extract the last compaction summary so the new session
+              // retains context from the previous conversation.
+              if (isSessionFileTooLarge(sessionPath)) {
+                const context = extractSessionContext(sessionPath);
+                console.error(
+                  `${LOG_PREFIX} session file too large, starting fresh${context ? " (with context)" : ""}`,
+                );
+                const newMgr = SessionManager.create(cwd);
+                if (context) {
+                  const firstId = newMgr.getEntries()[0]?.id ?? "";
+                  newMgr.appendCompaction(context, firstId, 0);
+                }
+                return newMgr;
+              }
               return SessionManager.open(sessionPath);
             }
-            // Session file not found — start fresh
             return SessionManager.create(cwd);
           }
           return SessionManager.create(cwd);
