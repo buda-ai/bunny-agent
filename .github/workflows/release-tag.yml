@@ -85,14 +85,28 @@ jobs:
           fi
 
       # Publish only the fixed set of packages to npm.
+      # Uses --report-summary to avoid non-zero exit when version already exists.
       - name: Publish to npm
         run: |
           set -e
-          pnpm --filter @bunny-agent/sdk publish --access public --no-git-checks
-          pnpm --filter @bunny-agent/manager publish --access public --no-git-checks
-          pnpm --filter @bunny-agent/sandbox-sandock publish --access public --no-git-checks
-          pnpm --filter @bunny-agent/runner-cli publish --access public --no-git-checks
-          pnpm --filter @bunny-agent/daemon publish --access public --no-git-checks
+          publish() {
+            if pnpm --filter "$1" publish --access public --no-git-checks 2>&1; then
+              echo "✅ Published $1"
+            else
+              # Check if failure is because version already exists (not a real error)
+              if npm view "$1@$(node -p "require('./$2/package.json').version")" version >/dev/null 2>&1; then
+                echo "⏭️ Skipping $1 (version already published)"
+              else
+                echo "❌ Failed to publish $1"
+                return 1
+              fi
+            fi
+          }
+          publish "@bunny-agent/sdk" "packages/sdk"
+          publish "@bunny-agent/manager" "packages/manager"
+          publish "@bunny-agent/sandbox-sandock" "packages/sandbox-sandock"
+          publish "@bunny-agent/runner-cli" "apps/runner-cli"
+          publish "@bunny-agent/daemon" "apps/daemon"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN || secrets.NODE_AUTH_TOKEN || secrets.NPM_PUBLISH_TOKEN }}
 
