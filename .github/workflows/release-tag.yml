@@ -116,6 +116,7 @@ jobs:
         uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          base: main
           commit-message: "chore: version packages (${{ github.ref_name }})"
           branch: "chore/version-sync-${{ github.ref_name }}"
           delete-branch: true
