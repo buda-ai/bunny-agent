@@ -18,10 +18,8 @@
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
   "ignore": [
+    "bunny-bench",
     "@bunny-agent/web",
-    "@bunny-agent/manager-cli",
-    "@bunny-agent/benchmark-cli",
-    "@bunny-agent/benchmark-bunny-agent",
-    "@bunny-agent/benchmark-shared"
+    "@bunny-agent/manager-cli"
   ]
 }
