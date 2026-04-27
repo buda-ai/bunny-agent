@@ -57,9 +57,7 @@ export class DaemonRouter {
           }
           return {
             status: 500,
-            body: fail(
-              err instanceof Error ? err.message : formatUnknownError(err),
-            ),
+            body: fail(formatUnknownError(err)),
           };
         }
       }

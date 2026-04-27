@@ -43,10 +43,10 @@ export interface BunnyAgentLanguageModelOptions {
  */
 export function formatErrorForLog(error: unknown): string {
   if (error instanceof Error) {
-    const parts = [error.message];
+    const parts = [formatUnknownError(error)];
     let cause: unknown = error.cause;
     while (cause instanceof Error) {
-      parts.push(cause.message);
+      parts.push(formatUnknownError(cause));
       cause = cause.cause;
     }
     return parts.join(" | cause: ");

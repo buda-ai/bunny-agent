@@ -68,8 +68,7 @@ export function createNextHandler(opts: { root: string; prefix?: string }) {
         return Response.json(result);
       } catch (err) {
         const status = err instanceof AppError ? err.status : 500;
-        const msg =
-          err instanceof Error ? err.message : formatUnknownError(err);
+        const msg = formatUnknownError(err);
         return Response.json(fail(msg), { status });
       }
     }
@@ -98,8 +97,7 @@ export function createNextHandler(opts: { root: string; prefix?: string }) {
         });
       } catch (err) {
         const status = err instanceof AppError ? err.status : 500;
-        const msg =
-          err instanceof Error ? err.message : formatUnknownError(err);
+        const msg = formatUnknownError(err);
         return Response.json(fail(msg), { status });
       }
     }

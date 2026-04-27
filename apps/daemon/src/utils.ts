@@ -23,10 +23,39 @@ export function fail(error: string): ApiEnvelope<null> {
  * Avoids noisy "[object Object]" in logs and API error payloads.
  */
 export function formatUnknownError(err: unknown): string {
+  const isObjectToStringMessage = (msg: string): boolean =>
+    /^\[object [^\]]+\]$/.test(msg.trim());
+
+  const collectErrorExtras = (e: Error): Record<string, unknown> => {
+    const extra: Record<string, unknown> = {};
+
+    for (const key of Object.getOwnPropertyNames(e)) {
+      if (key === "name" || key === "message" || key === "stack") continue;
+      extra[key] = (e as unknown as Record<string, unknown>)[key];
+    }
+
+    // Some SDKs put diagnostics on inherited properties; keep common keys.
+    for (const key of ["code", "status", "response", "body", "data"]) {
+      if (key in (e as unknown as Record<string, unknown>) && !(key in extra)) {
+        extra[key] = (e as unknown as Record<string, unknown>)[key];
+      }
+    }
+
+    return extra;
+  };
+
   const errorRecord = (e: Error): Record<string, unknown> => ({
     name: e.name,
     message: e.message,
+    ...(isObjectToStringMessage(e.message)
+      ? {
+          note: "Upstream error message was stringified object",
+        }
+      : {}),
     ...(e.cause !== undefined ? { cause: formatUnknownError(e.cause) } : {}),
+    ...(Object.keys(collectErrorExtras(e)).length > 0
+      ? { extra: collectErrorExtras(e) }
+      : {}),
   });
 
   if (err == null) return String(err);
