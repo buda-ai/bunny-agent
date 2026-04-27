@@ -1,6 +1,6 @@
 {
   "name": "@bunny-agent/daemon",
-  "version": "0.9.29-beta.12",
+  "version": "0.9.29-beta.13",
   "description": "BunnyAgent Daemon - Unified API gateway for sandbox services (file, git, volumes)",
   "type": "module",
   "bin": {
