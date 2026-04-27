@@ -382,8 +382,7 @@ describe("formatUnknownError (runner-claude local copy)", () => {
     err.status = 502;
     const out = formatUnknownError(err);
     const parsed = JSON.parse(out);
-    expect(parsed.message).toContain("Upstream error");
-    expect(parsed.message).toContain("status=502");
+    expect(parsed.message).toBe("[object Object]");
     expect(parsed.note).toBe("Upstream error message was stringified object");
     expect(parsed.extra).toMatchObject({ status: 502 });
   });

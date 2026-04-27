@@ -18,6 +18,12 @@ describe("stringifyStreamErrorField", () => {
     expect(stringifyStreamErrorField("boom")).toBe("boom");
   });
 
+  it("rewrites plain '[object Object]' string to a diagnostic sentence", () => {
+    const out = stringifyStreamErrorField("[object Object]");
+    expect(out).toContain("Upstream emitted non-diagnostic error text");
+    expect(out).toContain("[object Object]");
+  });
+
   it("stringifies numbers and booleans", () => {
     expect(stringifyStreamErrorField(42)).toBe("42");
     expect(stringifyStreamErrorField(true)).toBe("true");
