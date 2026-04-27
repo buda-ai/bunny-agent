@@ -13,6 +13,11 @@ export { isBunnyAgentDaemonHealthy } from "./daemon-health.js";
 export type { RunnerEnvParams, RunnerType } from "./env.js";
 // Env helpers
 export { buildRunnerEnv } from "./env.js";
+export {
+  describeError,
+  ensureError,
+  formatUnknownError,
+} from "./error-serialize.js";
 export type { LocalSandboxOptions } from "./local-sandbox.js";
 // Default sandbox adapter (built-in)
 export { LocalSandbox } from "./local-sandbox.js";

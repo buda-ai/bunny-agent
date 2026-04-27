@@ -24,6 +24,28 @@ import { templatesCommand } from "./commands/templates.js";
 
 const VERSION = "0.1.0";
 
+function formatUnknownError(error: unknown): string {
+  if (error == null) return String(error);
+  if (
+    typeof error === "string" ||
+    typeof error === "number" ||
+    typeof error === "boolean"
+  ) {
+    return String(error);
+  }
+  if (error instanceof Error) {
+    return error.message || error.name || "Error";
+  }
+  if (typeof error === "object") {
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return "Unserializable object error";
+    }
+  }
+  return String(error);
+}
+
 function printHelp(): void {
   console.log(`
 🚀 BunnyAgent Manager CLI v${VERSION}
@@ -123,7 +145,7 @@ async function main(): Promise<void> {
         process.exit(1);
     }
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = formatUnknownError(error);
     console.error(`❌ Error: ${message}`);
     process.exit(1);
   }
