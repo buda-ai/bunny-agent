@@ -80,7 +80,7 @@ export async function bunnyAgentRun(
       res.write(chunk);
     }
   } catch (err) {
-    const msg = err instanceof Error ? err.message : formatUnknownError(err);
+    const msg = formatUnknownError(err);
     // Keep output format consistent with runner-cli (SSE `data:` events),
     // so the SDK can parse errors uniformly.
     res.write(`data: ${JSON.stringify({ type: "error", errorText: msg })}\n\n`);
@@ -138,8 +138,7 @@ export function codingRunStream(
           controller.enqueue(encoder.encode(chunk));
         }
       } catch (err) {
-        const msg =
-          err instanceof Error ? err.message : formatUnknownError(err);
+        const msg = formatUnknownError(err);
         controller.enqueue(
           encoder.encode(
             `data: ${JSON.stringify({ type: "error", errorText: msg })}\n\n` +

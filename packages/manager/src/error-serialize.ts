@@ -3,12 +3,34 @@
  * Avoids "[object Object]" when callers throw plain objects or Errors with empty messages.
  */
 function errorRecord(err: Error): Record<string, unknown> {
+  const isObjectToStringMessage = /^\[object [^\]]+\]$/.test(
+    err.message.trim(),
+  );
+
+  const extra: Record<string, unknown> = {};
+  for (const key of Object.getOwnPropertyNames(err)) {
+    if (key === "name" || key === "message" || key === "stack") continue;
+    extra[key] = (err as unknown as Record<string, unknown>)[key];
+  }
+  // Some SDKs expose diagnostics on inherited properties.
+  for (const key of ["code", "status", "response", "body", "data"]) {
+    if (key in (err as unknown as Record<string, unknown>) && !(key in extra)) {
+      extra[key] = (err as unknown as Record<string, unknown>)[key];
+    }
+  }
+
   return {
     name: err.name,
     message: err.message,
+    ...(isObjectToStringMessage
+      ? {
+          note: "Upstream error message was stringified object",
+        }
+      : {}),
     ...(err.cause !== undefined
       ? { cause: formatUnknownError(err.cause) }
       : {}),
+    ...(Object.keys(extra).length > 0 ? { extra } : {}),
   };
 }
 
