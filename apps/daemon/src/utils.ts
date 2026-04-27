@@ -18,41 +18,6 @@ export function fail(error: string): ApiEnvelope<null> {
   return { ok: false, data: null, error };
 }
 
-/**
- * Format unknown thrown values into a readable message.
- * Avoids noisy "[object Object]" in logs and API error payloads.
- */
-export function formatUnknownError(err: unknown): string {
-  const errorRecord = (e: Error): Record<string, unknown> => ({
-    name: e.name,
-    message: e.message,
-    ...(e.cause !== undefined ? { cause: formatUnknownError(e.cause) } : {}),
-  });
-
-  if (err == null) return String(err);
-  if (typeof err === "string") return err;
-  if (typeof err === "number" || typeof err === "boolean") return String(err);
-  if (err instanceof Error) {
-    try {
-      return JSON.stringify(errorRecord(err));
-    } catch {
-      const message = err.message?.trim() ?? "";
-      return `${err.name}: ${message || "(no message)"}`;
-    }
-  }
-  if (typeof err === "object") {
-    try {
-      return JSON.stringify(err, (_key, value) => {
-        if (value instanceof Error) return errorRecord(value);
-        return value;
-      });
-    } catch {
-      return "Unserializable object error";
-    }
-  }
-  return String(err);
-}
-
 export interface AppState {
   root: string;
   volumesRoot: string;

@@ -5,7 +5,6 @@ import type {
   SandboxAdapter,
   SandboxHandle,
 } from "@bunny-agent/manager";
-import { ensureError } from "@bunny-agent/manager";
 import { Sandbox, type SandboxInfo } from "e2b";
 
 /**
@@ -602,7 +601,7 @@ class E2BHandle implements SandboxHandle {
             }
           })
           .catch((err) => {
-            error = ensureError(err);
+            error = err instanceof Error ? err : new Error(String(err));
             // Log AbortError appropriately
             if (error.name === "AbortError") {
               console.log("[E2B] Command execution aborted by user");

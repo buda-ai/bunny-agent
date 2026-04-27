@@ -25,30 +25,6 @@ import { getUsageFromAgentEndMessages } from "./usage-metadata.js";
 
 const LOG_PREFIX = "[bunny-agent:pi]";
 
-/**
- * Local copy of `formatUnknownError`. Kept inline so this package does not
- * depend on `@bunny-agent/manager` (runner is meant to be a leaf package).
- * Keep behavior in sync with `packages/manager/src/error-serialize.ts`.
- */
-function formatUnknownError(error: unknown): string {
-  if (error == null) return String(error);
-  if (typeof error === "string") return error;
-  if (typeof error === "number" || typeof error === "boolean") {
-    return String(error);
-  }
-  if (error instanceof Error) {
-    return error.message || error.name || "Error";
-  }
-  if (typeof error === "object") {
-    try {
-      return JSON.stringify(error);
-    } catch {
-      return "Unserializable object error";
-    }
-  }
-  return String(error);
-}
-
 export interface PiRunnerOptions {
   model?: string;
   systemPrompt?: string;
@@ -441,7 +417,8 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
             await promptPromise;
           } catch (error) {
             if (!streamConverter.finished) {
-              const message = formatUnknownError(error);
+              const message =
+                error instanceof Error ? error.message : "Pi agent run failed.";
               for (const chunk of streamConverter.forceError(message)) {
                 yield chunk;
               }
@@ -450,8 +427,9 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           }
 
           if (!streamConverter.finished && session.agent.state.error) {
-            const errorText = formatUnknownError(session.agent.state.error);
-            for (const chunk of streamConverter.forceError(errorText)) {
+            for (const chunk of streamConverter.forceError(
+              session.agent.state.error,
+            )) {
               yield chunk;
             }
           }

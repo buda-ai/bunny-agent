@@ -1,4 +1,3 @@
-import { formatUnknownError } from "./error-serialize.js";
 import type {
   BunnyAgentOptions,
   Message,
@@ -212,7 +211,8 @@ export class BunnyAgent {
           if (isAbort) {
             console.log("[BunnyAgent] Operation aborted by user");
           } else {
-            const errorMessage = formatUnknownError(error);
+            const errorMessage =
+              error instanceof Error ? error.message : String(error);
             console.error("[BunnyAgent] Error:", errorMessage);
             if (transcriptWriter) {
               await transcriptWriter.write({
