@@ -26,13 +26,45 @@ import type {
  * Keep behavior in sync with `packages/manager/src/error-serialize.ts`.
  */
 export function formatUnknownError(error: unknown): string {
+  const isObjectToStringMessage = (msg: string): boolean =>
+    /^\[object [^\]]+\]$/.test(msg.trim());
+
   if (error == null) return String(error);
   if (typeof error === "string") return error;
   if (typeof error === "number" || typeof error === "boolean") {
     return String(error);
   }
   if (error instanceof Error) {
-    return error.message || error.name || "Error";
+    const extra: Record<string, unknown> = {};
+    for (const key of Object.getOwnPropertyNames(error)) {
+      if (key === "name" || key === "message" || key === "stack") continue;
+      extra[key] = (error as unknown as Record<string, unknown>)[key];
+    }
+    for (const key of ["code", "status", "response", "body", "data"]) {
+      if (
+        key in (error as unknown as Record<string, unknown>) &&
+        !(key in extra)
+      ) {
+        extra[key] = (error as unknown as Record<string, unknown>)[key];
+      }
+    }
+    try {
+      return JSON.stringify({
+        name: error.name,
+        message: error.message,
+        ...(isObjectToStringMessage(error.message)
+          ? {
+              note: "Upstream error message was stringified object",
+            }
+          : {}),
+        ...(Object.keys(extra).length > 0 ? { extra } : {}),
+        ...(error.cause !== undefined
+          ? { cause: formatUnknownError(error.cause) }
+          : {}),
+      });
+    } catch {
+      return error.message || error.name || "Error";
+    }
   }
   if (typeof error === "object") {
     try {

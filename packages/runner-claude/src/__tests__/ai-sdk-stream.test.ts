@@ -343,7 +343,10 @@ describe("AISDKStreamConverter", () => {
       const events = await collectEvents(converter.stream(failing()));
       const error = events.find((e) => e.type === "error");
       expect(error).toBeDefined();
-      expect(error!.errorText).toBe("something broke");
+      expect(JSON.parse(error!.errorText)).toMatchObject({
+        name: "Error",
+        message: "something broke",
+      });
       const finish = events.find((e) => e.type === "finish");
       expect(finish).toBeDefined();
       expect(finish!.finishReason).toBe("error");
@@ -369,14 +372,19 @@ describe("formatUnknownError (runner-claude local copy)", () => {
     expect(formatUnknownError("boom")).toBe("boom");
   });
 
-  it("uses Error.message when present", () => {
-    expect(formatUnknownError(new Error("kaboom"))).toBe("kaboom");
+  it("serializes Error input to structured JSON", () => {
+    const out = formatUnknownError(new Error("kaboom"));
+    expect(JSON.parse(out)).toMatchObject({ name: "Error", message: "kaboom" });
   });
 
-  it("falls back to Error.name when message is empty", () => {
-    const err = new Error("");
-    err.name = "MyError";
-    expect(formatUnknownError(err)).toBe("MyError");
+  it("marks object-string Error.message with a diagnostic note", () => {
+    const err = new Error("[object Object]") as Error & { status?: number };
+    err.status = 502;
+    const out = formatUnknownError(err);
+    const parsed = JSON.parse(out);
+    expect(parsed.message).toBe("[object Object]");
+    expect(parsed.note).toBe("Upstream error message was stringified object");
+    expect(parsed.extra).toMatchObject({ status: 502 });
   });
 
   it("never returns the literal '[object Object]' for plain objects", () => {
