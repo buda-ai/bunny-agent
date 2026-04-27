@@ -624,9 +624,8 @@ export class AISDKStreamConverter {
 
           if (resultMsg.is_error) {
             this.errorEmitted = true;
-            const rawResult = (
-              resultMsg as unknown as { result?: unknown }
-            ).result;
+            const rawResult = (resultMsg as unknown as { result?: unknown })
+              .result;
             const errorText = formatUnknownError(rawResult) || "Unknown error";
             yield this.emit({
               type: "error",

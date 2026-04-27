@@ -1,3 +1,4 @@
+import { formatUnknownError } from "./error-serialize.js";
 import type {
   BunnyAgentOptions,
   Message,
@@ -6,7 +7,6 @@ import type {
   SandboxHandle,
   StreamInput,
 } from "./types.js";
-import { formatUnknownError } from "./error-serialize.js";
 
 /**
  * BunnyAgent - A sandboxed agent runtime that speaks AI SDK UI natively.
