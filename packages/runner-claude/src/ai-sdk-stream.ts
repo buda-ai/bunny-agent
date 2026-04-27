@@ -28,6 +28,27 @@ import type {
 export function formatUnknownError(error: unknown): string {
   const isObjectToStringMessage = (msg: string): boolean =>
     /^\[object [^\]]+\]$/.test(msg.trim());
+  const sanitizeErrorMessage = (err: Error): string => {
+    const raw = err.message?.trim() ?? "";
+    if (!isObjectToStringMessage(raw)) return raw || err.name || "Error";
+
+    const source = err as unknown as Record<string, unknown>;
+    const hints: string[] = [];
+    if (typeof source.code === "string" && source.code.trim()) {
+      hints.push(`code=${source.code}`);
+    }
+    if (typeof source.status === "number") {
+      hints.push(`status=${source.status}`);
+    }
+    if (typeof source.statusText === "string" && source.statusText.trim()) {
+      hints.push(`statusText=${source.statusText}`);
+    }
+    if (typeof source.body === "string" && source.body.trim()) {
+      hints.push(`body=${source.body}`);
+    }
+    if (hints.length > 0) return `Upstream error (${hints.join(", ")})`;
+    return "Upstream returned a non-diagnostic object error";
+  };
 
   if (error == null) return String(error);
   if (typeof error === "string") return error;
@@ -51,7 +72,7 @@ export function formatUnknownError(error: unknown): string {
     try {
       return JSON.stringify({
         name: error.name,
-        message: error.message,
+        message: sanitizeErrorMessage(error),
         ...(isObjectToStringMessage(error.message)
           ? {
               note: "Upstream error message was stringified object",

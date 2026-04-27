@@ -64,17 +64,8 @@ export function formatErrorForLog(error: unknown): string {
  * @internal exported for unit tests only.
  */
 export function stringifyStreamErrorField(value: unknown): string | undefined {
-  const isObjectToStringMessage = (msg: string): boolean =>
-    /^\[object [^\]]+\]$/.test(msg.trim());
-
   if (value === undefined || value === null) return undefined;
-  if (typeof value === "string") {
-    if (value.length === 0) return undefined;
-    if (isObjectToStringMessage(value)) {
-      return `Upstream emitted non-diagnostic error text (${value}); check sandbox/daemon logs for details`;
-    }
-    return value;
-  }
+  if (typeof value === "string") return value.length > 0 ? value : undefined;
   if (typeof value === "number" || typeof value === "boolean") {
     return String(value);
   }
