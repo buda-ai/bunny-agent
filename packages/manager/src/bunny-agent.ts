@@ -6,6 +6,7 @@ import type {
   SandboxHandle,
   StreamInput,
 } from "./types.js";
+import { formatUnknownError } from "./error-serialize.js";
 
 /**
  * BunnyAgent - A sandboxed agent runtime that speaks AI SDK UI natively.
@@ -211,8 +212,7 @@ export class BunnyAgent {
           if (isAbort) {
             console.log("[BunnyAgent] Operation aborted by user");
           } else {
-            const errorMessage =
-              error instanceof Error ? error.message : String(error);
+            const errorMessage = formatUnknownError(error);
             console.error("[BunnyAgent] Error:", errorMessage);
             if (transcriptWriter) {
               await transcriptWriter.write({

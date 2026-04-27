@@ -19,6 +19,30 @@ import type {
   SDKSystemMessage,
   SDKUserMessage,
 } from "@anthropic-ai/claude-agent-sdk";
+
+/**
+ * Local copy of `formatUnknownError`. Kept inline so this package does not
+ * depend on `@bunny-agent/manager` (runner is meant to be a leaf package).
+ * Keep behavior in sync with `packages/manager/src/error-serialize.ts`.
+ */
+export function formatUnknownError(error: unknown): string {
+  if (error == null) return String(error);
+  if (typeof error === "string") return error;
+  if (typeof error === "number" || typeof error === "boolean") {
+    return String(error);
+  }
+  if (error instanceof Error) {
+    return error.message || error.name || "Error";
+  }
+  if (typeof error === "object") {
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return "Unserializable object error";
+    }
+  }
+  return String(error);
+}
 // ============================================================================
 // Types
 // ============================================================================
@@ -600,9 +624,10 @@ export class AISDKStreamConverter {
 
           if (resultMsg.is_error) {
             this.errorEmitted = true;
-            const errorText =
-              (resultMsg as unknown as { result?: string }).result ||
-              "Unknown error";
+            const rawResult = (
+              resultMsg as unknown as { result?: unknown }
+            ).result;
+            const errorText = formatUnknownError(rawResult) || "Unknown error";
             yield this.emit({
               type: "error",
               errorText,
@@ -670,9 +695,10 @@ export class AISDKStreamConverter {
       //   yield this.emit({ type: "text-end", id: this.textPartId });
       // }
     } catch (error) {
+      const formattedError = formatUnknownError(error);
       if (process.env.DEBUG === "true") {
         const errPayload: Record<string, unknown> = {
-          error: error instanceof Error ? error.message : String(error),
+          error: formattedError,
         };
         if (error instanceof Error) {
           if (error.stack) errPayload.stack = error.stack;
@@ -683,18 +709,17 @@ export class AISDKStreamConverter {
                     message: error.cause.message,
                     stack: error.cause.stack,
                   }
-                : String(error.cause);
+                : formatUnknownError(error.cause);
           }
         }
         trace(errPayload);
       } else {
-        trace({ error: String(error) });
+        trace({ error: formattedError });
       }
       if (isAbortError(error)) {
         console.error("[AISDKStream] Operation aborted");
       } else {
-        const errorMessage =
-          error instanceof Error ? error.message : "Unknown error";
+        const errorMessage = formattedError;
         console.error("[AISDKStream] Error:", errorMessage);
         if (process.env.DEBUG === "true") {
           if (error instanceof Error && error.stack) {

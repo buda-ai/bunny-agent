@@ -5,6 +5,7 @@ import type {
   SandboxAdapter,
   SandboxHandle,
 } from "@bunny-agent/manager";
+import { ensureError } from "@bunny-agent/manager";
 import { Daytona, type Sandbox, type VolumeMount } from "@daytonaio/sdk";
 
 /**
@@ -693,7 +694,7 @@ class DaytonaHandle implements SandboxHandle {
               resolveNext = null;
             }
           } catch (err) {
-            error = err instanceof Error ? err : new Error(String(err));
+            error = ensureError(err);
             if (error.name === "AbortError") {
               console.log("[Daytona] Command execution aborted by user");
             } else {
