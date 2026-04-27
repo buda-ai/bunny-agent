@@ -54,9 +54,8 @@ describe("stringifyStreamErrorField", () => {
 });
 
 describe("formatErrorForLog", () => {
-  it("returns a structured string for a simple Error", () => {
-    const parsed = JSON.parse(formatErrorForLog(new Error("simple")));
-    expect(parsed).toMatchObject({ name: "Error", message: "simple" });
+  it("returns Error.message for a simple Error", () => {
+    expect(formatErrorForLog(new Error("simple"))).toBe("simple");
   });
 
   it("flattens nested Error causes with ' | cause: ' separator", () => {
@@ -65,19 +64,12 @@ describe("formatErrorForLog", () => {
     const outer = new Error("outer", { cause: middle });
 
     const out = formatErrorForLog(outer);
-    const [outerPart, middlePart, innerPart] = out.split(" | cause: ");
-    expect(JSON.parse(outerPart)).toMatchObject({ message: "outer" });
-    expect(JSON.parse(middlePart)).toMatchObject({ message: "middle layer" });
-    expect(JSON.parse(innerPart)).toMatchObject({ message: "root cause" });
+    expect(out).toBe("outer | cause: middle layer | cause: root cause");
   });
 
-  it("includes non-Error cause details from the formatted outer Error", () => {
+  it("stops walking causes once it hits a non-Error cause", () => {
     const outer = new Error("outer", { cause: { reason: "x" } });
-    const out = formatErrorForLog(outer);
-    const parsed = JSON.parse(out);
-    expect(parsed.message).toBe("outer");
-    expect(typeof parsed.cause).toBe("string");
-    expect(JSON.parse(parsed.cause)).toEqual({ reason: "x" });
+    expect(formatErrorForLog(outer)).toBe("outer");
   });
 
   it("delegates non-Error values to formatUnknownError (no '[object Object]')", () => {
