@@ -367,16 +367,17 @@ export async function POST(request: Request) {
         messages: normalizedMessages,
         abortSignal: signal,
         onFinish: (event) => {
-          const stepMetadata = event.steps
-            .map((step) => step.providerMetadata)
-            .filter((meta) => meta != null);
-          console.info("[api/ai] stream finished", {
-            finishReason: event.finishReason,
-            usage: event.usage,
-            totalUsage: event.totalUsage,
-            providerMetadata: event.providerMetadata,
-            stepMetadataCount: stepMetadata.length,
-          });
+          console.info(
+            "[api/ai] stream finished",
+            JSON.stringify(
+              {
+                totalUsage: event.totalUsage,
+                providerMetadata: event.providerMetadata,
+              },
+              null,
+              2,
+            ),
+          );
         },
         onAbort: () => {
           console.info("[api/ai] stream aborted by client");

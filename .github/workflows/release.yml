@@ -3,7 +3,6 @@ name: Release
 on:
   push:
     branches:
-      - main
       - develop
 
 concurrency: ${{ github.workflow }}-${{ github.ref }}
@@ -38,26 +37,17 @@ jobs:
 
       # Enter beta prerelease mode for develop branch
       - name: Enter Beta Prerelease Mode
-        if: github.ref == 'refs/heads/develop'
         run: |
           if [ ! -f .changeset/pre.json ]; then
             pnpm changeset pre enter beta
           fi
 
-      # Exit prerelease mode for main branch (if in prerelease)
-      - name: Exit Prerelease Mode
-        if: github.ref == 'refs/heads/main'
-        run: |
-          if [ -f .changeset/pre.json ]; then
-            pnpm changeset pre exit
-          fi
-
-      - name: Create Release Pull Request or Publish to npm
+      - name: Create Release Pull Request
         id: changesets
         uses: changesets/action@v1
         with:
           version: pnpm changeset version
-          title: "chore: Version Packages"
-          commit: "chore: Version Packages"
+          title: "chore: Version Packages (beta)"
+          commit: "chore: Version Packages (beta)"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
