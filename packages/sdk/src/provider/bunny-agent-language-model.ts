@@ -15,7 +15,6 @@ import type {
 import {
   BunnyAgent,
   type BunnyAgentCodingRunBody,
-  formatUnknownError,
   type Message,
   type RunnerSpec,
   streamCodingRunFromSandbox,
@@ -36,40 +35,18 @@ export interface BunnyAgentLanguageModelOptions {
   options: BunnyAgentProviderSettings & { runner: RunnerSpec };
 }
 
-/**
- * Format error so message and cause chain are visible (e.g. includes "Fatal error: ..." from runner).
- *
- * @internal exported for unit tests only.
- */
-export function formatErrorForLog(error: unknown): string {
+/** Format error so message and cause chain are visible (e.g. includes "Fatal error: ..." from runner). */
+function formatErrorForLog(error: unknown): string {
   if (error instanceof Error) {
-    const parts = [formatUnknownError(error)];
+    const parts = [error.message];
     let cause: unknown = error.cause;
     while (cause instanceof Error) {
-      parts.push(formatUnknownError(cause));
+      parts.push(cause.message);
       cause = cause.cause;
     }
     return parts.join(" | cause: ");
   }
-  return formatUnknownError(error);
-}
-
-/**
- * Convert any value coming from a stream "error" event into a readable string.
- * Critical: stream payloads are untrusted JSON, so an `errorText` / `error`
- * field can be an object. Passing such object to `new Error(obj)` would
- * produce an Error whose message is the literal "[object Object]" — which
- * is exactly what third-party consumers were seeing in their logs.
- *
- * @internal exported for unit tests only.
- */
-export function stringifyStreamErrorField(value: unknown): string | undefined {
-  if (value === undefined || value === null) return undefined;
-  if (typeof value === "string") return value.length > 0 ? value : undefined;
-  if (typeof value === "number" || typeof value === "boolean") {
-    return String(value);
-  }
-  return formatUnknownError(value);
+  return String(error);
 }
 
 /** Bridge async iterable (sandbox exec / curl) to Web ReadableStream for SSE parsing. */
@@ -164,7 +141,7 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
     );
     if (looksLikeError) {
       const snippet = trimmed.slice(0, 500);
-      const msg = formatUnknownError(error);
+      const msg = error instanceof Error ? error.message : String(error);
       this.logger.error(
         `[bunny-agent] Unparsed stream line (likely runner error): ${snippet} | parser: ${msg}`,
       );
@@ -523,15 +500,11 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
       typeof parsed.type === "string" ? parsed.type : undefined;
 
     // daemon NDJSON errors may arrive as: {"error":"..."} (without type)
-    // The field may also be an object — coerce safely so consumers never see
-    // `Error("[object Object]")`.
-    if (!parsedType && parsed.error !== undefined) {
-      const message =
-        stringifyStreamErrorField(parsed.error) ?? "Unknown stream error";
+    if (!parsedType && typeof parsed.error === "string") {
       return [
         {
           type: "error",
-          error: new Error(message),
+          error: new Error(parsed.error),
         },
       ];
     }
@@ -656,13 +629,13 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
         break;
       }
       case "error": {
-        const message =
-          stringifyStreamErrorField(parsed.errorText) ??
-          stringifyStreamErrorField(parsed.error) ??
-          "Unknown stream error";
         parts.push({
           type: "error",
-          error: new Error(message),
+          error: new Error(
+            (parsed.errorText as string) ||
+              (parsed.error as string) ||
+              "Unknown stream error",
+          ),
         });
         break;
       }

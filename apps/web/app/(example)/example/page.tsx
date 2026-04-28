@@ -124,7 +124,7 @@ function ChatMessage({
               const filePart = part as import("ai").FileUIPart;
               if (filePart.mediaType?.startsWith("image/")) {
                 return (
-                  // biome-ignore lint/performance/noImgElement: Attachment URLs can be blob/data/external and bypass Next image optimization.
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img
                     key={key}
                     src={filePart.url}

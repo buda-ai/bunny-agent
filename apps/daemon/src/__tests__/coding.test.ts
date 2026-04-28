@@ -206,10 +206,7 @@ describe("coding/run error handling", () => {
 
     const err = JSON.parse(payloads[0]);
     expect(err.type).toBe("error");
-    expect(JSON.parse(err.errorText)).toMatchObject({
-      name: "Error",
-      message: "runner exploded",
-    });
+    expect(err.errorText).toBe("runner exploded");
 
     const finish = JSON.parse(payloads[1]);
     expect(finish.type).toBe("finish");
@@ -229,10 +226,7 @@ describe("coding/run error handling", () => {
 
     const err = JSON.parse(payloads[0]);
     expect(err.type).toBe("error");
-    expect(JSON.parse(err.errorText)).toMatchObject({
-      name: "Error",
-      message: "runner exploded",
-    });
+    expect(err.errorText).toBe("runner exploded");
   });
 });
 

@@ -20,13 +20,7 @@ import { parseMultipart } from "./multipart.js";
 import { DaemonRouter } from "./router.js";
 import { codingRunStream, type RunRequest } from "./routes/coding.js";
 import { fsDownload, fsUpload } from "./routes/fs.js";
-import {
-  AppError,
-  type AppState,
-  fail,
-  formatUnknownError,
-  guessMimeType,
-} from "./utils.js";
+import { AppError, type AppState, fail, guessMimeType } from "./utils.js";
 
 export function createNextHandler(opts: { root: string; prefix?: string }) {
   const router = new DaemonRouter({ root: opts.root });
@@ -68,7 +62,7 @@ export function createNextHandler(opts: { root: string; prefix?: string }) {
         return Response.json(result);
       } catch (err) {
         const status = err instanceof AppError ? err.status : 500;
-        const msg = formatUnknownError(err);
+        const msg = err instanceof Error ? err.message : String(err);
         return Response.json(fail(msg), { status });
       }
     }
@@ -97,7 +91,7 @@ export function createNextHandler(opts: { root: string; prefix?: string }) {
         });
       } catch (err) {
         const status = err instanceof AppError ? err.status : 500;
-        const msg = formatUnknownError(err);
+        const msg = err instanceof Error ? err.message : String(err);
         return Response.json(fail(msg), { status });
       }
     }

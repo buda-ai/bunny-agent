@@ -3,7 +3,7 @@ import * as gitRoutes from "./routes/git.js";
 import { healthHandler } from "./routes/health.js";
 import { volumesEnsure, volumesList, volumesRemove } from "./routes/volumes.js";
 import type { ApiEnvelope, AppState } from "./utils.js";
-import { AppError, fail, formatUnknownError } from "./utils.js";
+import { AppError, fail } from "./utils.js";
 
 // biome-ignore lint/suspicious/noExplicitAny: route handlers have specific typed params, cast is intentional
 type RouteHandler = (state: AppState, params: any) => Promise<ApiEnvelope>;
@@ -57,7 +57,7 @@ export class DaemonRouter {
           }
           return {
             status: 500,
-            body: fail(formatUnknownError(err)),
+            body: fail(err instanceof Error ? err.message : String(err)),
           };
         }
       }

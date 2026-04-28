@@ -44,39 +44,6 @@ export type RunnerChunk =
   // passthrough for anything else
   | { type: string; [key: string]: unknown };
 
-function formatUnknownError(err: unknown): string {
-  if (err == null) return String(err);
-  if (typeof err === "string") return err;
-  if (typeof err === "number" || typeof err === "boolean") return String(err);
-  if (err instanceof Error) {
-    const extra: Record<string, unknown> = {};
-    for (const key of Object.getOwnPropertyNames(err)) {
-      if (key === "name" || key === "message" || key === "stack") continue;
-      extra[key] = (err as unknown as Record<string, unknown>)[key];
-    }
-    try {
-      return JSON.stringify({
-        name: err.name,
-        message: err.message,
-        ...(Object.keys(extra).length > 0 ? { extra } : {}),
-        ...(err.cause !== undefined
-          ? { cause: formatUnknownError(err.cause) }
-          : {}),
-      });
-    } catch {
-      return err.message || err.name || "Error";
-    }
-  }
-  if (typeof err === "object") {
-    try {
-      return JSON.stringify(err);
-    } catch {
-      return "Unserializable object error";
-    }
-  }
-  return String(err);
-}
-
 // ---------------------------------------------------------------------------
 // SSE line parser
 // ---------------------------------------------------------------------------
@@ -132,7 +99,7 @@ export async function* parseRunnerStream(
   } catch (e: unknown) {
     yield {
       type: "error",
-      errorText: formatUnknownError(e),
+      errorText: e instanceof Error ? e.message : String(e),
     };
   }
 }

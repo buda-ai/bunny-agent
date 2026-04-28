@@ -23,7 +23,6 @@ import type {
 import {
   convertUsageToAISDK,
   formatDataStream,
-  formatUnknownError,
   generateId,
   mapFinishReason,
   streamSDKMessagesToAISDKUI,
@@ -601,7 +600,8 @@ async function* runMockAgent(
     // Stream termination
     yield `data: [DONE]\n\n`;
   } catch (error) {
-    const errorMessage = formatUnknownError(error);
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error occurred";
     console.error("[ClaudeRunner] Mock agent error:", errorMessage);
     yield formatDataStream({ type: "error", errorText: errorMessage });
     yield formatDataStream({

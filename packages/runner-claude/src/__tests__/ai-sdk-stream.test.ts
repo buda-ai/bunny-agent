@@ -4,7 +4,6 @@ import {
   AISDKStreamConverter,
   convertUsageToAISDK,
   formatDataStream,
-  formatUnknownError,
   generateId,
   isAbortError,
   isClaudeCodeTruncationError,
@@ -361,40 +360,6 @@ describe("AISDKStreamConverter", () => {
       expect(events.find((e) => e.type === "error")).toBeUndefined();
       expect(events.find((e) => e.type === "finish")).toBeUndefined();
     });
-  });
-});
-
-describe("formatUnknownError (runner-claude local copy)", () => {
-  it("returns string input as-is", () => {
-    expect(formatUnknownError("boom")).toBe("boom");
-  });
-
-  it("uses Error.message when present", () => {
-    expect(formatUnknownError(new Error("kaboom"))).toBe("kaboom");
-  });
-
-  it("falls back to Error.name when message is empty", () => {
-    const err = new Error("");
-    err.name = "MyError";
-    expect(formatUnknownError(err)).toBe("MyError");
-  });
-
-  it("never returns the literal '[object Object]' for plain objects", () => {
-    const out = formatUnknownError({ status: 500, body: "boom" });
-    expect(out).not.toBe("[object Object]");
-    expect(JSON.parse(out)).toEqual({ status: 500, body: "boom" });
-  });
-
-  it("handles circular references without throwing", () => {
-    const obj: Record<string, unknown> = { a: 1 };
-    obj.self = obj;
-    expect(() => formatUnknownError(obj)).not.toThrow();
-    expect(formatUnknownError(obj)).toBe("Unserializable object error");
-  });
-
-  it("handles nullish values", () => {
-    expect(formatUnknownError(null)).toBe("null");
-    expect(formatUnknownError(undefined)).toBe("undefined");
   });
 });
 

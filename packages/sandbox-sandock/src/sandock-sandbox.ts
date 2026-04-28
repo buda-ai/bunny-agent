@@ -7,11 +7,6 @@ import type {
   SandboxHandle,
   Volume,
 } from "@bunny-agent/manager";
-import {
-  describeError,
-  ensureError,
-  formatUnknownError,
-} from "@bunny-agent/manager";
 import { createSandockClient, type SandockClient } from "sandock";
 
 /** Single volume mount configuration (name → get/create by name; mountPath inside container) */
@@ -266,7 +261,7 @@ export class SandockSandbox implements SandboxAdapter {
     } catch (err) {
       console.warn(
         `[Sandock] Failed to attach to sandbox ${id}, creating new:`,
-        formatUnknownError(err),
+        err instanceof Error ? err.message : err,
       );
       this._sandboxId = null;
       return null;
@@ -722,14 +717,14 @@ class SandockHandle implements SandboxHandle {
               resolveWait?.();
             },
             onError: (err: unknown) => {
-              console.log("[Sandock] SHELL ERROR:", describeError(err));
+              console.log("[Sandock] SHELL ERROR:", err);
               // Only set error if:
               // 1. We haven't received any output (process failed before communicating)
               // 2. The stream isn't already done
               // If we received output, the process communicated its error properly
               // and we shouldn't override it with a generic "process exited" error
               if (!hasReceivedOutput && !done) {
-                error = ensureError(err);
+                error = err instanceof Error ? err : new Error(String(err));
               }
               resolveWait?.();
             },
@@ -770,16 +765,13 @@ class SandockHandle implements SandboxHandle {
             // Only set error if we haven't received any output
             // If we received output, the process communicated its error properly
             if (!hasReceivedOutput) {
-              error = ensureError(err);
+              error = err instanceof Error ? err : new Error(String(err));
             }
             // Log AbortError appropriately
             if (err instanceof Error && err.name === "AbortError") {
               console.log("[Sandock] Command execution aborted by user");
             } else {
-              console.error(
-                "[Sandock] Shell promise rejected:",
-                describeError(err),
-              );
+              console.error("[Sandock] Shell promise rejected:", err);
             }
             done = true;
             resolveWait?.();

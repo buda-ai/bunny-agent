@@ -1,6 +1,5 @@
 import type * as http from "node:http";
 import { createRunner } from "@bunny-agent/runner-harness";
-import { formatUnknownError } from "../utils.js";
 
 export interface RunRequest {
   runner?: string;
@@ -80,7 +79,7 @@ export async function bunnyAgentRun(
       res.write(chunk);
     }
   } catch (err) {
-    const msg = formatUnknownError(err);
+    const msg = err instanceof Error ? err.message : String(err);
     // Keep output format consistent with runner-cli (SSE `data:` events),
     // so the SDK can parse errors uniformly.
     res.write(`data: ${JSON.stringify({ type: "error", errorText: msg })}\n\n`);
@@ -138,7 +137,7 @@ export function codingRunStream(
           controller.enqueue(encoder.encode(chunk));
         }
       } catch (err) {
-        const msg = formatUnknownError(err);
+        const msg = err instanceof Error ? err.message : String(err);
         controller.enqueue(
           encoder.encode(
             `data: ${JSON.stringify({ type: "error", errorText: msg })}\n\n` +

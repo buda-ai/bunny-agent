@@ -5,13 +5,7 @@ import { parseMultipart } from "./multipart.js";
 import { DaemonRouter } from "./router.js";
 import { bunnyAgentRun } from "./routes/coding.js";
 import { fsDownload, fsUpload } from "./routes/fs.js";
-import {
-  AppError,
-  type AppState,
-  fail,
-  formatUnknownError,
-  guessMimeType,
-} from "./utils.js";
+import { AppError, type AppState, fail, guessMimeType } from "./utils.js";
 
 export interface DaemonConfig {
   host: string;
@@ -68,7 +62,7 @@ export function createDaemon(config: DaemonConfig): http.Server {
           res.end(JSON.stringify(result));
         } catch (err) {
           const status = err instanceof AppError ? err.status : 500;
-          const msg = formatUnknownError(err);
+          const msg = err instanceof Error ? err.message : String(err);
           res.writeHead(status, { "Content-Type": "application/json" });
           res.end(JSON.stringify(fail(msg)));
         }
@@ -97,7 +91,7 @@ export function createDaemon(config: DaemonConfig): http.Server {
           res.end(buffer);
         } catch (err) {
           const status = err instanceof AppError ? err.status : 500;
-          const msg = formatUnknownError(err);
+          const msg = err instanceof Error ? err.message : String(err);
           res.writeHead(status, { "Content-Type": "application/json" });
           res.end(JSON.stringify(fail(msg)));
         }
@@ -137,7 +131,7 @@ export function createDaemon(config: DaemonConfig): http.Server {
           sendJson(res, err.status, fail(err.message));
         } else {
           console.error("Unhandled request error:", err);
-          const msg = formatUnknownError(err);
+          const msg = err instanceof Error ? err.message : String(err);
           sendJson(res, 500, fail(`Internal server error: ${msg}`));
         }
       } else {

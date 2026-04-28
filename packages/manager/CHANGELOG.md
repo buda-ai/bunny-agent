@@ -1,5 +1,7 @@
 # @bunny-agent/manager
 
+## 0.9.29-beta.14
+
 ## 0.9.27-beta.0
 
 ## 0.9.26-beta.0

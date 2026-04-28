@@ -1,5 +1,12 @@
 # @bunny-agent/sdk
 
+## 0.9.29-beta.14
+
+### Patch Changes
+
+- test error
+  - @bunny-agent/manager@0.9.29-beta.14
+
 ## 0.9.27-beta.0
 
 ### Patch Changes
