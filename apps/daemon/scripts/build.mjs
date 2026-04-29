@@ -24,7 +24,7 @@ const shared = {
 // Library exports
 await esbuild.build({
   ...shared,
-  entryPoints: ["src/index.ts", "src/nextjs.ts"],
+  entryPoints: ["src/index.ts", "src/nextjs.ts", "src/shared/git-types.ts"],
   outdir: "dist",
 });
 
