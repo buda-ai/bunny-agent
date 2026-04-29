@@ -1,7 +1,7 @@
 {
-  "name": "@bunny-agent/runner-cli",
-  "version": "0.9.30",
-  "description": "BunnyAgent Runner CLI - Like gemini-cli or claude-code, runs in your local terminal with AI SDK UI streaming",
+  "name": "@sandagent/runner-cli",
+  "version": "0.9.28-release.4",
+  "description": "SandAgent Runner CLI - Like gemini-cli or claude-code, runs in your local terminal with AI SDK UI streaming",
   "type": "module",
   "bin": {
     "bunny-agent-runner": "./dist/bundle.mjs"

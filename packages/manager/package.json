@@ -1,7 +1,7 @@
 {
-  "name": "@bunny-agent/manager",
-  "version": "0.9.30",
-  "description": "BunnyAgent Manager - Manages sandbox and runner lifecycle, defines core interfaces",
+  "name": "@sandagent/manager",
+  "version": "0.9.28-release.4",
+  "description": "SandAgent Manager - Manages sandbox and runner lifecycle, defines core interfaces",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
