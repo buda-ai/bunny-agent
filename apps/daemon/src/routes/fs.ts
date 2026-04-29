@@ -85,7 +85,7 @@ export async function fsList(state: AppState, q: ListQuery) {
         size: stat?.isFile() ? stat.size : 0,
         created_at,
         modified_at: msToIsoOrNull(
-          (stat as unknown as { mtimeMs?: number }).mtimeMs,
+          (stat as unknown as { mtimeMs?: number })?.mtimeMs,
         ),
       };
     }),
