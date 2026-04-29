@@ -16,6 +16,10 @@
     "./nextjs": {
       "import": "./dist/nextjs.js",
       "types": "./dist/nextjs.d.ts"
+    },
+    "./shared/git-types": {
+      "import": "./dist/shared/git-types.js",
+      "types": "./dist/shared/git-types.d.ts"
     }
   },
   "files": [
