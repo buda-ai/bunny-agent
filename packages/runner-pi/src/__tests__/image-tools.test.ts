@@ -113,37 +113,7 @@ describe("buildImageGenerateTool", () => {
     vi.clearAllMocks();
   });
 
-  it("returns details.response with full API response including usage", async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => baseApiResponse,
-    });
-
-    const tool = buildImageGenerateTool(
-      "/tmp",
-      "gpt-image-1",
-      "https://api.openai.com",
-      "sk-test",
-    );
-
-    const result = await tool.execute(
-      "call_1",
-      { prompt: "a cute cat" },
-      new AbortController().signal,
-      vi.fn(),
-      mockCtx,
-    );
-
-    expect(result.details).toBeDefined();
-    const details = result.details as ImageToolDetails;
-    expect(details.response).toEqual(baseApiResponse);
-    expect(details.response.usage?.input_tokens).toBe(22);
-    expect(details.response.usage?.output_tokens).toBe(1120);
-    expect(details.response.usage?.total_tokens).toBe(1404);
-    expect(details.usage?.raw["gpt-image-1"]).toEqual(baseApiResponse.usage);
-  });
-
-  it("details.response keeps full image response payload", async () => {
+  it("extracts provider usage into details.usage.raw without echoing the full response", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => baseApiResponse,
@@ -164,10 +134,12 @@ describe("buildImageGenerateTool", () => {
       mockCtx,
     );
 
-    expect((result.details as ImageToolDetails).response).toEqual(
-      baseApiResponse,
-    );
-    expect((result.details as ImageToolDetails).filePath).toContain("cat.png");
+    const details = result.details as ImageToolDetails;
+    expect(details.usage?.raw["gpt-image-1"]).toEqual(baseApiResponse.usage);
+    expect(details.filePath).toContain("cat.png");
+    // The full provider response (with multi-MB b64_json) must NOT be echoed
+    // back into details — it would bloat the persisted session JSONL.
+    expect(details).not.toHaveProperty("response");
   });
 
   it("returns error content and undefined details on API failure", async () => {
