@@ -2,7 +2,10 @@
  * Image generation tool for bunny-agent pi runner.
  *
  * Reuses the chat model's provider config (baseUrl + apiKey) — only the model ID differs.
- * Returns filePath and the raw API response as details.
+ * Returns filePath and a compact usage payload as details. The full provider response
+ * is intentionally NOT returned: it can contain a multi-MB base64 image payload that
+ * pi-coding-agent persists into the session JSONL, bloating session files and risking
+ * the resume-skip threshold (see SANDAGENT_MAX_SESSION_BYTES).
  */
 
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -39,8 +42,6 @@ export type ImageToolDetails = ToolDetailsWithUsage<
   ImageGenerationUsage,
   {
     filePath: string | undefined;
-    /** Full provider JSON (may include `usage` from the vendor). */
-    response: ImageGenerationResponse;
   }
 >;
 
@@ -379,7 +380,6 @@ export function buildImageGenerateTool(
             ...(json.usage != null
               ? { usage: { raw: { [imageModelId]: json.usage } } }
               : {}),
-            response: json,
           } satisfies ImageToolDetails,
         };
       } catch (e: unknown) {
@@ -649,7 +649,6 @@ export function buildImageEditTool(
             ...(json.usage != null
               ? { usage: { raw: { [imageModelId]: json.usage } } }
               : {}),
-            response: json,
           } satisfies ImageToolDetails,
         };
       } catch (e: unknown) {

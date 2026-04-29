@@ -2,17 +2,23 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, extname, join } from "node:path";
 import type { ToolDefinition } from "./types.js";
 
+export interface ImageGenerationUsage {
+  total_tokens?: number;
+  input_tokens?: number;
+  output_tokens?: number;
+  input_tokens_details?: { image_tokens?: number; text_tokens?: number };
+}
+
+/**
+ * Image tool result `details`. The full provider response is intentionally NOT
+ * included: it can carry a multi-MB base64 image payload that, once persisted
+ * by the agent runtime into its session log, bloats the file (the same image
+ * is already saved to disk via `filePath`). Keep only the file path and a
+ * compact usage record.
+ */
 export interface ImageToolDetails {
   filePath: string | undefined;
-  response: {
-    data: Array<{ b64_json?: string; url?: string; revised_prompt?: string }>;
-    usage?: {
-      total_tokens?: number;
-      input_tokens?: number;
-      output_tokens?: number;
-      input_tokens_details?: { image_tokens?: number; text_tokens?: number };
-    };
-  };
+  usage?: ImageGenerationUsage;
 }
 
 async function resolveB64(item: {
@@ -117,6 +123,7 @@ export function buildImageGenerateTool(
           );
         const json = (await res.json()) as {
           data: Array<{ b64_json?: string; url?: string }>;
+          usage?: ImageGenerationUsage;
         };
         const saved = await saveImageItem(json.data?.[0] ?? {}, filePath);
         return {
@@ -126,7 +133,10 @@ export function buildImageGenerateTool(
               text: saved ?? "Generated but could not be saved.",
             },
           ],
-          details: { filePath: saved, response: json },
+          details: {
+            filePath: saved,
+            ...(json.usage != null ? { usage: json.usage } : {}),
+          } satisfies ImageToolDetails,
         };
       } catch (e: unknown) {
         return {

@@ -623,14 +623,6 @@ describe("createPiRunner", () => {
                   },
                 },
               },
-              response: {
-                data: [{ b64_json: "" }],
-                usage: {
-                  total_tokens: 1404,
-                  input_tokens: 22,
-                  output_tokens: 1120,
-                },
-              },
             },
           },
           isError: false,
@@ -779,14 +771,6 @@ describe("createPiRunner", () => {
                     input_tokens: 20,
                     output_tokens: 110,
                   },
-                },
-              },
-              response: {
-                data: [{ b64_json: "" }],
-                usage: {
-                  total_tokens: 130,
-                  input_tokens: 20,
-                  output_tokens: 110,
                 },
               },
             },
