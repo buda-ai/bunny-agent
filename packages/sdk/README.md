@@ -270,6 +270,14 @@ const bunnyAgent = createBunnyAgent({
 const model = bunnyAgent("claude-sonnet-4-20250514");
 ```
 
+When using `streamText({ model, tools })`, any tools with an `execute` function
+are treated as **external tools** — they execute on your server, not inside the
+sandbox. Their schemas are injected into the agent's system prompt so the LLM
+knows about them. When the agent wants to call one it emits a structured
+`__BUNNY_TOOL_CALL__:` JSON line; the SDK converts that to a `tool-call` stream
+part (without `providerExecuted`) so the AI SDK can run `execute()` on your
+server and feed the result back in the next `maxSteps` step.
+
 #### Daemon HTTP transport (same provider)
 
 **With any sandbox adapter** (E2B, Sandock, `LocalSandbox`, etc.): pass **`sandbox` + `daemonUrl`**. The URL is resolved **inside** the sandbox (the `vikadata/bunny-agent` image starts `bunny-agent-daemon` on port 3080). The SDK streams via `streamCodingRunFromSandbox` (`curl -N` in the sandbox, including `LocalSandbox`), not `fetch` from your server. It does **not** call `/healthz` for you — use `isBunnyAgentDaemonHealthy` from `@bunny-agent/sdk` when you want a probe before setting `daemonUrl` (e.g. to fall back to the CLI runner).
