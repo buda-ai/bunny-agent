@@ -47,6 +47,15 @@ export interface PiRunnerOptions {
   /** Additional skill paths (files or directories) */
   skillPaths?: string[];
   yolo?: boolean;
+  /**
+   * Custom tools to register alongside built-in pi tools and the runner's
+   * secret-aware bash/read overrides. Used by the daemon to expose remote tools
+   * (caller-side `execute` over HTTP) as pi-native tools to the LLM.
+   *
+   * Definitions are appended after the built-ins so they cannot accidentally
+   * override `bash` / `read`; they participate in pi's normal tool-call flow.
+   */
+  customTools?: ToolDefinition[];
 }
 
 export interface PiRunner {
@@ -319,6 +328,10 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
             buildImageGenerateTool(cwd, imageModelName, model.baseUrl, apiKey),
             buildImageEditTool(cwd, imageModelName, model.baseUrl, apiKey),
           );
+        }
+
+        if (options.customTools && options.customTools.length > 0) {
+          customTools.push(...options.customTools);
         }
 
         const { session } = await createAgentSession({

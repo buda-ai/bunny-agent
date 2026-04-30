@@ -18,8 +18,43 @@ config({ path: resolve(process.cwd(), "../.env") });
 config({ path: resolve(process.cwd(), "../../.env") });
 
 import { parseArgs } from "node:util";
+import type { RemoteToolSpec, ToolBridge } from "@bunny-agent/runner-harness";
 import { buildImage } from "./build-image.js";
 import { runAgent } from "./runner.js";
+
+/**
+ * Read and immediately unset the tools-bridge env var the SDK passes through
+ * `BunnyAgent.stream`. We unset before any child process can be spawned so the
+ * payload (which on the HTTP transport contains a Bearer token) does not leak
+ * via environment inheritance to bash tools the runner may shell out to.
+ */
+function takeToolsBridgeFromEnv(): {
+  tools: RemoteToolSpec[];
+  bridge: ToolBridge;
+} | null {
+  const raw = process.env.BUNNY_AGENT_TOOLS_BRIDGE_JSON;
+  if (!raw) return null;
+  delete process.env.BUNNY_AGENT_TOOLS_BRIDGE_JSON;
+  try {
+    const parsed = JSON.parse(raw) as {
+      tools?: RemoteToolSpec[];
+      bridge?: ToolBridge;
+    };
+    if (!parsed.tools || !parsed.bridge) {
+      console.error(
+        "[bunny-agent] BUNNY_AGENT_TOOLS_BRIDGE_JSON missing tools or bridge field; ignoring.",
+      );
+      return null;
+    }
+    return { tools: parsed.tools, bridge: parsed.bridge };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(
+      `[bunny-agent] Failed to parse BUNNY_AGENT_TOOLS_BRIDGE_JSON: ${message}`,
+    );
+    return null;
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -300,6 +335,7 @@ async function main(): Promise<void> {
     case "run": {
       const args = parseRunArgs();
       process.chdir(args.cwd);
+      const toolsBridge = takeToolsBridgeFromEnv();
       await runAgent({
         runner: args.runner,
         model: args.model,
@@ -310,6 +346,9 @@ async function main(): Promise<void> {
         skillPaths: args.skillPaths,
         resume: args.resume,
         yolo: args.yolo,
+        ...(toolsBridge
+          ? { tools: toolsBridge.tools, toolBridge: toolsBridge.bridge }
+          : {}),
       });
       break;
     }

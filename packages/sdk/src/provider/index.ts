@@ -26,7 +26,13 @@ export type {
   BunnyAgentProviderSettings,
   Logger,
   Question,
+  RemoteTool,
+  RemoteToolExecutor,
+  RemoteToolSchema,
+  RemoteToolSpec,
   StreamWriter,
   SubmitAnswerParams,
+  ToolBridge,
+  ToolExecutorContext,
 } from "./types";
 export { getBunnyAgentMetadata, getBunnyAgentUsage } from "./usage";

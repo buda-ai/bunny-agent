@@ -45,12 +45,18 @@ export type {
   Logger,
   Message,
   Question,
+  RemoteTool,
+  RemoteToolExecutor,
+  RemoteToolSchema,
+  RemoteToolSpec,
   // Re-exports from @bunny-agent/manager
   SandboxAdapter,
   SandboxHandle,
   StreamWriter,
   SubmitAnswerOptions,
   SubmitAnswerParams,
+  ToolBridge,
+  ToolExecutorContext,
   TranscriptEntry,
 } from "./provider";
 // Provider exports

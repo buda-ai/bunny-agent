@@ -1,5 +1,18 @@
 import type { LanguageModelV3StreamPart } from "@ai-sdk/provider";
-import type { BunnyAgentOptions, SandboxAdapter } from "@bunny-agent/manager";
+import type {
+  BunnyAgentOptions,
+  RemoteTool,
+  SandboxAdapter,
+} from "@bunny-agent/manager";
+
+export type {
+  RemoteTool,
+  RemoteToolExecutor,
+  RemoteToolSchema,
+  RemoteToolSpec,
+  ToolBridge,
+  ToolExecutorContext,
+} from "@bunny-agent/manager";
 
 /**
  * Artifact Processor result
@@ -119,6 +132,16 @@ export interface BunnyAgentProviderSettings
   allowedTools?: string[];
   /** Skip tool approval checks (bypass permissions). */
   yolo?: boolean;
+  /**
+   * Remote tools to expose to the LLM. Each tool carries its own `execute`
+   * function which runs in the host process — the SDK transparently sets up
+   * a callback bridge so the in-sandbox runner can invoke them.
+   *
+   * The sandbox adapter must implement {@link SandboxAdapter.createToolBridge}
+   * (built into `LocalSandbox`); otherwise a clear error is raised at stream
+   * start. Currently only the `pi` runner consumes these tools.
+   */
+  tools?: RemoteTool[];
 }
 
 /**

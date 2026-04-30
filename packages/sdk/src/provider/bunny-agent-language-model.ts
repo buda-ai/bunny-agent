@@ -16,7 +16,10 @@ import {
   BunnyAgent,
   type BunnyAgentCodingRunBody,
   type Message,
+  type RemoteTool,
+  type RemoteToolSpec,
   type RunnerSpec,
+  type ToolBridge,
   streamCodingRunFromSandbox,
 } from "@bunny-agent/manager";
 import { getProviderLogger } from "./logging";
@@ -86,6 +89,14 @@ function asyncIterableToReadableStream(
       await iterator.return?.(reason);
     },
   });
+}
+
+function extractToolSpecs(tools: RemoteTool[]): RemoteToolSpec[] {
+  return tools.map(({ name, description, inputSchema }) => ({
+    name,
+    description,
+    inputSchema,
+  }));
 }
 
 function getLastUserTextFromMessages(messages: Message[]): string {
@@ -287,54 +298,156 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
       );
     }
 
+    // Open a tool bridge if the caller passed remote tools. This stays alive
+    // for the duration of the stream and is closed by `attachBridgeLifecycle`
+    // below — on success, error, or abort.
+    const tools = this.options.tools;
+    const bridgeHandle = await this.openToolBridge(sandbox, tools);
+    const remoteToolSpecs = bridgeHandle ? extractToolSpecs(tools ?? []) : undefined;
+    const bridge = bridgeHandle?.bridge;
+
     const daemonUrl = this.options.daemonUrl;
 
-    if (daemonUrl) {
-      const handle = await sandbox.attach();
-      const sandboxEnv = sandbox.getEnv?.() ?? {};
-      const runnerEnv = { ...sandboxEnv, ...this.options.env };
-      const body: BunnyAgentCodingRunBody = {
-        ...this.buildCodingRunBody(messages, handle.getWorkdir()),
-        ...(Object.keys(runnerEnv).length > 0 ? { env: runnerEnv } : {}),
-      };
-      const execOpts = {
-        cwd: this.options.cwd ?? handle.getWorkdir(),
-        signal: abortSignal,
-      };
-      const iterable = streamCodingRunFromSandbox(
-        handle,
-        daemonUrl,
-        body,
-        execOpts,
-      );
-      const bytesStream = asyncIterableToReadableStream(iterable);
-      return this.buildStreamResult(bytesStream, messages);
-    }
-
-    const sandboxEnv = sandbox.getEnv?.() ?? {};
-    const sandboxWorkdir =
-      this.options.cwd ?? sandbox.getWorkdir?.() ?? "/workspace";
-
-    const agent = new BunnyAgent({
-      sandbox,
-      runner: this.options.runner,
-      env: { ...sandboxEnv, ...this.options.env },
-    });
-
     try {
-      const bytesStream = await agent.stream({
-        messages,
-        workspace: {
-          path: sandboxWorkdir,
-        },
-        resume: this.options.resume,
-        signal: abortSignal,
+      if (daemonUrl) {
+        const handle = await sandbox.attach();
+        const sandboxEnv = sandbox.getEnv?.() ?? {};
+        const runnerEnv = { ...sandboxEnv, ...this.options.env };
+        const body: BunnyAgentCodingRunBody = {
+          ...this.buildCodingRunBody(
+            messages,
+            handle.getWorkdir(),
+            remoteToolSpecs,
+            bridge,
+          ),
+          ...(Object.keys(runnerEnv).length > 0 ? { env: runnerEnv } : {}),
+        };
+        const execOpts = {
+          cwd: this.options.cwd ?? handle.getWorkdir(),
+          signal: abortSignal,
+        };
+        const iterable = streamCodingRunFromSandbox(
+          handle,
+          daemonUrl,
+          body,
+          execOpts,
+        );
+        const bytesStream = asyncIterableToReadableStream(iterable);
+        const guarded = this.attachBridgeLifecycle(bytesStream, bridgeHandle, abortSignal);
+        return this.buildStreamResult(guarded, messages);
+      }
+
+      const sandboxEnv = sandbox.getEnv?.() ?? {};
+      const sandboxWorkdir =
+        this.options.cwd ?? sandbox.getWorkdir?.() ?? "/workspace";
+
+      const agent = new BunnyAgent({
+        sandbox,
+        runner: this.options.runner,
+        env: { ...sandboxEnv, ...this.options.env },
       });
-      return this.buildStreamResult(bytesStream, messages);
+
+      try {
+        const bytesStream = await agent.stream({
+          messages,
+          workspace: {
+            path: sandboxWorkdir,
+          },
+          resume: this.options.resume,
+          signal: abortSignal,
+          ...(remoteToolSpecs && bridge
+            ? { tools: remoteToolSpecs, toolBridge: bridge }
+            : {}),
+        });
+        const guarded = this.attachBridgeLifecycle(bytesStream, bridgeHandle, abortSignal);
+        return this.buildStreamResult(guarded, messages);
+      } catch (error) {
+        await agent.destroy().catch(() => {});
+        throw error;
+      }
     } catch (error) {
-      await agent.destroy().catch(() => {});
+      // Stream never reached the consumer; tear down the bridge ourselves.
+      await bridgeHandle?.close().catch(() => {});
       throw error;
     }
+  }
+
+  /**
+   * Open a sandbox-native callback bridge for {@link RemoteTool} executors.
+   * Returns null when the caller didn't pass any tools.
+   */
+  private async openToolBridge(
+    sandbox: NonNullable<BunnyAgentProviderSettings["sandbox"]>,
+    tools: RemoteTool[] | undefined,
+  ): Promise<{ bridge: ToolBridge; close(): Promise<void> } | null> {
+    if (!tools || tools.length === 0) return null;
+    if (!sandbox.createToolBridge) {
+      throw new Error(
+        "[bunny-agent] `tools` were provided but the configured sandbox " +
+          "does not implement `createToolBridge`. Use `LocalSandbox` or a " +
+          "sandbox adapter that supports remote tool callbacks.",
+      );
+    }
+    return sandbox.createToolBridge({
+      tools,
+      sessionId: this.sessionId,
+    });
+  }
+
+  /**
+   * Tee the stream so we close the bridge once the consumer is done with the
+   * stream (close, cancel, or error) and once the abort signal fires.
+   */
+  private attachBridgeLifecycle(
+    upstream: ReadableStream<Uint8Array>,
+    bridgeHandle: { close(): Promise<void> } | null,
+    abortSignal: AbortSignal | undefined,
+  ): ReadableStream<Uint8Array> {
+    if (!bridgeHandle) return upstream;
+
+    let closed = false;
+    const closeOnce = () => {
+      if (closed) return;
+      closed = true;
+      bridgeHandle.close().catch((err) => {
+        this.logger.warn(
+          `[bunny-agent] Failed to close tool bridge: ${formatErrorForLog(err)}`,
+        );
+      });
+    };
+
+    if (abortSignal) {
+      if (abortSignal.aborted) {
+        closeOnce();
+      } else {
+        abortSignal.addEventListener("abort", closeOnce, { once: true });
+      }
+    }
+
+    const reader = upstream.getReader();
+    return new ReadableStream<Uint8Array>({
+      async pull(controller) {
+        try {
+          const { done, value } = await reader.read();
+          if (done) {
+            controller.close();
+            closeOnce();
+            return;
+          }
+          controller.enqueue(value);
+        } catch (err) {
+          controller.error(err);
+          closeOnce();
+        }
+      },
+      async cancel(reason) {
+        try {
+          await reader.cancel(reason);
+        } finally {
+          closeOnce();
+        }
+      },
+    });
   }
 
   private resetStreamState(): void {
@@ -346,9 +459,12 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
   private buildCodingRunBody(
     messages: Message[],
     cwdFallback: string,
+    tools: RemoteToolSpec[] | undefined,
+    toolBridge: ToolBridge | undefined,
   ): BunnyAgentCodingRunBody {
     const runner = this.options.runner;
     const cwd = this.options.cwd ?? cwdFallback;
+
     return {
       runner: runner.runnerType ?? "claude",
       model: this.modelId,
@@ -360,6 +476,9 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
       allowedTools: runner.allowedTools ?? this.options.allowedTools,
       skillPaths: runner.skillPaths ?? this.options.skillPaths,
       yolo: this.options.yolo,
+      ...(tools && tools.length > 0 && toolBridge
+        ? { tools, toolBridge }
+        : {}),
     };
   }
 

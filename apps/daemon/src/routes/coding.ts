@@ -1,4 +1,5 @@
 import type * as http from "node:http";
+import type { RemoteToolSpec, ToolBridge } from "@bunny-agent/manager";
 import { createRunner } from "@bunny-agent/runner-harness";
 
 export interface RunRequest {
@@ -15,6 +16,14 @@ export interface RunRequest {
   yolo?: boolean;
   /** Inline runner env (string map); same keys override. */
   env?: Record<string, string>;
+  /**
+   * Remote tools the runner should expose to the LLM. Currently only the `pi`
+   * runner consumes these; other runners ignore the field. Must be paired with
+   * {@link toolBridge}.
+   */
+  tools?: RemoteToolSpec[];
+  /** HTTP callback bridge used to invoke {@link tools} on the caller side. */
+  toolBridge?: ToolBridge;
 }
 
 /** SSE comment keepalive interval (ms). Prevents idle-timeout disconnects
@@ -71,6 +80,8 @@ export async function bunnyAgentRun(
       yolo: req.yolo,
       env,
       abortController,
+      tools: req.tools,
+      toolBridge: req.toolBridge,
       // API: caller owns resume/session; do not read/write cwd/.bunny-agent or auto-load CLAUDE.md.
       autoInject: false,
     });
@@ -131,6 +142,8 @@ export function codingRunStream(
           yolo: req.yolo,
           env,
           abortController,
+          tools: req.tools,
+          toolBridge: req.toolBridge,
           autoInject: false,
         });
         for await (const chunk of stream) {
