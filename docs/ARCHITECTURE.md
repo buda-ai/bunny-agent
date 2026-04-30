@@ -90,7 +90,7 @@ sandbox container
 │
 └── bunny-agent-daemon :3080           (unified gateway)
     ├── /api/fs/*      → node:fs
-    ├── /api/git/*     → spawn git
+    ├── /api/git/*     → isomorphic-git
     ├── /api/volumes/* → node:fs
     └── /api/bunny-agent/run → runner-core → claude/pi/gemini/...
 ```

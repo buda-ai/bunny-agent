@@ -84,8 +84,8 @@ incoming HTTP request
 │                                      │          │  │ │
 │              ┌───────────────────────┤          │  │ │
 │              ▼                       ▼          ▼  │ │
-│         node:fs/promises        spawn git      SSE │ │
-│         (file ops)              (git CLI)   stream │ │
+│         node:fs/promises    isomorphic-git    SSE │ │
+│         (file ops)              (git ops)  stream │ │
 │                                                    │ │
 │                                    @bunny-agent/     │ │
 │                                    runner-core ◄───┘ │
@@ -164,7 +164,7 @@ apps/bunny-agent-daemon/
 │       ├── health.ts   GET /healthz
 │       ├── fs.ts       GET|POST /api/fs/*
 │       ├── volumes.ts  GET|POST /api/volumes/*
-│       ├── git.ts      POST /api/git/*  (spawns git CLI)
+│       ├── git.ts      POST /api/git/*  (isomorphic-git)
 │       └── coding.ts POST /api/coding/run  (SSE, uses runner-core)
 └── src/__tests__/
     └── daemon.test.ts  13 integration tests (no mocks, real fs + git)
@@ -393,6 +393,12 @@ All fs endpoints accept optional `volume` for multi-tenant isolation.
 | POST | `/api/git/exec` | `{"repo":"myrepo","args":["log","--oneline"]}` |
 | POST | `/api/git/clone` | `{"repo_parent":".","url":"https://...","depth":1}` |
 | POST | `/api/git/init` | `{"repo":"myrepo","initial_branch":"main"}` |
+
+Git endpoints are implemented with `isomorphic-git` and return the shared
+`GitCommandResult` envelope exported from `@bunny-agent/daemon/shared/git-types`.
+`/api/git/exec` supports common allowlisted subcommands and returns a nonzero
+command result for flag combinations that cannot be represented through
+`isomorphic-git`.
 
 ### Volumes `/api/volumes/*`
 
