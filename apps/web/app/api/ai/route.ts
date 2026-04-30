@@ -21,6 +21,7 @@ import {
   evictSandbox,
   getOrCreateSandbox,
 } from "@/lib/example/create-sandbox";
+import { getDemoTools } from "@/lib/demo-tools/registry";
 
 import { DEFAULT_RUNNER, type RunnerType } from "@/lib/runner";
 
@@ -278,6 +279,12 @@ export async function POST(request: Request) {
     once: true,
   });
 
+  // --- Remote tools ---------------------------------------------------------
+  // The SDK opens a sandbox-native callback bridge from these tools so the
+  // in-sandbox runner can invoke their `execute` functions. Transport details
+  // (unix socket for LocalSandbox, etc.) are hidden from this route.
+  const demoTools = getDemoTools();
+
   // --- Model ----------------------------------------------------------------
   const defaultModel = ANTHROPIC_API_KEY
     ? "glm-4.7"
@@ -354,6 +361,7 @@ export async function POST(request: Request) {
         artifactProcessors: [artifactProcessor],
         resume,
         systemPrompt: "============test============",
+        tools: demoTools,
         // Passed to RunnerSpec via createBunnyAgent merge (not only bunnyAgent(model, { skillPaths }))
         skillPaths: [
           "/Users/zhengxu/vika/kapps/apps/buda/agent-templates/system-skills",
