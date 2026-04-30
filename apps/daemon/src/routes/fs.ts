@@ -73,8 +73,7 @@ export async function fsList(state: AppState, q: ListQuery) {
       const created_at =
         msToIsoOrNull(
           (stat as unknown as { birthtimeMs?: number })?.birthtimeMs,
-        ) ??
-        msToIsoOrNull((stat as unknown as { ctimeMs?: number })?.ctimeMs);
+        ) ?? msToIsoOrNull((stat as unknown as { ctimeMs?: number })?.ctimeMs);
       return {
         name: e.name,
         path: fullPath,
