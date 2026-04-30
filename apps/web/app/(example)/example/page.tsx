@@ -125,6 +125,7 @@ function ChatMessage({
               if (filePart.mediaType?.startsWith("image/")) {
                 return (
                   // eslint-disable-next-line @next/next/no-img-element
+                  // biome-ignore lint/performance/noImgElement: Intended for example
                   <img
                     key={key}
                     src={filePart.url}
