@@ -84,6 +84,11 @@ export function createBunnyAgent(
         ? options.allowedTools
         : defaultOptions.allowedTools;
 
+    // Remote tools: per-call wins. The bridge is opened by the SDK on stream
+    // start via `sandbox.createToolBridge` — callers never see transport details.
+    const mergedTools =
+      options.tools !== undefined ? options.tools : defaultOptions.tools;
+
     const runner: RunnerSpec = {
       model: modelId,
       runnerType: options.runnerType ?? defaultOptions.runnerType,
@@ -112,6 +117,7 @@ export function createBunnyAgent(
         ...(defaultOptions.artifactProcessors ?? []),
         ...(options.artifactProcessors ?? []),
       ],
+      tools: mergedTools,
     } as BunnyAgentProviderSettings & { runner: RunnerSpec };
 
     logger.debug(
