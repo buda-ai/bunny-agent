@@ -2,7 +2,14 @@ import { spawn } from "node:child_process";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { buildRunnerEnv } from "./env.js";
-import type { ExecOptions, SandboxAdapter, SandboxHandle } from "./types.js";
+import { createUnixToolBridge } from "./tool-bridge-unix.js";
+import type {
+  ExecOptions,
+  RemoteTool,
+  SandboxAdapter,
+  SandboxHandle,
+  ToolBridge,
+} from "./types.js";
 
 /**
  * Options for creating a LocalSandbox instance
@@ -177,6 +184,18 @@ export class LocalSandbox implements SandboxAdapter {
    */
   reset(): void {
     this.currentHandle = null;
+  }
+
+  /**
+   * Open a Unix-domain-socket bridge so the in-sandbox runner can call back
+   * into host-side {@link RemoteTool} executors. The runner shares this host's
+   * filesystem, so a unix socket on a 0700 dir is the simplest auth boundary.
+   */
+  async createToolBridge(input: {
+    tools: RemoteTool[];
+    sessionId?: string;
+  }): Promise<{ bridge: ToolBridge; close(): Promise<void> }> {
+    return createUnixToolBridge(input);
   }
 }
 
