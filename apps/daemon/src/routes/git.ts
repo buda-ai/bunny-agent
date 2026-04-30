@@ -343,10 +343,15 @@ async function gitResetCommand(
   args: string[],
 ): Promise<GitCommandResult> {
   if (args.length === 0) return unsupported(["reset", ...args]);
-  const ref = args[0].startsWith("-") ? undefined : args[0];
+
+  // if arg is a ref (like HEAD, main), use it. Otherwise, assume it's a file path and let isomorphic-git default to HEAD.
+  const isFirstArgRef = args[0] !== "--" && !args[0].startsWith("-") && args.length > 1 && !await fs.promises.stat(path.join(cwd, args[0])).then(() => true).catch(() => false);
+  const ref = isFirstArgRef ? args[0] : undefined;
+
   const filepaths = args.filter(
-    (arg, index) => !(index === 0 && ref === arg) && !arg.startsWith("-"),
+    (arg, index) => !(index === 0 && ref === arg) && !arg.startsWith("-") && arg !== "--",
   );
+
   if (filepaths.length === 0) return unsupported(["reset", ...args]);
   for (const filepath of filepaths) {
     await git.resetIndex({ fs, dir: cwd, filepath, ref });
@@ -630,4 +635,36 @@ export async function gitInit(state: AppState, body: GitInitRequest) {
       ...(body.initial_branch ? ["-b", body.initial_branch] : []),
     ]),
   );
+}
+
+import type { GitRpcRequest, GitCommandKeys } from "../shared/git-types.js";
+
+export async function gitRpc(state: AppState, body: GitRpcRequest<GitCommandKeys>) {
+  if (!body.command) {
+    throw new AppError(400, "missing git command");
+  }
+
+  const fn = git[body.command] as any;
+  if (typeof fn !== "function") {
+    throw new AppError(400, `unsupported or invalid git command: ${body.command}`);
+  }
+
+  const root = resolveVolumeRoot(state, body.volume);
+  const dir = resolveUnderRoot(root, body.repo);
+  await ensureDir(dir);
+
+  const options = body.options || {};
+  const args = {
+    ...options,
+    fs,
+    dir,
+    http,
+  };
+
+  try {
+    const result = await fn(args);
+    return ok(result);
+  } catch (err: any) {
+    throw new AppError(400, err.message || String(err));
+  }
 }
