@@ -4,9 +4,11 @@ import * as git from "isomorphic-git";
 import http from "isomorphic-git/http/node";
 import type {
   GitCloneRequest,
+  GitCommandKeys,
   GitCommandResult,
   GitExecRequest,
   GitInitRequest,
+  GitRpcRequest,
   GitStatusRequest,
 } from "../shared/git-types.js";
 import type { AppState } from "../utils.js";
@@ -40,6 +42,76 @@ const ALLOWED_GIT_COMMANDS = new Set([
   "ls-files",
 ]);
 
+const GIT_RPC_COMMANDS = {
+  abortMerge: git.abortMerge,
+  add: git.add,
+  addNote: git.addNote,
+  addRemote: git.addRemote,
+  annotatedTag: git.annotatedTag,
+  branch: git.branch,
+  checkout: git.checkout,
+  cherryPick: git.cherryPick,
+  clone: git.clone,
+  commit: git.commit,
+  currentBranch: git.currentBranch,
+  deleteBranch: git.deleteBranch,
+  deleteRef: git.deleteRef,
+  deleteRemote: git.deleteRemote,
+  deleteTag: git.deleteTag,
+  expandOid: git.expandOid,
+  expandRef: git.expandRef,
+  fastForward: git.fastForward,
+  fetch: git.fetch,
+  findMergeBase: git.findMergeBase,
+  findRoot: git.findRoot,
+  getConfig: git.getConfig,
+  getConfigAll: git.getConfigAll,
+  getRemoteInfo: git.getRemoteInfo,
+  getRemoteInfo2: git.getRemoteInfo2,
+  hashBlob: git.hashBlob,
+  indexPack: git.indexPack,
+  init: git.init,
+  isDescendent: git.isDescendent,
+  isIgnored: git.isIgnored,
+  listBranches: git.listBranches,
+  listFiles: git.listFiles,
+  listNotes: git.listNotes,
+  listRefs: git.listRefs,
+  listRemotes: git.listRemotes,
+  listServerRefs: git.listServerRefs,
+  listTags: git.listTags,
+  log: git.log,
+  merge: git.merge,
+  packObjects: git.packObjects,
+  pull: git.pull,
+  push: git.push,
+  readBlob: git.readBlob,
+  readCommit: git.readCommit,
+  readNote: git.readNote,
+  readObject: git.readObject,
+  readTag: git.readTag,
+  readTree: git.readTree,
+  remove: git.remove,
+  removeNote: git.removeNote,
+  renameBranch: git.renameBranch,
+  resetIndex: git.resetIndex,
+  resolveRef: git.resolveRef,
+  setConfig: git.setConfig,
+  stash: git.stash,
+  status: git.status,
+  statusMatrix: git.statusMatrix,
+  tag: git.tag,
+  updateIndex: git.updateIndex,
+  version: git.version,
+  walk: git.walk,
+  writeBlob: git.writeBlob,
+  writeCommit: git.writeCommit,
+  writeObject: git.writeObject,
+  writeRef: git.writeRef,
+  writeTag: git.writeTag,
+  writeTree: git.writeTree,
+} satisfies Record<GitCommandKeys, (...args: never[]) => unknown>;
+
 interface ExecContext {
   cwd: string;
   args: string[];
@@ -72,6 +144,11 @@ function toCommandResult(err: unknown): GitCommandResult {
     e.stdout ?? "",
     e.code ?? 1,
   );
+}
+
+function errorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  return String(err);
 }
 
 async function runGit(cwd: string, args: string[]): Promise<GitCommandResult> {
@@ -345,11 +422,19 @@ async function gitResetCommand(
   if (args.length === 0) return unsupported(["reset", ...args]);
 
   // if arg is a ref (like HEAD, main), use it. Otherwise, assume it's a file path and let isomorphic-git default to HEAD.
-  const isFirstArgRef = args[0] !== "--" && !args[0].startsWith("-") && args.length > 1 && !await fs.promises.stat(path.join(cwd, args[0])).then(() => true).catch(() => false);
+  const isFirstArgRef =
+    args[0] !== "--" &&
+    !args[0].startsWith("-") &&
+    args.length > 1 &&
+    !(await fs.promises
+      .stat(path.join(cwd, args[0]))
+      .then(() => true)
+      .catch(() => false));
   const ref = isFirstArgRef ? args[0] : undefined;
 
   const filepaths = args.filter(
-    (arg, index) => !(index === 0 && ref === arg) && !arg.startsWith("-") && arg !== "--",
+    (arg, index) =>
+      !(index === 0 && ref === arg) && !arg.startsWith("-") && arg !== "--",
   );
 
   if (filepaths.length === 0) return unsupported(["reset", ...args]);
@@ -637,16 +722,20 @@ export async function gitInit(state: AppState, body: GitInitRequest) {
   );
 }
 
-import type { GitRpcRequest, GitCommandKeys } from "../shared/git-types.js";
-
-export async function gitRpc(state: AppState, body: GitRpcRequest<GitCommandKeys>) {
+export async function gitRpc(
+  state: AppState,
+  body: GitRpcRequest<GitCommandKeys>,
+) {
   if (!body.command) {
     throw new AppError(400, "missing git command");
   }
 
-  const fn = git[body.command] as any;
+  const fn = GIT_RPC_COMMANDS[body.command];
   if (typeof fn !== "function") {
-    throw new AppError(400, `unsupported or invalid git command: ${body.command}`);
+    throw new AppError(
+      400,
+      `unsupported or invalid git command: ${body.command}`,
+    );
   }
 
   const root = resolveVolumeRoot(state, body.volume);
@@ -662,9 +751,11 @@ export async function gitRpc(state: AppState, body: GitRpcRequest<GitCommandKeys
   };
 
   try {
-    const result = await fn(args);
+    const result = await (
+      fn as (options: typeof args) => Promise<unknown> | unknown
+    )(args);
     return ok(result);
-  } catch (err: any) {
-    throw new AppError(400, err.message || String(err));
+  } catch (err) {
+    throw new AppError(400, errorMessage(err));
   }
 }

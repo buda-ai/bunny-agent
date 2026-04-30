@@ -69,12 +69,30 @@ describe("shared/git-types", () => {
 
   it("Response types are ApiEnvelope wrappers", () => {
     // Compile-time check: these assignments must type-check
-    const _status: GitStatusResponse = { ok: true, data: { stdout: "", stderr: "", code: 0 }, error: null };
-    const _exec: GitExecResponse = { ok: true, data: { stdout: "", stderr: "", code: 0 }, error: null };
-    const _init: GitInitResponse = { ok: true, data: { stdout: "", stderr: "", code: 0 }, error: null };
+    const _status: GitStatusResponse = {
+      ok: true,
+      data: { stdout: "", stderr: "", code: 0 },
+      error: null,
+    };
+    const _exec: GitExecResponse = {
+      ok: true,
+      data: { stdout: "", stderr: "", code: 0 },
+      error: null,
+    };
+    const _init: GitInitResponse = {
+      ok: true,
+      data: { stdout: "", stderr: "", code: 0 },
+      error: null,
+    };
     const _clone: GitCloneResponse = {
       ok: true,
-      data: { repo_path: "/x", tracked_files_count: 0, tracked_files: [], tracked_files_truncated: false, command: { stdout: "", stderr: "", code: 0 } },
+      data: {
+        repo_path: "/x",
+        tracked_files_count: 0,
+        tracked_files: [],
+        tracked_files_truncated: false,
+        command: { stdout: "", stderr: "", code: 0 },
+      },
       error: null,
     };
     expect(_status.ok).toBe(true);

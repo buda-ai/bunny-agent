@@ -85,17 +85,21 @@ import type * as git from "isomorphic-git";
 export type GitCommands = typeof git;
 
 export type FunctionKeys<T> = {
-  [K in keyof T]: T[K] extends (...args: any) => any ? K : never;
+  [K in keyof T]: T[K] extends (...args: infer _Args) => unknown ? K : never;
 }[keyof T];
 
-export type GitCommandKeys = FunctionKeys<GitCommands>;
+export type GitCommandKeys = Exclude<
+  FunctionKeys<GitCommands>,
+  "STAGE" | "TREE" | "WORKDIR"
+>;
 
 export type OmittedOptions = "fs" | "http" | "dir" | "core";
 
-export type GitRpcOptions<K extends GitCommandKeys> =
-  Parameters<GitCommands[K]>[0] extends undefined
-    ? undefined
-    : Omit<Parameters<GitCommands[K]>[0], OmittedOptions>;
+export type GitRpcOptions<K extends GitCommandKeys> = Parameters<
+  GitCommands[K]
+>[0] extends undefined
+  ? undefined
+  : Omit<Parameters<GitCommands[K]>[0], OmittedOptions>;
 
 export interface GitRpcRequest<K extends GitCommandKeys> {
   volume?: string;
@@ -120,12 +124,14 @@ export function createGitProxy(
   type Client = {
     [K in GitCommandKeys]: GitRpcOptions<K> extends undefined
       ? () => Promise<Awaited<ReturnType<GitCommands[K]>>>
-      : (options: GitRpcOptions<K>) => Promise<Awaited<ReturnType<GitCommands[K]>>>;
+      : (
+          options: GitRpcOptions<K>,
+        ) => Promise<Awaited<ReturnType<GitCommands[K]>>>;
   };
 
   return new Proxy({} as Client, {
     get(_target, command: string) {
-      return async (options?: any) => {
+      return async (options?: unknown) => {
         const res = await fetchFn(endpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -135,11 +141,10 @@ export function createGitProxy(
             options: options || {},
           }),
         });
-        const envelope = (await res.json()) as ApiEnvelope<any>;
+        const envelope = (await res.json()) as ApiEnvelope<unknown>;
         if (!envelope.ok) throw new Error(envelope.error ?? "Unknown error");
         return envelope.data;
       };
     },
   });
 }
-

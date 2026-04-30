@@ -29,3 +29,17 @@ the system `git` binary.
 ### `apps/daemon/README.md` and `docs/ARCHITECTURE.md`
 - Updated daemon Git implementation documentation from Git CLI spawning to
   `isomorphic-git`.
+
+## Follow-up lint fixes
+
+### `apps/daemon/src/shared/git-types.ts` and related tests
+- Reformatted Git API type tests with Biome.
+- Replaced explicit `any` types in Git RPC type helpers and proxy response
+  parsing with `unknown`/inferred function argument types.
+- Excluded `isomorphic-git` walker helpers from the RPC command key type so the
+  proxy only exposes callable command APIs.
+
+### `apps/daemon/src/routes/git.ts`
+- Replaced dynamic `isomorphic-git` namespace access in the RPC endpoint with a
+  static command dispatch map.
+- Replaced explicit catch parameter typing with an `unknown`-based error helper.
