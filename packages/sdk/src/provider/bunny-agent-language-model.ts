@@ -126,6 +126,13 @@ function createEmptyUsage(): LanguageModelV3Usage {
   };
 }
 
+function readToolDynamicFlag(parsed: Record<string, unknown>): boolean {
+  if (typeof parsed.dynamic === "boolean") {
+    return parsed.dynamic;
+  }
+  return parsed.providerExecuted === true;
+}
+
 /**
  * BunnyAgent Language Model implementation for AI SDK.
  */
@@ -611,7 +618,7 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
           type: "tool-input-start",
           id: parsed.toolCallId as string,
           toolName: parsed.toolName as string,
-          dynamic: parsed.dynamic as boolean,
+          dynamic: readToolDynamicFlag(parsed),
           providerExecuted: parsed.providerExecuted as boolean,
         });
         break;
@@ -635,7 +642,7 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
           toolCallId,
           toolName,
           input: JSON.stringify(input),
-          dynamic: parsed.dynamic as boolean,
+          dynamic: readToolDynamicFlag(parsed),
           providerExecuted: parsed.providerExecuted as boolean,
         });
         break;
@@ -649,7 +656,7 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
           toolName: toolName ?? "",
           result: parsed.output as NonNullable<JSONValue>,
           isError: parsed.isError as boolean,
-          dynamic: parsed.dynamic as boolean,
+          dynamic: readToolDynamicFlag(parsed),
         });
         break;
       }

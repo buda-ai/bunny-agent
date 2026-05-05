@@ -23,6 +23,11 @@ AI SDK provider and runner-executed tool helpers.
 - Removed the unused host gateway implementation and public gateway exports from
   `@bunny-agent/manager`; runner-executed tools now use the `http` or `module`
   runtimes only.
+- Marked Bunny runner-executed helper tools as AI SDK dynamic tools so UI
+  streams emit `dynamic: true` for custom provider-executed tool parts.
+- Added a provider-side fallback so runner SSE tool events with
+  `providerExecuted: true` are treated as dynamic tool events even when older
+  runners omit the `dynamic` flag.
 
 ## Verification
 

@@ -17,6 +17,8 @@ type BunnyToolRuntime = Extract<
   { type: "http" | "module" }
 >;
 
+type BunnyDynamicTool<INPUT> = Tool<INPUT, unknown> & { type: "dynamic" };
+
 /**
  * AI SDK helper for tools that the sandbox runner should call by HTTP.
  *
@@ -30,9 +32,9 @@ export function bunnyHttpTool<INPUT, OUTPUT>(
       headers?: Record<string, string>;
     };
   },
-): Tool<INPUT, never> {
+): BunnyDynamicTool<INPUT> {
   return {
-    type: "function" as const,
+    type: "dynamic" as const,
     description: input.description,
     title: input.title,
     providerOptions: withBunnyProviderOptions(input.providerOptions, {
@@ -49,7 +51,12 @@ export function bunnyHttpTool<INPUT, OUTPUT>(
     onInputStart: input.onInputStart,
     onInputDelta: input.onInputDelta,
     onInputAvailable: input.onInputAvailable,
-  } satisfies Tool<INPUT, never>;
+    async execute() {
+      throw new Error(
+        "bunnyHttpTool is provider-executed by the sandbox runner.",
+      );
+    },
+  } satisfies BunnyDynamicTool<INPUT>;
 }
 
 /**
@@ -61,9 +68,9 @@ export function bunnySandboxTool<INPUT, OUTPUT>(
     module: string;
     exportName?: string;
   },
-): Tool<INPUT, never> {
+): BunnyDynamicTool<INPUT> {
   return {
-    type: "function" as const,
+    type: "dynamic" as const,
     description: input.description,
     title: input.title,
     providerOptions: withBunnyProviderOptions(input.providerOptions, {
@@ -80,7 +87,12 @@ export function bunnySandboxTool<INPUT, OUTPUT>(
     onInputStart: input.onInputStart,
     onInputDelta: input.onInputDelta,
     onInputAvailable: input.onInputAvailable,
-  } satisfies Tool<INPUT, never>;
+    async execute() {
+      throw new Error(
+        "bunnySandboxTool is provider-executed by the sandbox runner.",
+      );
+    },
+  } satisfies BunnyDynamicTool<INPUT>;
 }
 
 export function compileToolRefsFromLanguageModelTools(

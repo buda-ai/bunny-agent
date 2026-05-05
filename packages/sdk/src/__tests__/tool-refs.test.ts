@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { jsonSchema, streamText, tool } from "ai";
+import { jsonSchema, streamText } from "ai";
 import type {
   LanguageModelV3,
   LanguageModelV3CallOptions,
@@ -186,13 +186,16 @@ describe("Bunny provider tool refs", () => {
       model,
       messages: [{ role: "user", content: "count words" }],
       tools: {
-        compute_word_count: tool({
+        compute_word_count: bunnyHttpTool({
           description: "Count words",
           inputSchema: jsonSchema({
             type: "object",
             properties: { text: { type: "string" } },
             required: ["text"],
           }),
+          endpoint: {
+            url: "https://example.com/tools/compute_word_count",
+          },
         }),
       },
     });
@@ -207,6 +210,7 @@ describe("Bunny provider tool refs", () => {
         type: "tool-input-start",
         toolCallId: "tool-call-1",
         toolName: "compute_word_count",
+        dynamic: true,
         providerExecuted: true,
       }),
     );
@@ -215,12 +219,94 @@ describe("Bunny provider tool refs", () => {
         type: "tool-input-available",
         toolCallId: "tool-call-1",
         toolName: "compute_word_count",
+        dynamic: true,
       }),
     );
     expect(uiChunks).toContainEqual(
       expect.objectContaining({
         type: "tool-output-available",
         toolCallId: "tool-call-1",
+        dynamic: true,
+      }),
+    );
+  });
+
+  it("treats provider-executed runner tool SSE events as dynamic when dynamic is omitted", async () => {
+    const model = createMockModel([
+      {
+        type: "tool-input-start",
+        id: "tool-call-1",
+        toolName: "compute_word_count",
+        providerExecuted: true,
+      } as LanguageModelV3StreamPart,
+      {
+        type: "tool-call",
+        toolCallId: "tool-call-1",
+        toolName: "compute_word_count",
+        input: JSON.stringify({ text: "hello world" }),
+        providerExecuted: true,
+      } as LanguageModelV3StreamPart,
+      {
+        type: "tool-result",
+        toolCallId: "tool-call-1",
+        toolName: "compute_word_count",
+        result: { wordCount: 2 },
+      } as LanguageModelV3StreamPart,
+      {
+        type: "finish",
+        finishReason: { unified: "stop", raw: "stop" },
+        usage: {
+          inputTokens: { total: 0, noCache: 0, cacheRead: 0, cacheWrite: 0 },
+          outputTokens: { total: 0, text: undefined, reasoning: undefined },
+        },
+      },
+    ]);
+
+    const result = streamText({
+      model,
+      messages: [{ role: "user", content: "count words" }],
+      tools: {
+        compute_word_count: bunnyHttpTool({
+          description: "Count words",
+          inputSchema: jsonSchema({
+            type: "object",
+            properties: { text: { type: "string" } },
+            required: ["text"],
+          }),
+          endpoint: {
+            url: "https://example.com/tools/compute_word_count",
+          },
+        }),
+      },
+    });
+
+    const uiChunks = [];
+    for await (const chunk of result.toUIMessageStream()) {
+      uiChunks.push(chunk);
+    }
+
+    expect(uiChunks).toContainEqual(
+      expect.objectContaining({
+        type: "tool-input-start",
+        toolCallId: "tool-call-1",
+        toolName: "compute_word_count",
+        dynamic: true,
+        providerExecuted: true,
+      }),
+    );
+    expect(uiChunks).toContainEqual(
+      expect.objectContaining({
+        type: "tool-input-available",
+        toolCallId: "tool-call-1",
+        toolName: "compute_word_count",
+        dynamic: true,
+      }),
+    );
+    expect(uiChunks).toContainEqual(
+      expect.objectContaining({
+        type: "tool-output-available",
+        toolCallId: "tool-call-1",
+        dynamic: true,
       }),
     );
   });

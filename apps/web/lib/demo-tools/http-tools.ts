@@ -1,12 +1,12 @@
 import { bunnyHttpTool } from "@bunny-agent/sdk";
-import type { Tool, ToolExecutionOptions, ToolSet } from "ai";
+import type { ToolExecutionOptions, ToolSet } from "ai";
 
 const DEMO_TOOL_ROUTE_PREFIX = "/api/demo-tools";
 
 export function createDemoHttpTools(
   tools: ToolSet,
   requestUrl: string,
-): Record<string, Tool<any, never>> {
+): ToolSet {
   const origin = new URL(requestUrl).origin;
   return Object.fromEntries(
     Object.entries(tools).map(([name, demoTool]) => [
