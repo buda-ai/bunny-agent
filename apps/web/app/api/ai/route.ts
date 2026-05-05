@@ -15,6 +15,8 @@ import {
   streamText,
   type UIMessage,
 } from "ai";
+import { createDemoHttpTools } from "@/lib/demo-tools/http-tools";
+import { getDemoTools } from "@/lib/demo-tools/registry";
 import { TaskDrivenArtifactProcessor } from "@/lib/example/artifact-processor";
 import {
   type CreateSandboxParams,
@@ -278,6 +280,12 @@ export async function POST(request: Request) {
     once: true,
   });
 
+  // --- Demo tools -----------------------------------------------------------
+  // Keep the route in standard AI SDK shape. Bunny helpers add provider-visible
+  // HTTP runtime metadata; CLI mode carries ToolRef[] through env and daemon
+  // mode carries the same ToolRef[] through the request body.
+  const demoTools = getDemoTools();
+
   // --- Model ----------------------------------------------------------------
   const defaultModel = ANTHROPIC_API_KEY
     ? "glm-4.7"
@@ -365,6 +373,7 @@ export async function POST(request: Request) {
       const result = streamText({
         model: bunnyAgent(model),
         messages: normalizedMessages,
+        tools: createDemoHttpTools(demoTools, request.url),
         abortSignal: signal,
         onFinish: (event) => {
           console.info(

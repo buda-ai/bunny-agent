@@ -28,6 +28,37 @@ export interface ExecOptions {
   signal?: AbortSignal;
 }
 
+/** JSON Schema (Draft-07 subset) describing a tool's input parameters. */
+export type ToolInputSchema = Record<string, unknown>;
+
+/** Runtime descriptor for a tool the sandbox runner can execute by POSTing directly to an HTTP endpoint. */
+export interface HttpToolRuntime {
+  type: "http";
+  url: string;
+  headers?: Record<string, string>;
+}
+
+/** Runtime descriptor for a tool implemented by a module that already exists inside the sandbox. */
+export interface ModuleToolRuntime {
+  type: "module";
+  module: string;
+  exportName?: string;
+}
+
+export type ToolRuntime = HttpToolRuntime | ModuleToolRuntime;
+
+/**
+ * Runner wire-format tool. Public user APIs compile into this serializable
+ * shape before the request crosses into runner-cli or bunny-agent-daemon.
+ */
+export interface ToolRef {
+  name: string;
+  description: string;
+  /** JSON Schema for the tool input. Currently object schemas are expected. */
+  inputSchema: ToolInputSchema;
+  runtime: ToolRuntime;
+}
+
 /**
  * JSON body for bunny-agent-daemon `POST /api/coding/run` (same shape as apps/daemon).
  */
@@ -48,6 +79,12 @@ export interface BunnyAgentCodingRunBody {
   env?: Record<string, string>;
   /** Skip tool approval checks (bypass permissions). */
   yolo?: boolean;
+  /**
+   * Runtime tools the runner should expose to the LLM. Each tool carries both
+   * its LLM-facing spec and the runtime the in-sandbox runner should use when
+   * the model calls it.
+   */
+  toolRefs?: ToolRef[];
 }
 
 /**
@@ -241,6 +278,11 @@ export interface StreamInput {
   resume?: string;
   /** AbortSignal for cancelling the operation */
   signal?: AbortSignal;
+  /**
+   * Tool refs the runner should expose to the LLM. Only consumed by runners
+   * that wire {@link ToolRef} into their tool registry (currently `pi`).
+   */
+  toolRefs?: ToolRef[];
 }
 
 /**

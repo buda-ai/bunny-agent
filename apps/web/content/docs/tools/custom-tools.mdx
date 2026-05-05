@@ -1,0 +1,123 @@
+---
+title: Custom Tools
+description: Add AI SDK tools to Bunny Agent runs
+---
+
+Bunny Agent uses the standard AI SDK tool API. Keep importing `streamText` and
+`tool` from `ai`; Bunny only provides the model provider and optional helper
+tools.
+
+## Quick Start
+
+```ts
+import { bunnyHttpTool, createBunnyAgent } from "@bunny-agent/sdk";
+import { streamText } from "ai";
+import { z } from "zod";
+
+const bunny = createBunnyAgent({
+  sandbox,
+  env: {
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY!,
+  },
+});
+
+const result = streamText({
+  model: bunny("gpt-5.2"),
+  prompt: "Get the weather in Paris.",
+  tools: {
+    weather: bunnyHttpTool({
+      description: "Get current weather",
+      inputSchema: z.object({ city: z.string() }),
+      endpoint: {
+        url: "https://your-app.com/api/tools/weather",
+        headers: {
+          Authorization: `Bearer ${process.env.TOOL_API_TOKEN}`,
+        },
+      },
+    }),
+  },
+});
+```
+
+This keeps the call shape as standard AI SDK `streamText({ tools })`, while the
+Bunny helper adds provider-visible runtime metadata for the sandbox runner.
+
+## Runner-Executed Tools
+
+The pi runner can also execute provider-side tools inside the sandbox. These
+tools are rendered as provider-executed dynamic tool calls in AI SDK UI streams.
+
+Bunny supports two runner-executed tool styles:
+
+| Use case | API |
+| --- | --- |
+| The tool already exists as an HTTP API | `bunnyHttpTool(...)` |
+| The tool implementation exists inside the sandbox filesystem | `bunnySandboxTool(...)` |
+
+Use these when you want the sandbox runner, not AI SDK, to execute the tool.
+
+Standard AI SDK `tool({ execute })` callbacks are client-executed tools. AI SDK
+does not pass their JavaScript `execute` functions through the provider
+boundary, so Bunny cannot turn arbitrary host closures into pi-runner tools from
+inside `createBunnyAgent()`.
+
+## Direct HTTP Tools
+
+If the tool already exists as an HTTP API and you want the sandbox runner to
+call it directly, use `bunnyHttpTool`.
+
+```ts
+import { bunnyHttpTool, createBunnyAgent } from "@bunny-agent/sdk";
+import { streamText } from "ai";
+import { z } from "zod";
+
+const bunny = createBunnyAgent({ sandbox });
+
+const result = streamText({
+  model: bunny("gpt-5.2"),
+  prompt: "Get the weather in Paris.",
+  tools: {
+    weather: bunnyHttpTool({
+      description: "Get current weather",
+      inputSchema: z.object({ city: z.string() }),
+      endpoint: {
+        url: "https://your-app.com/api/tools/weather",
+        headers: {
+          Authorization: `Bearer ${process.env.TOOL_API_TOKEN}`,
+        },
+      },
+    }),
+  },
+});
+```
+
+The endpoint and headers are sent to the sandbox runner, so only use this when
+that credential is safe for the sandbox boundary.
+
+## Sandbox Module Tools
+
+If the tool implementation already exists inside the sandbox filesystem, use
+`bunnySandboxTool`.
+
+```ts
+import { bunnySandboxTool, createBunnyAgent } from "@bunny-agent/sdk";
+import { streamText } from "ai";
+import { z } from "zod";
+
+const bunny = createBunnyAgent({ sandbox });
+
+const result = streamText({
+  model: bunny("gpt-5.2"),
+  prompt: "Summarize this repository.",
+  tools: {
+    repoStats: bunnySandboxTool({
+      description: "Summarize repository stats",
+      inputSchema: z.object({ path: z.string() }),
+      module: "/workspace/tools/repo-stats.mjs",
+      exportName: "execute",
+    }),
+  },
+});
+```
+
+The runner imports the module inside the sandbox and calls the selected export.

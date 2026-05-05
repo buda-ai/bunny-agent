@@ -124,8 +124,7 @@ function ChatMessage({
               const filePart = part as import("ai").FileUIPart;
               if (filePart.mediaType?.startsWith("image/")) {
                 return (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  // biome-ignore lint/performance/noImgElement: Intended for example
+                  // biome-ignore lint/performance/noImgElement: User attachments may be blob or data URLs that Next Image cannot optimize reliably.
                   <img
                     key={key}
                     src={filePart.url}

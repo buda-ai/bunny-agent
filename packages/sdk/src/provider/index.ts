@@ -19,6 +19,10 @@ export type { BunnyAgentProvider } from "./bunny-agent-provider";
 export { createBunnyAgent } from "./bunny-agent-provider";
 export type { SubmitAnswerOptions } from "./question-processor";
 export { submitAnswer } from "./question-processor";
+export {
+  bunnyHttpTool,
+  bunnySandboxTool,
+} from "./tool-refs";
 export type {
   ArtifactProcessor,
   ArtifactResult,
@@ -28,5 +32,6 @@ export type {
   Question,
   StreamWriter,
   SubmitAnswerParams,
+  ToolRuntime,
 } from "./types";
 export { getBunnyAgentMetadata, getBunnyAgentUsage } from "./usage";

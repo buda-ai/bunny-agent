@@ -89,6 +89,9 @@ bunny-agent run --runner claude --system-prompt "You are a coding assistant" -- 
 | `--resume <session-id>` | `-r` | Resume a previous session | - |
 | `--help` | `-h` | Show help message | - |
 
+`--allowed-tools` limits built-in runner tools. Custom tools are provided
+through the SDK `streamText({ tools })` API, not directly through runner-cli.
+
 ## Output Format
 
 `bunny-agent run` always outputs AI SDK data stream (SSE) format.

@@ -1,5 +1,11 @@
 import type { LanguageModelV3StreamPart } from "@ai-sdk/provider";
-import type { BunnyAgentOptions, SandboxAdapter } from "@bunny-agent/manager";
+import type {
+  BunnyAgentOptions,
+  SandboxAdapter,
+  ToolRef,
+} from "@bunny-agent/manager";
+
+export type { ToolRuntime } from "@bunny-agent/manager";
 
 /**
  * Artifact Processor result
@@ -119,6 +125,8 @@ export interface BunnyAgentProviderSettings
   allowedTools?: string[];
   /** Skip tool approval checks (bypass permissions). */
   yolo?: boolean;
+  /** Advanced static tool refs to expose directly to the runner. */
+  toolRefs?: ToolRef[];
 }
 
 /**

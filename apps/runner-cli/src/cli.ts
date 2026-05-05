@@ -18,8 +18,39 @@ config({ path: resolve(process.cwd(), "../.env") });
 config({ path: resolve(process.cwd(), "../../.env") });
 
 import { parseArgs } from "node:util";
+import type { PiRunnerOptions } from "@bunny-agent/runner-pi";
 import { buildImage } from "./build-image.js";
 import { runAgent } from "./runner.js";
+
+type RunnerToolRefs = NonNullable<PiRunnerOptions["toolRefs"]>;
+
+/**
+ * Read and immediately unset the tool-ref env var the SDK passes through
+ * `BunnyAgent.stream`. We unset before any child process can be spawned so the
+ * payload (which can contain Bearer tokens or HTTP headers) does not leak via
+ * environment inheritance to bash tools the runner may shell out to.
+ */
+function takeToolRefsFromEnv(): RunnerToolRefs | null {
+  const raw = process.env.BUNNY_AGENT_TOOL_REFS_JSON;
+  if (!raw) return null;
+  delete process.env.BUNNY_AGENT_TOOL_REFS_JSON;
+  try {
+    const parsed = JSON.parse(raw) as { tools?: RunnerToolRefs };
+    if (!Array.isArray(parsed.tools)) {
+      console.error(
+        "[bunny-agent] BUNNY_AGENT_TOOL_REFS_JSON missing tools array; ignoring.",
+      );
+      return null;
+    }
+    return parsed.tools;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(
+      `[bunny-agent] Failed to parse BUNNY_AGENT_TOOL_REFS_JSON: ${message}`,
+    );
+    return null;
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -300,6 +331,7 @@ async function main(): Promise<void> {
     case "run": {
       const args = parseRunArgs();
       process.chdir(args.cwd);
+      const toolRefs = takeToolRefsFromEnv();
       await runAgent({
         runner: args.runner,
         model: args.model,
@@ -310,6 +342,7 @@ async function main(): Promise<void> {
         skillPaths: args.skillPaths,
         resume: args.resume,
         yolo: args.yolo,
+        ...(toolRefs ? { toolRefs } : {}),
       });
       break;
     }

@@ -1,5 +1,10 @@
 import type * as http from "node:http";
-import { createRunner } from "@bunny-agent/runner-harness";
+import {
+  createRunner,
+  type RunnerCoreOptions,
+} from "@bunny-agent/runner-harness";
+
+type RunToolRefs = RunnerCoreOptions["toolRefs"];
 
 export interface RunRequest {
   runner?: string;
@@ -15,6 +20,8 @@ export interface RunRequest {
   yolo?: boolean;
   /** Inline runner env (string map); same keys override. */
   env?: Record<string, string>;
+  /** Tool refs the runner should expose to the LLM. */
+  toolRefs?: RunToolRefs;
 }
 
 /** SSE comment keepalive interval (ms). Prevents idle-timeout disconnects
@@ -71,6 +78,7 @@ export async function bunnyAgentRun(
       yolo: req.yolo,
       env,
       abortController,
+      toolRefs: req.toolRefs,
       // API: caller owns resume/session; do not read/write cwd/.bunny-agent or auto-load CLAUDE.md.
       autoInject: false,
     });
@@ -131,6 +139,7 @@ export function codingRunStream(
           yolo: req.yolo,
           env,
           abortController,
+          toolRefs: req.toolRefs,
           autoInject: false,
         });
         for await (const chunk of stream) {

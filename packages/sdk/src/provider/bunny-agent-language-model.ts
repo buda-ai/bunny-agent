@@ -18,8 +18,10 @@ import {
   type Message,
   type RunnerSpec,
   streamCodingRunFromSandbox,
+  type ToolRef,
 } from "@bunny-agent/manager";
 import { getProviderLogger } from "./logging";
+import { compileToolRefsFromLanguageModelTools } from "./tool-refs";
 import type {
   BunnyAgentModelId,
   BunnyAgentProviderSettings,
@@ -88,6 +90,14 @@ function asyncIterableToReadableStream(
   });
 }
 
+function mergeToolRefs(
+  staticToolRefs: ToolRef[] | undefined,
+  callToolRefs: ToolRef[] | undefined,
+): ToolRef[] | undefined {
+  const merged = [...(staticToolRefs ?? []), ...(callToolRefs ?? [])];
+  return merged.length > 0 ? merged : undefined;
+}
+
 function getLastUserTextFromMessages(messages: Message[]): string {
   const lastUser = [...messages].reverse().find((m) => m.role === "user");
   if (!lastUser) return "";
@@ -116,6 +126,13 @@ function createEmptyUsage(): LanguageModelV3Usage {
   };
 }
 
+function readToolDynamicFlag(parsed: Record<string, unknown>): boolean {
+  if (typeof parsed.dynamic === "boolean") {
+    return parsed.dynamic;
+  }
+  return parsed.providerExecuted === true;
+}
+
 /**
  * BunnyAgent Language Model implementation for AI SDK.
  */
@@ -127,6 +144,7 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
     "image/*": [/.*/],
   };
 
+  readonly settings: BunnyAgentProviderSettings & { runner: RunnerSpec };
   private readonly options: BunnyAgentProviderSettings & { runner: RunnerSpec };
   private readonly logger: Logger;
   private sessionId: string | undefined;
@@ -150,6 +168,7 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
 
   constructor(modelOptions: BunnyAgentLanguageModelOptions) {
     this.modelId = modelOptions.id;
+    this.settings = modelOptions.options;
     this.options = modelOptions.options;
     this.logger = getProviderLogger(modelOptions.options);
     this.provider = "bunny-agent";
@@ -287,6 +306,11 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
       );
     }
 
+    const toolRefs = mergeToolRefs(
+      this.options.toolRefs,
+      compileToolRefsFromLanguageModelTools(options.tools),
+    );
+
     const daemonUrl = this.options.daemonUrl;
 
     if (daemonUrl) {
@@ -294,7 +318,7 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
       const sandboxEnv = sandbox.getEnv?.() ?? {};
       const runnerEnv = { ...sandboxEnv, ...this.options.env };
       const body: BunnyAgentCodingRunBody = {
-        ...this.buildCodingRunBody(messages, handle.getWorkdir()),
+        ...this.buildCodingRunBody(messages, handle.getWorkdir(), toolRefs),
         ...(Object.keys(runnerEnv).length > 0 ? { env: runnerEnv } : {}),
       };
       const execOpts = {
@@ -329,6 +353,7 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
         },
         resume: this.options.resume,
         signal: abortSignal,
+        ...(toolRefs && toolRefs.length > 0 ? { toolRefs } : {}),
       });
       return this.buildStreamResult(bytesStream, messages);
     } catch (error) {
@@ -346,9 +371,11 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
   private buildCodingRunBody(
     messages: Message[],
     cwdFallback: string,
+    toolRefs: ToolRef[] | undefined,
   ): BunnyAgentCodingRunBody {
     const runner = this.options.runner;
     const cwd = this.options.cwd ?? cwdFallback;
+
     return {
       runner: runner.runnerType ?? "claude",
       model: this.modelId,
@@ -360,6 +387,7 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
       allowedTools: runner.allowedTools ?? this.options.allowedTools,
       skillPaths: runner.skillPaths ?? this.options.skillPaths,
       yolo: this.options.yolo,
+      ...(toolRefs && toolRefs.length > 0 ? { toolRefs } : {}),
     };
   }
 
@@ -586,7 +614,7 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
           type: "tool-input-start",
           id: parsed.toolCallId as string,
           toolName: parsed.toolName as string,
-          dynamic: parsed.dynamic as boolean,
+          dynamic: readToolDynamicFlag(parsed),
           providerExecuted: parsed.providerExecuted as boolean,
         });
         break;
@@ -610,7 +638,7 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
           toolCallId,
           toolName,
           input: JSON.stringify(input),
-          dynamic: parsed.dynamic as boolean,
+          dynamic: readToolDynamicFlag(parsed),
           providerExecuted: parsed.providerExecuted as boolean,
         });
         break;
@@ -624,7 +652,7 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
           toolName: toolName ?? "",
           result: parsed.output as NonNullable<JSONValue>,
           isError: parsed.isError as boolean,
-          dynamic: parsed.dynamic as boolean,
+          dynamic: readToolDynamicFlag(parsed),
         });
         break;
       }

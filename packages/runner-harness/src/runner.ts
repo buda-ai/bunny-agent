@@ -3,7 +3,7 @@ import { createClaudeRunner } from "@bunny-agent/runner-claude";
 import { createCodexRunner } from "@bunny-agent/runner-codex";
 import { createGeminiRunner } from "@bunny-agent/runner-gemini";
 import { createOpenCodeRunner } from "@bunny-agent/runner-opencode";
-import { createPiRunner } from "@bunny-agent/runner-pi";
+import { createPiRunner, type PiRunnerOptions } from "@bunny-agent/runner-pi";
 import { loadSystemPrompt } from "./prompt.js";
 import { readSessionId, writeSessionId } from "./session.js";
 import { discoverSkillPaths } from "./skills.js";
@@ -23,6 +23,11 @@ export interface RunnerCoreOptions extends BaseRunnerOptions {
    * Set false for daemon/API usage where caller manages these explicitly.
    */
   autoInject?: boolean;
+  /**
+   * Tool refs to expose to the LLM as native runner tools. Currently only
+   * the `pi` runner consumes these; other runners ignore the field.
+   */
+  toolRefs?: PiRunnerOptions["toolRefs"];
 }
 
 export function createRunner(
@@ -81,13 +86,15 @@ function dispatchRunner(
         env: base.env,
         abortController: base.abortController,
       }).run(options.userInput);
-    case "pi":
+    case "pi": {
       return createPiRunner({
         ...base,
         cwd,
         sessionId: base.resume,
         skillPaths: options.skillPaths ?? discoverSkillPaths(cwd),
+        toolRefs: options.toolRefs,
       }).run(options.userInput);
+    }
     case "opencode":
       return createOpenCodeRunner({
         model: options.model,

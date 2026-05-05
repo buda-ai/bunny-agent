@@ -584,6 +584,9 @@ importers:
       '@mariozechner/pi-coding-agent':
         specifier: 0.64.0
         version: 0.64.0(ws@8.19.0)(zod@4.3.6)
+      '@sinclair/typebox':
+        specifier: ^0.34.0
+        version: 0.34.48
     devDependencies:
       typescript:
         specifier: ^5.7.3
