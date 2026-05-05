@@ -15,15 +15,13 @@ import type {
 import {
   BunnyAgent,
   type BunnyAgentCodingRunBody,
-  createLocalToolGateway,
-  LocalSandbox,
   type Message,
   type RunnerSpec,
   streamCodingRunFromSandbox,
-  type ToolGatewayRegistration,
   type ToolRef,
 } from "@bunny-agent/manager";
 import { getProviderLogger } from "./logging";
+import { compileToolRefsFromLanguageModelTools } from "./tool-refs";
 import type {
   BunnyAgentModelId,
   BunnyAgentProviderSettings,
@@ -90,6 +88,14 @@ function asyncIterableToReadableStream(
       await iterator.return?.(reason);
     },
   });
+}
+
+function mergeToolRefs(
+  staticToolRefs: ToolRef[] | undefined,
+  callToolRefs: ToolRef[] | undefined,
+): ToolRef[] | undefined {
+  const merged = [...(staticToolRefs ?? []), ...(callToolRefs ?? [])];
+  return merged.length > 0 ? merged : undefined;
 }
 
 function getLastUserTextFromMessages(messages: Message[]): string {
@@ -293,13 +299,9 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
       );
     }
 
-    const compiled = await this.options.compiledToolRefs;
-    const toolRefs = compiled?.toolRefs ?? this.options.toolRefs;
-    const pendingTools =
-      compiled?.pendingTools ?? this.options.pendingTools;
-    const gatewayRegistration = await this.openToolGateway(
-      pendingTools,
-      abortSignal,
+    const toolRefs = mergeToolRefs(
+      this.options.toolRefs,
+      compileToolRefsFromLanguageModelTools(options.tools),
     );
 
     const daemonUrl = this.options.daemonUrl;
@@ -324,12 +326,7 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
           execOpts,
         );
         const bytesStream = asyncIterableToReadableStream(iterable);
-        const guarded = this.attachBridgeLifecycle(
-          bytesStream,
-          gatewayRegistration,
-          abortSignal,
-        );
-        return this.buildStreamResult(guarded, messages);
+        return this.buildStreamResult(bytesStream, messages);
       }
 
       const sandboxEnv = sandbox.getEnv?.() ?? {};
@@ -352,110 +349,14 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
           signal: abortSignal,
           ...(toolRefs && toolRefs.length > 0 ? { toolRefs } : {}),
         });
-        const guarded = this.attachBridgeLifecycle(
-          bytesStream,
-          gatewayRegistration,
-          abortSignal,
-        );
-        return this.buildStreamResult(guarded, messages);
+        return this.buildStreamResult(bytesStream, messages);
       } catch (error) {
         await agent.destroy().catch(() => {});
         throw error;
       }
     } catch (error) {
-      // Stream never reached the consumer; tear down the bridge ourselves.
-      await gatewayRegistration?.close().catch(() => {});
       throw error;
     }
-  }
-
-  /**
-   * Open the host-side gateway registration compiled by Bunny streamText.
-   * Returns null when this call only has HTTP/module runtime tools.
-   */
-  private async openToolGateway(
-    pending: BunnyAgentProviderSettings["pendingTools"],
-    signal: AbortSignal | undefined,
-  ): Promise<ToolGatewayRegistration | null> {
-    if (!pending || pending.tools.length === 0) return null;
-
-    const gateway =
-      this.options.toolGateway ??
-      (this.options.sandbox instanceof LocalSandbox
-        ? createLocalToolGateway()
-        : undefined);
-
-    if (!gateway) {
-      throw new Error(
-        "[bunny-agent] streamText({ tools }) contains execute functions, but no " +
-          "toolGateway is configured. Remote sandboxes need a gateway URL that " +
-          "is reachable from inside the sandbox.",
-      );
-    }
-
-    const registration = await gateway.register({
-      tools: pending.tools,
-      sessionId: this.sessionId,
-      signal,
-    });
-    pending.attachBridge(registration.bridge);
-    return registration;
-  }
-
-  /**
-   * Tee the stream so we close the bridge once the consumer is done with the
-   * stream (close, cancel, or error) and once the abort signal fires.
-   */
-  private attachBridgeLifecycle(
-    upstream: ReadableStream<Uint8Array>,
-    bridgeHandle: { close(): Promise<void> } | null,
-    abortSignal: AbortSignal | undefined,
-  ): ReadableStream<Uint8Array> {
-    if (!bridgeHandle) return upstream;
-
-    let closed = false;
-    const closeOnce = () => {
-      if (closed) return;
-      closed = true;
-      bridgeHandle.close().catch((err) => {
-        this.logger.warn(
-          `[bunny-agent] Failed to close tool bridge: ${formatErrorForLog(err)}`,
-        );
-      });
-    };
-
-    if (abortSignal) {
-      if (abortSignal.aborted) {
-        closeOnce();
-      } else {
-        abortSignal.addEventListener("abort", closeOnce, { once: true });
-      }
-    }
-
-    const reader = upstream.getReader();
-    return new ReadableStream<Uint8Array>({
-      async pull(controller) {
-        try {
-          const { done, value } = await reader.read();
-          if (done) {
-            controller.close();
-            closeOnce();
-            return;
-          }
-          controller.enqueue(value);
-        } catch (err) {
-          controller.error(err);
-          closeOnce();
-        }
-      },
-      async cancel(reason) {
-        try {
-          await reader.cancel(reason);
-        } finally {
-          closeOnce();
-        }
-      },
-    });
   }
 
   private resetStreamState(): void {

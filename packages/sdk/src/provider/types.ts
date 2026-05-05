@@ -1,17 +1,11 @@
 import type { LanguageModelV3StreamPart } from "@ai-sdk/provider";
 import type {
   BunnyAgentOptions,
-  PendingTool,
   SandboxAdapter,
-  ToolBridge,
-  ToolGateway,
   ToolRef,
 } from "@bunny-agent/manager";
 
 export type {
-  ToolBridge,
-  ToolGateway,
-  ToolGatewayRegistration,
   ToolRuntime,
 } from "@bunny-agent/manager";
 
@@ -133,27 +127,8 @@ export interface BunnyAgentProviderSettings
   allowedTools?: string[];
   /** Skip tool approval checks (bypass permissions). */
   yolo?: boolean;
-  /**
-   * Host-side gateway used for AI SDK tools that define `execute`. LocalSandbox
-   * can use Bunny's default local unix gateway; remote sandboxes need a gateway
-   * URL that is reachable from inside the sandbox.
-   */
-  toolGateway?: ToolGateway;
-  /** Internal per-call tool refs compiled before AI SDK strips execute functions. */
+  /** Advanced static tool refs to expose directly to the runner. */
   toolRefs?: ToolRef[];
-  /** Internal per-call host execute tools waiting for gateway registration. */
-  pendingTools?: {
-    tools: PendingTool[];
-    attachBridge(bridge: ToolBridge): void;
-  };
-  /** Internal lazy compile result used by Bunny's streamText wrapper. */
-  compiledToolRefs?: Promise<{
-    toolRefs: ToolRef[];
-    pendingTools?: {
-      tools: PendingTool[];
-      attachBridge(bridge: ToolBridge): void;
-    };
-  } | null>;
 }
 
 /**

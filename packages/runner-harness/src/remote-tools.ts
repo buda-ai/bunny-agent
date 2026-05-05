@@ -1,5 +1,4 @@
-import { createConnection } from "node:net";
-import type { ToolBridge, ToolRef } from "@bunny-agent/manager";
+import type { ToolRef } from "@bunny-agent/manager";
 import type { ToolDefinition } from "@bunny-agent/runner-pi";
 import { Type } from "@sinclair/typebox";
 
@@ -15,14 +14,8 @@ type BridgeResponse = { status: number; body: string };
 /**
  * Wrap a list of tool refs as pi-runner-native ToolDefinitions.
  *
- * Each generated tool's `execute` dispatches `{ name, input }` over the bridge
- * transport ({@link ToolBridge.transport}) and returns the response as a
- * single text content block. The caller's bridge endpoint is responsible for
- * dispatching by name and validating arguments.
- *
- * Both transports normalize to the same `{ status, body }` envelope so the
- * resulting tool result is byte-equal across transports for equivalent server
- * responses.
+ * Each generated tool's `execute` dispatches to the runtime embedded in the
+ * tool ref and returns the response as a single text content block.
  */
 export function buildToolDefinitions(tools: ToolRef[]): ToolDefinition[] {
   return tools.map((spec) => buildOne(spec));
@@ -31,7 +24,7 @@ export function buildToolDefinitions(tools: ToolRef[]): ToolDefinition[] {
 function buildOne(spec: ToolRef): ToolDefinition {
   // Type.Unsafe wraps an arbitrary JSON-schema object as a TypeBox TSchema
   // without local validation. We pass it verbatim to the LLM; the caller is
-  // responsible for argument validation when the bridge dispatches the call.
+  // responsible for argument validation in the selected runtime.
   // Cast through `unknown` because pi-coding-agent's TSchema is structurally
   // identical to ours but resolves to a different package instance under the
   // workspace's hoisted typebox versions.
@@ -64,93 +57,16 @@ async function executeToolRef(
   signal: AbortSignal | undefined,
 ): Promise<BridgeResponse> {
   switch (spec.runtime.type) {
-    case "gateway":
-      return spec.runtime.bridge.transport === "http"
-        ? sendGatewayHttpRequest(spec.runtime.bridge, spec.name, params, signal)
-        : sendGatewayUnixRequest(spec.runtime.bridge, spec.name, params, signal);
     case "http":
       return sendDirectHttpRequest(spec.runtime, params, signal);
     case "module":
       return executeModuleTool(spec.runtime, params, signal);
   }
+  return assertNever(spec.runtime);
 }
 
-async function sendGatewayHttpRequest(
-  bridge: Extract<ToolBridge, { transport: "http" }>,
-  toolName: string,
-  params: unknown,
-  signal: AbortSignal | undefined,
-): Promise<BridgeResponse> {
-  const response = await fetch(bridge.url, {
-    method: "POST",
-    signal,
-    headers: {
-      Authorization: `Bearer ${bridge.token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ name: toolName, input: params }),
-  });
-  const body = await response.text();
-  return { status: response.status, body };
-}
-
-function sendGatewayUnixRequest(
-  bridge: Extract<ToolBridge, { transport: "unix" }>,
-  toolName: string,
-  params: unknown,
-  signal: AbortSignal | undefined,
-): Promise<BridgeResponse> {
-  return new Promise<BridgeResponse>((resolve, reject) => {
-    if (signal?.aborted) {
-      reject(new Error("aborted"));
-      return;
-    }
-
-    const socket = createConnection(bridge.socketPath);
-    let raw = "";
-    let settled = false;
-
-    const onAbort = () => done(new Error("aborted"));
-
-    const cleanup = () => {
-      signal?.removeEventListener("abort", onAbort);
-      socket.removeAllListeners();
-      socket.destroy();
-    };
-
-    const done = (err: Error | null, value?: BridgeResponse) => {
-      if (settled) return;
-      settled = true;
-      cleanup();
-      if (err) reject(err);
-      else resolve(value as BridgeResponse);
-    };
-
-    signal?.addEventListener("abort", onAbort, { once: true });
-    socket.on("error", (err) => done(err));
-    socket.on("data", (chunk) => {
-      raw += chunk.toString("utf8");
-    });
-    socket.on("end", () => {
-      try {
-        const line = raw.split("\n", 1)[0] ?? raw;
-        if (!line) {
-          throw new Error("empty response from bridge");
-        }
-        const parsed = JSON.parse(line) as Partial<BridgeResponse>;
-        if (typeof parsed.status !== "number" || typeof parsed.body !== "string") {
-          throw new Error("malformed bridge response");
-        }
-        done(null, { status: parsed.status, body: parsed.body });
-      } catch (err) {
-        done(err instanceof Error ? err : new Error(String(err)));
-      }
-    });
-
-    // Half-close the write side so the server knows the request is complete.
-    // The connection stays open for the response until the server ends it.
-    socket.end(`${JSON.stringify({ name: toolName, input: params })}\n`);
-  });
+function assertNever(value: never): never {
+  throw new Error(`unsupported tool runtime: ${JSON.stringify(value)}`);
 }
 
 async function sendDirectHttpRequest(

@@ -114,7 +114,6 @@ export function createBunnyAgent(
       ],
       toolRefs:
         options.toolRefs !== undefined ? options.toolRefs : defaultOptions.toolRefs,
-      toolGateway: options.toolGateway ?? defaultOptions.toolGateway,
     } as BunnyAgentProviderSettings & { runner: RunnerSpec };
 
     logger.debug(

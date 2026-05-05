@@ -157,4 +157,5 @@ vite.config.ts.timestamp-*
 output
 # Claude Code
 .claude/
+.codex/
 *.tgz

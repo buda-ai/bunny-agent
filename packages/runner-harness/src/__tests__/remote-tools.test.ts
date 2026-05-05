@@ -1,13 +1,17 @@
 import { createServer } from "node:http";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import type { AddressInfo } from "node:net";
-import type { ToolBridge, ToolRef } from "@bunny-agent/manager";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { pathToFileURL } from "node:url";
+import type { ToolRef } from "@bunny-agent/manager";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildToolDefinitions } from "../remote-tools.js";
 
 interface CapturedCall {
   authorization: string | undefined;
   contentType: string | undefined;
-  body: { name: string; input: unknown };
+  body: unknown;
 }
 
 interface FakeBridgeServer {
@@ -71,27 +75,30 @@ const sampleSpec: Omit<ToolRef, "runtime"> = {
   },
 };
 
-function withGateway(bridge: ToolBridge): ToolRef {
-  return { ...sampleSpec, runtime: { type: "gateway", bridge } };
-}
-
 describe("buildToolDefinitions", () => {
   let server: FakeBridgeServer;
-  let bridge: ToolBridge;
 
   beforeEach(async () => {
     server = await startFakeBridge(({ body }) => ({
-      body: { now: "2026-04-29T00:00:00.000Z", echoed: body.input },
+      body: { now: "2026-04-29T00:00:00.000Z", echoed: body },
     }));
-    bridge = { transport: "http", url: server.url, token: "test-token-123" };
   });
 
   afterEach(async () => {
     await server.close();
   });
 
-  it("forwards name + input and bearer token to the bridge endpoint", async () => {
-    const [tool] = buildToolDefinitions([withGateway(bridge)]);
+  it("posts direct HTTP runtime inputs with configured headers", async () => {
+    const [tool] = buildToolDefinitions([
+      {
+        ...sampleSpec,
+        runtime: {
+          type: "http",
+          url: server.url,
+          headers: { Authorization: "Bearer test-token-123" },
+        },
+      },
+    ]);
     expect(tool.name).toBe("get_current_time");
     expect(tool.label).toBe("get_current_time");
     expect(tool.description).toBe(sampleSpec.description);
@@ -109,10 +116,7 @@ describe("buildToolDefinitions", () => {
     const [call] = server.calls;
     expect(call.authorization).toBe("Bearer test-token-123");
     expect(call.contentType).toBe("application/json");
-    expect(call.body).toEqual({
-      name: "get_current_time",
-      input: { timezone: "UTC" },
-    });
+    expect(call.body).toEqual({ timezone: "UTC" });
 
     expect(result.content).toHaveLength(1);
     expect(result.content[0]).toMatchObject({
@@ -130,9 +134,10 @@ describe("buildToolDefinitions", () => {
       status: 403,
       body: "tool not enabled for this agent",
     }));
-    bridge = { transport: "http", url: server.url, token: "test-token-123" };
 
-    const [tool] = buildToolDefinitions([withGateway(bridge)]);
+    const [tool] = buildToolDefinitions([
+      { ...sampleSpec, runtime: { type: "http", url: server.url } },
+    ]);
     const result = await tool.execute(
       "tc_2",
       {},
@@ -159,12 +164,13 @@ describe("buildToolDefinitions", () => {
       // immediately on the pre-aborted signal.
       body: { ok: true },
     }));
-    bridge = { transport: "http", url: server.url, token: "test-token-123" };
 
     const controller = new AbortController();
     controller.abort();
 
-    const [tool] = buildToolDefinitions([withGateway(bridge)]);
+    const [tool] = buildToolDefinitions([
+      { ...sampleSpec, runtime: { type: "http", url: server.url } },
+    ]);
     const result = await tool.execute(
       "tc_3",
       {},
@@ -180,41 +186,42 @@ describe("buildToolDefinitions", () => {
     expect(text).toMatch(/abort/i);
   });
 
-  it("executes direct HTTP runtime tools without a gateway envelope", async () => {
-    const directServer = await startFakeBridge(({ body }) => ({
-      body: { direct: true, input: body },
-    }));
+  it("executes sandbox module runtime tools", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "bunny-agent-module-tool-"));
+    const modulePath = join(dir, "tool.mjs");
+    writeFileSync(
+      modulePath,
+      "export async function run(input, ctx) { return { input, aborted: ctx.signal?.aborted ?? false }; }\n",
+    );
     try {
       const [tool] = buildToolDefinitions([
         {
           ...sampleSpec,
           runtime: {
-            type: "http",
-            url: directServer.url,
-            headers: { authorization: "Bearer direct-token" },
+            type: "module",
+            module: pathToFileURL(modulePath).href,
+            exportName: "run",
           },
         },
       ]);
 
       const result = await tool.execute(
-        "tc_direct",
+        "tc_module",
         { timezone: "UTC" },
         undefined,
         undefined,
         undefined as never,
       );
 
-      expect(directServer.calls[0].authorization).toBe("Bearer direct-token");
-      expect(directServer.calls[0].body).toEqual({ timezone: "UTC" });
       expect(result.content[0]).toMatchObject({
         type: "text",
         text: JSON.stringify({
-          direct: true,
           input: { timezone: "UTC" },
+          aborted: false,
         }),
       });
     } finally {
-      await directServer.close();
+      rmSync(dir, { recursive: true, force: true });
     }
   });
 });

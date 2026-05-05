@@ -2,14 +2,10 @@ import { spawn } from "node:child_process";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { buildRunnerEnv } from "./env.js";
-import { createUnixToolBridge } from "./tool-bridge-unix.js";
 import type {
   ExecOptions,
-  PendingTool,
   SandboxAdapter,
   SandboxHandle,
-  ToolGateway,
-  ToolBridge,
 } from "./types.js";
 
 /**
@@ -186,24 +182,6 @@ export class LocalSandbox implements SandboxAdapter {
   reset(): void {
     this.currentHandle = null;
   }
-
-}
-
-/**
- * Local host-side gateway for tools executed from LocalSandbox runner
- * processes. It uses a unix domain socket because the host and runner share a
- * filesystem.
- */
-export function createLocalToolGateway(): ToolGateway {
-  return {
-    register(input: {
-      tools: PendingTool[];
-      sessionId?: string;
-      signal?: AbortSignal;
-    }): Promise<{ bridge: ToolBridge; close(): Promise<void> }> {
-      return createUnixToolBridge(input);
-    },
-  };
 }
 
 /**

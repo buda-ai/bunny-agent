@@ -1,22 +1,16 @@
-export interface DemoToolDefinition {
-  name: string;
-  description: string;
-  inputSchema: Record<string, unknown>;
-  execute(input: unknown, ctx: { signal: AbortSignal }): Promise<unknown>;
-}
+import { jsonSchema, type ToolSet, tool } from "ai";
 
 /**
  * Demo tool registry for the apps/web `tools` end-to-end test.
  *
- * The route turns these plain definitions into AI SDK `tool()` entries. The
- * SDK handles transport details for host-side `execute` callbacks.
+ * Keep this in standard AI SDK `ToolSet` shape so the route mirrors product
+ * code that calls `streamText({ tools })`.
  */
-const tools: DemoToolDefinition[] = [
-  {
-    name: "get_current_time",
+const tools = {
+  get_current_time: tool({
     description:
       "Return the current ISO-8601 timestamp. Use this when the user asks for the current time, today's date, or how long since some event.",
-    inputSchema: {
+    inputSchema: jsonSchema({
       type: "object",
       properties: {
         timezone: {
@@ -26,7 +20,7 @@ const tools: DemoToolDefinition[] = [
         },
       },
       required: [],
-    },
+    }),
     async execute(input) {
       const { timezone } = (input as { timezone?: unknown }) ?? {};
       const now = new Date();
@@ -41,12 +35,11 @@ const tools: DemoToolDefinition[] = [
         }).format(now),
       };
     },
-  },
-  {
-    name: "compute_word_count",
+  }),
+  compute_word_count: tool({
     description:
       "Count the number of words in a piece of text. Useful when the user asks for word counts, length checks, or similar text statistics.",
-    inputSchema: {
+    inputSchema: jsonSchema({
       type: "object",
       properties: {
         text: {
@@ -55,16 +48,16 @@ const tools: DemoToolDefinition[] = [
         },
       },
       required: ["text"],
-    },
+    }),
     async execute(input) {
       const { text } = (input as { text?: unknown }) ?? {};
       const value = typeof text === "string" ? text : "";
       const words = value.trim().length === 0 ? [] : value.trim().split(/\s+/);
       return { wordCount: words.length, charCount: value.length };
     },
-  },
-];
+  }),
+} satisfies ToolSet;
 
-export function getDemoTools(): DemoToolDefinition[] {
+export function getDemoTools(): ToolSet {
   return tools;
 }

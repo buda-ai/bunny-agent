@@ -5,16 +5,14 @@ import {
   createBunnyAgent,
   DEFAULT_BUNNY_AGENT_DAEMON_URL,
   isBunnyAgentDaemonHealthy,
-  streamText,
 } from "@bunny-agent/sdk";
 import {
   createUIMessageStream,
   createUIMessageStreamResponse,
   type FileUIPart,
   isToolUIPart,
-  jsonSchema,
   lastAssistantMessageIsCompleteWithToolCalls,
-  tool,
+  streamText,
   type UIMessage,
 } from "ai";
 import { TaskDrivenArtifactProcessor } from "@/lib/example/artifact-processor";
@@ -23,6 +21,7 @@ import {
   evictSandbox,
   getOrCreateSandbox,
 } from "@/lib/example/create-sandbox";
+import { createDemoHttpTools } from "@/lib/demo-tools/http-tools";
 import { getDemoTools } from "@/lib/demo-tools/registry";
 
 import { DEFAULT_RUNNER, type RunnerType } from "@/lib/runner";
@@ -281,10 +280,10 @@ export async function POST(request: Request) {
     once: true,
   });
 
-  // --- Remote tools ---------------------------------------------------------
-  // The SDK opens a sandbox-native callback bridge from these tools so the
-  // in-sandbox runner can invoke their `execute` functions. Transport details
-  // (unix socket for LocalSandbox, etc.) are hidden from this route.
+  // --- Demo tools -----------------------------------------------------------
+  // Keep the route in standard AI SDK shape. Bunny helpers add provider-visible
+  // HTTP runtime metadata; CLI mode carries ToolRef[] through env and daemon
+  // mode carries the same ToolRef[] through the request body.
   const demoTools = getDemoTools();
 
   // --- Model ----------------------------------------------------------------
@@ -374,20 +373,7 @@ export async function POST(request: Request) {
       const result = streamText({
         model: bunnyAgent(model),
         messages: normalizedMessages,
-        tools: Object.fromEntries(
-          demoTools.map((demoTool) => [
-            demoTool.name,
-            tool<any, unknown>({
-              description: demoTool.description,
-              inputSchema: jsonSchema(demoTool.inputSchema),
-              execute: (input, options) =>
-                demoTool.execute(input, {
-                  signal:
-                    options.abortSignal ?? new AbortController().signal,
-                }),
-            }),
-          ]),
-        ),
+        tools: createDemoHttpTools(demoTools, request.url),
         abortSignal: signal,
         onFinish: (event) => {
           console.info(

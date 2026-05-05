@@ -29,18 +29,9 @@ export type {
 // Re-export env helpers
 export {
   buildRunnerEnv,
-  createHttpToolGateway,
-  createLocalToolGateway,
-  createStandaloneHttpToolGateway,
   DEFAULT_BUNNY_AGENT_DAEMON_URL,
   isBunnyAgentDaemonHealthy,
   LocalSandbox,
-} from "@bunny-agent/manager";
-export type {
-  HttpToolGateway,
-  HttpToolGatewayOptions,
-  StandaloneHttpToolGateway,
-  StandaloneHttpToolGatewayOptions,
 } from "@bunny-agent/manager";
 export type {
   ArtifactProcessor,
@@ -60,9 +51,6 @@ export type {
   StreamWriter,
   SubmitAnswerOptions,
   SubmitAnswerParams,
-  ToolBridge,
-  ToolGateway,
-  ToolGatewayRegistration,
   ToolRuntime,
   TranscriptEntry,
 } from "./provider";
@@ -74,7 +62,6 @@ export {
   createBunnyAgent,
   getBunnyAgentMetadata,
   getBunnyAgentUsage,
-  streamText,
   submitAnswer,
 } from "./provider";
 

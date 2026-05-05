@@ -31,42 +31,6 @@ export interface ExecOptions {
 /** JSON Schema (Draft-07 subset) describing a tool's input parameters. */
 export type ToolInputSchema = Record<string, unknown>;
 
-/**
- * Per-invocation context passed to a pending host-side tool executor.
- *
- * `PendingTool` is an SDK/gateway internal shape compiled from AI SDK
- * `tool({ execute })`. Application code should use AI SDK `tool()`, not this
- * type directly.
- */
-export interface PendingToolContext {
-  /**
-   * Aborted when the originating stream is aborted. Long-running executors
-   * (network calls, child processes) should respect this.
-   */
-  signal: AbortSignal;
-  /** Session id of the originating stream, if known. */
-  sessionId?: string;
-}
-
-/**
- * Host-side executable compiled from an AI SDK tool before gateway
- * registration. It contains a JavaScript closure and is never sent to the
- * sandbox runner.
- */
-export interface PendingTool {
-  name: string;
-  description: string;
-  /** JSON Schema for the tool input. Currently object schemas are expected. */
-  inputSchema: ToolInputSchema;
-  execute(input: unknown, ctx: PendingToolContext): Promise<unknown>;
-}
-
-/** Runtime descriptor for a tool whose implementation is reachable through a host gateway. */
-export interface GatewayToolRuntime {
-  type: "gateway";
-  bridge: ToolBridge;
-}
-
 /** Runtime descriptor for a tool the sandbox runner can execute by POSTing directly to an HTTP endpoint. */
 export interface HttpToolRuntime {
   type: "http";
@@ -81,10 +45,7 @@ export interface ModuleToolRuntime {
   exportName?: string;
 }
 
-export type ToolRuntime =
-  | GatewayToolRuntime
-  | HttpToolRuntime
-  | ModuleToolRuntime;
+export type ToolRuntime = HttpToolRuntime | ModuleToolRuntime;
 
 /**
  * Runner wire-format tool. Public user APIs compile into this serializable
@@ -97,50 +58,6 @@ export interface ToolRef {
   inputSchema: ToolInputSchema;
   runtime: ToolRuntime;
 }
-
-export interface ToolGatewayRegistration {
-  bridge: ToolBridge;
-  close(): Promise<void>;
-}
-
-/**
- * Host-side owner for tools whose execute functions live in the application
- * process. Sandbox adapters do not own these executors; gateways do.
- */
-export interface ToolGateway {
-  register(input: {
-    tools: PendingTool[];
-    sessionId?: string;
-    signal?: AbortSignal;
-  }): Promise<ToolGatewayRegistration>;
-}
-
-/**
- * Transport descriptor used by the runner to dispatch remote tool invocations
- * back to the caller. Two flavors:
- *
- * - `http`: the runner POSTs `{ name, input }` to `url` with a Bearer `token`.
- *   Required for any cross-host configuration (remote sandboxes; daemon mode).
- * - `unix`: the runner connects to a local Unix domain socket and exchanges
- *   line-delimited JSON. Only viable when the runner shares a filesystem with
- *   the caller (e.g. `LocalSandbox`); auth comes from the per-session 0700
- *   directory containing the socket.
- *
- * Tokens never appear on the unix variant — there is nothing to leak.
- */
-export type ToolBridge =
-  | {
-      transport: "http";
-      /** Absolute URL the runner POSTs to when invoking a remote tool. */
-      url: string;
-      /** Bearer token sent in the Authorization header on every callback request. */
-      token: string;
-    }
-  | {
-      transport: "unix";
-      /** Absolute path to a Unix domain socket served by the caller. */
-      socketPath: string;
-    };
 
 /**
  * JSON body for bunny-agent-daemon `POST /api/coding/run` (same shape as apps/daemon).

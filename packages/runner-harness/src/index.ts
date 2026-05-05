@@ -1,6 +1,5 @@
 export type { BaseRunnerOptions } from "@bunny-agent/runner-claude";
 export type {
-  ToolBridge,
   ToolRef,
   ToolRuntime,
 } from "@bunny-agent/manager";

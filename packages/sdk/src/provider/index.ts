@@ -22,9 +22,7 @@ export { submitAnswer } from "./question-processor";
 export {
   bunnyHttpTool,
   bunnySandboxTool,
-  compileToolRefsForBunny,
-  streamText,
-} from "./stream-text";
+} from "./tool-refs";
 export type {
   ArtifactProcessor,
   ArtifactResult,
@@ -34,9 +32,6 @@ export type {
   Question,
   StreamWriter,
   SubmitAnswerParams,
-  ToolBridge,
-  ToolGateway,
-  ToolGatewayRegistration,
   ToolRuntime,
 } from "./types";
 export { getBunnyAgentMetadata, getBunnyAgentUsage } from "./usage";

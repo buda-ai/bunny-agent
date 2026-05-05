@@ -1,8 +1,7 @@
 # Tools Architecture
 
-Bunny Agent tools follow one rule: **application developers define AI SDK
-tools; Bunny compiles them into serializable runner tool refs before the
-request enters the sandbox**.
+Bunny Agent tools follow one rule: **applications use the standard AI SDK
+`streamText` and `tool` APIs; Bunny only implements an AI SDK provider**.
 
 This document describes the internal architecture. For public usage examples,
 see `apps/web/content/docs/tools/custom-tools.mdx`.
@@ -10,64 +9,72 @@ see `apps/web/content/docs/tools/custom-tools.mdx`.
 ## Goals
 
 1. Keep the public API aligned with AI SDK:
-   `streamText({ model: bunny(...), tools: { ... } })`.
+   `import { streamText, tool } from "ai"`.
 2. Never serialize JavaScript `execute` functions into a sandbox.
-3. Use one runner wire format for every executable tool: `ToolRef[]`.
+3. Use one runner wire format for runner-executed tools: `ToolRef[]`.
 4. Keep ownership boundaries clear:
-   - SDK owns AI SDK tool compilation.
-   - `ToolGateway` owns host-side `execute` dispatch.
+   - AI SDK owns host-side `tool({ execute })` execution.
+   - Bunny provider owns conversion from provider-level tool schemas to
+     runner `ToolRef[]`.
    - `SandboxAdapter` owns sandbox lifecycle and process execution.
    - runner-harness owns in-sandbox tool registration.
 
 ## Public API
 
-Applications use Bunny's AI SDK-compatible wrapper:
+Applications use the AI SDK directly:
 
 ```ts
-import { createBunnyAgent, streamText } from "@bunny-agent/sdk";
-import { tool } from "ai";
+import { bunnyHttpTool, createBunnyAgent } from "@bunny-agent/sdk";
+import { streamText } from "ai";
 import { z } from "zod";
 
-const bunny = createBunnyAgent({ sandbox, env, toolGateway });
+const bunny = createBunnyAgent({ sandbox, env });
 
 const result = streamText({
   model: bunny("gpt-5.2"),
-  prompt: "Look up user u_123",
+  prompt: "Get the weather in Paris.",
   tools: {
-    lookupUser: tool({
-      description: "Look up a user by id",
-      inputSchema: z.object({ userId: z.string() }),
-      execute: async ({ userId }, { abortSignal }) => {
-        return db.user.findUnique({ where: { id: userId }, signal: abortSignal });
+    weather: bunnyHttpTool({
+      description: "Get current weather",
+      inputSchema: z.object({ city: z.string() }),
+      endpoint: {
+        url: "https://your-app.com/api/tools/weather",
+        headers: {
+          Authorization: `Bearer ${process.env.TOOL_API_TOKEN}`,
+        },
       },
     }),
   },
 });
 ```
 
-The wrapper is required because AI SDK removes provider-side `execute`
-callbacks before it calls `LanguageModelV3.doStream`. Bunny must compile the
-tools before that provider boundary. The wrapper also presents tools back to AI
-SDK as dynamic tools, so provider-executed runner tool calls render as dynamic
-UI tool parts.
+The call uses standard AI SDK `streamText({ tools })`. Bunny helpers add
+provider-visible runtime metadata so the sandbox runner can execute the tool.
 
-## Internal Shapes
+Plain AI SDK `tool({ execute })` callbacks are client-executed tools. AI SDK
+does not pass those JavaScript closures through `LanguageModelV3.doStream`, so
+Bunny cannot automatically expose arbitrary host closures to pi-runner without
+an explicit runner runtime such as HTTP or a sandbox module.
 
-### `PendingTool`
+## Provider Boundary
 
-`PendingTool` is a host-side closure compiled from AI SDK `tool({ execute })`.
-It is never sent to the sandbox.
+AI SDK calls `LanguageModelV3.doStream(params)` with provider-facing tools:
 
 ```ts
-interface PendingTool {
+type LanguageModelV3FunctionTool = {
+  type: "function";
   name: string;
-  description: string;
-  inputSchema: Record<string, unknown>;
-  execute(input: unknown, ctx: { signal: AbortSignal; sessionId?: string }): Promise<unknown>;
-}
+  description?: string;
+  inputSchema: JSONSchema7;
+  providerOptions?: SharedV3ProviderOptions;
+};
 ```
 
-### `ToolRef`
+This shape intentionally does not include the user-facing `execute` function.
+Therefore Bunny cannot turn arbitrary `tool({ execute })` closures into
+runner-executed tools from inside the provider.
+
+## Internal Shape: `ToolRef`
 
 `ToolRef` is the serializable runner wire format. It carries the LLM-facing
 tool spec plus the runtime descriptor the sandbox runner uses when the model
@@ -79,7 +86,6 @@ interface ToolRef {
   description: string;
   inputSchema: Record<string, unknown>;
   runtime:
-    | { type: "gateway"; bridge: ToolBridge }
     | { type: "http"; url: string; headers?: Record<string, string> }
     | { type: "module"; module: string; exportName?: string };
 }
@@ -87,15 +93,10 @@ interface ToolRef {
 
 ## Runtime Model
 
-| Runtime | Where execution happens | Needs host `ToolGateway` |
+| Runtime | Where execution happens | How it is configured |
 | --- | --- | --- |
-| `gateway` | Application process, through a gateway callback | Yes |
-| `http` | Existing HTTP endpoint reachable from the sandbox | No |
-| `module` | Module already present inside the sandbox | No |
-
-Gateway runtime is used for AI SDK `tool({ execute })`. Direct HTTP and module
-runtimes are explicit Bunny helpers for cases where no host JavaScript closure
-is needed.
+| `http` | Existing HTTP endpoint reachable from the sandbox | `bunnyHttpTool(...)` |
+| `module` | Module already present inside the sandbox | `bunnySandboxTool(...)` |
 
 ## Compilation Flow
 
@@ -103,67 +104,23 @@ is needed.
 application process
 ────────────────────────────────────────────────────────────────────
 
-streamText({ model: bunny(...), tools })
+AI SDK streamText({ model: bunny(...), tools })
         │
         ▼
-@bunny-agent/sdk streamText wrapper
-        │
-        │  AI SDK tool({ execute })  -> PendingTool + gateway ToolRef
-        │  bunnyHttpTool(...)        -> http ToolRef
-        │  bunnySandboxTool(...)     -> module ToolRef
-        ▼
-model settings: compiledToolRefs Promise
+AI SDK prepares provider-level LanguageModelV3FunctionTool[]
         │
         ▼
-BunnyAgentLanguageModel.doStream()
+BunnyAgentLanguageModel.doStream(params)
         │
-        │  await compiledToolRefs
-        │  register PendingTool[] if any gateway ToolRefs are pending
-        ▼
-ToolGateway.register({ tools, sessionId, signal })
-        │
-        │ returns ToolBridge
+        │  params.tools + providerOptions -> ToolRef[]
+        │  bunnyHttpTool(...)             -> http ToolRef
+        │  bunnySandboxTool(...)          -> module ToolRef
         ▼
 ToolRef[] with concrete runtime descriptors
         │
         ├─ CLI mode: env BUNNY_AGENT_TOOL_REFS_JSON
         └─ daemon mode: BunnyAgentCodingRunBody.toolRefs
 ```
-
-## ToolGateway
-
-`ToolGateway` is host-side. It owns JavaScript functions supplied by the
-application and exposes a callback descriptor the sandbox runner can call.
-
-```ts
-interface ToolGateway {
-  register(input: {
-    tools: PendingTool[];
-    sessionId?: string;
-    signal?: AbortSignal;
-  }): Promise<{
-    bridge: ToolBridge;
-    close(): Promise<void>;
-  }>;
-}
-```
-
-The gateway is not a sandbox adapter hook. This is intentional: remote sandbox
-adapters should not receive application business functions. They only need to
-run processes in the sandbox; gateways solve host callback reachability.
-
-Built-in gateway helpers:
-
-- `createLocalToolGateway()` uses a unix domain socket for `LocalSandbox`.
-- `createHttpToolGateway({ url })` returns a gateway whose `handleRequest()`
-  can be mounted on an existing Node HTTP server.
-- `createStandaloneHttpToolGateway()` starts a small HTTP server for tests and
-  simple deployments.
-
-`LocalSandbox` gets a default local unix gateway when no `toolGateway` is
-configured. Remote sandboxes require a `toolGateway` only when the stream has
-AI SDK tools with `execute`. Direct HTTP and sandbox module tools do not need a
-host gateway.
 
 ## Runner Wire Transport
 
@@ -203,26 +160,19 @@ pi-runner `ToolDefinition[]` through `buildToolDefinitions(toolRefs)`.
 
 Runtime behavior:
 
-- `gateway`: proxy `{ name, input }` to the `ToolBridge` transport.
 - `http`: `fetch(runtime.url)` directly from the sandbox runner.
 - `module`: dynamic `import(runtime.module)` and call `exportName ?? "execute"`.
 
-Only the proxy function lives in the sandbox for `gateway` tools. The original
-application `execute` function remains in the host process.
-
 ## Abort Semantics
-
-The upstream AI SDK abort signal is passed into the gateway registration. When
-a gateway dispatches a host-side tool, `PendingTool.execute(input, ctx)`
-receives that same stream-level signal as `ctx.signal`.
 
 HTTP and module runtimes execute in the sandbox runner and receive the
 runner-side tool call signal from pi-runner.
 
+Host-side AI SDK `tool({ execute })` callbacks receive AI SDK's normal
+`abortSignal`; they are not part of Bunny's runner bridge.
+
 ## Security Notes
 
-- Gateway runtime keeps application secrets and connection pools in the host
-  process. The sandbox sees only the bridge descriptor.
 - HTTP runtime sends headers/tokens into the sandbox runner. Use it only when
   the endpoint credential is safe for the sandbox boundary.
 - CLI env transport is short-lived and scrubbed immediately by runner-cli, but
@@ -234,11 +184,9 @@ runner-side tool call signal from pi-runner.
 
 | File | Responsibility |
 | --- | --- |
-| `packages/sdk/src/provider/stream-text.ts` | Bunny streamText wrapper and tool compilation |
-| `packages/sdk/src/provider/bunny-agent-language-model.ts` | Await compiled tool refs, register gateway, start runner |
-| `packages/manager/src/types.ts` | `ToolRef`, `PendingTool`, `ToolGateway`, `ToolBridge` |
-| `packages/manager/src/tool-bridge-http.ts` | HTTP `ToolGateway` helpers |
-| `packages/manager/src/tool-bridge-unix.ts` | Unix bridge transport for local gateway |
+| `packages/sdk/src/provider/tool-refs.ts` | Bunny tool helpers and provider-level tool schema conversion |
+| `packages/sdk/src/provider/bunny-agent-language-model.ts` | Compile tool refs and start runner |
+| `packages/manager/src/types.ts` | `ToolRef`, `ToolRuntime` |
 | `packages/runner-harness/src/remote-tools.ts` | Tool execution inside sandbox runner |
 | `apps/runner-cli/src/cli.ts` | CLI env decode/scrub |
 | `apps/daemon/src/routes/coding.ts` | Daemon `toolRefs` body passthrough |
