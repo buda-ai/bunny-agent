@@ -1,7 +1,3 @@
-export type {
-  ToolRef,
-  ToolRuntime,
-} from "@bunny-agent/manager";
 export type { BaseRunnerOptions } from "@bunny-agent/runner-claude";
 export { BUNNY_AGENT_SYSTEM_PROMPT } from "./agent-context.js";
 export { loadSystemPrompt } from "./prompt.js";

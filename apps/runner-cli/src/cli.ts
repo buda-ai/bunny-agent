@@ -18,9 +18,11 @@ config({ path: resolve(process.cwd(), "../.env") });
 config({ path: resolve(process.cwd(), "../../.env") });
 
 import { parseArgs } from "node:util";
-import type { ToolRef } from "@bunny-agent/runner-harness";
+import type { PiRunnerOptions } from "@bunny-agent/runner-pi";
 import { buildImage } from "./build-image.js";
 import { runAgent } from "./runner.js";
+
+type RunnerToolRefs = NonNullable<PiRunnerOptions["toolRefs"]>;
 
 /**
  * Read and immediately unset the tool-ref env var the SDK passes through
@@ -28,12 +30,12 @@ import { runAgent } from "./runner.js";
  * payload (which can contain Bearer tokens or HTTP headers) does not leak via
  * environment inheritance to bash tools the runner may shell out to.
  */
-function takeToolRefsFromEnv(): ToolRef[] | null {
+function takeToolRefsFromEnv(): RunnerToolRefs | null {
   const raw = process.env.BUNNY_AGENT_TOOL_REFS_JSON;
   if (!raw) return null;
   delete process.env.BUNNY_AGENT_TOOL_REFS_JSON;
   try {
-    const parsed = JSON.parse(raw) as { tools?: ToolRef[] };
+    const parsed = JSON.parse(raw) as { tools?: RunnerToolRefs };
     if (!Array.isArray(parsed.tools)) {
       console.error(
         "[bunny-agent] BUNNY_AGENT_TOOL_REFS_JSON missing tools array; ignoring.",

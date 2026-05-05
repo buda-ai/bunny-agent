@@ -34,6 +34,8 @@ AI SDK provider and runner-executed tool helpers.
   runner-pi so each runner owns its native tool adapter.
 - Kept runner-pi independent from manager by defining a local structural
   `PiToolRef` shape for its adapter boundary.
+- Removed manager tool type imports and re-exports from runner-harness; the
+  harness now types pi tool refs through `PiRunnerOptions`.
 
 ## Verification
 

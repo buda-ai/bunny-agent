@@ -530,9 +530,6 @@ importers:
 
   packages/runner-harness:
     dependencies:
-      '@bunny-agent/manager':
-        specifier: workspace:*
-        version: link:../manager
       '@bunny-agent/runner-claude':
         specifier: workspace:*
         version: link:../runner-claude
