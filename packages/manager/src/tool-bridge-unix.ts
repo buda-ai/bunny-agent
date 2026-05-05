@@ -2,27 +2,22 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { createServer, type Server, type Socket } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { RemoteTool, ToolBridge } from "./types.js";
+import type { PendingTool, ToolBridge } from "./types.js";
+import {
+  createPendingToolMap,
+  dispatchToolBridgePayload,
+  parseLineDelimitedBridgeRequest,
+  resolveBridgeAbortSignal,
+} from "./tool-bridge-dispatch.js";
 
-/**
- * Wire-format response the unix bridge writes back per request. Mirrors the
- * `{ status, body }` shape the HTTP transport surfaces, so client-side handling
- * (see `@bunny-agent/runner-harness/remote-tools`) is byte-equal across
- * transports.
- */
-interface BridgeResponse {
-  status: number;
-  body: string;
-}
-
-interface RemoteToolBridge {
+interface UnixToolBridge {
   bridge: ToolBridge;
   close(): Promise<void>;
 }
 
 /**
  * Stand up a Unix-domain-socket bridge that dispatches `{ name, input }`
- * requests to the matching {@link RemoteTool}.
+ * requests to the matching pending host-side tool.
  *
  * Auth model: the socket lives inside a freshly-created 0700 directory under
  * `os.tmpdir()`, so only the calling user can connect. No tokens.
@@ -36,16 +31,14 @@ interface RemoteToolBridge {
  * containing directory.
  */
 export async function createUnixToolBridge(input: {
-  tools: RemoteTool[];
+  tools: PendingTool[];
   sessionId?: string;
-}): Promise<RemoteToolBridge> {
+  signal?: AbortSignal;
+}): Promise<UnixToolBridge> {
   const dir = await mkdtemp(join(tmpdir(), "bunny-agent-bridge-"));
   const socketPath = join(dir, "bridge.sock");
 
-  const toolMap = new Map<string, RemoteTool>();
-  for (const tool of input.tools) {
-    toolMap.set(tool.name, tool);
-  }
+  const toolMap = createPendingToolMap(input.tools);
 
   const inFlight = new Set<Promise<void>>();
 
@@ -53,7 +46,7 @@ export async function createUnixToolBridge(input: {
   // write the response back. Without this, Node auto-ends our writable side
   // when the readable side closes and the response never makes it out.
   const server: Server = createServer({ allowHalfOpen: true }, (socket) => {
-    const work = handleConnection(socket, toolMap, input.sessionId);
+    const work = handleConnection(socket, toolMap, input.sessionId, input.signal);
     inFlight.add(work);
     work.finally(() => inFlight.delete(work));
   });
@@ -85,12 +78,10 @@ export async function createUnixToolBridge(input: {
 
 async function handleConnection(
   socket: Socket,
-  toolMap: Map<string, RemoteTool>,
+  toolMap: Map<string, PendingTool>,
   sessionId: string | undefined,
+  parentSignal: AbortSignal | undefined,
 ): Promise<void> {
-  const controller = new AbortController();
-  socket.on("close", () => controller.abort());
-
   let raw = "";
   let ended = false;
 
@@ -109,50 +100,17 @@ async function handleConnection(
 
   if (!ended) return;
 
-  const response = await dispatch(raw, toolMap, controller.signal, sessionId);
+  const parsed = parseLineDelimitedBridgeRequest(raw);
+  const response =
+    parsed.ok && parsed.payload !== undefined
+      ? await dispatchToolBridgePayload(
+          parsed.payload,
+          toolMap,
+          resolveBridgeAbortSignal(parentSignal),
+          sessionId,
+        )
+      : parsed.response;
   await new Promise<void>((resolve) => {
     socket.end(`${JSON.stringify(response)}\n`, () => resolve());
   });
-}
-
-async function dispatch(
-  raw: string,
-  toolMap: Map<string, RemoteTool>,
-  signal: AbortSignal,
-  sessionId: string | undefined,
-): Promise<BridgeResponse> {
-  const line = raw.split("\n", 1)[0] ?? raw;
-  if (!line) {
-    return { status: 400, body: "empty request" };
-  }
-
-  let payload: { name?: unknown; input?: unknown };
-  try {
-    payload = JSON.parse(line) as { name?: unknown; input?: unknown };
-  } catch {
-    return { status: 400, body: "invalid JSON request" };
-  }
-
-  const name = typeof payload.name === "string" ? payload.name : "";
-  if (!name) {
-    return { status: 400, body: "missing tool name" };
-  }
-
-  const tool = toolMap.get(name);
-  if (!tool) {
-    return { status: 404, body: `unknown tool "${name}"` };
-  }
-
-  try {
-    const result = await tool.execute(payload.input, { signal, sessionId });
-    return { status: 200, body: serializeResult(result) };
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    return { status: 500, body: `tool execution failed: ${message}` };
-  }
-}
-
-function serializeResult(result: unknown): string {
-  if (typeof result === "string") return result;
-  return JSON.stringify(result);
 }

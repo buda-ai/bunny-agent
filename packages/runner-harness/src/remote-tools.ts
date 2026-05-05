@@ -1,5 +1,5 @@
 import { createConnection } from "node:net";
-import type { RemoteToolSpec, ToolBridge } from "@bunny-agent/manager";
+import type { ToolBridge, ToolRef } from "@bunny-agent/manager";
 import type { ToolDefinition } from "@bunny-agent/runner-pi";
 import { Type } from "@sinclair/typebox";
 
@@ -13,7 +13,7 @@ type ToolResult = {
 type BridgeResponse = { status: number; body: string };
 
 /**
- * Wrap a list of remote tool specs as pi-runner-native ToolDefinitions.
+ * Wrap a list of tool refs as pi-runner-native ToolDefinitions.
  *
  * Each generated tool's `execute` dispatches `{ name, input }` over the bridge
  * transport ({@link ToolBridge.transport}) and returns the response as a
@@ -24,14 +24,11 @@ type BridgeResponse = { status: number; body: string };
  * resulting tool result is byte-equal across transports for equivalent server
  * responses.
  */
-export function buildRemoteToolDefinitions(
-  tools: RemoteToolSpec[],
-  bridge: ToolBridge,
-): ToolDefinition[] {
-  return tools.map((spec) => buildOne(spec, bridge));
+export function buildToolDefinitions(tools: ToolRef[]): ToolDefinition[] {
+  return tools.map((spec) => buildOne(spec));
 }
 
-function buildOne(spec: RemoteToolSpec, bridge: ToolBridge): ToolDefinition {
+function buildOne(spec: ToolRef): ToolDefinition {
   // Type.Unsafe wraps an arbitrary JSON-schema object as a TypeBox TSchema
   // without local validation. We pass it verbatim to the LLM; the caller is
   // responsible for argument validation when the bridge dispatches the call.
@@ -48,10 +45,7 @@ function buildOne(spec: RemoteToolSpec, bridge: ToolBridge): ToolDefinition {
     async execute(_toolCallId, params, signal) {
       let response: BridgeResponse;
       try {
-        response =
-          bridge.transport === "http"
-            ? await sendHttpRequest(bridge, spec.name, params, signal)
-            : await sendUnixRequest(bridge, spec.name, params, signal);
+        response = await executeToolRef(spec, params, signal);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         return transportErrorResult(spec.name, message);
@@ -64,7 +58,24 @@ function buildOne(spec: RemoteToolSpec, bridge: ToolBridge): ToolDefinition {
   };
 }
 
-async function sendHttpRequest(
+async function executeToolRef(
+  spec: ToolRef,
+  params: unknown,
+  signal: AbortSignal | undefined,
+): Promise<BridgeResponse> {
+  switch (spec.runtime.type) {
+    case "gateway":
+      return spec.runtime.bridge.transport === "http"
+        ? sendGatewayHttpRequest(spec.runtime.bridge, spec.name, params, signal)
+        : sendGatewayUnixRequest(spec.runtime.bridge, spec.name, params, signal);
+    case "http":
+      return sendDirectHttpRequest(spec.runtime, params, signal);
+    case "module":
+      return executeModuleTool(spec.runtime, params, signal);
+  }
+}
+
+async function sendGatewayHttpRequest(
   bridge: Extract<ToolBridge, { transport: "http" }>,
   toolName: string,
   params: unknown,
@@ -83,7 +94,7 @@ async function sendHttpRequest(
   return { status: response.status, body };
 }
 
-function sendUnixRequest(
+function sendGatewayUnixRequest(
   bridge: Extract<ToolBridge, { transport: "unix" }>,
   toolName: string,
   params: unknown,
@@ -142,6 +153,42 @@ function sendUnixRequest(
   });
 }
 
+async function sendDirectHttpRequest(
+  runtime: Extract<ToolRef["runtime"], { type: "http" }>,
+  params: unknown,
+  signal: AbortSignal | undefined,
+): Promise<BridgeResponse> {
+  const response = await fetch(runtime.url, {
+    method: "POST",
+    signal,
+    headers: {
+      "Content-Type": "application/json",
+      ...(runtime.headers ?? {}),
+    },
+    body: JSON.stringify(params),
+  });
+  const body = await response.text();
+  return { status: response.status, body };
+}
+
+async function executeModuleTool(
+  runtime: Extract<ToolRef["runtime"], { type: "module" }>,
+  params: unknown,
+  signal: AbortSignal | undefined,
+): Promise<BridgeResponse> {
+  const mod = (await import(runtime.module)) as Record<string, unknown>;
+  const exportName = runtime.exportName ?? "execute";
+  const fn = mod[exportName];
+  if (typeof fn !== "function") {
+    return {
+      status: 500,
+      body: `module tool export "${exportName}" is not a function`,
+    };
+  }
+  const result = await fn(params, { signal });
+  return { status: 200, body: serializeResult(result) };
+}
+
 function okResult(text: string): ToolResult {
   return {
     content: [{ type: "text", text }],
@@ -171,4 +218,9 @@ function transportErrorResult(toolName: string, message: string): ToolResult {
     ],
     details: undefined,
   };
+}
+
+function serializeResult(result: unknown): string {
+  if (typeof result === "string") return result;
+  return JSON.stringify(result);
 }

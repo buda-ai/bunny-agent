@@ -1,4 +1,4 @@
 {
   "title": "Tools",
-  "pages": ["artifacts", "ask-user-question", "write-tool-ui"]
+  "pages": ["custom-tools", "artifacts", "ask-user-question", "write-tool-ui"]
 }

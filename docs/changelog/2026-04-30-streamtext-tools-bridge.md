@@ -1,84 +1,104 @@
-# Changelog — 2026-04-30 — `streamText({ tools })` black-box tool bridge
+# Changelog — 2026-04-30 — Tool refs and host ToolGateway
 
 ## Summary
 
-`createBunnyAgent({ tools: [...] })` now accepts a list of `RemoteTool`s with
-`execute` functions defined on the host side. The SDK transparently sets up a
-sandbox-native callback channel so the in-sandbox runner can invoke each
-tool — callers no longer construct or manage a `ToolBridge`, and there is no
-HTTP route to register/revoke per request.
+Reworked custom tools around execution locality instead of sandbox adapter
+callbacks. Application developers use Bunny's AI SDK-compatible
+`streamText({ tools })` wrapper. The SDK compiles tools into a single runner
+wire format, `ToolRef[]`, before the request enters runner-cli or
+bunny-agent-daemon.
 
 ## Public API
 
 ### `@bunny-agent/sdk`
 
-- `BunnyAgentProviderSettings.tools` is now typed as `RemoteTool[]` (was
-  `RemoteToolSpec[]`). Each tool carries its own `execute(input, ctx)`. The
-  user-facing `toolBridge` field is **removed** from provider settings — the
-  SDK opens the bridge internally.
-- `RemoteTool`, `RemoteToolExecutor`, `ToolExecutorContext` re-exported from
-  `@bunny-agent/manager`.
-- The SDK throws a clear error at stream start if `tools` is non-empty but the
-  configured sandbox does not implement `createToolBridge` (`LocalSandbox`
-  ships with one; remote-sandbox adapters can opt in later).
+- Added Bunny's `streamText` wrapper. It preserves the AI SDK call shape while
+  compiling tools before AI SDK strips `execute` functions at the provider
+  boundary.
+- The wrapper now passes AI SDK tools through a dynamic-tool view after Bunny
+  compiles runtime tools. This keeps provider-executed pi-runner tools rendered
+  as `dynamic-tool` UI parts instead of static tool parts.
+- Added `bunnyHttpTool(...)` for direct HTTP endpoint tools.
+- Added `bunnySandboxTool(...)` for module tools that already exist inside the
+  sandbox filesystem.
+- `BunnyAgentProviderSettings` now accepts `toolGateway` for host-side
+  `execute` callbacks and internal `toolRefs` metadata.
+- Provider-level `tools` is no longer the primary API. Use call-level
+  `streamText({ tools })`.
 
 ### `@bunny-agent/manager`
 
-- New `SandboxAdapter.createToolBridge?` hook returning
-  `{ bridge: ToolBridge; close(): Promise<void> }`. `close()` is idempotent,
-  drains in-flight tool calls, and removes the socket directory.
-- `ToolBridge` is a discriminated union — `{ transport: "http", url, token }`
-  or `{ transport: "unix", socketPath }`. The unix variant has no token; auth
-  comes from a 0700 per-session directory under `os.tmpdir()`.
-- `LocalSandbox.createToolBridge` is implemented out of the box, backed by a
-  new `createUnixToolBridge` helper exported from the package.
+- Added `ToolRef` and `ToolRuntime`:
+  - `gateway` runtime calls a host `ToolGateway`.
+  - `http` runtime fetches a direct endpoint from inside the sandbox.
+  - `module` runtime imports a sandbox-local module.
+- Added `PendingTool` as the internal host-side closure shape waiting for
+  gateway registration.
+- Added `ToolGateway` and `ToolGatewayRegistration`. Gateways own host-side
+  application `execute` functions; sandbox adapters no longer own tool
+  dispatch.
+- Removed `SandboxAdapter.createToolBridge` from the adapter interface.
+- Added `createLocalToolGateway()` for LocalSandbox unix-socket callbacks.
+- Reworked HTTP support into `createHttpToolGateway({ url })` with
+  `handleRequest(req, res)` so applications can mount the gateway on their own
+  server.
+- Added `createStandaloneHttpToolGateway()` as a convenience helper for tests
+  and simple deployments.
 
-## Wire format (unix transport)
+## Wire Format
 
-One connection per call. The protocol mirrors the HTTP transport so the
-runner-side wrapper produces byte-equal tool results regardless of which
-transport the sandbox chose:
+### CLI mode
 
+`BunnyAgent.stream` now writes one env var:
+
+```ts
+BUNNY_AGENT_TOOL_REFS_JSON = JSON.stringify({
+  tools: toolRefs,
+});
 ```
-client → server   {"name": string, "input": unknown}\n   (then half-close write side)
-server → client   {"status": number, "body": string}\n   (server then closes)
+
+`apps/runner-cli` reads and immediately deletes the env var before any child
+process can inherit tokens or HTTP headers. The CLI intentionally does not expose
+a public custom-tools flag; developers use SDK `streamText({ tools })` instead.
+
+### Daemon mode
+
+`BunnyAgentCodingRunBody` now carries:
+
+```ts
+toolRefs?: ToolRef[];
 ```
 
-`status` follows HTTP conventions (200 success, 404 unknown tool, 500 thrown
-executor, 400 malformed request).
+The previous `tools + toolBridge` pair is replaced by this single field.
 
-## CLI plumbing
+## Runner Harness
 
-- `BunnyAgent.stream` writes the active tools + bridge descriptor into
-  `BUNNY_AGENT_TOOLS_BRIDGE_JSON` for the runner subprocess.
-- `apps/runner-cli` reads the env var on startup, **immediately deletes it**
-  before any child process can spawn, and forwards the parsed payload to
-  `runAgent({ tools, toolBridge })`. This keeps any bearer token (HTTP
-  variant) out of bash subprocesses started by tool calls.
+- `buildToolDefinitions(toolRefs)` is now the only tool registration
+  path for pi-runner custom tools.
+- Runtime behavior:
+  - `gateway`: proxy `{ name, input }` over `ToolBridge`.
+  - `http`: `fetch(runtime.url)` directly from the sandbox runner.
+  - `module`: dynamic import and execute inside the sandbox runner process.
+- Added tests for direct HTTP runtime and module runtime.
 
-## Runner harness
+## Abort Semantics
 
-- `buildRemoteToolDefinitions` now switches on `bridge.transport` and shares a
-  normalized `{ status, body }` envelope between transports. Error wording is
-  transport-neutral (`failed (status N)` / `transport error: …`).
-- New tests under `packages/runner-harness/src/__tests__/`:
-  - `remote-tools.test.ts` — HTTP transport (existing tests retargeted at the
-    new error format).
-  - `remote-tools.unix.test.ts` — unix transport, including byte-equality
-    assertions against HTTP for both success and error envelopes.
+The originating stream `AbortSignal` is passed into `ToolGateway.register`.
+Gateway-dispatched host executors receive the same signal as `ctx.signal`.
 
-## apps/web demo
+## Documentation
 
-- Removed `lib/demo-tools/bridge.ts` (in-memory token store) and the
-  `app/api/demo-tools/` route tree (entry point + bridge callback). Both are
-  obsolete now that the SDK owns the transport.
-- `lib/demo-tools/registry.ts` now exports `RemoteTool[]` directly via
-  `getDemoTools()`. The previous `getDemoToolSpecs` / `DemoTool` shapes are
-  gone.
-- `app/api/ai/route.ts` is reduced to `tools: getDemoTools()` — no token
-  registration, no callback URL plumbing, no per-stream cleanup hooks.
+- Rewrote `docs/TOOLS_ARCHITECTURE.md` around public AI SDK `tool()`,
+  internal `ToolRef`, `PendingTool`, and host-side `ToolGateway`.
+- Added `apps/web/content/docs/tools/custom-tools.mdx`, a public developer
+  guide covering AI SDK tools, remote gateway setup, direct HTTP tools, and
+  sandbox module tools.
 
-## Tests
+## Verification
 
-All package suites pass: 92 (manager), 9 (runner-harness), 6 (sdk), 19
-(runner-cli), 35 (daemon), and the rest unchanged.
+- `@bunny-agent/manager`: typecheck, build, and tests.
+- `@bunny-agent/runner-harness`: typecheck, build, and tests.
+- `@bunny-agent/sdk`: typecheck and tests.
+- `@bunny-agent/runner-cli`: typecheck.
+- `@bunny-agent/daemon`: typecheck.
+- `@bunny-agent/web`: `types:check`.

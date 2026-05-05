@@ -1,14 +1,17 @@
-import type { RemoteTool } from "@bunny-agent/sdk";
+export interface DemoToolDefinition {
+  name: string;
+  description: string;
+  inputSchema: Record<string, unknown>;
+  execute(input: unknown, ctx: { signal: AbortSignal }): Promise<unknown>;
+}
 
 /**
  * Demo tool registry for the apps/web `tools` end-to-end test.
  *
- * Each entry is a {@link RemoteTool} carrying both the spec the runner sends
- * to the LLM and the host-side `execute` the SDK invokes via the sandbox's
- * tool bridge. The SDK handles the transport — callers never see tokens or
- * sockets.
+ * The route turns these plain definitions into AI SDK `tool()` entries. The
+ * SDK handles transport details for host-side `execute` callbacks.
  */
-const tools: RemoteTool[] = [
+const tools: DemoToolDefinition[] = [
   {
     name: "get_current_time",
     description:
@@ -62,6 +65,6 @@ const tools: RemoteTool[] = [
   },
 ];
 
-export function getDemoTools(): RemoteTool[] {
+export function getDemoTools(): DemoToolDefinition[] {
   return tools;
 }

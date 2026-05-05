@@ -1,4 +1,4 @@
-import type { RemoteToolSpec, ToolBridge } from "@bunny-agent/manager";
+import type { ToolRef } from "@bunny-agent/manager";
 import type { BaseRunnerOptions } from "@bunny-agent/runner-claude";
 import { createClaudeRunner } from "@bunny-agent/runner-claude";
 import { createCodexRunner } from "@bunny-agent/runner-codex";
@@ -6,7 +6,7 @@ import { createGeminiRunner } from "@bunny-agent/runner-gemini";
 import { createOpenCodeRunner } from "@bunny-agent/runner-opencode";
 import { createPiRunner } from "@bunny-agent/runner-pi";
 import { loadSystemPrompt } from "./prompt.js";
-import { buildRemoteToolDefinitions } from "./remote-tools.js";
+import { buildToolDefinitions } from "./remote-tools.js";
 import { readSessionId, writeSessionId } from "./session.js";
 import { discoverSkillPaths } from "./skills.js";
 
@@ -26,16 +26,10 @@ export interface RunnerCoreOptions extends BaseRunnerOptions {
    */
   autoInject?: boolean;
   /**
-   * Remote tools to expose to the LLM as native runner tools. Currently only
+   * Tool refs to expose to the LLM as native runner tools. Currently only
    * the `pi` runner consumes these; other runners ignore the field.
-   *
-   * Each tool's `execute` is dispatched over HTTP to {@link toolBridge}, so
-   * `tools` and `toolBridge` must appear together — the harness throws if one
-   * is provided without the other.
    */
-  tools?: RemoteToolSpec[];
-  /** HTTP bridge used to invoke {@link tools} on the caller side. */
-  toolBridge?: ToolBridge;
+  toolRefs?: ToolRef[];
 }
 
 export function createRunner(
@@ -95,7 +89,7 @@ function dispatchRunner(
         abortController: base.abortController,
       }).run(options.userInput);
     case "pi": {
-      const customTools = resolveRemoteToolDefinitions(options);
+      const customTools = resolveToolDefinitions(options);
       return createPiRunner({
         ...base,
         cwd,
@@ -119,33 +113,16 @@ function dispatchRunner(
 }
 
 /**
- * Validate the `tools` / `toolBridge` pair on RunnerCoreOptions and convert the
- * remote specs into pi-runner-native ToolDefinitions when both are present.
+ * Convert tool refs into pi-runner-native ToolDefinitions.
  *
- * Returns `undefined` when no remote tools are configured (the common path).
- * Throws when only one of `tools` / `toolBridge` is provided — that is a
- * caller bug we surface immediately instead of silently dropping tools.
+ * Returns `undefined` when no tool refs are configured (the common path).
  */
-function resolveRemoteToolDefinitions(
+function resolveToolDefinitions(
   options: RunnerCoreOptions,
-): ReturnType<typeof buildRemoteToolDefinitions> | undefined {
-  const tools = options.tools;
-  const bridge = options.toolBridge;
-  const hasTools = !!tools && tools.length > 0;
-  if (!hasTools && !bridge) return undefined;
-  if (hasTools && !bridge) {
-    throw new Error(
-      "[bunny-agent:harness] `tools` was passed without `toolBridge`. Remote tools cannot " +
-        "execute without a callback bridge — set both on RunnerCoreOptions.",
-    );
-  }
-  if (!hasTools && bridge) {
-    throw new Error(
-      "[bunny-agent:harness] `toolBridge` was passed without any `tools`. Either remove " +
-        "`toolBridge` or supply at least one tool spec.",
-    );
-  }
-  return buildRemoteToolDefinitions(tools as RemoteToolSpec[], bridge as ToolBridge);
+): ReturnType<typeof buildToolDefinitions> | undefined {
+  const tools = options.toolRefs;
+  if (!tools || tools.length === 0) return undefined;
+  return buildToolDefinitions(tools);
 }
 
 /**

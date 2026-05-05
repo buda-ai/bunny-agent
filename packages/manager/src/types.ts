@@ -28,35 +28,17 @@ export interface ExecOptions {
   signal?: AbortSignal;
 }
 
-/**
- * JSON Schema (Draft-07 subset) describing a remote tool's input parameters.
- * Forwarded to the runner as a tool definition, then to the LLM as part of the tool spec.
- */
-export type RemoteToolSchema = Record<string, unknown>;
+/** JSON Schema (Draft-07 subset) describing a tool's input parameters. */
+export type ToolInputSchema = Record<string, unknown>;
 
 /**
- * Wire-format description of a remote tool — what the runner needs to know to
- * register the tool with the LLM. Carries no executor; the host keeps that.
+ * Per-invocation context passed to a pending host-side tool executor.
  *
- * This is an internal/serialization type. Application code should use
- * {@link RemoteTool} (which carries `execute`) and let the SDK strip the spec
- * out before sending it across the wire.
+ * `PendingTool` is an SDK/gateway internal shape compiled from AI SDK
+ * `tool({ execute })`. Application code should use AI SDK `tool()`, not this
+ * type directly.
  */
-export interface RemoteToolSpec {
-  name: string;
-  description: string;
-  /** JSON Schema for the tool input. Currently object schemas are expected. */
-  inputSchema: RemoteToolSchema;
-}
-
-/**
- * Per-invocation context passed to a {@link RemoteTool.execute}.
- *
- * Stable v1 shape — extending it later is a breaking change, so it's better to
- * carry the fields callers will plausibly need (abort, session correlation)
- * from day one.
- */
-export interface ToolExecutorContext {
+export interface PendingToolContext {
   /**
    * Aborted when the originating stream is aborted. Long-running executors
    * (network calls, child processes) should respect this.
@@ -67,29 +49,71 @@ export interface ToolExecutorContext {
 }
 
 /**
- * Public-facing remote tool definition. Applications declare these once and
- * pass them to the BunnyAgent provider; the SDK takes care of routing calls
- * from the in-sandbox runner back to `execute` via whichever transport the
- * sandbox supports.
- *
- * `execute` always runs in the host process, never inside the sandbox.
+ * Host-side executable compiled from an AI SDK tool before gateway
+ * registration. It contains a JavaScript closure and is never sent to the
+ * sandbox runner.
  */
-export interface RemoteTool extends RemoteToolSpec {
-  execute(input: unknown, ctx: ToolExecutorContext): Promise<unknown>;
+export interface PendingTool {
+  name: string;
+  description: string;
+  /** JSON Schema for the tool input. Currently object schemas are expected. */
+  inputSchema: ToolInputSchema;
+  execute(input: unknown, ctx: PendingToolContext): Promise<unknown>;
+}
+
+/** Runtime descriptor for a tool whose implementation is reachable through a host gateway. */
+export interface GatewayToolRuntime {
+  type: "gateway";
+  bridge: ToolBridge;
+}
+
+/** Runtime descriptor for a tool the sandbox runner can execute by POSTing directly to an HTTP endpoint. */
+export interface HttpToolRuntime {
+  type: "http";
+  url: string;
+  headers?: Record<string, string>;
+}
+
+/** Runtime descriptor for a tool implemented by a module that already exists inside the sandbox. */
+export interface ModuleToolRuntime {
+  type: "module";
+  module: string;
+  exportName?: string;
+}
+
+export type ToolRuntime =
+  | GatewayToolRuntime
+  | HttpToolRuntime
+  | ModuleToolRuntime;
+
+/**
+ * Runner wire-format tool. Public user APIs compile into this serializable
+ * shape before the request crosses into runner-cli or bunny-agent-daemon.
+ */
+export interface ToolRef {
+  name: string;
+  description: string;
+  /** JSON Schema for the tool input. Currently object schemas are expected. */
+  inputSchema: ToolInputSchema;
+  runtime: ToolRuntime;
+}
+
+export interface ToolGatewayRegistration {
+  bridge: ToolBridge;
+  close(): Promise<void>;
 }
 
 /**
- * Internal dispatcher signature. Bridge implementations (unix socket server,
- * HTTP route, ...) receive an invocation by tool name + raw input and forward
- * to the appropriate {@link RemoteTool.execute}.
- *
- * Not part of the public surface — applications work with {@link RemoteTool}.
+ * Host-side owner for tools whose execute functions live in the application
+ * process. Sandbox adapters do not own these executors; gateways do.
  */
-export type RemoteToolExecutor = (
-  name: string,
-  input: unknown,
-  ctx: ToolExecutorContext,
-) => Promise<unknown>;
+export interface ToolGateway {
+  register(input: {
+    tools: PendingTool[];
+    sessionId?: string;
+    signal?: AbortSignal;
+  }): Promise<ToolGatewayRegistration>;
+}
 
 /**
  * Transport descriptor used by the runner to dispatch remote tool invocations
@@ -139,13 +163,11 @@ export interface BunnyAgentCodingRunBody {
   /** Skip tool approval checks (bypass permissions). */
   yolo?: boolean;
   /**
-   * Remote tools the runner should expose to the LLM. The daemon wraps these as
-   * runner-native tools whose `execute` proxies to {@link toolBridge}.
-   * Must be paired with `toolBridge`; one without the other is a configuration error.
+   * Runtime tools the runner should expose to the LLM. Each tool carries both
+   * its LLM-facing spec and the runtime the in-sandbox runner should use when
+   * the model calls it.
    */
-  tools?: RemoteToolSpec[];
-  /** HTTP callback bridge for dispatching remote tool invocations to the caller. */
-  toolBridge?: ToolBridge;
+  toolRefs?: ToolRef[];
 }
 
 /**
@@ -254,33 +276,6 @@ export interface SandboxAdapter {
    */
   getRunnerCommand?(): string[];
 
-  /**
-   * Optional. Create a sandbox-native callback channel the in-sandbox runner
-   * can use to invoke {@link RemoteTool}s defined in the host process.
-   *
-   * Implementations stand up whatever transport fits the sandbox's locality:
-   * `LocalSandbox` opens a Unix domain socket on a 0700 per-session directory;
-   * remote sandboxes that support reverse port-forwarding may instead start
-   * an HTTP server bound to a host-local port and arrange for the sandbox to
-   * reach it. Sandboxes that have no way to reach back should leave this
-   * unimplemented — the SDK will surface a clear error to the caller.
-   *
-   * The returned {@link ToolBridge} descriptor is opaque to the sandbox; the
-   * SDK forwards it through `BunnyAgentCodingRunBody.toolBridge` (daemon mode)
-   * or the runner-cli env (CLI mode) so the runner can wire it into pi-runner
-   * `customTools`.
-   *
-   * `close()` must be idempotent and tear down the transport (server +
-   * filesystem artifacts). Long-running tool calls in flight at the moment of
-   * close should be allowed to drain — never killed mid-flight.
-   */
-  createToolBridge?(input: {
-    tools: RemoteTool[];
-    sessionId?: string;
-  }): Promise<{
-    bridge: ToolBridge;
-    close(): Promise<void>;
-  }>;
 }
 
 /**
@@ -368,13 +363,10 @@ export interface StreamInput {
   /** AbortSignal for cancelling the operation */
   signal?: AbortSignal;
   /**
-   * Remote tools the runner should expose to the LLM. Only consumed by runners
-   * that wire {@link RemoteToolSpec} into their tool registry (currently `pi`).
-   * Must be paired with {@link toolBridge}.
+   * Tool refs the runner should expose to the LLM. Only consumed by runners
+   * that wire {@link ToolRef} into their tool registry (currently `pi`).
    */
-  tools?: RemoteToolSpec[];
-  /** Transport the runner uses to dispatch invocations of {@link tools}. */
-  toolBridge?: ToolBridge;
+  toolRefs?: ToolRef[];
 }
 
 /**

@@ -15,12 +15,13 @@ import type {
 import {
   BunnyAgent,
   type BunnyAgentCodingRunBody,
+  createLocalToolGateway,
+  LocalSandbox,
   type Message,
-  type RemoteTool,
-  type RemoteToolSpec,
   type RunnerSpec,
-  type ToolBridge,
   streamCodingRunFromSandbox,
+  type ToolGatewayRegistration,
+  type ToolRef,
 } from "@bunny-agent/manager";
 import { getProviderLogger } from "./logging";
 import type {
@@ -91,14 +92,6 @@ function asyncIterableToReadableStream(
   });
 }
 
-function extractToolSpecs(tools: RemoteTool[]): RemoteToolSpec[] {
-  return tools.map(({ name, description, inputSchema }) => ({
-    name,
-    description,
-    inputSchema,
-  }));
-}
-
 function getLastUserTextFromMessages(messages: Message[]): string {
   const lastUser = [...messages].reverse().find((m) => m.role === "user");
   if (!lastUser) return "";
@@ -138,6 +131,7 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
     "image/*": [/.*/],
   };
 
+  readonly settings: BunnyAgentProviderSettings & { runner: RunnerSpec };
   private readonly options: BunnyAgentProviderSettings & { runner: RunnerSpec };
   private readonly logger: Logger;
   private sessionId: string | undefined;
@@ -161,6 +155,7 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
 
   constructor(modelOptions: BunnyAgentLanguageModelOptions) {
     this.modelId = modelOptions.id;
+    this.settings = modelOptions.options;
     this.options = modelOptions.options;
     this.logger = getProviderLogger(modelOptions.options);
     this.provider = "bunny-agent";
@@ -298,13 +293,14 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
       );
     }
 
-    // Open a tool bridge if the caller passed remote tools. This stays alive
-    // for the duration of the stream and is closed by `attachBridgeLifecycle`
-    // below — on success, error, or abort.
-    const tools = this.options.tools;
-    const bridgeHandle = await this.openToolBridge(sandbox, tools);
-    const remoteToolSpecs = bridgeHandle ? extractToolSpecs(tools ?? []) : undefined;
-    const bridge = bridgeHandle?.bridge;
+    const compiled = await this.options.compiledToolRefs;
+    const toolRefs = compiled?.toolRefs ?? this.options.toolRefs;
+    const pendingTools =
+      compiled?.pendingTools ?? this.options.pendingTools;
+    const gatewayRegistration = await this.openToolGateway(
+      pendingTools,
+      abortSignal,
+    );
 
     const daemonUrl = this.options.daemonUrl;
 
@@ -314,12 +310,7 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
         const sandboxEnv = sandbox.getEnv?.() ?? {};
         const runnerEnv = { ...sandboxEnv, ...this.options.env };
         const body: BunnyAgentCodingRunBody = {
-          ...this.buildCodingRunBody(
-            messages,
-            handle.getWorkdir(),
-            remoteToolSpecs,
-            bridge,
-          ),
+          ...this.buildCodingRunBody(messages, handle.getWorkdir(), toolRefs),
           ...(Object.keys(runnerEnv).length > 0 ? { env: runnerEnv } : {}),
         };
         const execOpts = {
@@ -333,7 +324,11 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
           execOpts,
         );
         const bytesStream = asyncIterableToReadableStream(iterable);
-        const guarded = this.attachBridgeLifecycle(bytesStream, bridgeHandle, abortSignal);
+        const guarded = this.attachBridgeLifecycle(
+          bytesStream,
+          gatewayRegistration,
+          abortSignal,
+        );
         return this.buildStreamResult(guarded, messages);
       }
 
@@ -355,11 +350,13 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
           },
           resume: this.options.resume,
           signal: abortSignal,
-          ...(remoteToolSpecs && bridge
-            ? { tools: remoteToolSpecs, toolBridge: bridge }
-            : {}),
+          ...(toolRefs && toolRefs.length > 0 ? { toolRefs } : {}),
         });
-        const guarded = this.attachBridgeLifecycle(bytesStream, bridgeHandle, abortSignal);
+        const guarded = this.attachBridgeLifecycle(
+          bytesStream,
+          gatewayRegistration,
+          abortSignal,
+        );
         return this.buildStreamResult(guarded, messages);
       } catch (error) {
         await agent.destroy().catch(() => {});
@@ -367,31 +364,42 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
       }
     } catch (error) {
       // Stream never reached the consumer; tear down the bridge ourselves.
-      await bridgeHandle?.close().catch(() => {});
+      await gatewayRegistration?.close().catch(() => {});
       throw error;
     }
   }
 
   /**
-   * Open a sandbox-native callback bridge for {@link RemoteTool} executors.
-   * Returns null when the caller didn't pass any tools.
+   * Open the host-side gateway registration compiled by Bunny streamText.
+   * Returns null when this call only has HTTP/module runtime tools.
    */
-  private async openToolBridge(
-    sandbox: NonNullable<BunnyAgentProviderSettings["sandbox"]>,
-    tools: RemoteTool[] | undefined,
-  ): Promise<{ bridge: ToolBridge; close(): Promise<void> } | null> {
-    if (!tools || tools.length === 0) return null;
-    if (!sandbox.createToolBridge) {
+  private async openToolGateway(
+    pending: BunnyAgentProviderSettings["pendingTools"],
+    signal: AbortSignal | undefined,
+  ): Promise<ToolGatewayRegistration | null> {
+    if (!pending || pending.tools.length === 0) return null;
+
+    const gateway =
+      this.options.toolGateway ??
+      (this.options.sandbox instanceof LocalSandbox
+        ? createLocalToolGateway()
+        : undefined);
+
+    if (!gateway) {
       throw new Error(
-        "[bunny-agent] `tools` were provided but the configured sandbox " +
-          "does not implement `createToolBridge`. Use `LocalSandbox` or a " +
-          "sandbox adapter that supports remote tool callbacks.",
+        "[bunny-agent] streamText({ tools }) contains execute functions, but no " +
+          "toolGateway is configured. Remote sandboxes need a gateway URL that " +
+          "is reachable from inside the sandbox.",
       );
     }
-    return sandbox.createToolBridge({
-      tools,
+
+    const registration = await gateway.register({
+      tools: pending.tools,
       sessionId: this.sessionId,
+      signal,
     });
+    pending.attachBridge(registration.bridge);
+    return registration;
   }
 
   /**
@@ -459,8 +467,7 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
   private buildCodingRunBody(
     messages: Message[],
     cwdFallback: string,
-    tools: RemoteToolSpec[] | undefined,
-    toolBridge: ToolBridge | undefined,
+    toolRefs: ToolRef[] | undefined,
   ): BunnyAgentCodingRunBody {
     const runner = this.options.runner;
     const cwd = this.options.cwd ?? cwdFallback;
@@ -476,9 +483,7 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
       allowedTools: runner.allowedTools ?? this.options.allowedTools,
       skillPaths: runner.skillPaths ?? this.options.skillPaths,
       yolo: this.options.yolo,
-      ...(tools && tools.length > 0 && toolBridge
-        ? { tools, toolBridge }
-        : {}),
+      ...(toolRefs && toolRefs.length > 0 ? { toolRefs } : {}),
     };
   }
 

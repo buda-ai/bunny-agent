@@ -4,9 +4,10 @@ import type { AddressInfo } from "node:net";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { RemoteToolSpec, ToolBridge } from "@bunny-agent/manager";
+import { pathToFileURL } from "node:url";
+import type { ToolBridge, ToolRef } from "@bunny-agent/manager";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { buildRemoteToolDefinitions } from "../remote-tools.js";
+import { buildToolDefinitions } from "../remote-tools.js";
 
 interface UnixCall {
   body: { name: string; input: unknown };
@@ -95,7 +96,7 @@ async function startFakeHttpBridge(
   };
 }
 
-const sampleSpec: RemoteToolSpec = {
+const sampleSpec: Omit<ToolRef, "runtime"> = {
   name: "get_current_time",
   description: "Return the current ISO timestamp.",
   inputSchema: {
@@ -107,7 +108,11 @@ const sampleSpec: RemoteToolSpec = {
   },
 };
 
-describe("buildRemoteToolDefinitions / unix transport", () => {
+function withGateway(bridge: ToolBridge): ToolRef {
+  return { ...sampleSpec, runtime: { type: "gateway", bridge } };
+}
+
+describe("buildToolDefinitions / unix transport", () => {
   let server: FakeUnixBridge;
   let bridge: ToolBridge;
 
@@ -127,7 +132,7 @@ describe("buildRemoteToolDefinitions / unix transport", () => {
   });
 
   it("forwards name + input over the unix socket", async () => {
-    const [tool] = buildRemoteToolDefinitions([sampleSpec], bridge);
+    const [tool] = buildToolDefinitions([withGateway(bridge)]);
     expect(tool.name).toBe("get_current_time");
 
     const result = await tool.execute(
@@ -162,7 +167,7 @@ describe("buildRemoteToolDefinitions / unix transport", () => {
     }));
     bridge = { transport: "unix", socketPath: server.socketPath };
 
-    const [tool] = buildRemoteToolDefinitions([sampleSpec], bridge);
+    const [tool] = buildToolDefinitions([withGateway(bridge)]);
     const result = await tool.execute(
       "tc_2",
       {},
@@ -180,7 +185,7 @@ describe("buildRemoteToolDefinitions / unix transport", () => {
     const controller = new AbortController();
     controller.abort();
 
-    const [tool] = buildRemoteToolDefinitions([sampleSpec], bridge);
+    const [tool] = buildToolDefinitions([withGateway(bridge)]);
     const result = await tool.execute(
       "tc_3",
       {},
@@ -199,7 +204,7 @@ describe("buildRemoteToolDefinitions / unix transport", () => {
       transport: "unix",
       socketPath: join(tmpdir(), "bunny-agent-nope.sock"),
     };
-    const [tool] = buildRemoteToolDefinitions([sampleSpec], bridge);
+    const [tool] = buildToolDefinitions([withGateway(bridge)]);
     const result = await tool.execute(
       "tc_4",
       {},
@@ -212,7 +217,7 @@ describe("buildRemoteToolDefinitions / unix transport", () => {
   });
 });
 
-describe("buildRemoteToolDefinitions / byte-equality across transports", () => {
+describe("buildToolDefinitions / byte-equality across transports", () => {
   it("produces identical tool results for identical server responses (success)", async () => {
     const respond = () => ({
       status: 200,
@@ -230,8 +235,8 @@ describe("buildRemoteToolDefinitions / byte-equality across transports", () => {
         transport: "unix",
         socketPath: unixBridgeServer.socketPath,
       };
-      const [httpTool] = buildRemoteToolDefinitions([sampleSpec], httpBridge);
-      const [unixTool] = buildRemoteToolDefinitions([sampleSpec], unixBridge);
+      const [httpTool] = buildToolDefinitions([withGateway(httpBridge)]);
+      const [unixTool] = buildToolDefinitions([withGateway(unixBridge)]);
 
       const input = { timezone: "UTC" };
       const httpResult = await httpTool.execute(
@@ -269,8 +274,8 @@ describe("buildRemoteToolDefinitions / byte-equality across transports", () => {
         transport: "unix",
         socketPath: unixBridgeServer.socketPath,
       };
-      const [httpTool] = buildRemoteToolDefinitions([sampleSpec], httpBridge);
-      const [unixTool] = buildRemoteToolDefinitions([sampleSpec], unixBridge);
+      const [httpTool] = buildToolDefinitions([withGateway(httpBridge)]);
+      const [unixTool] = buildToolDefinitions([withGateway(unixBridge)]);
 
       const httpResult = await httpTool.execute(
         "tc",
@@ -290,6 +295,48 @@ describe("buildRemoteToolDefinitions / byte-equality across transports", () => {
     } finally {
       await httpBridgeServer.close();
       await unixBridgeServer.close();
+    }
+  });
+});
+
+describe("buildToolDefinitions / module runtime", () => {
+  it("imports and executes sandbox-local module tools", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "bunny-agent-module-test-"));
+    const modulePath = join(dir, "tool.mjs");
+    try {
+      await import("node:fs/promises").then((fs) =>
+        fs.writeFile(
+          modulePath,
+          "export async function execute(input) { return { module: true, input }; }\n",
+        ),
+      );
+      const [tool] = buildToolDefinitions([
+        {
+          ...sampleSpec,
+          runtime: {
+            type: "module",
+            module: pathToFileURL(modulePath).href,
+          },
+        },
+      ]);
+
+      const result = await tool.execute(
+        "tc_module",
+        { timezone: "UTC" },
+        undefined,
+        undefined,
+        undefined as never,
+      );
+
+      expect(result.content[0]).toMatchObject({
+        type: "text",
+        text: JSON.stringify({
+          module: true,
+          input: { timezone: "UTC" },
+        }),
+      });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
     }
   });
 });

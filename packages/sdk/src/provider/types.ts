@@ -1,17 +1,18 @@
 import type { LanguageModelV3StreamPart } from "@ai-sdk/provider";
 import type {
   BunnyAgentOptions,
-  RemoteTool,
+  PendingTool,
   SandboxAdapter,
+  ToolBridge,
+  ToolGateway,
+  ToolRef,
 } from "@bunny-agent/manager";
 
 export type {
-  RemoteTool,
-  RemoteToolExecutor,
-  RemoteToolSchema,
-  RemoteToolSpec,
   ToolBridge,
-  ToolExecutorContext,
+  ToolGateway,
+  ToolGatewayRegistration,
+  ToolRuntime,
 } from "@bunny-agent/manager";
 
 /**
@@ -133,15 +134,26 @@ export interface BunnyAgentProviderSettings
   /** Skip tool approval checks (bypass permissions). */
   yolo?: boolean;
   /**
-   * Remote tools to expose to the LLM. Each tool carries its own `execute`
-   * function which runs in the host process — the SDK transparently sets up
-   * a callback bridge so the in-sandbox runner can invoke them.
-   *
-   * The sandbox adapter must implement {@link SandboxAdapter.createToolBridge}
-   * (built into `LocalSandbox`); otherwise a clear error is raised at stream
-   * start. Currently only the `pi` runner consumes these tools.
+   * Host-side gateway used for AI SDK tools that define `execute`. LocalSandbox
+   * can use Bunny's default local unix gateway; remote sandboxes need a gateway
+   * URL that is reachable from inside the sandbox.
    */
-  tools?: RemoteTool[];
+  toolGateway?: ToolGateway;
+  /** Internal per-call tool refs compiled before AI SDK strips execute functions. */
+  toolRefs?: ToolRef[];
+  /** Internal per-call host execute tools waiting for gateway registration. */
+  pendingTools?: {
+    tools: PendingTool[];
+    attachBridge(bridge: ToolBridge): void;
+  };
+  /** Internal lazy compile result used by Bunny's streamText wrapper. */
+  compiledToolRefs?: Promise<{
+    toolRefs: ToolRef[];
+    pendingTools?: {
+      tools: PendingTool[];
+      attachBridge(bridge: ToolBridge): void;
+    };
+  } | null>;
 }
 
 /**

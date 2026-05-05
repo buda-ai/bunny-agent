@@ -1,0 +1,158 @@
+---
+title: Custom Tools
+description: Add AI SDK tools to Bunny Agent runs
+---
+
+Bunny Agent works with the AI SDK tool API. Define tools in `streamText({
+tools })`, and Bunny makes them available to the coding agent running inside
+your sandbox.
+
+## Quick Start
+
+Import `streamText` from `@bunny-agent/sdk` instead of `ai`. The Bunny wrapper
+keeps the same AI SDK shape, but it compiles tools before the request enters the
+sandbox.
+
+```ts
+import { createBunnyAgent, streamText } from "@bunny-agent/sdk";
+import { tool } from "ai";
+import { z } from "zod";
+
+const bunny = createBunnyAgent({
+  sandbox,
+  env: {
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY!,
+  },
+});
+
+const result = streamText({
+  model: bunny("gpt-5.2"),
+  prompt: "Find user u_123 and summarize their account status.",
+  tools: {
+    lookupUser: tool({
+      description: "Look up a user by id",
+      inputSchema: z.object({
+        userId: z.string(),
+      }),
+      execute: async ({ userId }, { abortSignal }) => {
+        const user = await db.user.findUnique({
+          where: { id: userId },
+          signal: abortSignal,
+        });
+        return user;
+      },
+    }),
+  },
+});
+```
+
+## How It Works
+
+Your agent runner lives inside a sandbox. Your `execute` function lives in your
+server process. Bunny does not serialize the function into the sandbox.
+
+Instead, Bunny:
+
+1. Sends the tool name, description, and input schema to the sandbox runner.
+2. Registers your `execute` function in a host-side tool gateway.
+3. Gives the runner a short-lived callback descriptor.
+4. Runs a proxy tool inside the sandbox.
+5. Calls your original `execute` in your server when the model uses the tool.
+
+For `LocalSandbox`, Bunny creates a local unix gateway automatically. For remote
+sandboxes, configure a gateway URL that the sandbox can reach.
+
+## Remote Sandboxes
+
+When your sandbox runs on another machine, it needs a reachable URL for tool
+callbacks.
+
+```ts
+import { createBunnyAgent, createHttpToolGateway } from "@bunny-agent/sdk";
+
+const toolGateway = createHttpToolGateway({
+  url: "https://your-app.com/api/bunny-tools",
+});
+
+const bunny = createBunnyAgent({
+  sandbox,
+  toolGateway,
+});
+```
+
+Mount the gateway on your existing server route:
+
+```ts
+// Example with a Node HTTP server route
+if (req.url === "/api/bunny-tools") {
+  await toolGateway.handleRequest(req, res);
+  return;
+}
+```
+
+The route stores per-stream tool registrations in memory. In serverless
+deployments, use a process model where the stream request and the gateway route
+can share that memory, or provide your own `ToolGateway` implementation backed
+by shared storage.
+
+## Direct HTTP Tools
+
+If the tool already exists as an HTTP API and you want the sandbox runner to
+call it directly, use `bunnyHttpTool`.
+
+```ts
+import { bunnyHttpTool, streamText } from "@bunny-agent/sdk";
+import { z } from "zod";
+
+const result = streamText({
+  model: bunny("gpt-5.2"),
+  prompt: "Get the weather in Paris.",
+  tools: {
+    weather: bunnyHttpTool({
+      description: "Get current weather",
+      inputSchema: z.object({ city: z.string() }),
+      endpoint: {
+        url: "https://your-app.com/api/tools/weather",
+        headers: {
+          Authorization: `Bearer ${process.env.TOOL_API_TOKEN}`,
+        },
+      },
+    }),
+  },
+});
+```
+
+This does not use a host gateway. The endpoint and headers are sent to the
+sandbox runner, so only use this when that credential is safe for the sandbox
+boundary.
+
+## Sandbox Module Tools
+
+If the tool implementation already exists inside the sandbox filesystem, use
+`bunnySandboxTool`.
+
+```ts
+import { bunnySandboxTool } from "@bunny-agent/sdk";
+import { z } from "zod";
+
+tools: {
+  repoStats: bunnySandboxTool({
+    description: "Summarize repository stats",
+    inputSchema: z.object({ path: z.string() }),
+    module: "/workspace/tools/repo-stats.mjs",
+    exportName: "execute",
+  });
+}
+```
+
+The runner imports the module inside the sandbox and calls the selected export.
+
+## Choosing a Tool Runtime
+
+| Use case | Recommended API |
+| --- | --- |
+| You have a JavaScript function in your app server | AI SDK `tool({ execute })` |
+| You already have an HTTP API for the tool | `bunnyHttpTool(...)` |
+| The code already exists in the sandbox | `bunnySandboxTool(...)` |
+
+Most applications should start with AI SDK `tool({ execute })`.

@@ -4,7 +4,7 @@ import { createConnection } from "node:net";
 import { dirname } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createUnixToolBridge } from "../tool-bridge-unix.js";
-import type { RemoteTool } from "../types.js";
+import type { PendingTool } from "../types.js";
 
 interface SocketResponse {
   status: number;
@@ -34,7 +34,7 @@ async function callBridge(
   });
 }
 
-const echoTool: RemoteTool = {
+const echoTool: PendingTool = {
   name: "echo",
   description: "Echo input back",
   inputSchema: { type: "object", properties: {}, required: [] },
@@ -43,7 +43,7 @@ const echoTool: RemoteTool = {
   },
 };
 
-const stringTool: RemoteTool = {
+const stringTool: PendingTool = {
   name: "shout",
   description: "Return a plain string",
   inputSchema: { type: "object", properties: {}, required: [] },
@@ -53,7 +53,7 @@ const stringTool: RemoteTool = {
   },
 };
 
-const flakyTool: RemoteTool = {
+const flakyTool: PendingTool = {
   name: "flaky",
   description: "Always throws",
   inputSchema: { type: "object", properties: {}, required: [] },
@@ -157,5 +157,52 @@ describe("createUnixToolBridge", () => {
     await handle.close();
     await handle.close(); // second close — no-op, no throw
     expect(existsSync(dir)).toBe(false);
+  });
+
+  it("passes stream-level aborts to tool executors", async () => {
+    await handle.close();
+    const controller = new AbortController();
+    let executorSignal: AbortSignal | undefined;
+    let startedResolve: (() => void) | undefined;
+    const started = new Promise<void>((resolve) => {
+      startedResolve = resolve;
+    });
+
+    handle = await createUnixToolBridge({
+      signal: controller.signal,
+      tools: [
+        {
+          name: "wait",
+          description: "Waits for abort",
+          inputSchema: { type: "object", properties: {}, required: [] },
+          async execute(_input, ctx) {
+            executorSignal = ctx.signal;
+            startedResolve?.();
+            await new Promise<void>((resolve) => {
+              ctx.signal.addEventListener("abort", () => resolve(), {
+                once: true,
+              });
+            });
+            return ctx.signal.aborted ? "aborted" : "not-aborted";
+          },
+        },
+      ],
+    });
+
+    const socketPath =
+      handle.bridge.transport === "unix" ? handle.bridge.socketPath : "";
+    const responsePromise = callBridge(socketPath, {
+      name: "wait",
+      input: {},
+    });
+    await started;
+    expect(executorSignal).toBe(controller.signal);
+    expect(executorSignal?.aborted).toBe(false);
+
+    controller.abort();
+    const response = await responsePromise;
+
+    expect(executorSignal?.aborted).toBe(true);
+    expect(response).toEqual({ status: 200, body: "aborted" });
   });
 });

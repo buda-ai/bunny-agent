@@ -1,8 +1,12 @@
 export type { BaseRunnerOptions } from "@bunny-agent/runner-claude";
-export type { RemoteToolSpec, ToolBridge } from "@bunny-agent/manager";
+export type {
+  ToolBridge,
+  ToolRef,
+  ToolRuntime,
+} from "@bunny-agent/manager";
 export { BUNNY_AGENT_SYSTEM_PROMPT } from "./agent-context.js";
 export { loadSystemPrompt } from "./prompt.js";
-export { buildRemoteToolDefinitions } from "./remote-tools.js";
+export { buildToolDefinitions } from "./remote-tools.js";
 export type { RunnerCoreOptions } from "./runner.js";
 export { createRunner } from "./runner.js";
 

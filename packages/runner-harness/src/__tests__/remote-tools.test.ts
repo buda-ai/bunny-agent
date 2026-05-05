@@ -1,8 +1,8 @@
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
-import type { RemoteToolSpec, ToolBridge } from "@bunny-agent/manager";
+import type { ToolBridge, ToolRef } from "@bunny-agent/manager";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { buildRemoteToolDefinitions } from "../remote-tools.js";
+import { buildToolDefinitions } from "../remote-tools.js";
 
 interface CapturedCall {
   authorization: string | undefined;
@@ -59,7 +59,7 @@ async function startFakeBridge(
   };
 }
 
-const sampleSpec: RemoteToolSpec = {
+const sampleSpec: Omit<ToolRef, "runtime"> = {
   name: "get_current_time",
   description: "Return the current ISO timestamp.",
   inputSchema: {
@@ -71,7 +71,11 @@ const sampleSpec: RemoteToolSpec = {
   },
 };
 
-describe("buildRemoteToolDefinitions", () => {
+function withGateway(bridge: ToolBridge): ToolRef {
+  return { ...sampleSpec, runtime: { type: "gateway", bridge } };
+}
+
+describe("buildToolDefinitions", () => {
   let server: FakeBridgeServer;
   let bridge: ToolBridge;
 
@@ -87,7 +91,7 @@ describe("buildRemoteToolDefinitions", () => {
   });
 
   it("forwards name + input and bearer token to the bridge endpoint", async () => {
-    const [tool] = buildRemoteToolDefinitions([sampleSpec], bridge);
+    const [tool] = buildToolDefinitions([withGateway(bridge)]);
     expect(tool.name).toBe("get_current_time");
     expect(tool.label).toBe("get_current_time");
     expect(tool.description).toBe(sampleSpec.description);
@@ -128,7 +132,7 @@ describe("buildRemoteToolDefinitions", () => {
     }));
     bridge = { transport: "http", url: server.url, token: "test-token-123" };
 
-    const [tool] = buildRemoteToolDefinitions([sampleSpec], bridge);
+    const [tool] = buildToolDefinitions([withGateway(bridge)]);
     const result = await tool.execute(
       "tc_2",
       {},
@@ -160,7 +164,7 @@ describe("buildRemoteToolDefinitions", () => {
     const controller = new AbortController();
     controller.abort();
 
-    const [tool] = buildRemoteToolDefinitions([sampleSpec], bridge);
+    const [tool] = buildToolDefinitions([withGateway(bridge)]);
     const result = await tool.execute(
       "tc_3",
       {},
@@ -174,5 +178,43 @@ describe("buildRemoteToolDefinitions", () => {
     // as a transport error from the wrapper, which is what we want.
     expect(text).toMatch(/transport error/i);
     expect(text).toMatch(/abort/i);
+  });
+
+  it("executes direct HTTP runtime tools without a gateway envelope", async () => {
+    const directServer = await startFakeBridge(({ body }) => ({
+      body: { direct: true, input: body },
+    }));
+    try {
+      const [tool] = buildToolDefinitions([
+        {
+          ...sampleSpec,
+          runtime: {
+            type: "http",
+            url: directServer.url,
+            headers: { authorization: "Bearer direct-token" },
+          },
+        },
+      ]);
+
+      const result = await tool.execute(
+        "tc_direct",
+        { timezone: "UTC" },
+        undefined,
+        undefined,
+        undefined as never,
+      );
+
+      expect(directServer.calls[0].authorization).toBe("Bearer direct-token");
+      expect(directServer.calls[0].body).toEqual({ timezone: "UTC" });
+      expect(result.content[0]).toMatchObject({
+        type: "text",
+        text: JSON.stringify({
+          direct: true,
+          input: { timezone: "UTC" },
+        }),
+      });
+    } finally {
+      await directServer.close();
+    }
   });
 });

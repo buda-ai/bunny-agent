@@ -19,6 +19,12 @@ export type { BunnyAgentProvider } from "./bunny-agent-provider";
 export { createBunnyAgent } from "./bunny-agent-provider";
 export type { SubmitAnswerOptions } from "./question-processor";
 export { submitAnswer } from "./question-processor";
+export {
+  bunnyHttpTool,
+  bunnySandboxTool,
+  compileToolRefsForBunny,
+  streamText,
+} from "./stream-text";
 export type {
   ArtifactProcessor,
   ArtifactResult,
@@ -26,13 +32,11 @@ export type {
   BunnyAgentProviderSettings,
   Logger,
   Question,
-  RemoteTool,
-  RemoteToolExecutor,
-  RemoteToolSchema,
-  RemoteToolSpec,
   StreamWriter,
   SubmitAnswerParams,
   ToolBridge,
-  ToolExecutorContext,
+  ToolGateway,
+  ToolGatewayRegistration,
+  ToolRuntime,
 } from "./types";
 export { getBunnyAgentMetadata, getBunnyAgentUsage } from "./usage";

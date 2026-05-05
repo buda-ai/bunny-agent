@@ -5,9 +5,10 @@ import { buildRunnerEnv } from "./env.js";
 import { createUnixToolBridge } from "./tool-bridge-unix.js";
 import type {
   ExecOptions,
-  RemoteTool,
+  PendingTool,
   SandboxAdapter,
   SandboxHandle,
+  ToolGateway,
   ToolBridge,
 } from "./types.js";
 
@@ -186,17 +187,23 @@ export class LocalSandbox implements SandboxAdapter {
     this.currentHandle = null;
   }
 
-  /**
-   * Open a Unix-domain-socket bridge so the in-sandbox runner can call back
-   * into host-side {@link RemoteTool} executors. The runner shares this host's
-   * filesystem, so a unix socket on a 0700 dir is the simplest auth boundary.
-   */
-  async createToolBridge(input: {
-    tools: RemoteTool[];
-    sessionId?: string;
-  }): Promise<{ bridge: ToolBridge; close(): Promise<void> }> {
-    return createUnixToolBridge(input);
-  }
+}
+
+/**
+ * Local host-side gateway for tools executed from LocalSandbox runner
+ * processes. It uses a unix domain socket because the host and runner share a
+ * filesystem.
+ */
+export function createLocalToolGateway(): ToolGateway {
+  return {
+    register(input: {
+      tools: PendingTool[];
+      sessionId?: string;
+      signal?: AbortSignal;
+    }): Promise<{ bridge: ToolBridge; close(): Promise<void> }> {
+      return createUnixToolBridge(input);
+    },
+  };
 }
 
 /**

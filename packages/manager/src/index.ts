@@ -15,7 +15,15 @@ export type { RunnerEnvParams, RunnerType } from "./env.js";
 export { buildRunnerEnv } from "./env.js";
 export type { LocalSandboxOptions } from "./local-sandbox.js";
 // Default sandbox adapter (built-in)
-export { LocalSandbox } from "./local-sandbox.js";
+export { createLocalToolGateway, LocalSandbox } from "./local-sandbox.js";
+export {
+  createHttpToolGateway,
+  createStandaloneHttpToolGateway,
+  type HttpToolGateway,
+  type HttpToolGatewayOptions,
+  type StandaloneHttpToolGateway,
+  type StandaloneHttpToolGatewayOptions,
+} from "./tool-bridge-http.js";
 export { createUnixToolBridge } from "./tool-bridge-unix.js";
 export {
   ConsoleTranscriptWriter,
@@ -28,16 +36,18 @@ export type {
   BunnyAgentOptions,
   ExecOptions,
   Message,
-  RemoteTool,
-  RemoteToolExecutor,
-  RemoteToolSchema,
-  RemoteToolSpec,
+  PendingTool,
+  PendingToolContext,
   RunnerSpec,
   SandboxAdapter,
   SandboxHandle,
   StreamInput,
+  ToolInputSchema,
+  ToolRef,
+  ToolGateway,
+  ToolGatewayRegistration,
   ToolBridge,
-  ToolExecutorContext,
+  ToolRuntime,
   TranscriptEntry,
   TranscriptWriter,
   Volume,

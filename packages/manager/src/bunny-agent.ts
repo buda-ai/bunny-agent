@@ -160,26 +160,21 @@ export class BunnyAgent {
       });
     }
 
-    // Plumb remote tool specs + bridge to the in-sandbox runner via env. The
-    // runner-cli reads BUNNY_AGENT_TOOLS_BRIDGE_JSON on startup and unsets it
-    // before spawning any child process so its contents do not leak to bash
-    // tools. We only set the env var when both fields are present.
-    const toolBridgeEnv: Record<string, string> = {};
-    if (
-      input.tools &&
-      input.tools.length > 0 &&
-      input.toolBridge
-    ) {
-      toolBridgeEnv.BUNNY_AGENT_TOOLS_BRIDGE_JSON = JSON.stringify({
-        tools: input.tools,
-        bridge: input.toolBridge,
+    // Plumb tool refs to the in-sandbox runner via env. The
+    // runner-cli reads BUNNY_AGENT_TOOL_REFS_JSON on startup and unsets it
+    // before spawning any child process so tokens/headers do not leak to bash
+    // tools.
+    const toolRefsEnv: Record<string, string> = {};
+    if (input.toolRefs && input.toolRefs.length > 0) {
+      toolRefsEnv.BUNNY_AGENT_TOOL_REFS_JSON = JSON.stringify({
+        tools: input.toolRefs,
       });
     }
 
     // Execute the command and get stdout as an async iterable
     const stdout = handle.exec(command, {
       cwd: workspacePath,
-      env: { ...this.env, ...toolBridgeEnv },
+      env: { ...this.env, ...toolRefsEnv },
       signal,
     });
 

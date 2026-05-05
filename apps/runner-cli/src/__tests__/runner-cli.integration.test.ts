@@ -34,6 +34,7 @@ describe("runner-cli Integration Tests", () => {
       expect(output.stdout).toContain("BunnyAgent Runner CLI");
       expect(output.stdout).toContain("--runner");
       expect(output.stdout).toContain("--model");
+      expect(output.stdout).toContain("--allowed-tools");
       expect(output.exitCode).toBe(0);
     },
     TIMEOUT,

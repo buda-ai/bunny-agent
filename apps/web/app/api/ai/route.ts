@@ -5,14 +5,16 @@ import {
   createBunnyAgent,
   DEFAULT_BUNNY_AGENT_DAEMON_URL,
   isBunnyAgentDaemonHealthy,
+  streamText,
 } from "@bunny-agent/sdk";
 import {
   createUIMessageStream,
   createUIMessageStreamResponse,
   type FileUIPart,
   isToolUIPart,
+  jsonSchema,
   lastAssistantMessageIsCompleteWithToolCalls,
-  streamText,
+  tool,
   type UIMessage,
 } from "ai";
 import { TaskDrivenArtifactProcessor } from "@/lib/example/artifact-processor";
@@ -361,7 +363,6 @@ export async function POST(request: Request) {
         artifactProcessors: [artifactProcessor],
         resume,
         systemPrompt: "============test============",
-        tools: demoTools,
         // Passed to RunnerSpec via createBunnyAgent merge (not only bunnyAgent(model, { skillPaths }))
         skillPaths: [
           "/Users/zhengxu/vika/kapps/apps/buda/agent-templates/system-skills",
@@ -373,6 +374,20 @@ export async function POST(request: Request) {
       const result = streamText({
         model: bunnyAgent(model),
         messages: normalizedMessages,
+        tools: Object.fromEntries(
+          demoTools.map((demoTool) => [
+            demoTool.name,
+            tool<any, unknown>({
+              description: demoTool.description,
+              inputSchema: jsonSchema(demoTool.inputSchema),
+              execute: (input, options) =>
+                demoTool.execute(input, {
+                  signal:
+                    options.abortSignal ?? new AbortController().signal,
+                }),
+            }),
+          ]),
+        ),
         abortSignal: signal,
         onFinish: (event) => {
           console.info(
