@@ -1,6 +1,6 @@
 {
   "name": "@bunny-agent/daemon",
-  "version": "0.9.30",
+  "version": "0.9.31",
   "description": "BunnyAgent Daemon - Unified API gateway for sandbox services (file, git, volumes)",
   "type": "module",
   "bin": {
@@ -16,6 +16,10 @@
     "./nextjs": {
       "import": "./dist/nextjs.js",
       "types": "./dist/nextjs.d.ts"
+    },
+    "./shared/git-types": {
+      "import": "./dist/shared/git-types.js",
+      "types": "./dist/shared/git-types.d.ts"
     }
   },
   "files": [
@@ -50,5 +54,8 @@
     "esbuild": "^0.27.2",
     "typescript": "^5.3.0",
     "vitest": "^1.6.1"
+  },
+  "dependencies": {
+    "isomorphic-git": "^1.37.6"
   }
 }

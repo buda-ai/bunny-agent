@@ -36,6 +36,8 @@ AI SDK provider and runner-executed tool helpers.
   `PiToolRef` shape for its adapter boundary.
 - Removed manager tool type imports and re-exports from runner-harness; the
   harness now types pi tool refs through `PiRunnerOptions`.
+- Resolved the main-branch merge conflict in the web example attachment image
+  lint suppression by keeping the Biome-specific ignore with a precise reason.
 
 ## Verification
 

@@ -36,6 +36,7 @@ export class DaemonRouter {
       ["POST", "/api/git/exec", (s, b) => gitRoutes.gitExec(s, b)],
       ["POST", "/api/git/clone", (s, b) => gitRoutes.gitClone(s, b)],
       ["POST", "/api/git/init", (s, b) => gitRoutes.gitInit(s, b)],
+      ["POST", "/api/git/rpc", (s, b) => gitRoutes.gitRpc(s, b)],
     ];
   }
 
