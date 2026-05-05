@@ -2,11 +2,7 @@ import { spawn } from "node:child_process";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { buildRunnerEnv } from "./env.js";
-import type {
-  ExecOptions,
-  SandboxAdapter,
-  SandboxHandle,
-} from "./types.js";
+import type { ExecOptions, SandboxAdapter, SandboxHandle } from "./types.js";
 
 /**
  * Options for creating a LocalSandbox instance

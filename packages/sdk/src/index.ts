@@ -56,9 +56,9 @@ export type {
 } from "./provider";
 // Provider exports
 export {
+  BunnyAgentLanguageModel,
   bunnyHttpTool,
   bunnySandboxTool,
-  BunnyAgentLanguageModel,
   createBunnyAgent,
   getBunnyAgentMetadata,
   getBunnyAgentUsage,

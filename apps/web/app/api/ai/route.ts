@@ -15,14 +15,14 @@ import {
   streamText,
   type UIMessage,
 } from "ai";
+import { createDemoHttpTools } from "@/lib/demo-tools/http-tools";
+import { getDemoTools } from "@/lib/demo-tools/registry";
 import { TaskDrivenArtifactProcessor } from "@/lib/example/artifact-processor";
 import {
   type CreateSandboxParams,
   evictSandbox,
   getOrCreateSandbox,
 } from "@/lib/example/create-sandbox";
-import { createDemoHttpTools } from "@/lib/demo-tools/http-tools";
-import { getDemoTools } from "@/lib/demo-tools/registry";
 
 import { DEFAULT_RUNNER, type RunnerType } from "@/lib/runner";
 

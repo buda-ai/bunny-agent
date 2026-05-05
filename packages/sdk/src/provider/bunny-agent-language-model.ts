@@ -313,55 +313,51 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
 
     const daemonUrl = this.options.daemonUrl;
 
-    try {
-      if (daemonUrl) {
-        const handle = await sandbox.attach();
-        const sandboxEnv = sandbox.getEnv?.() ?? {};
-        const runnerEnv = { ...sandboxEnv, ...this.options.env };
-        const body: BunnyAgentCodingRunBody = {
-          ...this.buildCodingRunBody(messages, handle.getWorkdir(), toolRefs),
-          ...(Object.keys(runnerEnv).length > 0 ? { env: runnerEnv } : {}),
-        };
-        const execOpts = {
-          cwd: this.options.cwd ?? handle.getWorkdir(),
-          signal: abortSignal,
-        };
-        const iterable = streamCodingRunFromSandbox(
-          handle,
-          daemonUrl,
-          body,
-          execOpts,
-        );
-        const bytesStream = asyncIterableToReadableStream(iterable);
-        return this.buildStreamResult(bytesStream, messages);
-      }
-
+    if (daemonUrl) {
+      const handle = await sandbox.attach();
       const sandboxEnv = sandbox.getEnv?.() ?? {};
-      const sandboxWorkdir =
-        this.options.cwd ?? sandbox.getWorkdir?.() ?? "/workspace";
+      const runnerEnv = { ...sandboxEnv, ...this.options.env };
+      const body: BunnyAgentCodingRunBody = {
+        ...this.buildCodingRunBody(messages, handle.getWorkdir(), toolRefs),
+        ...(Object.keys(runnerEnv).length > 0 ? { env: runnerEnv } : {}),
+      };
+      const execOpts = {
+        cwd: this.options.cwd ?? handle.getWorkdir(),
+        signal: abortSignal,
+      };
+      const iterable = streamCodingRunFromSandbox(
+        handle,
+        daemonUrl,
+        body,
+        execOpts,
+      );
+      const bytesStream = asyncIterableToReadableStream(iterable);
+      return this.buildStreamResult(bytesStream, messages);
+    }
 
-      const agent = new BunnyAgent({
-        sandbox,
-        runner: this.options.runner,
-        env: { ...sandboxEnv, ...this.options.env },
+    const sandboxEnv = sandbox.getEnv?.() ?? {};
+    const sandboxWorkdir =
+      this.options.cwd ?? sandbox.getWorkdir?.() ?? "/workspace";
+
+    const agent = new BunnyAgent({
+      sandbox,
+      runner: this.options.runner,
+      env: { ...sandboxEnv, ...this.options.env },
+    });
+
+    try {
+      const bytesStream = await agent.stream({
+        messages,
+        workspace: {
+          path: sandboxWorkdir,
+        },
+        resume: this.options.resume,
+        signal: abortSignal,
+        ...(toolRefs && toolRefs.length > 0 ? { toolRefs } : {}),
       });
-
-      try {
-        const bytesStream = await agent.stream({
-          messages,
-          workspace: {
-            path: sandboxWorkdir,
-          },
-          resume: this.options.resume,
-          signal: abortSignal,
-          ...(toolRefs && toolRefs.length > 0 ? { toolRefs } : {}),
-        });
-        return this.buildStreamResult(bytesStream, messages);
-      } catch (error) {
-        await agent.destroy().catch(() => {});
-        throw error;
-      }
+      return this.buildStreamResult(bytesStream, messages);
     } catch (error) {
+      await agent.destroy().catch(() => {});
       throw error;
     }
   }

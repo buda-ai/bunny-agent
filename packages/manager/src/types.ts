@@ -192,7 +192,6 @@ export interface SandboxAdapter {
    * Returns the command array (e.g., ["bunny-agent", "run"] or ["node", "/path/to/bundle.mjs", "run"])
    */
   getRunnerCommand?(): string[];
-
 }
 
 /**

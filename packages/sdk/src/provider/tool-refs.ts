@@ -2,6 +2,7 @@ import type {
   JSONObject,
   LanguageModelV3FunctionTool,
   LanguageModelV3ProviderTool,
+  SharedV3ProviderOptions,
 } from "@ai-sdk/provider";
 import type { ToolRef } from "@bunny-agent/manager";
 import type { Tool } from "ai";
@@ -159,9 +160,9 @@ function getBunnyRuntime(
 }
 
 function withBunnyProviderOptions(
-  providerOptions: Tool<any, any>["providerOptions"],
+  providerOptions: SharedV3ProviderOptions | undefined,
   bunnyOptions: BunnyProviderOptions,
-): Tool<any, any>["providerOptions"] {
+): SharedV3ProviderOptions {
   return {
     ...(providerOptions ?? {}),
     [BUNNY_PROVIDER_OPTIONS_KEY]: {

@@ -1,10 +1,10 @@
-import { describe, expect, it } from "vitest";
-import { jsonSchema, streamText } from "ai";
 import type {
   LanguageModelV3,
   LanguageModelV3CallOptions,
   LanguageModelV3StreamPart,
 } from "@ai-sdk/provider";
+import { jsonSchema, streamText } from "ai";
+import { describe, expect, it } from "vitest";
 import {
   bunnyHttpTool,
   bunnySandboxTool,
@@ -328,7 +328,9 @@ function createCapturingModel(): LanguageModelV3 & {
   return model;
 }
 
-function createMockModel(parts: LanguageModelV3StreamPart[]): LanguageModelV3 & {
+function createMockModel(
+  parts: LanguageModelV3StreamPart[],
+): LanguageModelV3 & {
   lastOptions?: LanguageModelV3CallOptions;
 } {
   return {

@@ -28,6 +28,8 @@ AI SDK provider and runner-executed tool helpers.
 - Added a provider-side fallback so runner SSE tool events with
   `providerExecuted: true` are treated as dynamic tool events even when older
   runners omit the `dynamic` flag.
+- Fixed Biome lint and format violations introduced while aligning the AI SDK
+  tool flow.
 
 ## Verification
 
@@ -35,3 +37,4 @@ AI SDK provider and runner-executed tool helpers.
 - `@bunny-agent/sdk`: typecheck, build, and tests.
 - `@bunny-agent/runner-harness`: typecheck and tests.
 - `@bunny-agent/web`: `types:check`.
+- Root `pnpm lint`.

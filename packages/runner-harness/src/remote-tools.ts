@@ -28,7 +28,9 @@ function buildOne(spec: ToolRef): ToolDefinition {
   // Cast through `unknown` because pi-coding-agent's TSchema is structurally
   // identical to ours but resolves to a different package instance under the
   // workspace's hoisted typebox versions.
-  const parameters = Type.Unsafe(spec.inputSchema) as unknown as ToolDefinition["parameters"];
+  const parameters = Type.Unsafe(
+    spec.inputSchema,
+  ) as unknown as ToolDefinition["parameters"];
 
   return {
     name: spec.name,
@@ -112,7 +114,11 @@ function okResult(text: string): ToolResult {
   };
 }
 
-function statusErrorResult(toolName: string, status: number, body: string): ToolResult {
+function statusErrorResult(
+  toolName: string,
+  status: number,
+  body: string,
+): ToolResult {
   return {
     content: [
       {

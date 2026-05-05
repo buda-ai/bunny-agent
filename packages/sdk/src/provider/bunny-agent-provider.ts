@@ -113,7 +113,9 @@ export function createBunnyAgent(
         ...(options.artifactProcessors ?? []),
       ],
       toolRefs:
-        options.toolRefs !== undefined ? options.toolRefs : defaultOptions.toolRefs,
+        options.toolRefs !== undefined
+          ? options.toolRefs
+          : defaultOptions.toolRefs,
     } as BunnyAgentProviderSettings & { runner: RunnerSpec };
 
     logger.debug(

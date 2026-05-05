@@ -5,9 +5,7 @@ import type {
   ToolRef,
 } from "@bunny-agent/manager";
 
-export type {
-  ToolRuntime,
-} from "@bunny-agent/manager";
+export type { ToolRuntime } from "@bunny-agent/manager";
 
 /**
  * Artifact Processor result
