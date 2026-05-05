@@ -1,6 +1,10 @@
 import type * as http from "node:http";
-import type { ToolRef } from "@bunny-agent/manager";
-import { createRunner } from "@bunny-agent/runner-harness";
+import {
+  createRunner,
+  type RunnerCoreOptions,
+} from "@bunny-agent/runner-harness";
+
+type RunToolRefs = RunnerCoreOptions["toolRefs"];
 
 export interface RunRequest {
   runner?: string;
@@ -17,7 +21,7 @@ export interface RunRequest {
   /** Inline runner env (string map); same keys override. */
   env?: Record<string, string>;
   /** Tool refs the runner should expose to the LLM. */
-  toolRefs?: ToolRef[];
+  toolRefs?: RunToolRefs;
 }
 
 /** SSE comment keepalive interval (ms). Prevents idle-timeout disconnects

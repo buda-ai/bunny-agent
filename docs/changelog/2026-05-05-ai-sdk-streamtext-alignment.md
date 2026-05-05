@@ -38,6 +38,8 @@ AI SDK provider and runner-executed tool helpers.
   harness now types pi tool refs through `PiRunnerOptions`.
 - Resolved the main-branch merge conflict in the web example attachment image
   lint suppression by keeping the Biome-specific ignore with a precise reason.
+- Removed the daemon's manager dev dependency by typing coding-run tool refs
+  through `RunnerCoreOptions`.
 
 ## Verification
 

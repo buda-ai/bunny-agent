@@ -79,9 +79,6 @@ importers:
         specifier: ^1.37.6
         version: 1.37.6
     devDependencies:
-      '@bunny-agent/manager':
-        specifier: workspace:*
-        version: link:../../packages/manager
       '@bunny-agent/runner-harness':
         specifier: workspace:*
         version: link:../../packages/runner-harness
