@@ -1,33 +1,47 @@
-import type { ToolRef } from "@bunny-agent/manager";
-import type { ToolDefinition } from "@bunny-agent/runner-pi";
+import type { ToolDefinition } from "@mariozechner/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
 
-const LOG_PREFIX = "[bunny-agent:remote-tools]";
+const LOG_PREFIX = "[bunny-agent:pi-tool-ref]";
 
 type ToolResult = {
   content: Array<{ type: "text"; text: string }>;
   details: undefined;
 };
 
-type BridgeResponse = { status: number; body: string };
+type RuntimeResponse = { status: number; body: string };
+
+export type PiToolRuntime =
+  | {
+      type: "http";
+      url: string;
+      headers?: Record<string, string>;
+    }
+  | {
+      type: "module";
+      module: string;
+      exportName?: string;
+    };
+
+export interface PiToolRef {
+  name: string;
+  description: string;
+  inputSchema: Record<string, unknown>;
+  runtime: PiToolRuntime;
+}
 
 /**
- * Wrap a list of tool refs as pi-runner-native ToolDefinitions.
- *
- * Each generated tool's `execute` dispatches to the runtime embedded in the
- * tool ref and returns the response as a single text content block.
+ * Convert serializable Bunny tool refs into pi-runner-native ToolDefinitions.
  */
-export function buildToolDefinitions(tools: ToolRef[]): ToolDefinition[] {
+export function buildToolDefinitionsFromRefs(
+  tools: PiToolRef[],
+): ToolDefinition[] {
   return tools.map((spec) => buildOne(spec));
 }
 
-function buildOne(spec: ToolRef): ToolDefinition {
+function buildOne(spec: PiToolRef): ToolDefinition {
   // Type.Unsafe wraps an arbitrary JSON-schema object as a TypeBox TSchema
-  // without local validation. We pass it verbatim to the LLM; the caller is
-  // responsible for argument validation in the selected runtime.
-  // Cast through `unknown` because pi-coding-agent's TSchema is structurally
-  // identical to ours but resolves to a different package instance under the
-  // workspace's hoisted typebox versions.
+  // without local validation. We pass it verbatim to the LLM; the selected
+  // runtime is responsible for argument validation.
   const parameters = Type.Unsafe(
     spec.inputSchema,
   ) as unknown as ToolDefinition["parameters"];
@@ -38,7 +52,7 @@ function buildOne(spec: ToolRef): ToolDefinition {
     description: spec.description,
     parameters,
     async execute(_toolCallId, params, signal) {
-      let response: BridgeResponse;
+      let response: RuntimeResponse;
       try {
         response = await executeToolRef(spec, params, signal);
       } catch (error) {
@@ -54,28 +68,23 @@ function buildOne(spec: ToolRef): ToolDefinition {
 }
 
 async function executeToolRef(
-  spec: ToolRef,
+  spec: PiToolRef,
   params: unknown,
   signal: AbortSignal | undefined,
-): Promise<BridgeResponse> {
+): Promise<RuntimeResponse> {
   switch (spec.runtime.type) {
     case "http":
       return sendDirectHttpRequest(spec.runtime, params, signal);
     case "module":
       return executeModuleTool(spec.runtime, params, signal);
   }
-  return assertNever(spec.runtime);
-}
-
-function assertNever(value: never): never {
-  throw new Error(`unsupported tool runtime: ${JSON.stringify(value)}`);
 }
 
 async function sendDirectHttpRequest(
-  runtime: Extract<ToolRef["runtime"], { type: "http" }>,
+  runtime: Extract<PiToolRef["runtime"], { type: "http" }>,
   params: unknown,
   signal: AbortSignal | undefined,
-): Promise<BridgeResponse> {
+): Promise<RuntimeResponse> {
   const response = await fetch(runtime.url, {
     method: "POST",
     signal,
@@ -90,10 +99,10 @@ async function sendDirectHttpRequest(
 }
 
 async function executeModuleTool(
-  runtime: Extract<ToolRef["runtime"], { type: "module" }>,
+  runtime: Extract<PiToolRef["runtime"], { type: "module" }>,
   params: unknown,
   signal: AbortSignal | undefined,
-): Promise<BridgeResponse> {
+): Promise<RuntimeResponse> {
   const mod = (await import(runtime.module)) as Record<string, unknown>;
   const exportName = runtime.exportName ?? "execute";
   const fn = mod[exportName];

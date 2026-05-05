@@ -155,8 +155,10 @@ SDK `streamText({ tools })`.
 
 ## Runner Execution
 
-`packages/runner-harness/src/remote-tools.ts` converts `ToolRef[]` into
-pi-runner `ToolDefinition[]` through `buildToolDefinitions(toolRefs)`.
+`runner-harness` treats `ToolRef[]` as runner-agnostic configuration and only
+passes it to runners that support custom tools. The pi runner owns the
+conversion in `packages/runner-pi/src/tool-refs.ts`, where `ToolRef[]` becomes
+pi-runner `ToolDefinition[]`.
 
 Runtime behavior:
 
@@ -187,6 +189,6 @@ Host-side AI SDK `tool({ execute })` callbacks receive AI SDK's normal
 | `packages/sdk/src/provider/tool-refs.ts` | Bunny tool helpers and provider-level tool schema conversion |
 | `packages/sdk/src/provider/bunny-agent-language-model.ts` | Compile tool refs and start runner |
 | `packages/manager/src/types.ts` | `ToolRef`, `ToolRuntime` |
-| `packages/runner-harness/src/remote-tools.ts` | Tool execution inside sandbox runner |
+| `packages/runner-pi/src/tool-refs.ts` | Pi-owned `ToolRef` to `ToolDefinition` adapter |
 | `apps/runner-cli/src/cli.ts` | CLI env decode/scrub |
 | `apps/daemon/src/routes/coding.ts` | Daemon `toolRefs` body passthrough |

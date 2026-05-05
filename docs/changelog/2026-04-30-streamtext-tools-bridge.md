@@ -71,12 +71,11 @@ toolRefs?: ToolRef[];
 
 The previous `tools + toolBridge` pair is replaced by this single field.
 
-## Runner Harness
+## Runner Tool Execution
 
-- `buildToolDefinitions(toolRefs)` is now the only tool registration
-  path for pi-runner custom tools.
+- `ToolRef[]` is the only runner wire format for custom tools. A later cleanup
+  moved the pi-native `ToolDefinition` adapter into runner-pi.
 - Runtime behavior:
-  - `gateway`: proxy `{ name, input }` over `ToolBridge`.
   - `http`: `fetch(runtime.url)` directly from the sandbox runner.
   - `module`: dynamic import and execute inside the sandbox runner process.
 - Added tests for direct HTTP runtime and module runtime.

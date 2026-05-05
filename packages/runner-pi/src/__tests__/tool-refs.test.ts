@@ -4,9 +4,8 @@ import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import type { ToolRef } from "@bunny-agent/manager";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { buildToolDefinitions } from "../remote-tools.js";
+import { buildToolDefinitionsFromRefs, type PiToolRef } from "../tool-refs.js";
 
 interface CapturedCall {
   authorization: string | undefined;
@@ -63,7 +62,7 @@ async function startFakeBridge(
   };
 }
 
-const sampleSpec: Omit<ToolRef, "runtime"> = {
+const sampleSpec: Omit<PiToolRef, "runtime"> = {
   name: "get_current_time",
   description: "Return the current ISO timestamp.",
   inputSchema: {
@@ -75,7 +74,7 @@ const sampleSpec: Omit<ToolRef, "runtime"> = {
   },
 };
 
-describe("buildToolDefinitions", () => {
+describe("buildToolDefinitionsFromRefs", () => {
   let server: FakeBridgeServer;
 
   beforeEach(async () => {
@@ -89,7 +88,7 @@ describe("buildToolDefinitions", () => {
   });
 
   it("posts direct HTTP runtime inputs with configured headers", async () => {
-    const [tool] = buildToolDefinitions([
+    const [tool] = buildToolDefinitionsFromRefs([
       {
         ...sampleSpec,
         runtime: {
@@ -135,7 +134,7 @@ describe("buildToolDefinitions", () => {
       body: "tool not enabled for this agent",
     }));
 
-    const [tool] = buildToolDefinitions([
+    const [tool] = buildToolDefinitionsFromRefs([
       { ...sampleSpec, runtime: { type: "http", url: server.url } },
     ]);
     const result = await tool.execute(
@@ -168,7 +167,7 @@ describe("buildToolDefinitions", () => {
     const controller = new AbortController();
     controller.abort();
 
-    const [tool] = buildToolDefinitions([
+    const [tool] = buildToolDefinitionsFromRefs([
       { ...sampleSpec, runtime: { type: "http", url: server.url } },
     ]);
     const result = await tool.execute(
@@ -194,7 +193,7 @@ describe("buildToolDefinitions", () => {
       "export async function run(input, ctx) { return { input, aborted: ctx.signal?.aborted ?? false }; }\n",
     );
     try {
-      const [tool] = buildToolDefinitions([
+      const [tool] = buildToolDefinitionsFromRefs([
         {
           ...sampleSpec,
           runtime: {

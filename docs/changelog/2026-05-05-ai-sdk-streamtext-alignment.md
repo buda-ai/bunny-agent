@@ -30,11 +30,16 @@ AI SDK provider and runner-executed tool helpers.
   runners omit the `dynamic` flag.
 - Fixed Biome lint and format violations introduced while aligning the AI SDK
   tool flow.
+- Moved `ToolRef` to pi `ToolDefinition` conversion from runner-harness into
+  runner-pi so each runner owns its native tool adapter.
+- Kept runner-pi independent from manager by defining a local structural
+  `PiToolRef` shape for its adapter boundary.
 
 ## Verification
 
 - `@bunny-agent/manager`: typecheck, build, and tests.
 - `@bunny-agent/sdk`: typecheck, build, and tests.
-- `@bunny-agent/runner-harness`: typecheck and tests.
+- `@bunny-agent/runner-harness`: typecheck, build, and tests.
+- `@bunny-agent/runner-pi`: typecheck, build, and tests.
 - `@bunny-agent/web`: `types:check`.
 - Root `pnpm lint`.

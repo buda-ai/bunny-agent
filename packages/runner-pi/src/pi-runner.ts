@@ -21,6 +21,7 @@ import {
   PiAISDKStreamConverter,
 } from "./stream-converter.js";
 import { buildSecretAwareTools, redactSecrets } from "./tool-overrides.js";
+import { buildToolDefinitionsFromRefs, type PiToolRef } from "./tool-refs.js";
 import { getUsageFromAgentEndMessages } from "./usage-metadata.js";
 
 const LOG_PREFIX = "[bunny-agent:pi]";
@@ -49,13 +50,18 @@ export interface PiRunnerOptions {
   yolo?: boolean;
   /**
    * Custom tools to register alongside built-in pi tools and the runner's
-   * secret-aware bash/read overrides. Used by the daemon to expose remote tools
-   * (caller-side `execute` over HTTP) as pi-native tools to the LLM.
+   * secret-aware bash/read overrides. This is the pi-native escape hatch for
+   * callers that already have ToolDefinition objects.
    *
    * Definitions are appended after the built-ins so they cannot accidentally
    * override `bash` / `read`; they participate in pi's normal tool-call flow.
    */
   customTools?: ToolDefinition[];
+  /**
+   * Serializable Bunny tool refs. Pi owns the conversion into pi-native
+   * ToolDefinition objects so the shared runner harness stays runner-agnostic.
+   */
+  toolRefs?: PiToolRef[];
 }
 
 export interface PiRunner {
@@ -332,6 +338,10 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
 
         if (options.customTools && options.customTools.length > 0) {
           customTools.push(...options.customTools);
+        }
+
+        if (options.toolRefs && options.toolRefs.length > 0) {
+          customTools.push(...buildToolDefinitionsFromRefs(options.toolRefs));
         }
 
         const { session } = await createAgentSession({

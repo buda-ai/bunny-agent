@@ -10,8 +10,8 @@ the serializable runner wire format.
 
 - Renamed internal request fields to `toolRefs` across manager, SDK provider
   settings, runner-harness, runner-cli, and daemon routes.
-- Renamed the runner-harness registration helper to
-  `buildToolDefinitions(...)`.
+- Standardized runner custom tool registration around the serializable
+  `ToolRef[]` wire format.
 - Renamed the private CLI transport variable to
   `BUNNY_AGENT_TOOL_REFS_JSON`.
 - Renamed SDK/provider tool settings toward the `ToolRef` wire format. A later

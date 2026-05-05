@@ -6,7 +6,6 @@ import { createGeminiRunner } from "@bunny-agent/runner-gemini";
 import { createOpenCodeRunner } from "@bunny-agent/runner-opencode";
 import { createPiRunner } from "@bunny-agent/runner-pi";
 import { loadSystemPrompt } from "./prompt.js";
-import { buildToolDefinitions } from "./remote-tools.js";
 import { readSessionId, writeSessionId } from "./session.js";
 import { discoverSkillPaths } from "./skills.js";
 
@@ -89,13 +88,12 @@ function dispatchRunner(
         abortController: base.abortController,
       }).run(options.userInput);
     case "pi": {
-      const customTools = resolveToolDefinitions(options);
       return createPiRunner({
         ...base,
         cwd,
         sessionId: base.resume,
         skillPaths: options.skillPaths ?? discoverSkillPaths(cwd),
-        ...(customTools ? { customTools } : {}),
+        toolRefs: options.toolRefs,
       }).run(options.userInput);
     }
     case "opencode":
@@ -110,19 +108,6 @@ function dispatchRunner(
     default:
       throw new Error(`Unknown runner: ${runner}`);
   }
-}
-
-/**
- * Convert tool refs into pi-runner-native ToolDefinitions.
- *
- * Returns `undefined` when no tool refs are configured (the common path).
- */
-function resolveToolDefinitions(
-  options: RunnerCoreOptions,
-): ReturnType<typeof buildToolDefinitions> | undefined {
-  const tools = options.toolRefs;
-  if (!tools || tools.length === 0) return undefined;
-  return buildToolDefinitions(tools);
 }
 
 /**
