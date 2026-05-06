@@ -68,3 +68,14 @@ Added `imageSize` with `1K`, `2K`, and `4K` values for models that support K-res
 ## Follow-up: release branch CI
 
 Enabled CI for pull requests targeting `release/**` branches so release backports run the same build, typecheck, lint, and test workflow as `main` and `develop` pull requests.
+
+## Follow-up: Gemini edit image parameters
+
+Extended `edit_image` in `packages/runner-pi/src/image-tools.ts` to accept the Gemini image editing controls shown in the Gemini 3 Pro Image examples:
+
+- `aspectRatio` -> multipart `aspect_ratio`
+- `imageSize` -> multipart `image_size`
+
+The tool still uses the existing OpenAI-compatible `/v1/images/edits` multipart endpoint, but can now pass the Gemini-specific fields needed by Google Vertex AI / Gemini image edit gateways without adding `response_modalities` or other low-level Gemini request fields. Response parsing also accepts Gemini `inlineData.data` image parts nested under `candidates[].content.parts[]` in addition to OpenAI-style `data[].b64_json` and proxy-specific `imageBase64`.
+
+Added regression tests for Gemini edit control forwarding and Gemini inline image response saving.
