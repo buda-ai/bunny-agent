@@ -24,6 +24,11 @@ const mockCtx = {} as Parameters<
   ReturnType<typeof buildImageGenerateTool>["execute"]
 >[4];
 
+function parseLastRequestBody(): Record<string, unknown> {
+  const callArgs = mockFetch.mock.calls[0]?.[1] as { body?: string };
+  return JSON.parse(callArgs.body ?? "{}") as Record<string, unknown>;
+}
+
 // ── saveImageItem ────────────────────────────────────────────────────
 
 describe("saveImageItem", () => {
@@ -168,14 +173,13 @@ describe("buildImageGenerateTool", () => {
     );
 
     expect(mockFetch).toHaveBeenCalledOnce();
-    const callArgs = mockFetch.mock.calls[0]?.[1] as { body?: string };
-    const body = JSON.parse(callArgs.body ?? "{}") as Record<string, unknown>;
+    const body = parseLastRequestBody();
     expect(body.aspect_ratio).toBe("3:4");
     expect(body).not.toHaveProperty("size");
     expect(body.model).toBe("gemini-3-pro-image");
   });
 
-  it("prioritizes aspect_ratio over an explicit size when aspectRatio is provided", async () => {
+  it("keeps explicit size alongside aspect_ratio when aspectRatio is provided", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => baseApiResponse,
@@ -193,7 +197,7 @@ describe("buildImageGenerateTool", () => {
       {
         prompt: "a mountain landscape",
         filename: "landscape.png",
-        size: "1024x1024",
+        size: "1024x1536",
         aspectRatio: "3:4",
       },
       new AbortController().signal,
@@ -202,9 +206,71 @@ describe("buildImageGenerateTool", () => {
     );
 
     expect(mockFetch).toHaveBeenCalledOnce();
-    const callArgs = mockFetch.mock.calls[0]?.[1] as { body?: string };
-    const body = JSON.parse(callArgs.body ?? "{}") as Record<string, unknown>;
+    const body = parseLastRequestBody();
     expect(body.aspect_ratio).toBe("3:4");
+    expect(body.size).toBe("1024x1536");
+  });
+
+  it("supports the extended portrait aspect ratios", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => baseApiResponse,
+    });
+
+    const tool = buildImageGenerateTool(
+      "/tmp",
+      "gemini-3-pro-image",
+      "https://api.example.com",
+      "sk-test",
+    );
+
+    await tool.execute(
+      "call_ar_45",
+      {
+        prompt: "a product poster",
+        filename: "poster.png",
+        aspectRatio: "4:5",
+      },
+      new AbortController().signal,
+      vi.fn(),
+      mockCtx,
+    );
+
+    expect(mockFetch).toHaveBeenCalledOnce();
+    const body = parseLastRequestBody();
+    expect(body.aspect_ratio).toBe("4:5");
+  });
+
+  it("sends image_size with aspect_ratio for K-resolution requests", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => baseApiResponse,
+    });
+
+    const tool = buildImageGenerateTool(
+      "/tmp",
+      "gemini-3-pro-image",
+      "https://api.example.com",
+      "sk-test",
+    );
+
+    await tool.execute(
+      "call_ar_2k",
+      {
+        prompt: "a product poster",
+        filename: "poster.png",
+        aspectRatio: "3:4",
+        imageSize: "2K",
+      },
+      new AbortController().signal,
+      vi.fn(),
+      mockCtx,
+    );
+
+    expect(mockFetch).toHaveBeenCalledOnce();
+    const body = parseLastRequestBody();
+    expect(body.aspect_ratio).toBe("3:4");
+    expect(body.image_size).toBe("2K");
     expect(body).not.toHaveProperty("size");
   });
 
