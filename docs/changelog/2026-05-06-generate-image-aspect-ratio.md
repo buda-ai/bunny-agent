@@ -52,3 +52,19 @@ This sends `aspect_ratio: "3:4"` to the proxy, which forwards it to the Gemini I
 ## Follow-up: aspectRatio precedence
 
 After review, the tool now omits the default `size: "1024x1024"` whenever `aspectRatio` is provided. This prevents OpenAI-compatible proxies from prioritizing the square `size` value over Gemini's native `aspect_ratio` parameter. Requests for `aspectRatio: "3:4"` are sent unchanged as `aspect_ratio: "3:4"`.
+
+## Follow-up: supported size values
+
+The `size` schema was corrected to only expose supported values: `auto`, `1024x1024`, `1536x1024`, `1024x1536`, `256x256`, `512x512`, `1792x1024`, and `1024x1792`. Explicit supported `size` values are now preserved even when `aspectRatio` is also provided.
+
+## Follow-up: Gemini-supported aspect ratios
+
+The `aspectRatio` schema was expanded to include the full supported set for Gemini 2.5 Flash Image and Gemini 3 Pro Image: `1:1`, `3:2`, `2:3`, `3:4`, `4:3`, `4:5`, `5:4`, `9:16`, `16:9`, and `21:9`.
+
+## Follow-up: K-resolution imageSize
+
+Added `imageSize` with `1K`, `2K`, and `4K` values for models that support K-resolution output. The request body now sends `image_size` when provided and no longer adds the default `size: "1024x1024"` when `aspectRatio` or `imageSize` is present.
+
+## Follow-up: top-level gateway compatibility
+
+After runtime verification, the gateway honored top-level `aspect_ratio` and `image_size`. The request body now emits those top-level fields directly and omits the `extra_body.google` compatibility wrapper.
