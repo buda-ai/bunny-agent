@@ -1,7 +1,7 @@
 {
-  "name": "@bunny-agent/daemon",
-  "version": "0.9.32",
-  "description": "BunnyAgent Daemon - Unified API gateway for sandbox services (file, git, volumes)",
+  "name": "@sandagent/daemon",
+  "version": "0.9.28-release.5",
+  "description": "SandAgent Daemon - Unified API gateway for sandbox services (file, git, volumes)",
   "type": "module",
   "bin": {
     "bunny-agent-daemon": "./dist/bundle.mjs"

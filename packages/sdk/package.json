@@ -1,7 +1,7 @@
 {
-  "name": "@bunny-agent/sdk",
-  "version": "0.9.32",
-  "description": "BunnyAgent SDK - AI Provider and React hooks for building AI agents",
+  "name": "@sandagent/sdk",
+  "version": "0.9.28-release.5",
+  "description": "SandAgent SDK - AI Provider and React hooks for building AI agents",
   "type": "module",
   "sideEffects": false,
   "main": "./src/index.ts",
