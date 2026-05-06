@@ -157,7 +157,11 @@ describe("buildImageGenerateTool", () => {
 
     await tool.execute(
       "call_ar",
-      { prompt: "a mountain landscape", filename: "landscape.png", aspectRatio: "3:4" },
+      {
+        prompt: "a mountain landscape",
+        filename: "landscape.png",
+        aspectRatio: "3:4",
+      },
       new AbortController().signal,
       vi.fn(),
       mockCtx,
