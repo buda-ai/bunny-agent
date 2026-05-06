@@ -1,6 +1,6 @@
 {
   "name": "@bunny-agent/runner-cli",
-  "version": "0.9.33",
+  "version": "0.9.34",
   "description": "BunnyAgent Runner CLI - Like gemini-cli or claude-code, runs in your local terminal with AI SDK UI streaming",
   "type": "module",
   "bin": {
