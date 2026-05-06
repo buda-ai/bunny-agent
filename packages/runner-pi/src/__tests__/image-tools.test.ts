@@ -29,6 +29,11 @@ function parseLastRequestBody(): Record<string, unknown> {
   return JSON.parse(callArgs.body ?? "{}") as Record<string, unknown>;
 }
 
+function lastMultipartBody(callIndex = 0): string {
+  const request = mockFetch.mock.calls[callIndex]?.[1] as { body?: Buffer };
+  return request.body?.toString("utf8") ?? "";
+}
+
 // ── saveImageItem ────────────────────────────────────────────────────
 
 describe("saveImageItem", () => {
@@ -516,6 +521,58 @@ describe("buildImageEditTool", () => {
     expect(text).toContain("/tmp/out.png");
   });
 
+  it("saves when edit response uses Gemini inlineData image parts", async () => {
+    const { existsSync, readFileSync } = await import("node:fs");
+    vi.mocked(existsSync).mockReturnValue(true);
+    vi.mocked(readFileSync).mockReturnValue(Buffer.from("file"));
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        candidates: [
+          {
+            content: {
+              parts: [
+                { text: "Edited image created." },
+                {
+                  inlineData: {
+                    mimeType: "image/png",
+                    data: "aGVsbG8=",
+                  },
+                },
+              ],
+            },
+          },
+        ],
+        usage: { input_tokens: 1, output_tokens: 1, total_tokens: 2 },
+      }),
+    });
+
+    const tool = buildImageEditTool(
+      "/tmp",
+      "gemini-3-pro-image",
+      "https://api.openai.com",
+      "sk-test",
+    );
+
+    const result = await tool.execute(
+      "call_3c",
+      {
+        image: "input.png",
+        prompt: "make the sky brighter",
+        filename: "out.png",
+      },
+      new AbortController().signal,
+      vi.fn(),
+      mockCtx,
+    );
+
+    const text = (result.content[0] as { type: string; text: string }).text;
+    expect(text).toContain("/tmp/out.png");
+    expect(
+      (result.details as ImageToolDetails).usage?.raw["gemini-3-pro-image"],
+    ).toEqual({ input_tokens: 1, output_tokens: 1, total_tokens: 2 });
+  });
+
   it("sends response format hints for edit requests", async () => {
     const { existsSync, readFileSync } = await import("node:fs");
     vi.mocked(existsSync).mockReturnValue(true);
@@ -540,8 +597,7 @@ describe("buildImageEditTool", () => {
       mockCtx,
     );
 
-    const request = mockFetch.mock.calls[0]?.[1] as { body?: Buffer };
-    const bodyString = request.body?.toString("utf8") ?? "";
+    const bodyString = lastMultipartBody();
     expect(bodyString).toContain('name="response_format"');
     expect(bodyString).toContain("b64_json");
     expect(bodyString).toContain('name="output_format"');
@@ -572,10 +628,52 @@ describe("buildImageEditTool", () => {
       mockCtx,
     );
 
-    const request = mockFetch.mock.calls[0]?.[1] as { body?: Buffer };
-    const bodyString = request.body?.toString("utf8") ?? "";
+    const bodyString = lastMultipartBody();
     expect(bodyString).not.toContain('name="size"');
     expect(bodyString).not.toContain('name="quality"');
+  });
+
+  it("sends Gemini image edit controls as multipart fields", async () => {
+    const { existsSync, readFileSync } = await import("node:fs");
+    vi.mocked(existsSync).mockReturnValue(true);
+    vi.mocked(readFileSync).mockReturnValue(Buffer.from("file"));
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ data: ["aGVsbG8="] }),
+    });
+
+    const tool = buildImageEditTool(
+      "/tmp",
+      "gemini-3-pro-image",
+      "https://api.openai.com",
+      "sk-test",
+    );
+
+    await tool.execute(
+      "call_5b",
+      {
+        image: "input.png",
+        prompt: "make a 3:4 portrait poster",
+        filename: "out.png",
+        aspectRatio: "3:4",
+        imageSize: "2K",
+      },
+      new AbortController().signal,
+      vi.fn(),
+      mockCtx,
+    );
+
+    const bodyString = lastMultipartBody();
+    expect(bodyString).toContain('name="aspect_ratio"');
+    expect(bodyString).toContain("3:4");
+    expect(bodyString).toContain('name="image_size"');
+    expect(bodyString).toContain("2K");
+    expect(bodyString).toContain('name="output_format"');
+    expect(bodyString).toContain("png");
+    expect(bodyString).not.toContain('name="response_modalities"');
+    expect(bodyString).not.toContain('name="mime_type"');
+    expect(bodyString).not.toContain('name="image_output_options"');
+    expect(bodyString).not.toContain('name="person_generation"');
   });
 
   it("retries once with policy-safe prompt when risky wording gets empty data", async () => {

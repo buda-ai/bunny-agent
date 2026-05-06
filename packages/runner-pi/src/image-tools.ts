@@ -26,11 +26,10 @@ export interface ImageGenerationResponse {
   output_format?: string | null;
   quality?: string | null;
   size?: string | null;
-  data?: Array<{
-    b64_json?: string;
-    url?: string;
-    revised_prompt?: string | null;
-  }>;
+  data?: unknown;
+  images?: unknown;
+  output?: unknown;
+  candidates?: unknown;
   usage?: ImageGenerationUsage;
 }
 
@@ -108,21 +107,79 @@ const generateImageSchema = {
   additionalProperties: false,
 };
 
+type ImagePayloadItem = {
+  b64_json?: string;
+  b64Json?: string;
+  url?: string;
+  image_base64?: string;
+  imageBase64?: string;
+  image_url?: string;
+  imageUrl?: string;
+  base64?: string;
+  data?: string;
+  mimeType?: string;
+  mime_type?: string;
+  inlineData?: { data?: string; mimeType?: string; mime_type?: string };
+  inline_data?: { data?: string; mimeType?: string; mime_type?: string };
+  image?:
+    | string
+    | { base64?: string; b64_json?: string; url?: string; data?: string };
+};
+
+const hasImagePayload = (item: ImagePayloadItem): boolean =>
+  Boolean(
+    item.b64_json ??
+      item.b64Json ??
+      item.image_base64 ??
+      item.imageBase64 ??
+      item.base64 ??
+      item.data ??
+      item.inlineData?.data ??
+      item.inline_data?.data ??
+      item.url ??
+      item.image_url ??
+      item.imageUrl ??
+      (typeof item.image === "string"
+        ? item.image
+        : (item.image?.b64_json ??
+          item.image?.base64 ??
+          item.image?.data ??
+          item.image?.url)),
+  );
+
+function readString(value: unknown): string | undefined {
+  return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+function readInlineData(
+  value: unknown,
+): ImagePayloadItem["inlineData"] | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const obj = value as Record<string, unknown>;
+  return {
+    data: readString(obj.data),
+    mimeType: readString(obj.mimeType),
+    mime_type: readString(obj.mime_type),
+  };
+}
+
+function readImage(value: unknown): ImagePayloadItem["image"] | undefined {
+  if (typeof value === "string" && value.length > 0) return value;
+  if (!value || typeof value !== "object") return undefined;
+  const obj = value as Record<string, unknown>;
+  return {
+    base64: readString(obj.base64),
+    b64_json: readString(obj.b64_json),
+    url: readString(obj.url),
+    data: readString(obj.data),
+  };
+}
+
 /**
  * Resolve b64 from an image item (b64_json or url).
  */
 async function resolveB64(
-  item: {
-    b64_json?: string;
-    b64Json?: string;
-    url?: string;
-    image_base64?: string;
-    imageBase64?: string;
-    image_url?: string;
-    imageUrl?: string;
-    base64?: string;
-    image?: string | { base64?: string; b64_json?: string; url?: string };
-  },
+  item: ImagePayloadItem,
   apiKey?: string,
 ): Promise<string | undefined> {
   if (item.b64_json) return item.b64_json;
@@ -130,9 +187,13 @@ async function resolveB64(
   if (item.image_base64) return item.image_base64;
   if (item.imageBase64) return item.imageBase64;
   if (item.base64) return item.base64;
+  if (item.data) return item.data;
+  if (item.inlineData?.data) return item.inlineData.data;
+  if (item.inline_data?.data) return item.inline_data.data;
   if (typeof item.image === "string") return item.image;
   if (item.image?.b64_json) return item.image.b64_json;
   if (item.image?.base64) return item.image.base64;
+  if (item.image?.data) return item.image.data;
   const url = item.url ?? item.image_url ?? item.imageUrl ?? item.image?.url;
   if (url) {
     const headers: Record<string, string> = {};
@@ -145,40 +206,28 @@ async function resolveB64(
   return undefined;
 }
 
-function pickImageItem(response: ImageGenerationResponse): {
-  b64_json?: string;
-  b64Json?: string;
-  url?: string;
-  image_base64?: string;
-  imageBase64?: string;
-  image_url?: string;
-  imageUrl?: string;
-  base64?: string;
-  image?: string | { base64?: string; b64_json?: string; url?: string };
-} {
+function pickImageItem(response: ImageGenerationResponse): ImagePayloadItem {
   const tryFromObject = (value: unknown) => {
     if (!value || typeof value !== "object") return undefined;
     const obj = value as Record<string, unknown>;
+    const image = readImage(obj.image);
+    const inlineData = readInlineData(obj.inlineData);
+    const inline_data = readInlineData(obj.inline_data);
     return {
-      b64_json:
-        (obj.b64_json as string | undefined) ??
-        (obj.b64Json as string | undefined),
-      b64Json: obj.b64Json as string | undefined,
-      url:
-        (obj.url as string | undefined) ?? (obj.imageUrl as string | undefined),
-      image_base64:
-        (obj.image_base64 as string | undefined) ??
-        (obj.imageBase64 as string | undefined),
-      imageBase64: obj.imageBase64 as string | undefined,
-      image_url:
-        (obj.image_url as string | undefined) ??
-        (obj.imageUrl as string | undefined),
-      imageUrl: obj.imageUrl as string | undefined,
-      base64: obj.base64 as string | undefined,
-      image: obj.image as
-        | string
-        | { base64?: string; b64_json?: string; url?: string }
-        | undefined,
+      b64_json: readString(obj.b64_json) ?? readString(obj.b64Json),
+      b64Json: readString(obj.b64Json),
+      url: readString(obj.url) ?? readString(obj.imageUrl),
+      image_base64: readString(obj.image_base64) ?? readString(obj.imageBase64),
+      imageBase64: readString(obj.imageBase64),
+      image_url: readString(obj.image_url) ?? readString(obj.imageUrl),
+      imageUrl: readString(obj.imageUrl),
+      base64: readString(obj.base64),
+      data: readString(obj.data),
+      mimeType: readString(obj.mimeType),
+      mime_type: readString(obj.mime_type),
+      inlineData,
+      inline_data,
+      image,
     };
   };
 
@@ -189,7 +238,7 @@ function pickImageItem(response: ImageGenerationResponse): {
     }
     if (typeof value === "object") {
       const normalized = tryFromObject(value);
-      if (normalized) return normalized;
+      if (normalized && hasImagePayload(normalized)) return normalized;
     }
     return undefined;
   };
@@ -237,22 +286,7 @@ function pickImageItem(response: ImageGenerationResponse): {
 
     const normalized = tryFromObject(current);
     if (normalized) {
-      const hasUsefulField = Boolean(
-        normalized.b64_json ??
-          normalized.b64Json ??
-          normalized.image_base64 ??
-          normalized.imageBase64 ??
-          normalized.base64 ??
-          normalized.url ??
-          normalized.image_url ??
-          normalized.imageUrl ??
-          (typeof normalized.image === "string"
-            ? normalized.image
-            : (normalized.image?.b64_json ??
-              normalized.image?.base64 ??
-              normalized.image?.url)),
-      );
-      if (hasUsefulField) return normalized;
+      if (hasImagePayload(normalized)) return normalized;
     }
 
     if (Array.isArray(current)) {
@@ -300,17 +334,7 @@ function buildPolicySafeEditPrompt(prompt: string): {
  * Returns the saved file path, or undefined if no image data was available.
  */
 export async function saveImageItem(
-  item: {
-    b64_json?: string;
-    b64Json?: string;
-    url?: string;
-    image_base64?: string;
-    imageBase64?: string;
-    image_url?: string;
-    imageUrl?: string;
-    base64?: string;
-    image?: string | { base64?: string; b64_json?: string; url?: string };
-  },
+  item: ImagePayloadItem,
   filePath: string,
   apiKey?: string,
 ): Promise<string | undefined> {
@@ -462,6 +486,29 @@ const editImageSchema = {
       description:
         "Image quality. Optional; omit or set auto to let model decide.",
     },
+    aspectRatio: {
+      type: "string",
+      enum: [
+        "1:1",
+        "3:2",
+        "2:3",
+        "3:4",
+        "4:3",
+        "4:5",
+        "5:4",
+        "9:16",
+        "16:9",
+        "21:9",
+      ],
+      description:
+        "Gemini image aspect ratio. Use this instead of size for Gemini image edit models when exact proportions matter.",
+    },
+    imageSize: {
+      type: "string",
+      enum: ["1K", "2K", "4K"],
+      description:
+        "Gemini output resolution for image edit models that support K-resolution output.",
+    },
   },
   required: ["image", "prompt"],
   additionalProperties: false,
@@ -522,12 +569,13 @@ export function buildImageEditTool(
       "Edit an existing image based on a text prompt. Optionally use a mask to control which areas to modify. " +
       "Saves the result to disk and returns the file path.",
     promptSnippet:
-      "edit_image(image, prompt, mask?, filename?, size?, quality?) - edit an existing image",
+      "edit_image(image, prompt, mask?, filename?, size?, quality?, aspectRatio?, imageSize?) - edit an existing image",
     promptGuidelines: [
       "Use edit_image when the user wants to modify, retouch, or transform an existing image.",
       "The prompt should describe the full desired final image, not just the change.",
       "Provide the source image path. Use a mask image (PNG with transparent areas) to control where edits happen.",
       "Without a mask, the model decides what to change based on the prompt.",
+      "For Gemini image edit models, use aspectRatio and imageSize when the user asks for those controls.",
     ],
     // biome-ignore lint/suspicious/noExplicitAny: plain JSON Schema compatible with TypeBox TSchema
     parameters: editImageSchema as any,
@@ -541,6 +589,8 @@ export function buildImageEditTool(
       const maskPath = p.mask as string | undefined;
       const size = p.size as string | undefined;
       const quality = p.quality as string | undefined;
+      const aspectRatio = p.aspectRatio as string | undefined;
+      const imageSize = p.imageSize as string | undefined;
       const rawFilename = p.filename as string | undefined;
       const safePrompt = buildPolicySafeEditPrompt(prompt);
 
@@ -581,6 +631,12 @@ export function buildImageEditTool(
         }
         if (quality && quality !== "auto") {
           fields.push({ name: "quality", value: quality });
+        }
+        if (aspectRatio) {
+          fields.push({ name: "aspect_ratio", value: aspectRatio });
+        }
+        if (imageSize) {
+          fields.push({ name: "image_size", value: imageSize });
         }
 
         const files: Array<{
