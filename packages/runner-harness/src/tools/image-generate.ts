@@ -55,9 +55,11 @@ export function buildImageGenerateTool(
     label: "generate image",
     description:
       "Generate an image from a text prompt. Saves to disk and returns the file path.",
-    promptSnippet: "generate_image(prompt, filename?, size?, quality?)",
+    promptSnippet:
+      "generate_image(prompt, filename?, size?, aspectRatio?, quality?)",
     promptGuidelines: [
       "Use when the user asks to create, draw, or visualize something.",
+      "For models like gemini-3-pro-image, use aspectRatio (e.g. '3:4') instead of size.",
     ],
     parameters: {
       type: "object",
@@ -70,6 +72,10 @@ export function buildImageGenerateTool(
           enum: [
             "256x256",
             "512x512",
+            "768x1024",
+            "1024x768",
+            "960x1280",
+            "1280x960",
             "1024x1024",
             "1792x1024",
             "1024x1792",
@@ -82,6 +88,13 @@ export function buildImageGenerateTool(
             "960x1728",
           ],
         },
+        aspectRatio: {
+          type: "string",
+          enum: ["1:1", "3:4", "4:3", "9:16", "16:9"],
+          description:
+            "Image aspect ratio for models that support it (e.g. gemini-3-pro-image). " +
+            "Use instead of size: '3:4' (portrait), '4:3' (landscape), '9:16' (tall), '16:9' (wide).",
+        },
         quality: { type: "string", enum: ["standard", "hd"] },
       },
       additionalProperties: false,
@@ -91,6 +104,7 @@ export function buildImageGenerateTool(
       const prompt = p.prompt as string;
       const size = (p.size as string) ?? "1024x1024";
       const quality = (p.quality as string) ?? "standard";
+      const aspectRatio = p.aspectRatio as string | undefined;
       const rawFilename = p.filename as string | undefined;
       const filename = rawFilename
         ? extname(rawFilename)
@@ -114,6 +128,7 @@ export function buildImageGenerateTool(
               n: 1,
               size,
               quality,
+              ...(aspectRatio ? { aspect_ratio: aspectRatio } : {}),
             }),
           },
         );

@@ -62,6 +62,10 @@ const generateImageSchema = {
       enum: [
         "256x256",
         "512x512",
+        "768x1024",
+        "1024x768",
+        "960x1280",
+        "1280x960",
         "1024x1024",
         "1792x1024",
         "1024x1792",
@@ -74,8 +78,17 @@ const generateImageSchema = {
         "960x1728",
       ],
       description:
-        "Image dimensions. Common: 1024x1024 (square), 1280x1280, 1568x1056 (landscape), " +
-        "1056x1568 (portrait), 1728x960 (wide), 960x1728 (tall).",
+        "Image dimensions. Common: 1024x1024 (square), 960x1280 / 768x1024 (portrait 3:4), " +
+        "1280x960 / 1024x768 (landscape 4:3), 1056x1568 (portrait), 1728x960 (wide), 960x1728 (tall). " +
+        "Use aspectRatio instead for models like gemini-3-pro-image.",
+    },
+    aspectRatio: {
+      type: "string",
+      enum: ["1:1", "3:4", "4:3", "9:16", "16:9"],
+      description:
+        "Image aspect ratio. Use this instead of size for models that support it " +
+        "(e.g. gemini-3-pro-image). Common values: '3:4' (portrait), '4:3' (landscape), " +
+        "'9:16' (tall), '16:9' (wide), '1:1' (square).",
     },
     quality: {
       type: "string",
@@ -312,11 +325,12 @@ export function buildImageGenerateTool(
     description:
       "Generate an image from a text prompt. Saves the image to disk and returns the file path.",
     promptSnippet:
-      "generate_image(prompt, filename?, size?, quality?) - generate an image from text",
+      "generate_image(prompt, filename?, size?, aspectRatio?, quality?) - generate an image from text",
     promptGuidelines: [
       "Use generate_image when the user asks to create, draw, or visualize something.",
       "Be descriptive in the prompt — more detail produces better results.",
       "Provide a filename with extension, e.g. 'cat.png'.",
+      "For models like gemini-3-pro-image, use aspectRatio (e.g. '3:4') instead of size to control proportions.",
     ],
     // biome-ignore lint/suspicious/noExplicitAny: plain JSON Schema compatible with TypeBox TSchema
     parameters: generateImageSchema as any,
@@ -325,6 +339,7 @@ export function buildImageGenerateTool(
       const prompt = p.prompt as string;
       const size = (p.size as string) ?? "1024x1024";
       const quality = (p.quality as string) ?? "auto";
+      const aspectRatio = p.aspectRatio as string | undefined;
       const rawFilename = p.filename as string | undefined;
 
       // Ensure filename has an extension
@@ -351,6 +366,7 @@ export function buildImageGenerateTool(
             quality,
             response_format: "b64_json",
             output_format: "png",
+            ...(aspectRatio ? { aspect_ratio: aspectRatio } : {}),
           }),
           signal,
         });
