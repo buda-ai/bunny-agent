@@ -102,7 +102,7 @@ export function buildImageGenerateTool(
     async execute(_id, params, _signal, _onUpdate) {
       const p = params as Record<string, unknown>;
       const prompt = p.prompt as string;
-      const size = (p.size as string) ?? "1024x1024";
+      const size = p.size as string | undefined;
       const quality = (p.quality as string) ?? "standard";
       const aspectRatio = p.aspectRatio as string | undefined;
       const rawFilename = p.filename as string | undefined;
@@ -126,9 +126,9 @@ export function buildImageGenerateTool(
               model: imageModelId,
               prompt,
               n: 1,
-              size,
               quality,
               ...(aspectRatio ? { aspect_ratio: aspectRatio } : {}),
+              ...(!aspectRatio ? { size: size ?? "1024x1024" } : {}),
             }),
           },
         );

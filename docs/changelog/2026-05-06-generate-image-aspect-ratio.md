@@ -48,3 +48,7 @@ To generate a 3:4 portrait image with `gemini-3-pro-image`, the agent now calls:
 ```
 
 This sends `aspect_ratio: "3:4"` to the proxy, which forwards it to the Gemini Image API.
+
+## Follow-up: aspectRatio precedence
+
+After review, the tool now omits the default `size: "1024x1024"` whenever `aspectRatio` is provided. This prevents OpenAI-compatible proxies from prioritizing the square `size` value over Gemini's native `aspect_ratio` parameter. Requests for `aspectRatio: "3:4"` are sent unchanged as `aspect_ratio: "3:4"`.
