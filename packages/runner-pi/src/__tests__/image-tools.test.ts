@@ -142,6 +142,100 @@ describe("buildImageGenerateTool", () => {
     expect(details).not.toHaveProperty("response");
   });
 
+  it("sends aspect_ratio in request body when aspectRatio param is provided", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => baseApiResponse,
+    });
+
+    const tool = buildImageGenerateTool(
+      "/tmp",
+      "gemini-3-pro-image",
+      "https://api.example.com",
+      "sk-test",
+    );
+
+    await tool.execute(
+      "call_ar",
+      {
+        prompt: "a mountain landscape",
+        filename: "landscape.png",
+        aspectRatio: "3:4",
+      },
+      new AbortController().signal,
+      vi.fn(),
+      mockCtx,
+    );
+
+    expect(mockFetch).toHaveBeenCalledOnce();
+    const callArgs = mockFetch.mock.calls[0]?.[1] as { body?: string };
+    const body = JSON.parse(callArgs.body ?? "{}") as Record<string, unknown>;
+    expect(body.aspect_ratio).toBe("3:4");
+    expect(body).not.toHaveProperty("size");
+    expect(body.model).toBe("gemini-3-pro-image");
+  });
+
+  it("prioritizes aspect_ratio over an explicit size when aspectRatio is provided", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => baseApiResponse,
+    });
+
+    const tool = buildImageGenerateTool(
+      "/tmp",
+      "gemini-3-pro-image",
+      "https://api.example.com",
+      "sk-test",
+    );
+
+    await tool.execute(
+      "call_ar_size",
+      {
+        prompt: "a mountain landscape",
+        filename: "landscape.png",
+        size: "1024x1024",
+        aspectRatio: "3:4",
+      },
+      new AbortController().signal,
+      vi.fn(),
+      mockCtx,
+    );
+
+    expect(mockFetch).toHaveBeenCalledOnce();
+    const callArgs = mockFetch.mock.calls[0]?.[1] as { body?: string };
+    const body = JSON.parse(callArgs.body ?? "{}") as Record<string, unknown>;
+    expect(body.aspect_ratio).toBe("3:4");
+    expect(body).not.toHaveProperty("size");
+  });
+
+  it("does not send aspect_ratio when aspectRatio is not provided", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => baseApiResponse,
+    });
+
+    const tool = buildImageGenerateTool(
+      "/tmp",
+      "gpt-image-1",
+      "https://api.openai.com",
+      "sk-test",
+    );
+
+    await tool.execute(
+      "call_no_ar",
+      { prompt: "a cute cat", filename: "cat.png" },
+      new AbortController().signal,
+      vi.fn(),
+      mockCtx,
+    );
+
+    expect(mockFetch).toHaveBeenCalledOnce();
+    const callArgs = mockFetch.mock.calls[0]?.[1] as { body?: string };
+    const body = JSON.parse(callArgs.body ?? "{}") as Record<string, unknown>;
+    expect(body).not.toHaveProperty("aspect_ratio");
+    expect(body.size).toBe("1024x1024");
+  });
+
   it("returns error content and undefined details on API failure", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: false,
