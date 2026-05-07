@@ -338,7 +338,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
         }
 
         // Register Video Generation Tool via auto-detected Provider
-        const videoTool = buildVideoGenerateTool(options.env);
+        const videoTool = buildVideoGenerateTool(options.env ?? {});
         if (videoTool) {
           customTools.push(videoTool);
         }

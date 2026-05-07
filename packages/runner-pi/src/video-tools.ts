@@ -117,13 +117,13 @@ const byteplusProvider: VideoGenerationProvider = {
 const PROVIDERS: VideoGenerationProvider[] = [byteplusProvider];
 // Future providers like soraProvider, runwayProvider can be added here.
 
-function getEnv(env: Record<string, string>, key: string): string | undefined {
-  const v = env[key] ?? process.env[key];
+function getEnv(env: Record<string, string> | undefined, key: string): string | undefined {
+  const v = env?.[key] ?? process.env[key];
   return v && v.length > 0 ? v : undefined;
 }
 
 export function resolveVideoProvider(
-  env: Record<string, string>,
+  env: Record<string, string> | undefined,
 ): VideoGenerationProvider | null {
   for (const p of PROVIDERS) {
     const hasAllKeys = p.envKeys.every((key) => getEnv(env, key) !== undefined);
@@ -143,7 +143,7 @@ export function resolveVideoProvider(
  * Returns null if no video provider is configured in the environment.
  */
 export function buildVideoGenerateTool(
-  env: Record<string, string>,
+  env: Record<string, string> | undefined,
 ): ToolDefinition | null {
   const provider = resolveVideoProvider(env);
 
