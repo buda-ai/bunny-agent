@@ -30,11 +30,11 @@ const byteplusProvider: VideoGenerationProvider = {
   label: "BytePlus Ark",
   envKeys: ["ARK_API_KEY"],
   async generate({ prompt, env, signal, onUpdate }) {
-    const apiKey = env.ARK_API_KEY ?? process.env.ARK_API_KEY;
+    const apiKey = env?.ARK_API_KEY ?? process.env.ARK_API_KEY;
     const modelId = 
-      env.ARK_MODEL_ID ?? process.env.ARK_MODEL_ID ?? "dreamina-seedance-2-0";
+      env?.ARK_MODEL_ID ?? process.env.ARK_MODEL_ID ?? "dreamina-seedance-2-0";
     const baseUrl =
-      env.ARK_BASE_URL ??
+      env?.ARK_BASE_URL ??
       process.env.ARK_BASE_URL ??
       "https://ark.ap-southeast.bytepluses.com/api/v3";
 
@@ -42,7 +42,7 @@ const byteplusProvider: VideoGenerationProvider = {
       throw new Error("Missing ARK_API_KEY");
     }
 
-    onUpdate(`[${this.label}] Submitting video generation task...`);
+    onUpdate?.(`[${this.label}] Submitting video generation task...`);
 
     const createRes = await fetch(`${baseUrl}/contents/generations/tasks`, {
       method: "POST",
@@ -62,15 +62,15 @@ const byteplusProvider: VideoGenerationProvider = {
       throw new Error(`Failed to create video task: ${createRes.status} ${errorText}`);
     }
 
-    const createData = await createRes.json();
+    const createData: any = await createRes.json();
     const taskId = createData.id;
     if (!taskId) {
       throw new Error("No task ID returned from video generation API");
     }
 
-    onUpdate(`[${this.label}] Task created (ID: ${taskId}). Polling for completion...`);
+    onUpdate?.(`[${this.label}] Task created (ID: ${taskId}). Polling for completion...`);
 
-    let finalData = null;
+    let finalData: any = null;
     while (true) {
       if (signal?.aborted) throw new Error("Video generation was aborted.");
 
@@ -88,7 +88,7 @@ const byteplusProvider: VideoGenerationProvider = {
         throw new Error(`Failed to check task status: ${getRes.status} ${errorText}`);
       }
 
-      const getData = await getRes.json();
+      const getData: any = await getRes.json();
       const status = getData.status;
 
       if (status === "succeeded") {
@@ -100,11 +100,11 @@ const byteplusProvider: VideoGenerationProvider = {
         );
       }
 
-      onUpdate(`[${this.label}] Task status: ${status}...`);
+      onUpdate?.(`[${this.label}] Task status: ${status}...`);
     }
 
     const videoUrl =
-      finalData?.content?.[0]?.video?.url || "URL not found in response payload";
+      (finalData as any)?.content?.[0]?.video?.url || "URL not found in response payload";
 
     return { videoUrl, taskId };
   },
@@ -169,20 +169,22 @@ export function buildVideoGenerateTool(
         },
       },
       required: ["prompt"],
-    },
-    execute: async (toolCallId, params, signal, onUpdate) => {
+    } as any,
+    execute: async (_toolCallId, params, signal, onUpdate) => {
       const { prompt } = params as { prompt: string };
+
+      if (!env) env = {};
 
       const { videoUrl, taskId } = await provider.generate({
         prompt,
         env,
         signal,
-        onUpdate,
+        onUpdate: (msg) => onUpdate?.({ content: [{ type: "text", text: msg }], details: {} } as any),
       });
 
       const details: ToolDetailsWithUsage = {
         usage: {
-          // Future: map detailed token/credit usage if the provider returns it.
+          raw: {},
         },
       };
 
@@ -191,7 +193,7 @@ export function buildVideoGenerateTool(
           {
             type: "text",
             text: `Video generated successfully via ${provider.label}!\nURL: ${videoUrl}\n${taskId ? `(Task ID: ${taskId})` : ""}`,
-          },
+          } as any,
         ],
         details,
       };
