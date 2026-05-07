@@ -187,6 +187,13 @@ vi.mock("@mariozechner/pi-coding-agent", () => {
       extendResources: vi.fn(),
     })),
     loadSkills: vi.fn().mockReturnValue({ skills: [], diagnostics: [] }),
+    readTool: { name: "read" },
+    bashTool: { name: "bash" },
+    editTool: { name: "edit" },
+    writeTool: { name: "write" },
+    grepTool: { name: "grep" },
+    findTool: { name: "find" },
+    lsTool: { name: "ls" },
     SessionManager: {
       continueRecent: vi.fn().mockReturnValue({}),
       create: vi.fn().mockReturnValue({}),
@@ -573,6 +580,71 @@ describe("createPiRunner", () => {
     const customTools = callArgs?.customTools ?? [];
     const bashTool = customTools.find((t) => t.name === "bash");
     expect(bashTool).toBeDefined();
+  });
+
+  it("filters toolRefs with allowedTools before registering custom tools", async () => {
+    const { createAgentSession: mockCreateAgentSession } = await import(
+      "@mariozechner/pi-coding-agent"
+    );
+    const spy = vi.mocked(mockCreateAgentSession);
+    spy.mockClear();
+
+    const runner = createPiRunner({
+      model: "google:gemini-2.5-pro",
+      allowedTools: ["create_automation"],
+      toolRefs: [
+        {
+          name: "create_automation",
+          description: "Create an automation",
+          inputSchema: { type: "object", properties: {} },
+          runtime: { type: "http", url: "https://example.com/create" },
+        },
+        {
+          name: "delete_automation",
+          description: "Delete an automation",
+          inputSchema: { type: "object", properties: {} },
+          runtime: { type: "http", url: "https://example.com/delete" },
+        },
+      ],
+    });
+
+    for await (const _ of runner.run("verify allowed tool refs")) {
+      break;
+    }
+
+    expect(spy).toHaveBeenCalled();
+    const callArgs = spy.mock.calls[0]?.[0];
+    const customToolNames = (callArgs?.customTools ?? []).map(
+      (tool) => tool.name,
+    );
+    expect(customToolNames).toContain("create_automation");
+    expect(customToolNames).not.toContain("delete_automation");
+    expect(callArgs?.tools?.map((tool: { name: string }) => tool.name)).toEqual(
+      [],
+    );
+  });
+
+  it("passes allowed built-in tools to pi when allowedTools restricts defaults", async () => {
+    const { createAgentSession: mockCreateAgentSession } = await import(
+      "@mariozechner/pi-coding-agent"
+    );
+    const spy = vi.mocked(mockCreateAgentSession);
+    spy.mockClear();
+
+    const runner = createPiRunner({
+      model: "google:gemini-2.5-pro",
+      allowedTools: ["read", "bash"],
+    });
+
+    for await (const _ of runner.run("verify allowed built-ins")) {
+      break;
+    }
+
+    expect(spy).toHaveBeenCalled();
+    const callArgs = spy.mock.calls[0]?.[0];
+    expect(callArgs?.tools?.map((tool: { name: string }) => tool.name)).toEqual(
+      ["read", "bash"],
+    );
   });
 
   it("does not mutate process.env when injecting runner env", async () => {

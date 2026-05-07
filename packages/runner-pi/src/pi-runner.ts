@@ -4,10 +4,18 @@ import { type Api, getModel, type Model } from "@mariozechner/pi-ai";
 import {
   type AgentSessionEvent,
   AuthStorage,
+  bashTool,
+  type CreateAgentSessionOptions,
   createAgentSession,
+  editTool,
+  findTool,
+  grepTool,
+  lsTool,
   ModelRegistry,
+  readTool,
   SessionManager,
   type ToolDefinition,
+  writeTool,
 } from "@mariozechner/pi-coding-agent";
 import { BunnyAgentResourceLoader } from "./bunny-agent-resource-loader.js";
 import { buildImageEditTool, buildImageGenerateTool } from "./image-tools.js";
@@ -47,6 +55,12 @@ export interface PiRunnerOptions {
   sessionId?: string;
   /** Additional skill paths (files or directories) */
   skillPaths?: string[];
+  /**
+   * Explicit allowlist for tools. Undefined means expose the runner defaults.
+   * When provided, it also filters custom tools and toolRefs so resumed pi
+   * sessions cannot keep using tools the caller has disabled.
+   */
+  allowedTools?: string[];
   yolo?: boolean;
   /**
    * Custom tools to register alongside built-in pi tools and the runner's
@@ -66,6 +80,34 @@ export interface PiRunnerOptions {
 
 export interface PiRunner {
   run(userInput: string): AsyncIterable<string>;
+}
+
+function applyAllowedTools(
+  tools: ToolDefinition[],
+  allowedTools: string[] | undefined,
+): ToolDefinition[] {
+  if (!allowedTools) return tools;
+  const allowed = new Set(allowedTools);
+  return tools.filter((tool) => allowed.has(tool.name));
+}
+
+function resolveAllowedBuiltInTools(
+  allowedTools: string[] | undefined,
+): CreateAgentSessionOptions["tools"] {
+  if (!allowedTools) return undefined;
+  const builtIns = {
+    read: readTool,
+    bash: bashTool,
+    edit: editTool,
+    write: writeTool,
+    grep: grepTool,
+    find: findTool,
+    ls: lsTool,
+  };
+  const allowed = new Set(allowedTools);
+  return Object.entries(builtIns)
+    .filter(([name]) => allowed.has(name))
+    .map(([, tool]) => tool);
 }
 
 export function parseModelSpec(model: string): {
@@ -336,12 +378,20 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           );
         }
 
+        const allowed = options.allowedTools
+          ? new Set(options.allowedTools)
+          : undefined;
+        const allowedToolRefs =
+          allowed && options.toolRefs
+            ? options.toolRefs.filter((tool) => allowed.has(tool.name))
+            : options.toolRefs;
+
         if (options.customTools && options.customTools.length > 0) {
           customTools.push(...options.customTools);
         }
 
-        if (options.toolRefs && options.toolRefs.length > 0) {
-          customTools.push(...buildToolDefinitionsFromRefs(options.toolRefs));
+        if (allowedToolRefs && allowedToolRefs.length > 0) {
+          customTools.push(...buildToolDefinitionsFromRefs(allowedToolRefs));
         }
 
         const { session } = await createAgentSession({
@@ -350,7 +400,8 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           sessionManager,
           modelRegistry,
           resourceLoader,
-          customTools,
+          tools: resolveAllowedBuiltInTools(options.allowedTools),
+          customTools: applyAllowedTools(customTools, options.allowedTools),
         });
 
         const eventQueue: AgentSessionEvent[] = [];
