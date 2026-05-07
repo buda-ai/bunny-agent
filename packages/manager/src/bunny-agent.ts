@@ -75,7 +75,8 @@ export class BunnyAgent {
       cmd.push("--max-turns", String(this.runner.maxTurns));
     }
 
-    // Add optional allowed tools
+    // Add optional allowed tools. This controls runner built-ins only; tool
+    // refs are filtered separately by the runner through `allowedToolRefs`.
     if (this.runner.allowedTools) {
       cmd.push("--allowed-tools", this.runner.allowedTools.join(","));
     }
@@ -168,6 +169,7 @@ export class BunnyAgent {
     if (input.toolRefs && input.toolRefs.length > 0) {
       toolRefsEnv.BUNNY_AGENT_TOOL_REFS_JSON = JSON.stringify({
         tools: input.toolRefs,
+        allowedToolRefs: input.allowedToolRefs,
       });
     }
 

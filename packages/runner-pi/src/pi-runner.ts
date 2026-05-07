@@ -76,6 +76,8 @@ export interface PiRunnerOptions {
    * ToolDefinition objects so the shared runner harness stays runner-agnostic.
    */
   toolRefs?: PiToolRef[];
+  /** Optional allowlist for `toolRefs` only. */
+  allowedToolRefs?: string[];
 }
 
 export interface PiRunner {
@@ -378,21 +380,24 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           );
         }
 
-        const allowed = options.allowedTools
-          ? new Set(options.allowedTools)
+        const allowedToolRefNames = options.allowedToolRefs
+          ? new Set(options.allowedToolRefs)
           : undefined;
-        const allowedToolRefs =
-          allowed && options.toolRefs
-            ? options.toolRefs.filter((tool) => allowed.has(tool.name))
+        const filteredToolRefs =
+          allowedToolRefNames && options.toolRefs
+            ? options.toolRefs.filter((tool) =>
+                allowedToolRefNames.has(tool.name),
+              )
             : options.toolRefs;
 
         if (options.customTools && options.customTools.length > 0) {
           customTools.push(...options.customTools);
         }
 
-        if (allowedToolRefs && allowedToolRefs.length > 0) {
-          customTools.push(...buildToolDefinitionsFromRefs(allowedToolRefs));
-        }
+        const toolRefDefinitions =
+          filteredToolRefs && filteredToolRefs.length > 0
+            ? buildToolDefinitionsFromRefs(filteredToolRefs)
+            : [];
 
         const { session } = await createAgentSession({
           cwd,
@@ -401,7 +406,10 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           modelRegistry,
           resourceLoader,
           tools: resolveAllowedBuiltInTools(options.allowedTools),
-          customTools: applyAllowedTools(customTools, options.allowedTools),
+          customTools: [
+            ...applyAllowedTools(customTools, options.allowedTools),
+            ...toolRefDefinitions,
+          ],
         });
 
         const eventQueue: AgentSessionEvent[] = [];

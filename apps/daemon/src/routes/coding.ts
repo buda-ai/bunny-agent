@@ -22,6 +22,8 @@ export interface RunRequest {
   env?: Record<string, string>;
   /** Tool refs the runner should expose to the LLM. */
   toolRefs?: RunToolRefs;
+  /** Optional allowlist for `toolRefs` only. */
+  allowedToolRefs?: RunnerCoreOptions["allowedToolRefs"];
 }
 
 /** SSE comment keepalive interval (ms). Prevents idle-timeout disconnects
@@ -79,6 +81,7 @@ export async function bunnyAgentRun(
       env,
       abortController,
       toolRefs: req.toolRefs,
+      allowedToolRefs: req.allowedToolRefs,
       // API: caller owns resume/session; do not read/write cwd/.bunny-agent or auto-load CLAUDE.md.
       autoInject: false,
     });
@@ -140,6 +143,7 @@ export function codingRunStream(
           env,
           abortController,
           toolRefs: req.toolRefs,
+          allowedToolRefs: req.allowedToolRefs,
           autoInject: false,
         });
         for await (const chunk of stream) {

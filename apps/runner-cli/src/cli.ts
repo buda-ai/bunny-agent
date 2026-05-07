@@ -23,6 +23,10 @@ import { buildImage } from "./build-image.js";
 import { runAgent } from "./runner.js";
 
 type RunnerToolRefs = NonNullable<PiRunnerOptions["toolRefs"]>;
+type RunnerToolRefsPayload = {
+  tools: RunnerToolRefs;
+  allowedToolRefs?: string[];
+};
 
 /**
  * Read and immediately unset the tool-ref env var the SDK passes through
@@ -30,19 +34,29 @@ type RunnerToolRefs = NonNullable<PiRunnerOptions["toolRefs"]>;
  * payload (which can contain Bearer tokens or HTTP headers) does not leak via
  * environment inheritance to bash tools the runner may shell out to.
  */
-function takeToolRefsFromEnv(): RunnerToolRefs | null {
+function takeToolRefsFromEnv(): RunnerToolRefsPayload | null {
   const raw = process.env.BUNNY_AGENT_TOOL_REFS_JSON;
   if (!raw) return null;
   delete process.env.BUNNY_AGENT_TOOL_REFS_JSON;
   try {
-    const parsed = JSON.parse(raw) as { tools?: RunnerToolRefs };
+    const parsed = JSON.parse(raw) as {
+      tools?: RunnerToolRefs;
+      allowedToolRefs?: unknown;
+    };
     if (!Array.isArray(parsed.tools)) {
       console.error(
         "[bunny-agent] BUNNY_AGENT_TOOL_REFS_JSON missing tools array; ignoring.",
       );
       return null;
     }
-    return parsed.tools;
+    return {
+      tools: parsed.tools,
+      allowedToolRefs: Array.isArray(parsed.allowedToolRefs)
+        ? parsed.allowedToolRefs.filter(
+            (name): name is string => typeof name === "string",
+          )
+        : undefined,
+    };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(
@@ -342,7 +356,10 @@ async function main(): Promise<void> {
         skillPaths: args.skillPaths,
         resume: args.resume,
         yolo: args.yolo,
-        ...(toolRefs ? { toolRefs } : {}),
+        ...(toolRefs ? { toolRefs: toolRefs.tools } : {}),
+        ...(toolRefs?.allowedToolRefs
+          ? { allowedToolRefs: toolRefs.allowedToolRefs }
+          : {}),
       });
       break;
     }

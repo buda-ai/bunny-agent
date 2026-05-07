@@ -582,7 +582,7 @@ describe("createPiRunner", () => {
     expect(bashTool).toBeDefined();
   });
 
-  it("filters toolRefs with allowedTools before registering custom tools", async () => {
+  it("filters toolRefs with allowedToolRefs before registering custom tools", async () => {
     const { createAgentSession: mockCreateAgentSession } = await import(
       "@mariozechner/pi-coding-agent"
     );
@@ -591,7 +591,7 @@ describe("createPiRunner", () => {
 
     const runner = createPiRunner({
       model: "google:gemini-2.5-pro",
-      allowedTools: ["create_automation"],
+      allowedToolRefs: ["create_automation"],
       toolRefs: [
         {
           name: "create_automation",
@@ -620,7 +620,41 @@ describe("createPiRunner", () => {
     expect(customToolNames).toContain("create_automation");
     expect(customToolNames).not.toContain("delete_automation");
     expect(callArgs?.tools?.map((tool: { name: string }) => tool.name)).toEqual(
-      [],
+      undefined,
+    );
+  });
+
+  it("does not use allowedTools to filter toolRefs", async () => {
+    const { createAgentSession: mockCreateAgentSession } = await import(
+      "@mariozechner/pi-coding-agent"
+    );
+    const spy = vi.mocked(mockCreateAgentSession);
+    spy.mockClear();
+
+    const runner = createPiRunner({
+      model: "google:gemini-2.5-pro",
+      allowedTools: ["read", "bash"],
+      toolRefs: [
+        {
+          name: "create_automation",
+          description: "Create an automation",
+          inputSchema: { type: "object", properties: {} },
+          runtime: { type: "http", url: "https://example.com/create" },
+        },
+      ],
+    });
+
+    for await (const _ of runner.run("verify tool refs are separate")) {
+      break;
+    }
+
+    expect(spy).toHaveBeenCalled();
+    const callArgs = spy.mock.calls[0]?.[0];
+    expect(callArgs?.tools?.map((tool: { name: string }) => tool.name)).toEqual(
+      ["read", "bash"],
+    );
+    expect((callArgs?.customTools ?? []).map((tool) => tool.name)).toContain(
+      "create_automation",
     );
   });
 
