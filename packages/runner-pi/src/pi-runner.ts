@@ -11,6 +11,7 @@ import {
 } from "@mariozechner/pi-coding-agent";
 import { BunnyAgentResourceLoader } from "./bunny-agent-resource-loader.js";
 import { buildImageEditTool, buildImageGenerateTool } from "./image-tools.js";
+import { buildVideoGenerateTool } from "./video-tools.js";
 import {
   extractSessionContext,
   isSessionFileTooLarge,
@@ -334,6 +335,12 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
             buildImageGenerateTool(cwd, imageModelName, model.baseUrl, apiKey),
             buildImageEditTool(cwd, imageModelName, model.baseUrl, apiKey),
           );
+        }
+
+        // Register Video Generation Tool via auto-detected Provider
+        const videoTool = buildVideoGenerateTool(options.env);
+        if (videoTool) {
+          customTools.push(videoTool);
         }
 
         if (options.customTools && options.customTools.length > 0) {
