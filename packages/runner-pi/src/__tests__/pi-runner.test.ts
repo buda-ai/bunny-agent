@@ -582,7 +582,7 @@ describe("createPiRunner", () => {
     expect(bashTool).toBeDefined();
   });
 
-  it("filters toolRefs with allowedTools before registering custom tools", async () => {
+  it("passes toolRefs through and lets pi apply allowedTools", async () => {
     const { createAgentSession: mockCreateAgentSession } = await import(
       "@earendil-works/pi-coding-agent"
     );
@@ -618,7 +618,7 @@ describe("createPiRunner", () => {
       (tool) => tool.name,
     );
     expect(customToolNames).toContain("create_automation");
-    expect(customToolNames).not.toContain("delete_automation");
+    expect(customToolNames).toContain("delete_automation");
     expect(callArgs?.tools).toEqual(["create_automation"]);
   });
 

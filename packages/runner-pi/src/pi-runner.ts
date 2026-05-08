@@ -343,16 +343,9 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           );
         }
 
-        const filteredToolRefs =
-          options.allowedTools && options.toolRefs
-            ? options.toolRefs.filter((tool) =>
-                options.allowedTools?.includes(tool.name),
-              )
-            : options.toolRefs;
-
         const toolRefDefinitions =
-          filteredToolRefs && filteredToolRefs.length > 0
-            ? buildToolDefinitionsFromRefs(filteredToolRefs)
+          options.toolRefs && options.toolRefs.length > 0
+            ? buildToolDefinitionsFromRefs(options.toolRefs)
             : [];
 
         const { session } = await createAgentSession({
