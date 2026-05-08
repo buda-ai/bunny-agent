@@ -23,6 +23,7 @@ import {
 import { buildSecretAwareTools, redactSecrets } from "./tool-overrides.js";
 import { buildToolDefinitionsFromRefs, type PiToolRef } from "./tool-refs.js";
 import { getUsageFromAgentEndMessages } from "./usage-metadata.js";
+import { buildVideoGenerateTool } from "./video-tools.js";
 
 const LOG_PREFIX = "[bunny-agent:pi]";
 
@@ -334,6 +335,12 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
             buildImageGenerateTool(cwd, imageModelName, model.baseUrl, apiKey),
             buildImageEditTool(cwd, imageModelName, model.baseUrl, apiKey),
           );
+        }
+
+        // Register Video Generation Tool via auto-detected Provider
+        const videoTool = buildVideoGenerateTool(options.env ?? {});
+        if (videoTool) {
+          customTools.push(videoTool);
         }
 
         if (options.customTools && options.customTools.length > 0) {

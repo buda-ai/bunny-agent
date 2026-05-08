@@ -36,6 +36,10 @@ export interface RunnerEnvParams {
   TAVILY_API_KEY?: string;
   /** image generation */
   IMAGE_GENERATION_MODEL?: string;
+  /** video generation */
+  ARK_API_KEY?: string;
+  ARK_MODEL_ID?: string;
+  ARK_BASE_URL?: string;
   /**
    * Base env to merge in (lowest priority).
    * Typically `process.env` for local sandbox, or extra vars from the request.
@@ -178,6 +182,13 @@ export function buildRunnerEnv(
   if (imageModel) {
     env.IMAGE_GENERATION_MODEL = imageModel;
   }
+
+  const arkApiKey = params.ARK_API_KEY || process.env.ARK_API_KEY;
+  const arkModelId = params.ARK_MODEL_ID || process.env.ARK_MODEL_ID;
+  const arkBaseUrl = params.ARK_BASE_URL || process.env.ARK_BASE_URL;
+  if (arkApiKey) env.ARK_API_KEY = arkApiKey;
+  if (arkModelId) env.ARK_MODEL_ID = arkModelId;
+  if (arkBaseUrl) env.ARK_BASE_URL = arkBaseUrl;
 
   return env;
 }
