@@ -14,6 +14,9 @@ export default defineConfig([
     outDir: "dist",
     splitting: false,
     // runner-harness resolves at runtime via pnpm workspace — no bundling needed
-    external: ["@earendil-works/pi-coding-agent", "@bunny-agent/runner-harness"],
+    external: [
+      "@earendil-works/pi-coding-agent",
+      "@bunny-agent/runner-harness",
+    ],
   },
 ]);
