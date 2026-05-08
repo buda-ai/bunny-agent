@@ -11,7 +11,6 @@ import {
 } from "@mariozechner/pi-coding-agent";
 import { BunnyAgentResourceLoader } from "./bunny-agent-resource-loader.js";
 import { buildImageEditTool, buildImageGenerateTool } from "./image-tools.js";
-import { buildVideoGenerateTool } from "./video-tools.js";
 import {
   extractSessionContext,
   isSessionFileTooLarge,
@@ -24,6 +23,7 @@ import {
 import { buildSecretAwareTools, redactSecrets } from "./tool-overrides.js";
 import { buildToolDefinitionsFromRefs, type PiToolRef } from "./tool-refs.js";
 import { getUsageFromAgentEndMessages } from "./usage-metadata.js";
+import { buildVideoGenerateTool } from "./video-tools.js";
 
 const LOG_PREFIX = "[bunny-agent:pi]";
 

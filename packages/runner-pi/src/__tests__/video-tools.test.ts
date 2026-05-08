@@ -1,8 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  resolveVideoProvider,
   buildVideoGenerateTool,
+  resolveVideoProvider,
 } from "../video-tools.js";
+
+// Minimal stub for ExtensionContext required by tool.execute signature
+const mockCtx = {} as Parameters<
+  NonNullable<ReturnType<typeof buildVideoGenerateTool>>["execute"]
+>[4];
 
 describe("video-tools", () => {
   describe("resolveVideoProvider", () => {
@@ -56,10 +61,10 @@ describe("video-tools", () => {
 
       // Mock setTimeout to run instantly
       const originalSetTimeout = global.setTimeout;
-      global.setTimeout = ((fn: Function) => {
+      global.setTimeout = ((fn: () => void) => {
         fn();
-        return {} as any;
-      }) as any;
+        return 0 as unknown as ReturnType<typeof setTimeout>;
+      }) as typeof setTimeout;
 
       const onUpdate = vi.fn();
       const result = await tool!.execute(
@@ -67,7 +72,7 @@ describe("video-tools", () => {
         { prompt: "test video prompt" },
         undefined,
         onUpdate,
-        {} as any
+        mockCtx,
       );
 
       expect(mockFetch).toHaveBeenCalledTimes(2);
