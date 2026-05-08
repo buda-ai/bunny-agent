@@ -7,7 +7,7 @@ Successfully created `@bunny-agent/runner-pi` - a new runner implementation for 
 ### What Was Built
 
 1. **packages/runner-pi/** - New package implementing Pi agent runtime
-   - `src/pi-runner.ts` - Core runner implementation using `@mariozechner/pi-agent-core`
+   - `src/pi-runner.ts` - Core runner implementation using `@earendil-works/pi-agent-core`
    - `src/index.ts` - Package exports
    - `package.json` - Dependencies: pi-agent-core, pi-ai
    - `tsconfig.json` - TypeScript configuration with declaration files
@@ -36,12 +36,12 @@ runner-pi (packages/runner-pi/src/pi-runner.ts)
   - createPiRunner() factory function
   - Returns { run(input): AsyncIterable<string> }
                               ↓
-Pi Agent Core (@mariozechner/pi-agent-core)
+Pi Agent Core (@earendil-works/pi-agent-core)
   - Agent class with event system
   - Subscribes to agent events
   - Converts to AI SDK UI format
                               ↓
-Pi AI (@mariozechner/pi-ai)
+Pi AI (@earendil-works/pi-ai)
   - Multi-provider LLM API
   - Supports Google, OpenAI, Anthropic, etc.
 ```

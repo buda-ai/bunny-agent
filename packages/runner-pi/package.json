@@ -23,9 +23,9 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@mariozechner/pi-agent-core": "0.64.0",
-    "@mariozechner/pi-ai": "0.64.0",
-    "@mariozechner/pi-coding-agent": "0.64.0",
+    "@earendil-works/pi-agent-core": "0.74.0",
+    "@earendil-works/pi-ai": "0.74.0",
+    "@earendil-works/pi-coding-agent": "0.74.0",
     "@sinclair/typebox": "^0.34.0"
   },
   "devDependencies": {

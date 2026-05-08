@@ -358,6 +358,7 @@ export async function POST(request: Request) {
         ...(daemonUrl ? { daemonUrl } : {}),
         cwd: sandbox.getWorkdir?.() || "/bunny-agent",
         runnerType,
+        allowedTools: ["read", "bash", "edit", "write", "get_current_time"],
         verbose: true,
         artifactProcessors: [artifactProcessor],
         resume,

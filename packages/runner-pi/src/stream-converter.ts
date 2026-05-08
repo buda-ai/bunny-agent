@@ -1,5 +1,5 @@
-import type { Usage } from "@mariozechner/pi-ai";
-import type { AgentSessionEvent } from "@mariozechner/pi-coding-agent";
+import type { Usage } from "@earendil-works/pi-ai";
+import type { AgentSessionEvent } from "@earendil-works/pi-coding-agent";
 import type { ToolDetailsWithUsage } from "./tool-details.js";
 import {
   accumulateToolUsage,

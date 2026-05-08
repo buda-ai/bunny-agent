@@ -9,11 +9,11 @@ import type {
   SettingsManager,
   Skill,
   Theme,
-} from "@mariozechner/pi-coding-agent";
+} from "@earendil-works/pi-coding-agent";
 import {
   DefaultResourceLoader,
   loadSkills,
-} from "@mariozechner/pi-coding-agent";
+} from "@earendil-works/pi-coding-agent";
 
 const LOG_PREFIX = "[bunny-agent:pi]";
 
@@ -73,7 +73,7 @@ export class BunnyAgentResourceLoader implements ResourceLoader {
 
   constructor(options: BunnyAgentResourceLoaderOptions = {}) {
     this.cwd = options.cwd ?? process.cwd();
-    this.agentDir = options.agentDir ?? join(homedir(), ".pi", "agent");
+    this.agentDir = options.agentDir ?? join(homedir(), ".bunny", "agent");
     this.skillPaths = options.skillPaths ?? [];
     this.extraAppendPrompt = options.appendSystemPrompt;
 
@@ -96,6 +96,7 @@ export class BunnyAgentResourceLoader implements ResourceLoader {
         cwd: this.cwd,
         agentDir: this.agentDir,
         skillPaths: this.skillPaths,
+        includeDefaults: true,
       });
       if (this.skillPaths.length > 0) {
         logSkillLoad(

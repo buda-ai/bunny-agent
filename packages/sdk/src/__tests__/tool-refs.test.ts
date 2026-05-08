@@ -3,8 +3,15 @@ import type {
   LanguageModelV3CallOptions,
   LanguageModelV3StreamPart,
 } from "@ai-sdk/provider";
+import type {
+  BunnyAgentCodingRunBody,
+  ExecOptions,
+  SandboxAdapter,
+  SandboxHandle,
+} from "@bunny-agent/manager";
 import { jsonSchema, streamText } from "ai";
 import { describe, expect, it } from "vitest";
+import { createBunnyAgent } from "../provider/bunny-agent-provider";
 import {
   bunnyHttpTool,
   bunnySandboxTool,
@@ -310,7 +317,76 @@ describe("Bunny provider tool refs", () => {
       }),
     );
   });
+
+  it("sends AI SDK tools as toolRefs without mutating runner allowedTools", async () => {
+    const capturedBodies: BunnyAgentCodingRunBody[] = [];
+    const sandbox = createCodingRunSandbox(capturedBodies);
+    const bunnyAgent = createBunnyAgent({
+      sandbox,
+      daemonUrl: "http://127.0.0.1:3080",
+      allowedTools: ["read", "bash"],
+    });
+
+    const result = streamText({
+      model: bunnyAgent("google:gemini-2.5-pro", { runnerType: "pi" }),
+      messages: [{ role: "user", content: "create one" }],
+      tools: {
+        create_automation: bunnyHttpTool({
+          description: "Create automation",
+          inputSchema: jsonSchema({
+            type: "object",
+            properties: { name: { type: "string" } },
+            required: ["name"],
+          }),
+          endpoint: {
+            url: "https://example.com/tools/create_automation",
+          },
+        }),
+      },
+    });
+
+    await result.consumeStream();
+
+    expect(capturedBodies[0]).toMatchObject({
+      allowedTools: ["read", "bash"],
+      toolRefs: [
+        expect.objectContaining({
+          name: "create_automation",
+        }),
+      ],
+    });
+  });
 });
+
+function createCodingRunSandbox(
+  capturedBodies: BunnyAgentCodingRunBody[],
+): SandboxAdapter {
+  const handle: SandboxHandle = {
+    getSandboxId: () => null,
+    getVolumes: () => null,
+    getWorkdir: () => "/workspace",
+    exec: async function* () {},
+    upload: async () => {},
+    readFile: async () => "",
+    destroy: async () => {},
+    streamCodingRun: async function* (
+      body: BunnyAgentCodingRunBody,
+      _opts?: ExecOptions,
+    ) {
+      capturedBodies.push(body);
+      yield new TextEncoder().encode(
+        'data: {"type":"finish","finishReason":{"unified":"stop","raw":"stop"},"usage":{"inputTokens":{"total":0,"noCache":0,"cacheRead":0,"cacheWrite":0},"outputTokens":{"total":0}}}\n\n',
+      );
+      yield new TextEncoder().encode("data: [DONE]\n\n");
+    },
+  };
+
+  return {
+    attach: async () => handle,
+    getHandle: () => handle,
+    getWorkdir: () => "/workspace",
+  };
+}
 
 function createCapturingModel(): LanguageModelV3 & {
   lastOptions?: LanguageModelV3CallOptions;
