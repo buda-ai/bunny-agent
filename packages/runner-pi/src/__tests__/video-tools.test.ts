@@ -66,13 +66,16 @@ describe("video-tools", () => {
         "call-id",
         { prompt: "test video prompt" },
         undefined,
-        onUpdate
+        onUpdate,
+        {} as any
       );
 
       expect(mockFetch).toHaveBeenCalledTimes(2);
-      expect(result.content[0].type).toBe("text");
-      expect(result.content[0].text).toContain("https://example.com/video.mp4");
-      expect(result.content[0].text).toContain("task-123");
+      const first = result.content[0];
+      expect(first.type).toBe("text");
+      if (first.type !== "text") throw new Error("expected text content");
+      expect(first.text).toContain("https://example.com/video.mp4");
+      expect(first.text).toContain("task-123");
 
       // Restore
       global.setTimeout = originalSetTimeout;
