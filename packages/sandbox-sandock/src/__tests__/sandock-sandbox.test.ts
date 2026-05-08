@@ -153,6 +153,25 @@ describe("SandockSandbox", () => {
       );
     });
 
+    it("should pass env option to Sandock API when provided", async () => {
+      const { createSandockClient } = await import("sandock");
+      const mockCreateClient = createSandockClient as ReturnType<typeof vi.fn>;
+      const sandbox = new SandockSandbox({
+        env: { START_CDP_ON_INIT: "0", FOO: "bar" },
+      });
+      await sandbox.attach();
+      const mockClient = mockCreateClient.mock.results[
+        mockCreateClient.mock.results.length - 1
+      ].value as {
+        sandbox: { create: ReturnType<typeof vi.fn> };
+      };
+      expect(mockClient.sandbox.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          env: { START_CDP_ON_INIT: "0", FOO: "bar" },
+        }),
+      );
+    });
+
     it("should not pass command to Sandock API when not provided", async () => {
       const { createSandockClient } = await import("sandock");
       const mockCreateClient = createSandockClient as ReturnType<typeof vi.fn>;
