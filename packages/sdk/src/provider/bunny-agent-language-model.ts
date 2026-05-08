@@ -98,13 +98,6 @@ function mergeToolRefs(
   return merged.length > 0 ? merged : undefined;
 }
 
-function allowedToolRefsFromToolRefs(
-  toolRefs: ToolRef[] | undefined,
-): string[] | undefined {
-  if (!toolRefs || toolRefs.length === 0) return undefined;
-  return Array.from(new Set(toolRefs.map((tool) => tool.name)));
-}
-
 function getLastUserTextFromMessages(messages: Message[]): string {
   const lastUser = [...messages].reverse().find((m) => m.role === "user");
   if (!lastUser) return "";
@@ -315,7 +308,6 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
 
     const callToolRefs = compileToolRefsFromLanguageModelTools(options.tools);
     const toolRefs = mergeToolRefs(this.options.toolRefs, callToolRefs);
-    const allowedToolRefs = allowedToolRefsFromToolRefs(callToolRefs);
 
     const daemonUrl = this.options.daemonUrl;
 
@@ -324,12 +316,7 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
       const sandboxEnv = sandbox.getEnv?.() ?? {};
       const runnerEnv = { ...sandboxEnv, ...this.options.env };
       const body: BunnyAgentCodingRunBody = {
-        ...this.buildCodingRunBody(
-          messages,
-          handle.getWorkdir(),
-          toolRefs,
-          allowedToolRefs,
-        ),
+        ...this.buildCodingRunBody(messages, handle.getWorkdir(), toolRefs),
         ...(Object.keys(runnerEnv).length > 0 ? { env: runnerEnv } : {}),
       };
       const execOpts = {
@@ -365,9 +352,6 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
         resume: this.options.resume,
         signal: abortSignal,
         ...(toolRefs && toolRefs.length > 0 ? { toolRefs } : {}),
-        ...(allowedToolRefs && allowedToolRefs.length > 0
-          ? { allowedToolRefs }
-          : {}),
       });
       return this.buildStreamResult(bytesStream, messages);
     } catch (error) {
@@ -386,7 +370,6 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
     messages: Message[],
     cwdFallback: string,
     toolRefs: ToolRef[] | undefined,
-    allowedToolRefs: string[] | undefined,
   ): BunnyAgentCodingRunBody {
     const runner = this.options.runner;
     const cwd = this.options.cwd ?? cwdFallback;
@@ -403,9 +386,6 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
       skillPaths: runner.skillPaths ?? this.options.skillPaths,
       yolo: this.options.yolo,
       ...(toolRefs && toolRefs.length > 0 ? { toolRefs } : {}),
-      ...(allowedToolRefs && allowedToolRefs.length > 0
-        ? { allowedToolRefs }
-        : {}),
     };
   }
 

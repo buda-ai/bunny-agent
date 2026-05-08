@@ -25,7 +25,6 @@ import { runAgent } from "./runner.js";
 type RunnerToolRefs = NonNullable<PiRunnerOptions["toolRefs"]>;
 type RunnerToolRefsPayload = {
   tools: RunnerToolRefs;
-  allowedToolRefs?: string[];
 };
 
 /**
@@ -41,7 +40,6 @@ function takeToolRefsFromEnv(): RunnerToolRefsPayload | null {
   try {
     const parsed = JSON.parse(raw) as {
       tools?: RunnerToolRefs;
-      allowedToolRefs?: unknown;
     };
     if (!Array.isArray(parsed.tools)) {
       console.error(
@@ -51,11 +49,6 @@ function takeToolRefsFromEnv(): RunnerToolRefsPayload | null {
     }
     return {
       tools: parsed.tools,
-      allowedToolRefs: Array.isArray(parsed.allowedToolRefs)
-        ? parsed.allowedToolRefs.filter(
-            (name): name is string => typeof name === "string",
-          )
-        : undefined,
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -357,9 +350,6 @@ async function main(): Promise<void> {
         resume: args.resume,
         yolo: args.yolo,
         ...(toolRefs ? { toolRefs: toolRefs.tools } : {}),
-        ...(toolRefs?.allowedToolRefs
-          ? { allowedToolRefs: toolRefs.allowedToolRefs }
-          : {}),
       });
       break;
     }

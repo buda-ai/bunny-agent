@@ -57,8 +57,8 @@ export interface PiRunnerOptions {
   skillPaths?: string[];
   /**
    * Explicit allowlist for tools. Undefined means expose the runner defaults.
-   * When provided, it also filters custom tools and toolRefs so resumed pi
-   * sessions cannot keep using tools the caller has disabled.
+   * When provided, it filters built-in tools, custom tools, and toolRefs so
+   * resumed pi sessions cannot keep using tools the caller has disabled.
    */
   allowedTools?: string[];
   yolo?: boolean;
@@ -76,8 +76,6 @@ export interface PiRunnerOptions {
    * ToolDefinition objects so the shared runner harness stays runner-agnostic.
    */
   toolRefs?: PiToolRef[];
-  /** Optional allowlist for `toolRefs` only. */
-  allowedToolRefs?: string[];
 }
 
 export interface PiRunner {
@@ -380,13 +378,10 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           );
         }
 
-        const allowedToolRefNames = options.allowedToolRefs
-          ? new Set(options.allowedToolRefs)
-          : undefined;
         const filteredToolRefs =
-          allowedToolRefNames && options.toolRefs
+          options.allowedTools && options.toolRefs
             ? options.toolRefs.filter((tool) =>
-                allowedToolRefNames.has(tool.name),
+                options.allowedTools?.includes(tool.name),
               )
             : options.toolRefs;
 

@@ -318,7 +318,7 @@ describe("Bunny provider tool refs", () => {
     );
   });
 
-  it("sends AI SDK tools as allowedToolRefs without mutating runner allowedTools", async () => {
+  it("sends AI SDK tools as toolRefs without mutating runner allowedTools", async () => {
     const capturedBodies: BunnyAgentCodingRunBody[] = [];
     const sandbox = createCodingRunSandbox(capturedBodies);
     const bunnyAgent = createBunnyAgent({
@@ -349,7 +349,6 @@ describe("Bunny provider tool refs", () => {
 
     expect(capturedBodies[0]).toMatchObject({
       allowedTools: ["read", "bash"],
-      allowedToolRefs: ["create_automation"],
       toolRefs: [
         expect.objectContaining({
           name: "create_automation",

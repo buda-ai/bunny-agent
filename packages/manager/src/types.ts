@@ -80,11 +80,6 @@ export interface BunnyAgentCodingRunBody {
   /** Skip tool approval checks (bypass permissions). */
   yolo?: boolean;
   /**
-   * Optional allowlist for `toolRefs` only. This is separate from
-   * `allowedTools`, which controls runner built-ins.
-   */
-  allowedToolRefs?: string[];
-  /**
    * Runtime tools the runner should expose to the LLM. Each tool carries both
    * its LLM-facing spec and the runtime the in-sandbox runner should use when
    * the model calls it.
@@ -288,11 +283,6 @@ export interface StreamInput {
    * that wire {@link ToolRef} into their tool registry (currently `pi`).
    */
   toolRefs?: ToolRef[];
-  /**
-   * Optional allowlist for `toolRefs` only. Separate from runner built-in
-   * `allowedTools`.
-   */
-  allowedToolRefs?: string[];
 }
 
 /**

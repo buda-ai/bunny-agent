@@ -582,7 +582,7 @@ describe("createPiRunner", () => {
     expect(bashTool).toBeDefined();
   });
 
-  it("filters toolRefs with allowedToolRefs before registering custom tools", async () => {
+  it("filters toolRefs with allowedTools before registering custom tools", async () => {
     const { createAgentSession: mockCreateAgentSession } = await import(
       "@mariozechner/pi-coding-agent"
     );
@@ -591,7 +591,7 @@ describe("createPiRunner", () => {
 
     const runner = createPiRunner({
       model: "google:gemini-2.5-pro",
-      allowedToolRefs: ["create_automation"],
+      allowedTools: ["create_automation"],
       toolRefs: [
         {
           name: "create_automation",
@@ -620,11 +620,11 @@ describe("createPiRunner", () => {
     expect(customToolNames).toContain("create_automation");
     expect(customToolNames).not.toContain("delete_automation");
     expect(callArgs?.tools?.map((tool: { name: string }) => tool.name)).toEqual(
-      undefined,
+      [],
     );
   });
 
-  it("does not use allowedTools to filter toolRefs", async () => {
+  it("uses allowedTools to filter built-ins and toolRefs together", async () => {
     const { createAgentSession: mockCreateAgentSession } = await import(
       "@mariozechner/pi-coding-agent"
     );
@@ -633,7 +633,7 @@ describe("createPiRunner", () => {
 
     const runner = createPiRunner({
       model: "google:gemini-2.5-pro",
-      allowedTools: ["read", "bash"],
+      allowedTools: ["read", "bash", "create_automation"],
       toolRefs: [
         {
           name: "create_automation",

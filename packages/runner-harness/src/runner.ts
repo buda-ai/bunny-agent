@@ -28,8 +28,6 @@ export interface RunnerCoreOptions extends BaseRunnerOptions {
    * the `pi` runner consumes these; other runners ignore the field.
    */
   toolRefs?: PiRunnerOptions["toolRefs"];
-  /** Optional allowlist for `toolRefs` only. */
-  allowedToolRefs?: PiRunnerOptions["allowedToolRefs"];
 }
 
 export function createRunner(
@@ -95,7 +93,6 @@ function dispatchRunner(
         sessionId: base.resume,
         skillPaths: options.skillPaths ?? discoverSkillPaths(cwd),
         toolRefs: options.toolRefs,
-        allowedToolRefs: options.allowedToolRefs,
       }).run(options.userInput);
     }
     case "opencode":
