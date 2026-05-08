@@ -1,6 +1,6 @@
 {
   "name": "@bunny-agent/sandbox-sandock",
-  "version": "0.9.34",
+  "version": "0.9.35",
   "description": "Sandock sandbox adapter for BunnyAgent",
   "type": "module",
   "main": "./dist/index.js",
