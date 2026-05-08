@@ -6,7 +6,7 @@ export default defineConfig([
     format: ["esm"],
     outDir: "dist",
     splitting: false,
-    external: ["@mariozechner/pi-coding-agent"],
+    external: ["@earendil-works/pi-coding-agent"],
   },
   {
     entry: ["src/extension.ts"],
@@ -14,6 +14,6 @@ export default defineConfig([
     outDir: "dist",
     splitting: false,
     // runner-harness resolves at runtime via pnpm workspace — no bundling needed
-    external: ["@mariozechner/pi-coding-agent", "@bunny-agent/runner-harness"],
+    external: ["@earendil-works/pi-coding-agent", "@bunny-agent/runner-harness"],
   },
 ]);

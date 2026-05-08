@@ -1,0 +1,14 @@
+diff --git a/package.json b/package.json
+index 60e3a139e6ee936f79c5061672c5e76948f96be2..7bba6db47ecf5f675fa8a32932713d2065f2ff8f 100644
+--- a/package.json
++++ b/package.json
+@@ -4,7 +4,8 @@
+ 	"description": "Coding agent CLI with read, bash, edit, write tools and session management",
+ 	"type": "module",
+ 	"piConfig": {
+-		"configDir": ".pi"
++		"name": "bunny",
++		"configDir": ".bunny"
+ 	},
+ 	"bin": {
+ 		"pi": "dist/cli.js"

@@ -22,7 +22,7 @@
   "scripts": {
     "build": "tsc && pnpm bundle",
     "build:bundle": "tsc && pnpm bundle",
-    "bundle": "esbuild src/cli.ts --bundle --platform=node --format=esm --external:dotenv --external:@anthropic-ai/claude-agent-sdk --external:@openai/codex-sdk --external:@mariozechner/pi-agent-core --external:@mariozechner/pi-ai --external:@mariozechner/pi-coding-agent --outfile=dist/bundle.mjs",
+    "bundle": "esbuild src/cli.ts --bundle --platform=node --format=esm --external:dotenv --external:@anthropic-ai/claude-agent-sdk --external:@openai/codex-sdk --external:@earendil-works/pi-agent-core --external:@earendil-works/pi-ai --external:@earendil-works/pi-coding-agent --outfile=dist/bundle.mjs",
     "dev": "tsc --watch",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit",
@@ -51,9 +51,9 @@
   ],
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "0.2.70",
-    "@mariozechner/pi-agent-core": "0.64.0",
-    "@mariozechner/pi-ai": "0.64.0",
-    "@mariozechner/pi-coding-agent": "0.64.0",
+    "@earendil-works/pi-agent-core": "0.74.0",
+    "@earendil-works/pi-ai": "0.74.0",
+    "@earendil-works/pi-coding-agent": "0.74.0",
     "@openai/codex-sdk": "^0.110.0",
     "dotenv": "^17.3.1",
     "zod": "^4.0.0"

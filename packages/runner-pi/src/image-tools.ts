@@ -10,7 +10,7 @@
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, extname, join } from "node:path";
-import type { ToolDefinition } from "@mariozechner/pi-coding-agent";
+import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 import type { ToolDetailsWithUsage, ToolUsageDetails } from "./tool-details.js";
 
 export interface ImageGenerationUsage {

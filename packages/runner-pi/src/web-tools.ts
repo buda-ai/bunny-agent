@@ -12,7 +12,7 @@
  * as a zero-config fallback.
  */
 
-import type { ToolDefinition } from "@mariozechner/pi-coding-agent";
+import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 import type { ToolUsageDetails } from "./tool-details.js";
 
 // ---------------------------------------------------------------------------
