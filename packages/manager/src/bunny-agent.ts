@@ -75,7 +75,8 @@ export class BunnyAgent {
       cmd.push("--max-turns", String(this.runner.maxTurns));
     }
 
-    // Add optional allowed tools
+    // Add optional allowed tools. This controls the full runner tool registry,
+    // including built-ins, runner custom tools, and tool refs.
     if (this.runner.allowedTools) {
       cmd.push("--allowed-tools", this.runner.allowedTools.join(","));
     }

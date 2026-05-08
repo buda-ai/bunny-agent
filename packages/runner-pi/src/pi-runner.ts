@@ -1,6 +1,6 @@
 import { appendFileSync, existsSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
-import { type Api, getModel, type Model } from "@mariozechner/pi-ai";
+import { type Api, getModel, type Model } from "@earendil-works/pi-ai";
 import {
   type AgentSessionEvent,
   AuthStorage,
@@ -8,7 +8,7 @@ import {
   ModelRegistry,
   SessionManager,
   type ToolDefinition,
-} from "@mariozechner/pi-coding-agent";
+} from "@earendil-works/pi-coding-agent";
 import { BunnyAgentResourceLoader } from "./bunny-agent-resource-loader.js";
 import { buildImageEditTool, buildImageGenerateTool } from "./image-tools.js";
 import {
@@ -42,21 +42,18 @@ export interface PiRunnerOptions {
    * if the value contains '/', it is treated as a session file path and opened directly.
    * When NOT set, a brand-new session is created each time so no stale context
    * is loaded from previous runs.
-   * Sessions use Pi's default directory (~/.pi/agent/sessions/...) so workspace is not used.
+   * Sessions use Bunny's patched pi config directory (~/.bunny/agent/sessions/...) so workspace is not used.
    */
   sessionId?: string;
   /** Additional skill paths (files or directories) */
   skillPaths?: string[];
-  yolo?: boolean;
   /**
-   * Custom tools to register alongside built-in pi tools and the runner's
-   * secret-aware bash/read overrides. This is the pi-native escape hatch for
-   * callers that already have ToolDefinition objects.
-   *
-   * Definitions are appended after the built-ins so they cannot accidentally
-   * override `bash` / `read`; they participate in pi's normal tool-call flow.
+   * Explicit allowlist for tools. Undefined means expose the runner defaults.
+   * When provided, it filters built-in tools, custom tools, and toolRefs so
+   * resumed pi sessions cannot keep using tools the caller has disabled.
    */
-  customTools?: ToolDefinition[];
+  allowedTools?: string[];
+  yolo?: boolean;
   /**
    * Serializable Bunny tool refs. Pi owns the conversion into pi-native
    * ToolDefinition objects so the shared runner harness stays runner-agnostic.
@@ -66,6 +63,15 @@ export interface PiRunnerOptions {
 
 export interface PiRunner {
   run(userInput: string): AsyncIterable<string>;
+}
+
+function applyAllowedTools(
+  tools: ToolDefinition[],
+  allowedTools: string[] | undefined,
+): ToolDefinition[] {
+  if (!allowedTools) return tools;
+  const allowed = new Set(allowedTools);
+  return tools.filter((tool) => allowed.has(tool.name));
 }
 
 export function parseModelSpec(model: string): {
@@ -189,7 +195,8 @@ function traceRawMessage(
 
 /**
  * Create a Pi agent runner that outputs SSE format (Data Stream Protocol).
- * Uses pi-coding-agent's AgentSession + SessionManager with default session dir (~/.pi).
+ * Uses pi-coding-agent's AgentSession + SessionManager with Bunny's patched
+ * default session dir (~/.bunny/agent/sessions/...).
  * Resume: pass previous run's message-metadata.sessionFile as options.sessionId (--resume).
  */
 export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
@@ -336,13 +343,17 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           );
         }
 
-        if (options.customTools && options.customTools.length > 0) {
-          customTools.push(...options.customTools);
-        }
+        const filteredToolRefs =
+          options.allowedTools && options.toolRefs
+            ? options.toolRefs.filter((tool) =>
+                options.allowedTools?.includes(tool.name),
+              )
+            : options.toolRefs;
 
-        if (options.toolRefs && options.toolRefs.length > 0) {
-          customTools.push(...buildToolDefinitionsFromRefs(options.toolRefs));
-        }
+        const toolRefDefinitions =
+          filteredToolRefs && filteredToolRefs.length > 0
+            ? buildToolDefinitionsFromRefs(filteredToolRefs)
+            : [];
 
         const { session } = await createAgentSession({
           cwd,
@@ -350,7 +361,11 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           sessionManager,
           modelRegistry,
           resourceLoader,
-          customTools,
+          tools: options.allowedTools,
+          customTools: [
+            ...applyAllowedTools(customTools, options.allowedTools),
+            ...toolRefDefinitions,
+          ],
         });
 
         const eventQueue: AgentSessionEvent[] = [];
@@ -449,9 +464,9 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
             return;
           }
 
-          if (!streamConverter.finished && session.agent.state.error) {
+          if (!streamConverter.finished && session.agent.state.errorMessage) {
             for (const chunk of streamConverter.forceError(
-              session.agent.state.error,
+              session.agent.state.errorMessage,
             )) {
               yield chunk;
             }

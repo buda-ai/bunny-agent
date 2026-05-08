@@ -306,10 +306,8 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
       );
     }
 
-    const toolRefs = mergeToolRefs(
-      this.options.toolRefs,
-      compileToolRefsFromLanguageModelTools(options.tools),
-    );
+    const callToolRefs = compileToolRefsFromLanguageModelTools(options.tools);
+    const toolRefs = mergeToolRefs(this.options.toolRefs, callToolRefs);
 
     const daemonUrl = this.options.daemonUrl;
 

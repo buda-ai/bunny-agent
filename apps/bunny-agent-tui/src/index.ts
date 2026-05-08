@@ -16,5 +16,5 @@ if (existsSync(envPath)) {
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const extensionPath = join(__dirname, "extension.js");
 
-const { main } = await import("@mariozechner/pi-coding-agent");
+const { main } = await import("@earendil-works/pi-coding-agent");
 await main(["-e", extensionPath, ...process.argv.slice(2)]);

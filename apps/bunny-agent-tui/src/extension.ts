@@ -15,7 +15,7 @@ import {
   buildWebFetchTool,
   buildWebSearchTool,
 } from "@bunny-agent/runner-harness";
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 export default function bunnyExtension(pi: ExtensionAPI) {
   const env = process.env as Record<string, string>;

@@ -15,7 +15,7 @@ import {
   statSync,
 } from "node:fs";
 import { join } from "node:path";
-import { SessionManager } from "@mariozechner/pi-coding-agent";
+import { SessionManager } from "@earendil-works/pi-coding-agent";
 
 /** Maximum session file size (bytes) before we skip resume to avoid OOM.
  *  Override with env var SANDAGENT_MAX_SESSION_BYTES for testing. */
