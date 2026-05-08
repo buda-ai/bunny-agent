@@ -91,7 +91,7 @@ RUN echo '#!/usr/bin/env node' > /usr/local/bin/bunny-agent-daemon && \
     echo 'import("/opt/bunny-agent/node_modules/@bunny-agent/daemon/dist/bundle.mjs")' >> /usr/local/bin/bunny-agent-daemon && \
     chmod +x /usr/local/bin/bunny-agent-daemon
 
-# Entrypoint: run init hooks, copy /skills, start daemon + CDP, then exec CMD
+# Entrypoint: run init hooks, copy /skills, start daemon + optional CDP, then exec CMD
 RUN printf '%s\n' \
     '#!/bin/bash' \
     '# Run all init hooks (drop scripts into /etc/bunny-agent-init.d/)' \
@@ -106,7 +106,10 @@ RUN printf '%s\n' \
     '  echo "Copied /skills to $HOME/.claude/skills"' \
     'fi' \
     'bunny-agent-daemon &' \
-    'start-cdp' \
+    'case "${START_CDP_ON_INIT:-1}" in' \
+    '  0) echo "CDP startup disabled by START_CDP_ON_INIT=0" ;;' \
+    '  *) start-cdp ;;' \
+    'esac' \
     'exec "$@"' > /usr/local/bin/bunny-agent-entrypoint && \
     chmod +x /usr/local/bin/bunny-agent-entrypoint && \
     mkdir -p /etc/bunny-agent-init.d
@@ -117,6 +120,7 @@ ENV PATH=/usr/local/bin:$PATH
 ENV SANDAGENT_ROOT=/agent
 ENV SANDAGENT_DAEMON_HOST=0.0.0.0
 ENV SANDAGENT_DAEMON_PORT=3080
+ENV START_CDP_ON_INIT=1
 
 # Suppress D-Bus errors in headless Chromium (no bus in containers)
 ENV DBUS_SESSION_BUS_ADDRESS=/dev/null
