@@ -352,6 +352,7 @@ export class SandockSandbox implements SandboxAdapter {
       activeDeadlineSeconds?: number;
       autoDeleteInterval?: number;
       command?: string[];
+      env?: Record<string, string>;
     } = {
       image: this.image,
       memory: this.memoryLimitMb,
@@ -366,6 +367,9 @@ export class SandockSandbox implements SandboxAdapter {
         volumeId: v.volumeId,
         mountPath: v.mountPath,
       }));
+    }
+    if (Object.keys(this.env).length > 0) {
+      createOptions.env = this.env;
     }
 
     const createResult = await this.client.sandbox.create(createOptions);
