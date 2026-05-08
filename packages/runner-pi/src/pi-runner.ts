@@ -20,7 +20,7 @@ import {
   extractToolResultText,
   PiAISDKStreamConverter,
 } from "./stream-converter.js";
-import { buildSecretAwareTools, redactSecrets } from "./tool-overrides.js";
+import { buildSecretAwareTools } from "./tool-overrides.js";
 import { buildToolDefinitionsFromRefs, type PiToolRef } from "./tool-refs.js";
 import { getUsageFromAgentEndMessages } from "./usage-metadata.js";
 
@@ -403,12 +403,6 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           const streamConverter = new PiAISDKStreamConverter({
             sessionId: session.sessionId,
             model,
-            redactText: (value: string) => {
-              if (options.env && Object.keys(options.env).length > 0) {
-                return redactSecrets(value, options.env);
-              }
-              return value;
-            },
             normalizeToolOutput: extractToolResultText,
             getUsageFromAgentEndMessages,
             getErrorFromAgentEndMessages,

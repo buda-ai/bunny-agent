@@ -10,7 +10,6 @@ import {
 interface PiAISDKStreamConverterOptions {
   sessionId: string;
   model: BillingModel;
-  redactText: (value: string) => string;
   normalizeToolOutput: (result: unknown) => string;
   getUsageFromAgentEndMessages: (
     messages: Array<{ role: string; usage?: Usage }>,
@@ -125,9 +124,7 @@ export class PiAISDKStreamConverter {
     }
 
     if (event.type === "tool_execution_end") {
-      const output = this.options.redactText(
-        this.options.normalizeToolOutput(event.result),
-      );
+      const output = this.options.normalizeToolOutput(event.result);
       const raw = (event.result as { details?: ToolDetailsWithUsage })?.details
         ?.usage?.raw;
       if (raw != null) accumulateToolUsage(this.toolUsageTally, raw);
@@ -193,13 +190,16 @@ export class PiAISDKStreamConverter {
   }
 
   private emitTextDelta(rawDelta?: string): string[] {
-    const delta = rawDelta ? this.options.redactText(rawDelta) : undefined;
-    if (!delta) return [];
+    if (!rawDelta) return [];
     const startChunk =
       this.activeTextPartId == null ? this.openTextStream() : [];
     return [
       ...startChunk,
-      sseData({ type: "text-delta", id: this.activeTextPartId, delta }),
+      sseData({
+        type: "text-delta",
+        id: this.activeTextPartId,
+        delta: rawDelta,
+      }),
     ];
   }
 
