@@ -55,9 +55,12 @@ export function buildImageGenerateTool(
     label: "generate image",
     description:
       "Generate an image from a text prompt. Saves to disk and returns the file path.",
-    promptSnippet: "generate_image(prompt, filename?, size?, quality?)",
+    promptSnippet:
+      "generate_image(prompt, filename?, size?, aspectRatio?, imageSize?, quality?)",
     promptGuidelines: [
       "Use when the user asks to create, draw, or visualize something.",
+      "Use aspectRatio (e.g. '3:4') when the requested output needs specific proportions.",
+      "Use imageSize (e.g. '2K') when the user requests 1K, 2K, or 4K resolution.",
     ],
     parameters: {
       type: "object",
@@ -68,19 +71,43 @@ export function buildImageGenerateTool(
         size: {
           type: "string",
           enum: [
+            "auto",
+            "1024x1024",
+            "1536x1024",
+            "1024x1536",
             "256x256",
             "512x512",
-            "1024x1024",
             "1792x1024",
             "1024x1792",
-            "1280x1280",
-            "1568x1056",
-            "1056x1568",
-            "1472x1088",
-            "1088x1472",
-            "1728x960",
-            "960x1728",
           ],
+          description:
+            "Image dimensions. Supported values: auto, 1024x1024, 1536x1024, 1024x1536, " +
+            "256x256, 512x512, 1792x1024, 1024x1792.",
+        },
+        aspectRatio: {
+          type: "string",
+          enum: [
+            "1:1",
+            "3:2",
+            "2:3",
+            "3:4",
+            "4:3",
+            "4:5",
+            "5:4",
+            "9:16",
+            "16:9",
+            "21:9",
+          ],
+          description:
+            "Image aspect ratio. Use this instead of size for models that support it " +
+            "when exact proportions matter. Supported values: 1:1, 3:2, 2:3, 3:4, 4:3, " +
+            "4:5, 5:4, 9:16, 16:9, 21:9.",
+        },
+        imageSize: {
+          type: "string",
+          enum: ["1K", "2K", "4K"],
+          description:
+            "Image resolution for models that support K-resolution output. Use this for requests like 2K or 4K.",
         },
         quality: { type: "string", enum: ["standard", "hd"] },
       },
@@ -89,8 +116,10 @@ export function buildImageGenerateTool(
     async execute(_id, params, _signal, _onUpdate) {
       const p = params as Record<string, unknown>;
       const prompt = p.prompt as string;
-      const size = (p.size as string) ?? "1024x1024";
+      const size = p.size as string | undefined;
       const quality = (p.quality as string) ?? "standard";
+      const aspectRatio = p.aspectRatio as string | undefined;
+      const imageSize = p.imageSize as string | undefined;
       const rawFilename = p.filename as string | undefined;
       const filename = rawFilename
         ? extname(rawFilename)
@@ -112,8 +141,14 @@ export function buildImageGenerateTool(
               model: imageModelId,
               prompt,
               n: 1,
-              size,
               quality,
+              ...(aspectRatio ? { aspect_ratio: aspectRatio } : {}),
+              ...(imageSize ? { image_size: imageSize } : {}),
+              ...(size
+                ? { size }
+                : !aspectRatio && !imageSize
+                  ? { size: "1024x1024" }
+                  : {}),
             }),
           },
         );

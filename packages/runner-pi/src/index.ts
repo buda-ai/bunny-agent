@@ -1,4 +1,4 @@
-export type { ToolDefinition } from "@mariozechner/pi-coding-agent";
+export type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 export type { ImageToolDetails, ImageToolUsageDetails } from "./image-tools.js";
 export {
   createPiRunner,
