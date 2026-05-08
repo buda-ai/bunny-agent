@@ -206,6 +206,8 @@ async function buildSandbox(
     OPENAI_BASE_URL,
     GEMINI_API_KEY,
     GEMINI_BASE_URL,
+    ARK_API_KEY: process.env.ARK_API_KEY,
+    ARK_MODEL_ID: process.env.ARK_MODEL_ID,
     inherit: extraEnv,
   });
   if (SANDBOX_PROVIDER === "daytona" && DAYTONA_API_KEY) {
