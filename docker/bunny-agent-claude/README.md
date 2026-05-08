@@ -87,6 +87,10 @@ docker build -f docker/bunny-agent-claude/Dockerfile.local -t vikadata/bunny-age
 1. Copy `.env.example` to `.env`.
 2. Set keys: `DAYTONA_API_KEY`, `E2B_API_KEY`.
 
+## Runtime options
+
+- `START_CDP_ON_INIT`: controls whether the entrypoint starts `start-cdp`. Defaults to `1`; set to `0` to skip CDP startup.
+
 ## Make targets
 
 | Target               | Description                                      |

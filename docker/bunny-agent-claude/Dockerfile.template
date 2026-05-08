@@ -82,7 +82,7 @@ RUN echo '#!/usr/bin/env node' > /usr/local/bin/sandagent-daemon && \
 # Install global CLI tools for agent use
 RUN npm install -g brave-search-cli
 
-# Entrypoint: copy /skills, start daemon + CDP, then exec CMD
+# Entrypoint: copy /skills, start daemon + optional CDP, then exec CMD
 RUN printf '%s\n' \
     '#!/bin/bash' \
     'mkdir -p "$HOME/.claude/skills"' \
@@ -91,7 +91,10 @@ RUN printf '%s\n' \
     '  echo "Copied /skills to $HOME/.claude/skills"' \
     'fi' \
     'sandagent-daemon &' \
-    'start-cdp' \
+    'case "${START_CDP_ON_INIT:-1}" in' \
+    '  0) echo "CDP startup disabled by START_CDP_ON_INIT=0" ;;' \
+    '  *) start-cdp ;;' \
+    'esac' \
     'exec "$@"' > /usr/local/bin/sandagent-entrypoint && \
     chmod +x /usr/local/bin/sandagent-entrypoint
 ENV NODE_PATH=/opt/sandagent/node_modules
@@ -99,6 +102,7 @@ ENV PATH=/usr/local/bin:$PATH
 ENV SANDAGENT_ROOT=/agent
 ENV SANDAGENT_DAEMON_HOST=0.0.0.0
 ENV SANDAGENT_DAEMON_PORT=3080
+ENV START_CDP_ON_INIT=1
 
 # Suppress D-Bus errors in headless Chromium (no bus in containers)
 ENV DBUS_SESSION_BUS_ADDRESS=/dev/null
