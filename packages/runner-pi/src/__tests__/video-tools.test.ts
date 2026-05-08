@@ -34,7 +34,10 @@ describe("video-tools", () => {
       expect(tool).not.toBeNull();
       expect(tool?.name).toBe("generate_video");
       expect(tool?.label).toContain("BytePlus Ark");
-      expect(tool?.parameters.properties.prompt).toBeDefined();
+      expect(
+        (tool?.parameters as { properties: { prompt: unknown } }).properties
+          .prompt,
+      ).toBeDefined();
     });
 
     it("polls until the task succeeds and returns the video URL", async () => {

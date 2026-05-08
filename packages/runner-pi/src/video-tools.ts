@@ -1,4 +1,4 @@
-import type { ToolDefinition } from "@mariozechner/pi-coding-agent";
+import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 import type { ToolDetailsWithUsage } from "./tool-details.js";
 
 // ---------------------------------------------------------------------------
@@ -252,7 +252,7 @@ export function buildVideoGenerateTool(
       },
       required: ["prompt"],
     } as any,
-    execute: async (_toolCallId, params, signal, onUpdate) => {
+    async execute(_toolCallId, params, signal, onUpdate) {
       const { prompt } = params as { prompt: string };
       const resolvedEnv: Env = env ?? {};
 
