@@ -9,7 +9,7 @@
 # Build with BuildKit (default in Docker 23+): enables apt cache mounts for faster rebuilds.
 # First build is still slow: `playwright install --with-deps chromium` pulls many .deb packages.
 
-FROM node:20-slim
+FROM node:lts-slim
 
 # Version of @bunny-agent/runner-cli to install.
 # Override at build time: docker build --build-arg RUNNER_CLI_VERSION=1.2.3 ...
