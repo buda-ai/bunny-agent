@@ -2,7 +2,7 @@ import * as fs from "node:fs/promises";
 import type * as http from "node:http";
 import * as os from "node:os";
 import * as path from "node:path";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { DaemonRouter } from "../router.js";
 import { createDaemon } from "../server.js";
 
@@ -185,6 +185,48 @@ describe("jobs", () => {
     );
     expect(recordText).not.toContain(secret);
     expect(JSON.parse(recordText).env).toBeUndefined();
+  });
+
+  it("uses ARK_SEEDANCE_MODEL_ID for video generation", async () => {
+    const originalFetch = globalThis.fetch;
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ id: "ark_task_test" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    try {
+      const router = new DaemonRouter({ root });
+      const created = await router.handle("POST", "/api/jobs", {
+        id: "job_test_seedance_model_env",
+        kind: "video_generation",
+        input: {
+          prompt: "a short test video",
+          file_path: "videos/model-env.mp4",
+        },
+        env: {
+          ARK_API_KEY: "sk-test",
+          ARK_SEEDANCE_MODEL_ID: "doubao-seedance-2-0-fast-260128",
+          ARK_BASE_URL: "https://ark.example.test/api/v3",
+        },
+      });
+
+      expect(created).toMatchObject({
+        status: 200,
+        body: { ok: true },
+      });
+      expect(fetchMock).toHaveBeenCalledOnce();
+      const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+      expect(JSON.parse(String(init.body))).toMatchObject({
+        model: "doubao-seedance-2-0-fast-260128",
+      });
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 
   it("does not expose a job query route", async () => {

@@ -45,7 +45,7 @@ interface ArkGetResponse {
 
 function resolveArkConfig(env: Env = process.env) {
   const apiKey = env.ARK_API_KEY;
-  const modelId = env.ARK_MODEL_ID ?? "dreamina-seedance-2-0";
+  const modelId = env.ARK_SEEDANCE_MODEL_ID ?? "doubao-seedance-2-0-260128";
   const baseUrl =
     env.ARK_BASE_URL ?? "https://ark.ap-southeast.bytepluses.com/api/v3";
   if (!apiKey) {
