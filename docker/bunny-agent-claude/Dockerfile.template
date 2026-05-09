@@ -5,7 +5,7 @@
 # E2B: Use Template.fromDockerfile() to parse this Dockerfile
 # Daytona: Use daytona snapshot push or daytona snapshot create --dockerfile
 
-FROM node:20-slim
+FROM node:24-slim
 
 # Version of @sandagent/runner-cli to install.
 # Override at build time: docker build --build-arg RUNNER_CLI_VERSION=1.2.3 ...

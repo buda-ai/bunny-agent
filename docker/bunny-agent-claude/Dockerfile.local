@@ -7,7 +7,7 @@
 # -----------------------------------------------------------------------------
 # Stage 1: build runner-cli bundle from local source
 # -----------------------------------------------------------------------------
-FROM node:20-slim AS builder
+FROM node:24-slim AS builder
 
 WORKDIR /build
 
@@ -27,7 +27,7 @@ RUN pnpm install --frozen-lockfile && \
 # -----------------------------------------------------------------------------
 # Stage 2: runtime image with local bundle + claude-agent-sdk from npm
 # -----------------------------------------------------------------------------
-FROM node:20-slim
+FROM node:24-slim
 
 LABEL org.opencontainers.image.title="sandagent"
 LABEL org.opencontainers.image.description="SandAgent with Claude Agent SDK (local runner build)"
