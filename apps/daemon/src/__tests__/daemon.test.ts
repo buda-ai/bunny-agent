@@ -3,6 +3,7 @@ import type * as http from "node:http";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { DaemonRouter } from "../router.js";
 import { createDaemon } from "../server.js";
 
 const PORT = 13080;
@@ -184,6 +185,76 @@ describe("jobs", () => {
       id,
       kind: "video_generation",
       status: "cancelled",
+    });
+  });
+});
+
+describe("router", () => {
+  it("dispatches static routes and dynamic job routes", async () => {
+    const router = new DaemonRouter({ root });
+
+    const staticRoute = await router.handle("GET", "/api/fs/exists", {
+      path: "router-missing.txt",
+    });
+    expect(staticRoute).toMatchObject({
+      status: 200,
+      body: { ok: true, data: { exists: false } },
+    });
+
+    const now = new Date().toISOString();
+    await fs.mkdir(path.join(root, "jobs"), { recursive: true });
+    await fs.writeFile(
+      path.join(root, "jobs", "router_job_dynamic.json"),
+      JSON.stringify(
+        {
+          id: "router_job_dynamic",
+          kind: "video_generation",
+          status: "failed",
+          input: {
+            prompt: "router test",
+            file_path: "videos/router-test.mp4",
+          },
+          createdAt: now,
+          updatedAt: now,
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    const dynamicGet = await router.handle(
+      "GET",
+      "/api/jobs/router_job_dynamic",
+      {},
+    );
+    expect(dynamicGet).toMatchObject({
+      status: 200,
+      body: {
+        ok: true,
+        data: {
+          id: "router_job_dynamic",
+          kind: "video_generation",
+          status: "failed",
+        },
+      },
+    });
+
+    const dynamicCancel = await router.handle(
+      "POST",
+      "/api/jobs/router_job_dynamic/cancel",
+      {},
+    );
+    expect(dynamicCancel).toMatchObject({
+      status: 200,
+      body: {
+        ok: true,
+        data: {
+          id: "router_job_dynamic",
+          kind: "video_generation",
+          status: "cancelled",
+        },
+      },
     });
   });
 });
