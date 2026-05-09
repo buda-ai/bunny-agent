@@ -1,7 +1,13 @@
+import { randomUUID } from "node:crypto";
+import { createWriteStream } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
+import { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
+import type { ReadableStream as NodeWebReadableStream } from "node:stream/web";
 import type { AppState } from "../utils.js";
 import {
+  AppError,
   ensureDir,
   ok,
   resolveUnderRoot,
@@ -286,4 +292,139 @@ export async function fsUpload(
     });
   }
   return ok({ files: results });
+}
+
+// --- Write-from-URL ---
+
+interface WriteFromUrlBody {
+  volume?: string;
+  path: string;
+  url: string;
+  create_dirs?: boolean;
+  timeout_ms?: number;
+  idle_timeout_ms?: number;
+  headers?: Record<string, string>;
+}
+
+const MAX_CONCURRENT_WRITE_FROM_URL = 2;
+const DEFAULT_WRITE_FROM_URL_TIMEOUT_MS = 10 * 60 * 1000;
+const DEFAULT_WRITE_FROM_URL_IDLE_MS = 60 * 1000;
+
+let activeWriteFromUrl = 0;
+const writeFromUrlQueue: Array<() => void> = [];
+
+async function acquireWriteFromUrlSlot(): Promise<void> {
+  if (activeWriteFromUrl < MAX_CONCURRENT_WRITE_FROM_URL) {
+    activeWriteFromUrl++;
+    return;
+  }
+  await new Promise<void>((resolve) => writeFromUrlQueue.push(resolve));
+  activeWriteFromUrl++;
+}
+
+function releaseWriteFromUrlSlot(): void {
+  activeWriteFromUrl--;
+  const next = writeFromUrlQueue.shift();
+  if (next) next();
+}
+
+/**
+ * Stream a remote URL into a file under the volume root.
+ * The daemon fetches the URL itself and pipes the body to a temp file,
+ * then renames to the final path. No buffering of the full body.
+ */
+export async function fsWriteFromUrl(state: AppState, body: WriteFromUrlBody) {
+  if (!body.path || typeof body.path !== "string") {
+    throw new AppError(400, "path is required");
+  }
+  if (!body.url || typeof body.url !== "string") {
+    throw new AppError(400, "url is required");
+  }
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(body.url);
+  } catch {
+    throw new AppError(400, `invalid url: ${body.url}`);
+  }
+  if (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:") {
+    throw new AppError(400, `unsupported url protocol: ${parsedUrl.protocol}`);
+  }
+
+  const root = resolveVolumeRoot(state, body.volume);
+  const target = resolveUnderRoot(root, body.path);
+  if (body.create_dirs !== false) {
+    await ensureDir(path.dirname(target));
+  }
+
+  const totalTimeoutMs = Math.max(
+    1000,
+    Math.min(body.timeout_ms ?? DEFAULT_WRITE_FROM_URL_TIMEOUT_MS, 30 * 60 * 1000),
+  );
+  const idleTimeoutMs = Math.max(
+    1000,
+    Math.min(body.idle_timeout_ms ?? DEFAULT_WRITE_FROM_URL_IDLE_MS, totalTimeoutMs),
+  );
+
+  await acquireWriteFromUrlSlot();
+  const tmpPath = `${target}.${randomUUID()}.part`;
+  const controller = new AbortController();
+  const totalTimer = setTimeout(() => controller.abort(), totalTimeoutMs);
+  let idleTimer: NodeJS.Timeout | undefined;
+  const resetIdleTimer = () => {
+    if (idleTimer) clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => controller.abort(), idleTimeoutMs);
+  };
+
+  try {
+    const res = await fetch(parsedUrl, {
+      method: "GET",
+      signal: controller.signal,
+      headers: body.headers,
+    });
+    if (!res.ok) {
+      throw new AppError(
+        res.status >= 400 && res.status < 600 ? res.status : 502,
+        `download failed: ${res.status} ${res.statusText}`.trim(),
+      );
+    }
+    if (!res.body) {
+      throw new AppError(502, "download response has no body");
+    }
+
+    resetIdleTimer();
+    const nodeStream = Readable.fromWeb(res.body as NodeWebReadableStream);
+    nodeStream.on("data", resetIdleTimer);
+    let bytes = 0;
+    nodeStream.on("data", (chunk: Buffer) => {
+      bytes += chunk.length;
+    });
+
+    const writeStream = createWriteStream(tmpPath);
+    try {
+      await pipeline(nodeStream, writeStream);
+    } catch (err) {
+      await fs.unlink(tmpPath).catch(() => {});
+      if (controller.signal.aborted) {
+        throw new AppError(504, `download aborted after ${totalTimeoutMs}ms`);
+      }
+      throw err;
+    }
+
+    await fs.rename(tmpPath, target);
+    const contentType = res.headers.get("content-type") ?? null;
+    return ok({
+      path: target,
+      size: bytes,
+      contentType,
+    });
+  } catch (err) {
+    await fs.unlink(tmpPath).catch(() => {});
+    if (err instanceof AppError) throw err;
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new AppError(502, `write-from-url failed: ${msg}`);
+  } finally {
+    if (idleTimer) clearTimeout(idleTimer);
+    clearTimeout(totalTimer);
+    releaseWriteFromUrlSlot();
+  }
 }
