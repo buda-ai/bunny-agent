@@ -8,10 +8,32 @@ import { AppError, fail } from "./utils.js";
 
 // biome-ignore lint/suspicious/noExplicitAny: route handlers have specific typed params, cast is intentional
 type RouteHandler = (state: AppState, params: any) => Promise<ApiEnvelope>;
+type Route = [method: string, pattern: string, handler: RouteHandler];
+
+function matchPath(
+  pattern: string,
+  pathname: string,
+): Record<string, string> | null {
+  const patternParts = pattern.split("/").filter(Boolean);
+  const pathParts = pathname.split("/").filter(Boolean);
+  if (patternParts.length !== pathParts.length) return null;
+
+  const params: Record<string, string> = {};
+  for (let i = 0; i < patternParts.length; i++) {
+    const patternPart = patternParts[i];
+    const pathPart = pathParts[i];
+    if (patternPart.startsWith(":")) {
+      params[patternPart.slice(1)] = decodeURIComponent(pathPart);
+      continue;
+    }
+    if (patternPart !== pathPart) return null;
+  }
+  return params;
+}
 
 export class DaemonRouter {
   private state: AppState;
-  private routes: [string, string, RouteHandler][];
+  private routes: Route[];
 
   constructor(opts: { root: string }) {
     this.state = {
@@ -23,6 +45,8 @@ export class DaemonRouter {
       ["POST", "/api/volumes/ensure", (s, b) => volumesEnsure(s, b)],
       ["POST", "/api/volumes/remove", (s, b) => volumesRemove(s, b)],
       ["POST", "/api/jobs", (s, b) => jobRoutes.jobsCreate(s, b)],
+      ["GET", "/api/jobs/:id", (s, q) => jobRoutes.jobsGet(s, q)],
+      ["POST", "/api/jobs/:id/cancel", (s, b) => jobRoutes.jobsCancel(s, b)],
       ["GET", "/api/fs/list", (s, q) => fsRoutes.fsList(s, q)],
       ["GET", "/api/fs/read", (s, q) => fsRoutes.fsRead(s, q)],
       ["GET", "/api/fs/stat", (s, q) => fsRoutes.fsStat(s, q)],
@@ -51,9 +75,14 @@ export class DaemonRouter {
       return { status: 200, body: healthHandler(this.state) };
     }
     for (const [m, p, handler] of this.routes) {
-      if (method === m && pathname === p) {
+      if (method !== m) continue;
+      const pathParams = matchPath(p, pathname);
+      if (pathParams) {
         try {
-          return { status: 200, body: await handler(this.state, params) };
+          return {
+            status: 200,
+            body: await handler(this.state, { ...params, ...pathParams }),
+          };
         } catch (err) {
           if (err instanceof AppError) {
             return { status: err.status, body: fail(err.message) };
@@ -63,32 +92,6 @@ export class DaemonRouter {
             body: fail(err instanceof Error ? err.message : String(err)),
           };
         }
-      }
-    }
-    const jobMatch = pathname.match(/^\/api\/jobs\/([^/]+)(?:\/(cancel))?$/);
-    if (jobMatch) {
-      const [, id, action] = jobMatch;
-      try {
-        if (method === "GET" && !action) {
-          return {
-            status: 200,
-            body: await jobRoutes.jobsGet(this.state, { ...params, id }),
-          };
-        }
-        if (method === "POST" && action === "cancel") {
-          return {
-            status: 200,
-            body: await jobRoutes.jobsCancel(this.state, { ...params, id }),
-          };
-        }
-      } catch (err) {
-        if (err instanceof AppError) {
-          return { status: err.status, body: fail(err.message) };
-        }
-        return {
-          status: 500,
-          body: fail(err instanceof Error ? err.message : String(err)),
-        };
       }
     }
     return null;
