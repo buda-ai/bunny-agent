@@ -1,6 +1,7 @@
 import * as fsRoutes from "./routes/fs.js";
 import * as gitRoutes from "./routes/git.js";
 import { healthHandler } from "./routes/health.js";
+import * as jobRoutes from "./routes/jobs.js";
 import { volumesEnsure, volumesList, volumesRemove } from "./routes/volumes.js";
 import type { ApiEnvelope, AppState } from "./utils.js";
 import { AppError, fail } from "./utils.js";
@@ -21,6 +22,7 @@ export class DaemonRouter {
       ["GET", "/api/volumes/list", (s) => volumesList(s)],
       ["POST", "/api/volumes/ensure", (s, b) => volumesEnsure(s, b)],
       ["POST", "/api/volumes/remove", (s, b) => volumesRemove(s, b)],
+      ["POST", "/api/jobs", (s, b) => jobRoutes.jobsCreate(s, b)],
       ["GET", "/api/fs/list", (s, q) => fsRoutes.fsList(s, q)],
       ["GET", "/api/fs/read", (s, q) => fsRoutes.fsRead(s, q)],
       ["GET", "/api/fs/stat", (s, q) => fsRoutes.fsStat(s, q)],
@@ -61,6 +63,32 @@ export class DaemonRouter {
             body: fail(err instanceof Error ? err.message : String(err)),
           };
         }
+      }
+    }
+    const jobMatch = pathname.match(/^\/api\/jobs\/([^/]+)(?:\/(cancel))?$/);
+    if (jobMatch) {
+      const [, id, action] = jobMatch;
+      try {
+        if (method === "GET" && !action) {
+          return {
+            status: 200,
+            body: await jobRoutes.jobsGet(this.state, { ...params, id }),
+          };
+        }
+        if (method === "POST" && action === "cancel") {
+          return {
+            status: 200,
+            body: await jobRoutes.jobsCancel(this.state, { ...params, id }),
+          };
+        }
+      } catch (err) {
+        if (err instanceof AppError) {
+          return { status: err.status, body: fail(err.message) };
+        }
+        return {
+          status: 500,
+          body: fail(err instanceof Error ? err.message : String(err)),
+        };
       }
     }
     return null;

@@ -134,6 +134,53 @@ describe("volumes", () => {
   });
 });
 
+describe("jobs", () => {
+  it("validates job creation body", async () => {
+    const r = await post("/api/jobs", {
+      id: "job_test_missing_kind",
+      input: { prompt: "hello" },
+    });
+    expect(r.ok).toBe(false);
+    expect(r.error).toMatch(/unsupported job kind/);
+  });
+
+  it("persists failed video job when provider env is missing", async () => {
+    const id = "job_test_missing_env";
+    const created = await post("/api/jobs", {
+      id,
+      kind: "video_generation",
+      input: { prompt: "a short test video" },
+    });
+    expect(created.ok).toBe(false);
+
+    const read = await get(`/api/jobs/${id}`);
+    expect(read.ok).toBe(true);
+    expect(read.data).toMatchObject({
+      id,
+      kind: "video_generation",
+      status: "failed",
+    });
+    expect(read.data.error.message).toMatch(/ARK_API_KEY/);
+  });
+
+  it("cancels a persisted job", async () => {
+    const id = "job_test_cancel";
+    await post("/api/jobs", {
+      id,
+      kind: "video_generation",
+      input: { prompt: "a short test video" },
+    });
+
+    const cancelled = await post(`/api/jobs/${id}/cancel`, {});
+    expect(cancelled.ok).toBe(true);
+    expect(cancelled.data).toMatchObject({
+      id,
+      kind: "video_generation",
+      status: "cancelled",
+    });
+  });
+});
+
 describe("git", () => {
   it("init + status", async () => {
     const init = await post("/api/git/init", {
