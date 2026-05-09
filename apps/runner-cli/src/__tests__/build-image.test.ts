@@ -77,7 +77,7 @@ describe("buildImage", () => {
     expect(existsSync(dockerfilePath)).toBe(true);
 
     const content = readFileSync(dockerfilePath, "utf8");
-    expect(content).toContain("FROM node:lts-slim");
+    expect(content).toContain("FROM node:24-slim");
     expect(content).toContain("@bunny-agent/runner-cli");
     expect(content).toContain('CMD ["sleep", "infinity"]');
   });
