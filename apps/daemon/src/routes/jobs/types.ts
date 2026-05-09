@@ -43,6 +43,7 @@ export type DaemonJobUpdate = {
 
 export interface DaemonJobHandlerContext {
   state: AppState;
+  env: Record<string, string | undefined>;
 }
 
 export interface DaemonJobHandler {

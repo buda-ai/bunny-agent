@@ -278,7 +278,7 @@ async function createArkTask(
   input: VideoGenerationInput,
   context: DaemonJobHandlerContext,
 ): Promise<{ externalId: string; raw: unknown }> {
-  const { apiKey, modelId, baseUrl } = resolveArkConfig();
+  const { apiKey, modelId, baseUrl } = resolveArkConfig(context.env);
   const content = await buildArkContent(context.state, input);
   const res = await fetch(`${baseUrl}/contents/generations/tasks`, {
     method: "POST",
@@ -311,8 +311,9 @@ async function createArkTask(
 
 async function queryArkTask(
   externalId: string,
+  context: DaemonJobHandlerContext,
 ): Promise<{ status: DaemonJobStatus; raw: ArkGetResponse }> {
-  const { apiKey, baseUrl } = resolveArkConfig();
+  const { apiKey, baseUrl } = resolveArkConfig(context.env);
   const res = await fetch(
     `${baseUrl}/contents/generations/tasks/${externalId}`,
     {
@@ -331,8 +332,11 @@ async function queryArkTask(
   return { status: mapArkStatus(raw.status), raw };
 }
 
-async function cancelArkTask(externalId: string): Promise<unknown> {
-  const { apiKey, baseUrl } = resolveArkConfig();
+async function cancelArkTask(
+  externalId: string,
+  context: DaemonJobHandlerContext,
+): Promise<unknown> {
+  const { apiKey, baseUrl } = resolveArkConfig(context.env);
   const res = await fetch(
     `${baseUrl}/contents/generations/tasks/${externalId}`,
     {
@@ -389,7 +393,7 @@ export const videoGenerationJobHandler: DaemonJobHandler = {
       return { status: record.status, raw: record.raw, error: record.error };
     }
 
-    const queried = await queryArkTask(record.externalId);
+    const queried = await queryArkTask(record.externalId, context);
     if (queried.status === "succeeded") {
       const videoUrl = firstArkVideoUrl(queried.raw);
       if (!videoUrl) {
@@ -422,12 +426,15 @@ export const videoGenerationJobHandler: DaemonJobHandler = {
     };
   },
 
-  async cancel(record: DaemonJobRecord): Promise<DaemonJobUpdate> {
+  async cancel(
+    record: DaemonJobRecord,
+    context: DaemonJobHandlerContext,
+  ): Promise<DaemonJobUpdate> {
     const raw =
       record.externalId &&
       record.status !== "succeeded" &&
       record.status !== "failed"
-        ? await cancelArkTask(record.externalId)
+        ? await cancelArkTask(record.externalId, context)
         : record.raw;
     return {
       status: "cancelled",

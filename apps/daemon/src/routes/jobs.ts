@@ -13,10 +13,12 @@ interface CreateJobBody {
   id?: unknown;
   kind?: unknown;
   input?: unknown;
+  env?: unknown;
 }
 
 interface JobParams {
   id?: unknown;
+  env?: unknown;
 }
 
 const JOB_ID_RE = /^[A-Za-z0-9_-]{3,128}$/;
@@ -104,6 +106,22 @@ function handlerErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+function handlerContext(state: AppState, params?: { env?: unknown }) {
+  return { state, env: parseRequestEnv(params?.env) ?? process.env };
+}
+
+function parseRequestEnv(
+  value: unknown,
+): Record<string, string | undefined> | undefined {
+  if (typeof value !== "object" || value === null || Array.isArray(value))
+    return undefined;
+  const env: Record<string, string> = {};
+  for (const [key, val] of Object.entries(value)) {
+    if (typeof val === "string") env[key] = val;
+  }
+  return env;
+}
+
 export async function jobsCreate(state: AppState, body: CreateJobBody) {
   const id = parseJobId(body.id);
   const kind = parseJobKind(body.kind);
@@ -126,7 +144,10 @@ export async function jobsCreate(state: AppState, body: CreateJobBody) {
 
   const handler = getJobHandler(kind);
   try {
-    const update = await handler.create(record.input, { state });
+    const update = await handler.create(
+      record.input,
+      handlerContext(state, body),
+    );
     const next: DaemonJobRecord = {
       ...record,
       ...update,
@@ -152,7 +173,7 @@ export async function jobsCreate(state: AppState, body: CreateJobBody) {
   }
 }
 
-export async function jobsGet(state: AppState, params: JobParams) {
+export async function jobsSync(state: AppState, params: JobParams) {
   const id = parseJobId(params.id);
   const record = await readJobRecord(state, id);
 
@@ -162,7 +183,7 @@ export async function jobsGet(state: AppState, params: JobParams) {
 
   const handler = getJobHandler(record.kind);
   try {
-    const update = await handler.sync(record, { state });
+    const update = await handler.sync(record, handlerContext(state, params));
     const next: DaemonJobRecord = {
       ...record,
       ...update,
@@ -192,7 +213,7 @@ export async function jobsCancel(state: AppState, params: JobParams) {
   const id = parseJobId(params.id);
   const record = await readJobRecord(state, id);
   const handler = getJobHandler(record.kind);
-  const update = await handler.cancel(record, { state });
+  const update = await handler.cancel(record, handlerContext(state, params));
   const next: DaemonJobRecord = {
     ...record,
     ...update,

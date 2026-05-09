@@ -158,14 +158,39 @@ describe("jobs", () => {
     });
     expect(created.ok).toBe(false);
 
-    const read = await get(`/api/jobs/${id}`);
-    expect(read.ok).toBe(true);
-    expect(read.data).toMatchObject({
+    const synced = await post(`/api/jobs/${id}/sync`, {});
+    expect(synced.ok).toBe(true);
+    expect(synced.data).toMatchObject({
       id,
       kind: "video_generation",
       status: "failed",
     });
-    expect(read.data.error.message).toMatch(/ARK_API_KEY/);
+    expect(synced.data.error.message).toMatch(/ARK_API_KEY/);
+  });
+
+  it("does not persist request env in job records", async () => {
+    const id = "job_test_env_not_persisted";
+    const secret = "sk-test-secret";
+    const created = await post("/api/jobs", {
+      id,
+      kind: "video_generation",
+      input: {},
+      env: { ARK_API_KEY: secret },
+    });
+    expect(created.ok).toBe(false);
+
+    const recordText = await fs.readFile(
+      path.join(root, "jobs", `${id}.json`),
+      "utf8",
+    );
+    expect(recordText).not.toContain(secret);
+    expect(JSON.parse(recordText).env).toBeUndefined();
+  });
+
+  it("does not expose a job query route", async () => {
+    const r = await get("/api/jobs/job_test_missing_env");
+    expect(r.ok).toBe(false);
+    expect(r.error).toMatch(/not found/);
   });
 
   it("cancels a persisted job", async () => {
@@ -223,12 +248,12 @@ describe("router", () => {
       "utf8",
     );
 
-    const dynamicGet = await router.handle(
-      "GET",
-      "/api/jobs/router_job_dynamic",
+    const dynamicSync = await router.handle(
+      "POST",
+      "/api/jobs/router_job_dynamic/sync",
       {},
     );
-    expect(dynamicGet).toMatchObject({
+    expect(dynamicSync).toMatchObject({
       status: 200,
       body: {
         ok: true,

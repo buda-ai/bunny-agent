@@ -6,8 +6,11 @@ import { volumesEnsure, volumesList, volumesRemove } from "./routes/volumes.js";
 import type { ApiEnvelope, AppState } from "./utils.js";
 import { AppError, fail } from "./utils.js";
 
-// biome-ignore lint/suspicious/noExplicitAny: route handlers have specific typed params, cast is intentional
-type RouteHandler = (state: AppState, params: any) => Promise<ApiEnvelope>;
+type RouteHandler = (
+  state: AppState,
+  // biome-ignore lint/suspicious/noExplicitAny: route handlers have specific typed params, cast is intentional
+  params: any,
+) => Promise<ApiEnvelope>;
 type Route = [method: string, pattern: string, handler: RouteHandler];
 
 function matchPath(
@@ -45,7 +48,7 @@ export class DaemonRouter {
       ["POST", "/api/volumes/ensure", (s, b) => volumesEnsure(s, b)],
       ["POST", "/api/volumes/remove", (s, b) => volumesRemove(s, b)],
       ["POST", "/api/jobs", (s, b) => jobRoutes.jobsCreate(s, b)],
-      ["GET", "/api/jobs/:id", (s, q) => jobRoutes.jobsGet(s, q)],
+      ["POST", "/api/jobs/:id/sync", (s, b) => jobRoutes.jobsSync(s, b)],
       ["POST", "/api/jobs/:id/cancel", (s, b) => jobRoutes.jobsCancel(s, b)],
       ["GET", "/api/fs/list", (s, q) => fsRoutes.fsList(s, q)],
       ["GET", "/api/fs/read", (s, q) => fsRoutes.fsRead(s, q)],
