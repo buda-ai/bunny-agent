@@ -1,8 +1,9 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { ensureDir } from "../../utils.js";
+import { ensureDir, resolveUnderRoot, resolveVolumeRoot } from "../../utils.js";
 import type {
   DaemonJobHandler,
+  DaemonJobHandlerContext,
   DaemonJobRecord,
   DaemonJobStatus,
   DaemonJobUpdate,
@@ -13,6 +14,23 @@ type Env = Record<string, string | undefined>;
 
 interface VideoGenerationInput {
   prompt: string;
+  filePath: string;
+  volume: "agent" | "space";
+  attachments: VideoGenerationAttachment[];
+}
+
+interface VideoGenerationAttachment {
+  path?: string;
+  url?: string;
+  mimeType?: string;
+  name?: string;
+  role?: string;
+}
+
+interface ArkContentItem {
+  type: "text" | "image_url";
+  text?: string;
+  image_url?: { url: string };
 }
 
 interface ArkCreateResponse {
@@ -56,7 +74,26 @@ function parseInput(input: unknown): VideoGenerationInput {
       "input.prompt is required",
     );
   }
-  return { prompt: prompt.trim() };
+
+  const raw = input as Record<string, unknown>;
+  const rawFilePath = raw.file_path ?? raw.filePath ?? raw.output_path;
+  if (typeof rawFilePath !== "string" || rawFilePath.trim() === "") {
+    throw new DaemonJobHandlerError(
+      400,
+      "invalid_input",
+      "input.file_path is required",
+    );
+  }
+  const filePath = normalizeOutputPath(rawFilePath);
+  const volume = parseOutputVolume(filePath, raw.volume);
+  const attachments = parseAttachments(raw.attachments);
+
+  return {
+    prompt: buildPromptWithAttachmentHints(prompt.trim(), attachments),
+    filePath,
+    volume,
+    attachments,
+  };
 }
 
 function mapArkStatus(raw: string | undefined): DaemonJobStatus {
@@ -84,6 +121,149 @@ function firstArkVideoUrl(raw: ArkGetResponse): string | undefined {
   return raw.content?.[0]?.video?.url;
 }
 
+function normalizeOutputPath(value: string): string {
+  const trimmed = value.trim();
+  const withExtension = path.extname(trimmed) ? trimmed : `${trimmed}.mp4`;
+  return withExtension.replace(/^\/+(?!(agent|space)(?:\/|$))/, "");
+}
+
+function parseOutputVolume(
+  filePath: string,
+  rawVolume: unknown,
+): "agent" | "space" {
+  if (rawVolume === "space" || filePath.startsWith("/space/")) return "space";
+  return "agent";
+}
+
+function relativeOutputPath(
+  filePath: string,
+  volume: "agent" | "space",
+): string {
+  const prefix = `/${volume}/`;
+  if (filePath.startsWith(prefix)) return filePath.slice(prefix.length);
+  if (filePath === `/${volume}`) return "";
+  return filePath.replace(/^\/+/, "");
+}
+
+function parseAttachments(value: unknown): VideoGenerationAttachment[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) {
+    throw new DaemonJobHandlerError(
+      400,
+      "invalid_input",
+      "input.attachments must be an array",
+    );
+  }
+  return value.map((item, index) => {
+    if (typeof item === "string") {
+      const pathOrUrl = item.trim();
+      if (!pathOrUrl) {
+        throw new DaemonJobHandlerError(
+          400,
+          "invalid_input",
+          `input.attachments[${index}] is empty`,
+        );
+      }
+      return pathOrUrl.startsWith("http://") || pathOrUrl.startsWith("https://")
+        ? { url: pathOrUrl }
+        : { path: pathOrUrl };
+    }
+    if (typeof item !== "object" || item === null || Array.isArray(item)) {
+      throw new DaemonJobHandlerError(
+        400,
+        "invalid_input",
+        `input.attachments[${index}] must be a string or object`,
+      );
+    }
+    const raw = item as Record<string, unknown>;
+    const attachment: VideoGenerationAttachment = {
+      ...(typeof raw.path === "string" && raw.path.trim()
+        ? { path: raw.path.trim() }
+        : {}),
+      ...(typeof raw.url === "string" && raw.url.trim()
+        ? { url: raw.url.trim() }
+        : {}),
+      ...(typeof raw.mimeType === "string" && raw.mimeType.trim()
+        ? { mimeType: raw.mimeType.trim() }
+        : {}),
+      ...(typeof raw.name === "string" && raw.name.trim()
+        ? { name: raw.name.trim() }
+        : {}),
+      ...(typeof raw.role === "string" && raw.role.trim()
+        ? { role: raw.role.trim() }
+        : {}),
+    };
+    if (!attachment.path && !attachment.url) {
+      throw new DaemonJobHandlerError(
+        400,
+        "invalid_input",
+        `input.attachments[${index}] requires path or url`,
+      );
+    }
+    return attachment;
+  });
+}
+
+function buildPromptWithAttachmentHints(
+  prompt: string,
+  attachments: VideoGenerationAttachment[],
+): string {
+  if (attachments.length === 0) return prompt;
+  const lines = attachments.map((attachment, index) => {
+    const source = attachment.path ?? attachment.url ?? "unknown";
+    const role = attachment.role ? ` (${attachment.role})` : "";
+    return `- ${index + 1}. ${source}${role}`;
+  });
+  return `${prompt}\n\nReference attachments:\n${lines.join("\n")}`;
+}
+
+function guessMimeType(filePath: string): string {
+  const ext = path.extname(filePath).toLowerCase();
+  if (ext === ".png") return "image/png";
+  if (ext === ".jpg" || ext === ".jpeg") return "image/jpeg";
+  if (ext === ".webp") return "image/webp";
+  return "application/octet-stream";
+}
+
+async function attachmentToContent(
+  state: DaemonJobHandlerContext["state"],
+  attachment: VideoGenerationAttachment,
+): Promise<ArkContentItem | null> {
+  if (attachment.url) {
+    return { type: "image_url", image_url: { url: attachment.url } };
+  }
+  if (!attachment.path) return null;
+  const volume = attachment.path.startsWith("/space/") ? "space" : "agent";
+  const root = resolveVolumeRoot(state, volume);
+  const relativePath =
+    volume === "space"
+      ? attachment.path.replace(/^\/space\/?/, "")
+      : attachment.path.replace(/^\/agent\/?/, "");
+  const target = resolveUnderRoot(root, relativePath);
+  const buffer = await fs.readFile(target);
+  const mimeType = attachment.mimeType ?? guessMimeType(target);
+  if (!mimeType.startsWith("image/")) return null;
+  return {
+    type: "image_url",
+    image_url: { url: `data:${mimeType};base64,${buffer.toString("base64")}` },
+  };
+}
+
+async function buildArkContent(
+  state: DaemonJobHandlerContext["state"],
+  input: VideoGenerationInput,
+): Promise<ArkContentItem[]> {
+  const images = await Promise.all(
+    input.attachments.map((attachment) =>
+      attachmentToContent(state, attachment),
+    ),
+  );
+  return [
+    { type: "text", text: input.prompt },
+    ...images.filter((item): item is ArkContentItem => item !== null),
+  ];
+}
+
 async function readJsonOrText(res: Response): Promise<unknown> {
   const text = await res.text();
   if (!text) return {};
@@ -96,8 +276,10 @@ async function readJsonOrText(res: Response): Promise<unknown> {
 
 async function createArkTask(
   input: VideoGenerationInput,
+  context: DaemonJobHandlerContext,
 ): Promise<{ externalId: string; raw: unknown }> {
   const { apiKey, modelId, baseUrl } = resolveArkConfig();
+  const content = await buildArkContent(context.state, input);
   const res = await fetch(`${baseUrl}/contents/generations/tasks`, {
     method: "POST",
     headers: {
@@ -106,7 +288,7 @@ async function createArkTask(
     },
     body: JSON.stringify({
       model: modelId,
-      content: [{ type: "text", text: input.prompt }],
+      content,
     }),
   });
   const raw = (await readJsonOrText(res)) as ArkCreateResponse;
@@ -161,7 +343,11 @@ async function cancelArkTask(externalId: string): Promise<unknown> {
   return readJsonOrText(res);
 }
 
-async function downloadVideo(jobId: string, videoUrl: string): Promise<void> {
+async function downloadVideo(
+  context: DaemonJobHandlerContext,
+  input: VideoGenerationInput,
+  videoUrl: string,
+): Promise<void> {
   const res = await fetch(videoUrl);
   if (!res.ok) {
     throw new DaemonJobHandlerError(
@@ -171,8 +357,11 @@ async function downloadVideo(jobId: string, videoUrl: string): Promise<void> {
     );
   }
 
-  const root = path.resolve(path.sep, "agent");
-  const target = path.join(root, "videos", `${jobId}.mp4`);
+  const root = resolveVolumeRoot(context.state, input.volume);
+  const target = resolveUnderRoot(
+    root,
+    relativeOutputPath(input.filePath, input.volume),
+  );
   await ensureDir(path.dirname(target));
   await fs.writeFile(target, Buffer.from(await res.arrayBuffer()));
 }
@@ -180,8 +369,11 @@ async function downloadVideo(jobId: string, videoUrl: string): Promise<void> {
 export const videoGenerationJobHandler: DaemonJobHandler = {
   kind: "video_generation",
 
-  async create(input: unknown): Promise<DaemonJobUpdate> {
-    const created = await createArkTask(parseInput(input));
+  async create(
+    input: unknown,
+    context: DaemonJobHandlerContext,
+  ): Promise<DaemonJobUpdate> {
+    const created = await createArkTask(parseInput(input), context);
     return {
       status: "running",
       externalId: created.externalId,
@@ -189,7 +381,10 @@ export const videoGenerationJobHandler: DaemonJobHandler = {
     };
   },
 
-  async sync(record: DaemonJobRecord): Promise<DaemonJobUpdate> {
+  async sync(
+    record: DaemonJobRecord,
+    context: DaemonJobHandlerContext,
+  ): Promise<DaemonJobUpdate> {
     if (!record.externalId) {
       return { status: record.status, raw: record.raw, error: record.error };
     }
@@ -207,7 +402,7 @@ export const videoGenerationJobHandler: DaemonJobHandler = {
           },
         };
       }
-      await downloadVideo(record.id, videoUrl);
+      await downloadVideo(context, parseInput(record.input), videoUrl);
     }
 
     if (queried.status === "failed") {

@@ -149,7 +149,11 @@ describe("jobs", () => {
     const created = await post("/api/jobs", {
       id,
       kind: "video_generation",
-      input: { prompt: "a short test video" },
+      input: {
+        prompt: "a short test video",
+        file_path: "videos/test-output.mp4",
+        attachments: ["uploads/reference.png"],
+      },
     });
     expect(created.ok).toBe(false);
 
@@ -168,7 +172,10 @@ describe("jobs", () => {
     await post("/api/jobs", {
       id,
       kind: "video_generation",
-      input: { prompt: "a short test video" },
+      input: {
+        prompt: "a short test video",
+        file_path: "videos/cancelled.mp4",
+      },
     });
 
     const cancelled = await post(`/api/jobs/${id}/cancel`, {});
