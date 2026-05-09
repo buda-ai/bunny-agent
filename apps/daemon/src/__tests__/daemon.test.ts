@@ -183,9 +183,7 @@ describe("fs write-from-url", () => {
     expect(r.data.contentType).toBe("video/mp4");
     expect(upstreamRequests).toBe(1);
 
-    const written = await fs.readFile(
-      path.join(root, "downloads", "clip.mp4"),
-    );
+    const written = await fs.readFile(path.join(root, "downloads", "clip.mp4"));
     expect(written.equals(payload)).toBe(true);
   });
 

@@ -358,11 +358,17 @@ export async function fsWriteFromUrl(state: AppState, body: WriteFromUrlBody) {
 
   const totalTimeoutMs = Math.max(
     1000,
-    Math.min(body.timeout_ms ?? DEFAULT_WRITE_FROM_URL_TIMEOUT_MS, 30 * 60 * 1000),
+    Math.min(
+      body.timeout_ms ?? DEFAULT_WRITE_FROM_URL_TIMEOUT_MS,
+      30 * 60 * 1000,
+    ),
   );
   const idleTimeoutMs = Math.max(
     1000,
-    Math.min(body.idle_timeout_ms ?? DEFAULT_WRITE_FROM_URL_IDLE_MS, totalTimeoutMs),
+    Math.min(
+      body.idle_timeout_ms ?? DEFAULT_WRITE_FROM_URL_IDLE_MS,
+      totalTimeoutMs,
+    ),
   );
 
   await acquireWriteFromUrlSlot();

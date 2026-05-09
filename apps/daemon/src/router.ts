@@ -36,7 +36,11 @@ export class DaemonRouter {
       ["POST", "/api/fs/remove", (s, b) => fsRoutes.fsRemove(s, b)],
       ["POST", "/api/fs/move", (s, b) => fsRoutes.fsMove(s, b)],
       ["POST", "/api/fs/copy", (s, b) => fsRoutes.fsCopy(s, b)],
-      ["POST", "/api/fs/write-from-url", (s, b) => fsRoutes.fsWriteFromUrl(s, b)],
+      [
+        "POST",
+        "/api/fs/write-from-url",
+        (s, b) => fsRoutes.fsWriteFromUrl(s, b),
+      ],
       ["POST", "/api/git/status", (s, b) => gitRoutes.gitStatus(s, b)],
       ["POST", "/api/git/exec", (s, b) => gitRoutes.gitExec(s, b)],
       ["POST", "/api/git/clone", (s, b) => gitRoutes.gitClone(s, b)],
