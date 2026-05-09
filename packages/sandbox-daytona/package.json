@@ -1,6 +1,6 @@
 {
   "name": "@bunny-agent/sandbox-daytona",
-  "version": "0.9.35",
+  "version": "0.9.37-beta.1",
   "description": "Daytona sandbox adapter for BunnyAgent",
   "type": "module",
   "main": "./dist/index.js",
