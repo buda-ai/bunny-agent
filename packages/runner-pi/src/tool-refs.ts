@@ -10,6 +10,22 @@ type ToolResult = {
 
 type RuntimeResponse = { status: number; body: string };
 
+export class PiToolRefError extends Error {
+  readonly toolName: string;
+  readonly status?: number;
+  readonly body?: string;
+  constructor(
+    message: string,
+    opts: { toolName: string; status?: number; body?: string },
+  ) {
+    super(message);
+    this.name = "PiToolRefError";
+    this.toolName = opts.toolName;
+    this.status = opts.status;
+    this.body = opts.body;
+  }
+}
+
 export type PiToolRuntime =
   | {
       type: "http";
@@ -57,10 +73,16 @@ function buildOne(spec: PiToolRef): ToolDefinition {
         response = await executeToolRef(spec, params, signal);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        return transportErrorResult(spec.name, message);
+        throw new PiToolRefError(
+          `${LOG_PREFIX} tool "${spec.name}" transport error: ${message}`,
+          { toolName: spec.name },
+        );
       }
       if (response.status < 200 || response.status >= 300) {
-        return statusErrorResult(spec.name, response.status, response.body);
+        throw new PiToolRefError(
+          `${LOG_PREFIX} tool "${spec.name}" failed (status ${response.status}): ${response.body}`,
+          { toolName: spec.name, status: response.status, body: response.body },
+        );
       }
       return okResult(response.body);
     },
@@ -119,34 +141,6 @@ async function executeModuleTool(
 function okResult(text: string): ToolResult {
   return {
     content: [{ type: "text", text }],
-    details: undefined,
-  };
-}
-
-function statusErrorResult(
-  toolName: string,
-  status: number,
-  body: string,
-): ToolResult {
-  return {
-    content: [
-      {
-        type: "text",
-        text: `${LOG_PREFIX} tool "${toolName}" failed (status ${status}): ${body}`,
-      },
-    ],
-    details: undefined,
-  };
-}
-
-function transportErrorResult(toolName: string, message: string): ToolResult {
-  return {
-    content: [
-      {
-        type: "text",
-        text: `${LOG_PREFIX} tool "${toolName}" transport error: ${message}`,
-      },
-    ],
     details: undefined,
   };
 }

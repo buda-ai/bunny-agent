@@ -6,6 +6,12 @@ export {
   type PiRunnerOptions,
 } from "./pi-runner.js";
 export type { ToolDetailsWithUsage, ToolUsageDetails } from "./tool-details.js";
+export {
+  buildToolDefinitionsFromRefs,
+  PiToolRefError,
+  type PiToolRef,
+  type PiToolRuntime,
+} from "./tool-refs.js";
 export type {
   WebSearchBillingDetails,
   WebSearchProviderUsage,

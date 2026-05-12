@@ -654,6 +654,18 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
         });
         break;
       }
+      case "tool-output-error": {
+        const toolName = this.toolNameMap.get(parsed.toolCallId as string);
+        parts.push({
+          type: "tool-result",
+          toolCallId: parsed.toolCallId as string,
+          toolName: toolName ?? "",
+          result: (parsed.errorText as string) ?? "Tool execution failed",
+          isError: true,
+          dynamic: readToolDynamicFlag(parsed),
+        });
+        break;
+      }
       case "error": {
         parts.push({
           type: "error",

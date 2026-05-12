@@ -128,16 +128,27 @@ export class PiAISDKStreamConverter {
       const raw = (event.result as { details?: ToolDetailsWithUsage })?.details
         ?.usage?.raw;
       if (raw != null) accumulateToolUsage(this.toolUsageTally, raw);
-      chunks.push(
-        sseData({
-          type: "tool-output-available",
-          toolCallId: event.toolCallId,
-          output,
-          isError: event.isError,
-          dynamic: true,
-          providerExecuted: true,
-        }),
-      );
+      if (event.isError) {
+        chunks.push(
+          sseData({
+            type: "tool-output-error",
+            toolCallId: event.toolCallId,
+            errorText: output,
+            dynamic: true,
+            providerExecuted: true,
+          }),
+        );
+      } else {
+        chunks.push(
+          sseData({
+            type: "tool-output-available",
+            toolCallId: event.toolCallId,
+            output,
+            dynamic: true,
+            providerExecuted: true,
+          }),
+        );
+      }
       return chunks;
     }
 
