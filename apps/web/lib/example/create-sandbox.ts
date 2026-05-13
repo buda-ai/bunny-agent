@@ -32,10 +32,11 @@ const SANDBOX_IMAGE =
  * container `env` so bunny-agent-daemon sees the same variables as shell `exec`
  * (not only the curl child process).
  *
- * Sandock + bunny-agent image: the entrypoint command is always applied when the
- * image name matches {@link sandockImageNeedsSandagentEntrypoint}. `useBunnyAgentDaemon`
- * only affects sandbox cache key and (in the web app) whether `/api/ai` probes
- * `/healthz` and passes `daemonUrl` for HTTP transport, or omits it for CLI.
+ * Sandock + bundled Bunny images: the entrypoint command is always applied when
+ * the image name matches {@link sandockImageNeedsBundledEntrypoint}.
+ * `useBunnyAgentDaemon` only affects sandbox cache key and (in the web app)
+ * whether `/api/ai` probes `/healthz` and passes `daemonUrl` for HTTP transport,
+ * or omits it for CLI.
  */
 const SANDOCK_SLEEP_ARG = process.env.SANDOCK_CONTAINER_SLEEP_SEC ?? "infinity";
 
@@ -58,12 +59,11 @@ function resolveSandockEntrypoint(image: string): string {
   return "/usr/local/bin/bunny-agent-entrypoint";
 }
 
-function sandockImageNeedsSandagentEntrypoint(image: string): boolean {
+function sandockImageNeedsBundledEntrypoint(image: string): boolean {
   const i = image.toLowerCase();
   return (
-    i.includes("vikadata/bunny-agent") ||
+    i.includes("vikadata/bunny-") ||
     i.includes("vikadata/sandagent") ||
-    i.includes("/bunny-agent:") ||
     i.includes("/sandagent:") ||
     i.endsWith("/bunny-agent") ||
     i.endsWith("/sandagent") ||
@@ -120,6 +120,7 @@ function sandboxCacheKey(params: CreateSandboxParams): string {
   const fingerprintSource = {
     sandboxProvider: params.SANDBOX_PROVIDER ?? "",
     runnerType: params.runnerType ?? "",
+    sandboxImage: params.SANDBOX_IMAGE ?? SANDBOX_IMAGE,
     // Only include variables that can influence skill execution.
     AGENT_KEY: env.AGENT_KEY ?? "",
     BUDA_API_URL: env.BUDA_API_URL ?? "",
@@ -240,7 +241,7 @@ async function buildSandbox(
       workdir: "/agent",
       name: sandboxName,
       sandboxId: cachedId,
-      ...(sandockImageNeedsSandagentEntrypoint(image)
+      ...(sandockImageNeedsBundledEntrypoint(image)
         ? {
             command: [
               resolveSandockEntrypoint(image),

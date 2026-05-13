@@ -8,8 +8,8 @@ export {
 export type { ToolDetailsWithUsage, ToolUsageDetails } from "./tool-details.js";
 export {
   buildToolDefinitionsFromRefs,
-  PiToolRefError,
   type PiToolRef,
+  PiToolRefError,
   type PiToolRuntime,
 } from "./tool-refs.js";
 export type {

@@ -929,8 +929,7 @@ it("emits tool-output-error when a tool execution fails", async () => {
 
   // We should see a tool-output-error chunk (AI SDK v6) instead of tool-output-available
   const errorChunk = chunks.find(
-    (c) =>
-      c.includes('"type":"tool-output-error"') && c.includes("tool_fail"),
+    (c) => c.includes('"type":"tool-output-error"') && c.includes("tool_fail"),
   );
   expect(errorChunk).toBeDefined();
 
