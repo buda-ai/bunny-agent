@@ -918,7 +918,7 @@ describe("createPiRunner", () => {
   });
 });
 
-it("emits isError flag when a tool execution fails", async () => {
+it("emits tool-output-error when a tool execution fails", async () => {
   nextSessionBehavior = "tool_error";
   const runner = createPiRunner({ model: "openai:gpt-4o" });
 
@@ -927,18 +927,26 @@ it("emits isError flag when a tool execution fails", async () => {
     chunks.push(chunk);
   }
 
-  // We should see a tool-output-available chunk that includes isError:true
-  const outputChunk = chunks.find(
+  // We should see a tool-output-error chunk (AI SDK v6) instead of tool-output-available
+  const errorChunk = chunks.find(
+    (c) => c.includes('"type":"tool-output-error"') && c.includes("tool_fail"),
+  );
+  expect(errorChunk).toBeDefined();
+
+  const data = JSON.parse(errorChunk!.replace(/^data: /, "").trim());
+  // errorText must be a plain string derived from the tool's output
+  expect(typeof data.errorText).toBe("string");
+  expect(data.errorText).toBe("command failed");
+  expect(data.toolCallId).toContain("tool_fail");
+  expect(data.dynamic).toBe(true);
+  expect(data.providerExecuted).toBe(true);
+
+  // There must be no successful tool-output-available chunk for this call
+  const okChunk = chunks.find(
     (c) =>
       c.includes('"type":"tool-output-available"') && c.includes("tool_fail"),
   );
-  expect(outputChunk).toBeDefined();
-  expect(outputChunk).toContain('"isError":true');
-
-  // The output must be a plain string, not the raw pi ToolResult object
-  const data = JSON.parse(outputChunk!.replace(/^data: /, "").trim());
-  expect(typeof data.output).toBe("string");
-  expect(data.output).toBe("command failed");
+  expect(okChunk).toBeUndefined();
 });
 
 // ── redactSecrets unit tests ─────────────────────────────────────────────────

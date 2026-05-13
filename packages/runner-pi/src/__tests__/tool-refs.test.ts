@@ -127,7 +127,7 @@ describe("buildToolDefinitionsFromRefs", () => {
     });
   });
 
-  it("surfaces non-2xx responses as a tool error message", async () => {
+  it("surfaces non-2xx responses as a thrown tool error", async () => {
     await server.close();
     server = await startFakeBridge(() => ({
       status: 403,
@@ -137,30 +137,22 @@ describe("buildToolDefinitionsFromRefs", () => {
     const [tool] = buildToolDefinitionsFromRefs([
       { ...sampleSpec, runtime: { type: "http", url: server.url } },
     ]);
-    const result = await tool.execute(
-      "tc_2",
-      {},
-      undefined,
-      undefined,
-      undefined as never,
-    );
-
-    expect(result.content[0]).toMatchObject({ type: "text" });
-    const text = (result.content[0] as { text: string }).text;
-    expect(text).toMatch(/status 403/);
-    expect(text).toMatch(/tool not enabled/);
+    await expect(
+      tool.execute("tc_2", {}, undefined, undefined, undefined as never),
+    ).rejects.toMatchObject({
+      name: "PiToolRefError",
+      status: 403,
+      body: "tool not enabled for this agent",
+      message: "tool not enabled for this agent",
+    });
   });
 
   it("propagates AbortSignal so a cancelled run terminates the fetch", async () => {
     // Replace the server with one that never responds so we can assert the
     // abort path. The bridge fetch should reject with an AbortError-like
-    // condition that the wrapper converts into a tool-error result.
+    // condition that the wrapper converts into a thrown tool error.
     await server.close();
     server = await startFakeBridge(() => ({
-      // Hold the response by returning very late — but http.createServer
-      // resolves synchronously here. To keep the test deterministic, we
-      // instead abort BEFORE calling execute and rely on the fetch failing
-      // immediately on the pre-aborted signal.
       body: { ok: true },
     }));
 
@@ -170,19 +162,18 @@ describe("buildToolDefinitionsFromRefs", () => {
     const [tool] = buildToolDefinitionsFromRefs([
       { ...sampleSpec, runtime: { type: "http", url: server.url } },
     ]);
-    const result = await tool.execute(
-      "tc_3",
-      {},
-      controller.signal,
-      undefined,
-      undefined as never,
-    );
-
-    const text = (result.content[0] as { text: string }).text;
-    // Either fetch failed (aborted) or never reached the server. Both surface
-    // as a transport error from the wrapper, which is what we want.
-    expect(text).toMatch(/transport error/i);
-    expect(text).toMatch(/abort/i);
+    await expect(
+      tool.execute(
+        "tc_3",
+        {},
+        controller.signal,
+        undefined,
+        undefined as never,
+      ),
+    ).rejects.toMatchObject({
+      name: "PiToolRefError",
+      message: expect.stringMatching(/transport error.*abort/i),
+    });
   });
 
   it("executes sandbox module runtime tools", async () => {

@@ -1,14 +1,28 @@
 import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
 
-const LOG_PREFIX = "[bunny-agent:pi-tool-ref]";
-
 type ToolResult = {
   content: Array<{ type: "text"; text: string }>;
   details: undefined;
 };
 
 type RuntimeResponse = { status: number; body: string };
+
+export class PiToolRefError extends Error {
+  readonly toolName: string;
+  readonly status?: number;
+  readonly body?: string;
+  constructor(
+    message: string,
+    opts: { toolName: string; status?: number; body?: string },
+  ) {
+    super(message);
+    this.name = "PiToolRefError";
+    this.toolName = opts.toolName;
+    this.status = opts.status;
+    this.body = opts.body;
+  }
+}
 
 export type PiToolRuntime =
   | {
@@ -57,14 +71,27 @@ function buildOne(spec: PiToolRef): ToolDefinition {
         response = await executeToolRef(spec, params, signal);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        return transportErrorResult(spec.name, message);
+        throw new PiToolRefError(
+          `Tool "${spec.name}" transport error: ${message}`,
+          { toolName: spec.name },
+        );
       }
       if (response.status < 200 || response.status >= 300) {
-        return statusErrorResult(spec.name, response.status, response.body);
+        throw new PiToolRefError(formatToolRuntimeErrorMessage(response), {
+          toolName: spec.name,
+          status: response.status,
+          body: response.body,
+        });
       }
       return okResult(response.body);
     },
   };
+}
+
+function formatToolRuntimeErrorMessage(response: RuntimeResponse): string {
+  const body = response.body.trim();
+  if (body.length > 0) return body;
+  return `Tool execution failed with status ${response.status}`;
 }
 
 async function executeToolRef(
@@ -119,34 +146,6 @@ async function executeModuleTool(
 function okResult(text: string): ToolResult {
   return {
     content: [{ type: "text", text }],
-    details: undefined,
-  };
-}
-
-function statusErrorResult(
-  toolName: string,
-  status: number,
-  body: string,
-): ToolResult {
-  return {
-    content: [
-      {
-        type: "text",
-        text: `${LOG_PREFIX} tool "${toolName}" failed (status ${status}): ${body}`,
-      },
-    ],
-    details: undefined,
-  };
-}
-
-function transportErrorResult(toolName: string, message: string): ToolResult {
-  return {
-    content: [
-      {
-        type: "text",
-        text: `${LOG_PREFIX} tool "${toolName}" transport error: ${message}`,
-      },
-    ],
     details: undefined,
   };
 }
