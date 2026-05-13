@@ -77,10 +77,11 @@ function buildOne(spec: PiToolRef): ToolDefinition {
         );
       }
       if (response.status < 200 || response.status >= 300) {
-        throw new PiToolRefError(
-          formatToolRuntimeErrorMessage(response),
-          { toolName: spec.name, status: response.status, body: response.body },
-        );
+        throw new PiToolRefError(formatToolRuntimeErrorMessage(response), {
+          toolName: spec.name,
+          status: response.status,
+          body: response.body,
+        });
       }
       return okResult(response.body);
     },
