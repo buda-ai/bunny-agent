@@ -142,9 +142,8 @@ describe("buildToolDefinitionsFromRefs", () => {
     ).rejects.toMatchObject({
       name: "PiToolRefError",
       status: 403,
-      message: expect.stringMatching(
-        /status 403.*tool not enabled for this agent/,
-      ),
+      body: "tool not enabled for this agent",
+      message: "tool not enabled for this agent",
     });
   });
 

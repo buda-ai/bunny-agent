@@ -1,8 +1,6 @@
 import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
 
-const LOG_PREFIX = "[bunny-agent:pi-tool-ref]";
-
 type ToolResult = {
   content: Array<{ type: "text"; text: string }>;
   details: undefined;
@@ -74,19 +72,25 @@ function buildOne(spec: PiToolRef): ToolDefinition {
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         throw new PiToolRefError(
-          `${LOG_PREFIX} tool "${spec.name}" transport error: ${message}`,
+          `Tool "${spec.name}" transport error: ${message}`,
           { toolName: spec.name },
         );
       }
       if (response.status < 200 || response.status >= 300) {
         throw new PiToolRefError(
-          `${LOG_PREFIX} tool "${spec.name}" failed (status ${response.status}): ${response.body}`,
+          formatToolRuntimeErrorMessage(response),
           { toolName: spec.name, status: response.status, body: response.body },
         );
       }
       return okResult(response.body);
     },
   };
+}
+
+function formatToolRuntimeErrorMessage(response: RuntimeResponse): string {
+  const body = response.body.trim();
+  if (body.length > 0) return body;
+  return `Tool execution failed with status ${response.status}`;
 }
 
 async function executeToolRef(
