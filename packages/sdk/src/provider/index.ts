@@ -20,6 +20,7 @@ export { createBunnyAgent } from "./bunny-agent-provider";
 export type { SubmitAnswerOptions } from "./question-processor";
 export { submitAnswer } from "./question-processor";
 export {
+  bunnyClientTool,
   bunnyHttpTool,
   bunnySandboxTool,
 } from "./tool-refs";

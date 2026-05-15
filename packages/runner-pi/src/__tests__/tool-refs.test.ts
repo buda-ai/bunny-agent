@@ -176,6 +176,33 @@ describe("buildToolDefinitionsFromRefs", () => {
     });
   });
 
+  it("returns a placeholder for client runtime tools without HTTP", async () => {
+    const [tool] = buildToolDefinitionsFromRefs([
+      {
+        ...sampleSpec,
+        name: "get_preview_url",
+        runtime: { type: "client" },
+      },
+    ]);
+
+    const result = await tool.execute(
+      "tc_client",
+      { port: 3000, path: "/app" },
+      undefined,
+      undefined,
+      undefined as never,
+    );
+
+    expect(server.calls).toHaveLength(0);
+    expect(result.content[0]).toMatchObject({
+      type: "text",
+      text: JSON.stringify({
+        resolvedBy: "client",
+        input: { port: 3000, path: "/app" },
+      }),
+    });
+  });
+
   it("executes sandbox module runtime tools", async () => {
     const dir = mkdtempSync(join(tmpdir(), "bunny-agent-module-tool-"));
     const modulePath = join(dir, "tool.mjs");

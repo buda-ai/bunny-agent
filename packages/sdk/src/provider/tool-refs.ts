@@ -15,7 +15,7 @@ type BunnyProviderOptions = {
 
 type BunnyToolRuntime = Extract<
   ToolRef["runtime"],
-  { type: "http" | "module" }
+  { type: "http" | "module" | "client" }
 >;
 
 type BunnyDynamicTool<INPUT> = Tool<INPUT, unknown> & { type: "dynamic" };
@@ -64,6 +64,37 @@ export function bunnyHttpTool<INPUT, OUTPUT>(
  * AI SDK helper for tools implemented by a module already present in the
  * sandbox filesystem.
  */
+/**
+ * AI SDK helper for tools that the host application resolves (no HTTP/module call).
+ *
+ * The sandbox runner returns a placeholder result; the Buda (or other) client
+ * intercepts the tool UI stream and performs the real action.
+ */
+export function bunnyClientTool<INPUT, OUTPUT>(
+  input: Omit<Tool<INPUT, OUTPUT>, "execute" | "outputSchema">,
+): BunnyDynamicTool<INPUT> {
+  return {
+    type: "dynamic" as const,
+    description: input.description,
+    title: input.title,
+    providerOptions: withBunnyProviderOptions(input.providerOptions, {
+      runtime: { type: "client" },
+    }),
+    inputSchema: input.inputSchema,
+    inputExamples: input.inputExamples,
+    needsApproval: input.needsApproval,
+    strict: input.strict,
+    onInputStart: input.onInputStart,
+    onInputDelta: input.onInputDelta,
+    onInputAvailable: input.onInputAvailable,
+    async execute() {
+      throw new Error(
+        "bunnyClientTool is resolved by the host application, not the sandbox runner.",
+      );
+    },
+  } satisfies BunnyDynamicTool<INPUT>;
+}
+
 export function bunnySandboxTool<INPUT, OUTPUT>(
   input: Omit<Tool<INPUT, OUTPUT>, "execute" | "outputSchema"> & {
     module: string;
@@ -114,8 +145,8 @@ export function compileToolRefsFromLanguageModelTools(
     if (!runtime) {
       throw new Error(
         `[bunny-agent] Tool "${tool.name}" was passed through AI SDK streamText, ` +
-          "but Bunny cannot access host-side tool({ execute }) callbacks at the provider boundary. " +
-          "Use bunnyHttpTool(...) for an endpoint tool or bunnySandboxTool(...) for a sandbox-local module.",
+        "but Bunny cannot access host-side tool({ execute }) callbacks at the provider boundary. " +
+        "Use bunnyHttpTool(...) for an endpoint tool or bunnySandboxTool(...) for a sandbox-local module.",
       );
     }
 
@@ -155,6 +186,9 @@ function getBunnyRuntime(
         ? { exportName: runtime.exportName }
         : {}),
     };
+  }
+  if (runtime.type === "client") {
+    return { type: "client" };
   }
   return undefined;
 }

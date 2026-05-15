@@ -13,6 +13,7 @@ import { jsonSchema, streamText } from "ai";
 import { describe, expect, it } from "vitest";
 import { createBunnyAgent } from "../provider/bunny-agent-provider";
 import {
+  bunnyClientTool,
   bunnyHttpTool,
   bunnySandboxTool,
   compileToolRefsFromLanguageModelTools,
@@ -56,6 +57,70 @@ describe("Bunny provider tool refs", () => {
         },
       },
     });
+  });
+
+  it("stores client runtime metadata in AI SDK providerOptions", async () => {
+    const model = createCapturingModel();
+
+    const result = streamText({
+      model,
+      messages: [{ role: "user", content: "preview" }],
+      tools: {
+        get_preview_url: bunnyClientTool({
+          description: "Resolve a sandbox preview URL for a port.",
+          inputSchema: jsonSchema({
+            type: "object",
+            properties: { port: { type: "number" } },
+            required: ["port"],
+          }),
+        }),
+      },
+    });
+
+    await result.consumeStream();
+
+    expect(model.lastOptions?.tools?.[0]).toMatchObject({
+      type: "function",
+      name: "get_preview_url",
+      providerOptions: {
+        "bunny-agent": {
+          runtime: { type: "client" },
+        },
+      },
+    });
+  });
+
+  it("compiles client runtime metadata from provider tools", () => {
+    const toolRefs = compileToolRefsFromLanguageModelTools([
+      {
+        type: "function",
+        name: "get_preview_url",
+        description: "Preview URL",
+        inputSchema: {
+          type: "object",
+          properties: { port: { type: "number" } },
+          required: ["port"],
+        },
+        providerOptions: {
+          "bunny-agent": {
+            runtime: { type: "client" },
+          },
+        },
+      },
+    ]);
+
+    expect(toolRefs).toEqual([
+      {
+        name: "get_preview_url",
+        description: "Preview URL",
+        inputSchema: {
+          type: "object",
+          properties: { port: { type: "number" } },
+          required: ["port"],
+        },
+        runtime: { type: "client" },
+      },
+    ]);
   });
 
   it("stores sandbox module runtime metadata in AI SDK providerOptions", async () => {
@@ -365,10 +430,10 @@ function createCodingRunSandbox(
     getSandboxId: () => null,
     getVolumes: () => null,
     getWorkdir: () => "/workspace",
-    exec: async function* () {},
-    upload: async () => {},
+    exec: async function* () { },
+    upload: async () => { },
     readFile: async () => "",
-    destroy: async () => {},
+    destroy: async () => { },
     streamCodingRun: async function* (
       body: BunnyAgentCodingRunBody,
       _opts?: ExecOptions,

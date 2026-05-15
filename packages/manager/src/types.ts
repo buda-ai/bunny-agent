@@ -45,7 +45,16 @@ export interface ModuleToolRuntime {
   exportName?: string;
 }
 
-export type ToolRuntime = HttpToolRuntime | ModuleToolRuntime;
+/**
+ * Runtime descriptor for tools resolved by the host application (e.g. Buda UI),
+ * not by HTTP or sandbox module execution. The runner returns a placeholder
+ * result immediately; the client performs the real side effect.
+ */
+export interface ClientToolRuntime {
+  type: "client";
+}
+
+export type ToolRuntime = HttpToolRuntime | ModuleToolRuntime | ClientToolRuntime;
 
 /**
  * Runner wire-format tool. Public user APIs compile into this serializable
@@ -252,11 +261,11 @@ export interface Message {
   role: "user" | "assistant" | "system";
   /** Content of the message */
   content:
-    | string
-    | Array<
-        | { type: "text"; text: string }
-        | { type: "image"; data: string; mimeType: string }
-      >;
+  | string
+  | Array<
+    | { type: "text"; text: string }
+    | { type: "image"; data: string; mimeType: string }
+  >;
 }
 
 /**

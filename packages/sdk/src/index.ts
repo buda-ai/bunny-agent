@@ -57,6 +57,7 @@ export type {
 // Provider exports
 export {
   BunnyAgentLanguageModel,
+  bunnyClientTool,
   bunnyHttpTool,
   bunnySandboxTool,
   createBunnyAgent,

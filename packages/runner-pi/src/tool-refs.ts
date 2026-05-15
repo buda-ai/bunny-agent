@@ -26,15 +26,18 @@ export class PiToolRefError extends Error {
 
 export type PiToolRuntime =
   | {
-      type: "http";
-      url: string;
-      headers?: Record<string, string>;
-    }
+    type: "http";
+    url: string;
+    headers?: Record<string, string>;
+  }
   | {
-      type: "module";
-      module: string;
-      exportName?: string;
-    };
+    type: "module";
+    module: string;
+    exportName?: string;
+  }
+  | {
+    type: "client";
+  };
 
 export interface PiToolRef {
   name: string;
@@ -104,7 +107,19 @@ async function executeToolRef(
       return sendDirectHttpRequest(spec.runtime, params, signal);
     case "module":
       return executeModuleTool(spec.runtime, params, signal);
+    case "client":
+      return executeClientToolPlaceholder(params);
   }
+}
+
+function executeClientToolPlaceholder(params: unknown): RuntimeResponse {
+  return {
+    status: 200,
+    body: JSON.stringify({
+      resolvedBy: "client",
+      input: params ?? {},
+    }),
+  };
 }
 
 async function sendDirectHttpRequest(
