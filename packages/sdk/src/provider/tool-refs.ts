@@ -67,27 +67,36 @@ export function bunnyHttpTool<INPUT, OUTPUT>(
 /**
  * AI SDK helper for tools that the host application resolves (no HTTP/module call).
  *
- * The sandbox runner returns a placeholder result; the Buda (or other) client
- * intercepts the tool UI stream and performs the real action.
+ * When an `execute` callback is provided it runs directly in the host (client)
+ * context — useful for tools whose logic lives entirely on the host side.
+ * When omitted the tool is still registered and the Bunny client (or other
+ * host interceptor) is expected to handle it via the UI stream; calling
+ * `execute` without a handler throws to surface the misconfiguration early.
  */
 export function bunnyClientTool<INPUT, OUTPUT>(
-  input: Omit<Tool<INPUT, OUTPUT>, "execute" | "outputSchema">,
+  input: Omit<Tool<INPUT, OUTPUT>, "outputSchema"> & {
+    execute?: (input: INPUT) => OUTPUT | Promise<OUTPUT>;
+  },
 ): BunnyDynamicTool<INPUT> {
+  const { execute, ...rest } = input;
   return {
     type: "dynamic" as const,
-    description: input.description,
-    title: input.title,
-    providerOptions: withBunnyProviderOptions(input.providerOptions, {
+    description: rest.description,
+    title: rest.title,
+    providerOptions: withBunnyProviderOptions(rest.providerOptions, {
       runtime: { type: "client" },
     }),
-    inputSchema: input.inputSchema,
-    inputExamples: input.inputExamples,
-    needsApproval: input.needsApproval,
-    strict: input.strict,
-    onInputStart: input.onInputStart,
-    onInputDelta: input.onInputDelta,
-    onInputAvailable: input.onInputAvailable,
-    async execute() {
+    inputSchema: rest.inputSchema,
+    inputExamples: rest.inputExamples,
+    needsApproval: rest.needsApproval,
+    strict: rest.strict,
+    onInputStart: rest.onInputStart,
+    onInputDelta: rest.onInputDelta,
+    onInputAvailable: rest.onInputAvailable,
+    async execute(args: INPUT) {
+      if (execute) {
+        return execute(args);
+      }
       throw new Error(
         "bunnyClientTool is resolved by the host application, not the sandbox runner.",
       );

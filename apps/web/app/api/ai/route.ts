@@ -2,6 +2,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   type BunnyAgentProviderSettings,
+  bunnyClientTool,
   createBunnyAgent,
   DEFAULT_BUNNY_AGENT_DAEMON_URL,
   isBunnyAgentDaemonHealthy,
@@ -11,6 +12,7 @@ import {
   createUIMessageStreamResponse,
   type FileUIPart,
   isToolUIPart,
+  jsonSchema,
   lastAssistantMessageIsCompleteWithToolCalls,
   streamText,
   type UIMessage,
@@ -79,13 +81,13 @@ export async function POST(request: Request) {
     RUNNER,
     MODEL_ID,
     ANTHROPIC_API_KEY,
-    ANTHROPIC_BASE_URL,
+    ANTHROPIC_BASE_URL = "https://llm.bika.ltd",
     AWS_BEARER_TOKEN_BEDROCK,
-    ANTHROPIC_AUTH_TOKEN,
-    LITELLM_MASTER_KEY,
+    ANTHROPIC_AUTH_TOKEN = "sk-Bwwco8jGqZOzICKbd5mi4w",
+    LITELLM_MASTER_KEY = "sk-ks6tGCOjCbNU9AUMTs1YiQ",
     ANTHROPIC_BEDROCK_BASE_URL,
-    CLAUDE_CODE_USE_BEDROCK,
-    CLAUDE_CODE_SKIP_BEDROCK_AUTH,
+    CLAUDE_CODE_USE_BEDROCK = "0",
+    CLAUDE_CODE_SKIP_BEDROCK_AUTH = "0",
     OPENAI_API_KEY,
     OPENAI_BASE_URL,
     GEMINI_API_KEY,
@@ -94,7 +96,7 @@ export async function POST(request: Request) {
     SANDOCK_API_KEY,
     SANDOCK_BASE_URL,
     DAYTONA_API_KEY,
-    SANDBOX_PROVIDER = "e2b",
+    SANDBOX_PROVIDER = "local",
     BRAVE_API_KEY,
     TAVILY_API_KEY,
     /** When true, provider may pass `daemonUrl` after an in-sandbox `/healthz` probe; otherwise CLI runner. */
@@ -250,8 +252,12 @@ export async function POST(request: Request) {
     CLAUDE_CODE_SKIP_BEDROCK_AUTH,
     OPENAI_API_KEY,
     OPENAI_BASE_URL,
-    GEMINI_API_KEY,
-    GEMINI_BASE_URL,
+    // Only pass Gemini keys for runners that actually use them (pi, gemini).
+    // For the claude runner these keys must not reach the runner env or they
+    // will be forwarded to the LiteLLM proxy as auth, causing a 401.
+    ...(runnerType !== "claude"
+      ? { GEMINI_API_KEY, GEMINI_BASE_URL }
+      : {}),
     template,
     useBunnyAgentDaemon,
     env: {
@@ -288,8 +294,8 @@ export async function POST(request: Request) {
 
   // --- Model ----------------------------------------------------------------
   const defaultModel = ANTHROPIC_API_KEY
-    ? "glm-4.7"
-    : "global.anthropic.claude-opus-4-6-v1";
+    ? "gemini-3.1-pro"
+    : "gemini-3.1-pro";
   let model = MODEL_ID || defaultModel;
   // Pi expects "<provider>:<model>" (e.g. openai:gpt-5.4, anthropic:claude-opus-4-6-v1)
   if (runnerType === "pi") {
@@ -359,6 +365,7 @@ export async function POST(request: Request) {
         cwd: sandbox.getWorkdir?.() || "/bunny-agent",
         runnerType,
         allowedTools: ["read", "bash", "edit", "write", "get_current_time"],
+        yolo: true,
         verbose: true,
         artifactProcessors: [artifactProcessor],
         resume,
@@ -374,7 +381,29 @@ export async function POST(request: Request) {
       const result = streamText({
         model: bunnyAgent(model),
         messages: normalizedMessages,
-        tools: createDemoHttpTools(demoTools, request.url),
+        tools: {
+          ...createDemoHttpTools(demoTools, request.url),
+          // Client tool: the sandbox runner returns a placeholder result;
+          // the host client intercepts the tool call and performs the real action.
+          // Parameters are logged server-side for debugging.
+          log_parameters: bunnyClientTool({
+            description:
+              "Log the provided parameters for debugging. Call this to inspect what arguments the model is passing.",
+              execute: () => {
+                console.log('ddddddddddddddjijij ')
+              },
+            inputSchema: jsonSchema<Record<string, unknown>>({
+              type: "object",
+              properties: {
+                label: {
+                  type: "string",
+                  description: "Optional label to identify this log entry.",
+                },
+              },
+              additionalProperties: true,
+            }),
+          }),
+        },
         abortSignal: signal,
         onFinish: (event) => {
           console.info(

@@ -1,3 +1,4 @@
+import { bunnyClientTool } from "@bunny-agent/sdk";
 import { jsonSchema, type ToolSet, tool } from "ai";
 
 /**
@@ -7,6 +8,24 @@ import { jsonSchema, type ToolSet, tool } from "ai";
  * code that calls `streamText({ tools })`.
  */
 const tools = {
+  log_parameters: bunnyClientTool({
+    description:
+      "Log the provided parameters for debugging. Call this to inspect what arguments the model is passing.",
+    inputSchema: jsonSchema<Record<string, unknown>>({
+      type: "object",
+      properties: {
+        label: {
+          type: "string",
+          description: "Optional label to identify this log entry.",
+        },
+      },
+      additionalProperties: true,
+    }),
+    async execute(args) {
+      console.log("[log_parameters]", args);
+      return { logged: true, args };
+    },
+  }),
   get_current_time: tool({
     description:
       "Return the current ISO-8601 timestamp. Use this when the user asks for the current time, today's date, or how long since some event.",
