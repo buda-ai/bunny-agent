@@ -99,14 +99,26 @@ function mergeToolRefs(
 }
 
 function getLastUserTextFromMessages(messages: Message[]): string {
-  const lastUser = [...messages].reverse().find((m) => m.role === "user");
-  if (!lastUser) return "";
-  const c = lastUser.content;
-  if (typeof c === "string") return c;
-  return c
-    .filter((p): p is { type: "text"; text: string } => p.type === "text")
-    .map((p) => p.text)
-    .join("\n");
+  // Collect all trailing user messages (handles batched/queued messages)
+  const trailingUserMessages: Message[] = [];
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role === "user") {
+      trailingUserMessages.unshift(messages[i]);
+    } else {
+      break;
+    }
+  }
+  if (trailingUserMessages.length === 0) return "";
+  return trailingUserMessages
+    .map((msg) => {
+      const c = msg.content;
+      if (typeof c === "string") return c;
+      return c
+        .filter((p): p is { type: "text"; text: string } => p.type === "text")
+        .map((p) => p.text)
+        .join("\n");
+    })
+    .join("\n\n");
 }
 
 function createEmptyUsage(): LanguageModelV3Usage {
