@@ -2,7 +2,10 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { buildAskUserQuestionTool } from "../ask-user-question-tool.js";
+import {
+  buildAskUserQuestionTool,
+  sanitizeToolCallId,
+} from "../ask-user-question-tool.js";
 
 // ---------------------------------------------------------------------------
 // AskUserQuestion tool — drives the approval file from a sibling task to
@@ -34,7 +37,7 @@ function makeTool(
 }
 
 function approvalPath(cwd: string, toolCallId: string): string {
-  return join(cwd, APPROVAL_REL, `${toolCallId}.json`);
+  return join(cwd, APPROVAL_REL, `${sanitizeToolCallId(toolCallId)}.json`);
 }
 
 async function waitFor(

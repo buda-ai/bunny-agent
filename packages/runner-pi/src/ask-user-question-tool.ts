@@ -12,6 +12,7 @@
  * UI — same defensive cleanup openclaw applies to its MCP elicitation bridge.
  */
 
+import { createHash } from "node:crypto";
 import {
   existsSync,
   mkdirSync,
@@ -185,6 +186,27 @@ function readApproval(file: string): ApprovalFile | undefined {
   }
 }
 
+// pi-ai's Gemini provider embeds "thought signatures" inside toolCallId
+// (`call_xxx__thought__<base64>`). Those are needed by the provider when
+// echoing tool results back to Gemini, but they leak into our SSE stream and
+// approval filenames where they are noisy at best (long random strings) and
+// broken at worst (base64 contains "/", "+", and can exceed NAME_MAX). Reduce
+// every toolCallId to a stable, filename-safe stem so the runner output, the
+// approval file, and the SDK's submitAnswer all line up on the same id.
+const TOOL_CALL_ID_PREFIX_LEN = 32;
+const TOOL_CALL_ID_HASH_LEN = 16;
+
+export function sanitizeToolCallId(toolCallId: string): string {
+  const safePrefix = toolCallId
+    .replace(/[^A-Za-z0-9_-]/g, "_")
+    .slice(0, TOOL_CALL_ID_PREFIX_LEN);
+  const hash = createHash("sha1")
+    .update(toolCallId)
+    .digest("hex")
+    .slice(0, TOOL_CALL_ID_HASH_LEN);
+  return `${safePrefix}-${hash}`;
+}
+
 function safeUnlink(file: string): void {
   try {
     if (existsSync(file)) unlinkSync(file);
@@ -351,7 +373,10 @@ export function buildAskUserQuestionTool(opts: BuildOptions): ToolDefinition {
       const sanitizedInput: AskUserQuestionParams = { questions: sanitized };
 
       const approvalDir = join(cwd, APPROVAL_DIR);
-      const approvalFile = join(approvalDir, `${toolCallId}.json`);
+      const approvalFile = join(
+        approvalDir,
+        `${sanitizeToolCallId(toolCallId)}.json`,
+      );
 
       try {
         mkdirSync(approvalDir, { recursive: true });
