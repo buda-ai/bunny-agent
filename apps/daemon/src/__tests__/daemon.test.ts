@@ -4,10 +4,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { DaemonRouter } from "../router.js";
-import {
-  __resetSandboxProcessInspectorsForTests,
-  __setSandboxProcessInspectorsForTests,
-} from "../routes/processes.js";
+import { __resetSandboxProcessInspectorsForTests } from "../routes/processes.js";
 import { createDaemon } from "../server.js";
 
 const PORT = 13080;
@@ -255,7 +252,6 @@ describe("volumes", () => {
     expect(after.data.volumes).not.toContain("vol-001");
   });
 });
-
 
 describe("router", () => {
   it("dispatches static routes only", async () => {
