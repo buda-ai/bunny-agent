@@ -356,9 +356,8 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
             ? buildToolDefinitionsFromRefs(options.toolRefs)
             : [];
 
-        // AskUserQuestion is always available — it is the model's only way to
-        // surface a structured choice to the user, so allowedTools must not
-        // gate it. Mirrors how runner-claude force-includes Skill/WebSearch.
+        // AskUserQuestion is registered as a normal custom tool — callers opt
+        // in by including "AskUserQuestion" in their allowedTools list.
         // Timeout override: ASK_USER_QUESTION_TOOL_TIMEOUT (seconds).
         // Resolution order: options.env -> process.env -> built-in default.
         const askTimeoutSeconds = parsePositiveInt(
@@ -371,6 +370,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
               ? askTimeoutSeconds * 1000
               : undefined,
         });
+        customTools.push(askUserQuestionTool);
 
         const { session } = await createAgentSession({
           cwd,
@@ -382,7 +382,6 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           customTools: [
             ...applyAllowedTools(customTools, options.allowedTools),
             ...toolRefDefinitions,
-            askUserQuestionTool,
           ],
         });
 

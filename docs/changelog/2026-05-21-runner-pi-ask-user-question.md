@@ -19,11 +19,14 @@ when they needed disambiguation.
   `questions`, `answers`, `reason`) matches what runner-claude's
   `canUseTool` writes, so existing approval UIs serve both runners with no
   changes.
-- Wired the tool into `createPiRunner` so it is always registered, regardless
-  of `allowedTools`. The pi runner is otherwise allowed-tool-driven, but
-  AskUserQuestion is the model's only hook back into the user — gating it
-  behind an allowlist would let callers silently disable interaction without
-  realizing it.
+- Wired the tool into `createPiRunner`'s `customTools`. Like every other pi
+  tool, callers opt in by including `"AskUserQuestion"` in their
+  `allowedTools` list — that keeps the runner's allowlist semantics
+  consistent across all tools, and avoids silently exposing user-prompt
+  capability to callers that did not ask for it.
+- Updated `apps/web/app/api/ai/route.ts` to add `"AskUserQuestion"` to its
+  `allowedTools` so the bundled web example surfaces the tool to the
+  model.
 - Borrowed openclaw's display-text sanitization
   (`extensions/codex/src/app-server/elicitation-bridge.ts`) to strip ANSI
   escapes and other control characters from question/header/option text before
@@ -52,3 +55,4 @@ when they needed disambiguation.
 - `packages/runner-pi/src/__tests__/ask-user-question-tool.test.ts` (new)
 - `packages/runner-pi/src/pi-runner.ts`
 - `packages/runner-pi/src/index.ts`
+- `apps/web/app/api/ai/route.ts`
