@@ -365,6 +365,7 @@ export async function POST(request: Request) {
           "write",
           "get_current_time",
           "AskUserQuestion",
+          "ask_user_question",
         ],
         verbose: true,
         artifactProcessors: [artifactProcessor],

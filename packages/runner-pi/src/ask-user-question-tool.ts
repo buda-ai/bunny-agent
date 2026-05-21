@@ -22,7 +22,7 @@ import {
 import { join } from "node:path";
 import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 
-const TOOL_NAME = "AskUserQuestion";
+const TOOL_NAME = "ask_user_question";
 const APPROVAL_DIR = join(".bunny-agent", "approvals");
 
 export const ASK_USER_QUESTION_TIMEOUT_MS = 120_000;
@@ -332,12 +332,12 @@ export function buildAskUserQuestionTool(opts: BuildOptions): ToolDefinition {
   const { cwd, timeoutMs, pollMs } = opts;
   return {
     name: TOOL_NAME,
-    label: "AskUserQuestion",
+    label: "ask_user_question",
     description: TOOL_DESCRIPTION,
     promptSnippet:
-      "AskUserQuestion: ask the user 1-4 multiple-choice questions when the task is genuinely ambiguous.",
+      "ask_user_question: ask the user 1-4 multiple-choice questions when the task is genuinely ambiguous.",
     promptGuidelines: [
-      "Use AskUserQuestion only when the task is genuinely ambiguous and a user choice is required to proceed; otherwise pick a sensible default.",
+      "Use ask_user_question only when the task is genuinely ambiguous and a user choice is required to proceed; otherwise pick a sensible default.",
       "Each question must carry 2-4 mutually exclusive options. Do not add an 'Other' option — the host adds one automatically.",
     ],
     // Pause other tool calls while a user prompt is open; otherwise pi may
@@ -370,7 +370,7 @@ export function buildAskUserQuestionTool(opts: BuildOptions): ToolDefinition {
           content: [
             {
               type: "text" as const,
-              text: `AskUserQuestion failed to create approval file: ${message}`,
+              text: `ask_user_question failed to create approval file: ${message}`,
             },
           ],
           details: undefined,

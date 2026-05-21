@@ -60,9 +60,9 @@ describe("buildAskUserQuestionTool", () => {
     rmSync(cwd, { recursive: true, force: true });
   });
 
-  it("declares the AskUserQuestion contract", () => {
+  it("declares the ask_user_question contract", () => {
     const tool = makeTool(cwd);
-    expect(tool.name).toBe("AskUserQuestion");
+    expect(tool.name).toBe("ask_user_question");
     expect(tool.executionMode).toBe("sequential");
     expect(tool.description).toMatch(/multiple-choice/i);
   });
@@ -93,7 +93,7 @@ describe("buildAskUserQuestionTool", () => {
       file,
       JSON.stringify({
         status: "completed",
-        toolName: "AskUserQuestion",
+        toolName: "ask_user_question",
         questions: [sampleQuestion],
         answers: { [sampleQuestion.question]: "Postgres" },
       }),
@@ -131,7 +131,7 @@ describe("buildAskUserQuestionTool", () => {
       file,
       JSON.stringify({
         status: "completed",
-        toolName: "AskUserQuestion",
+        toolName: "ask_user_question",
         questions: [q],
         answers: { [q.question]: ["Postgres", "MySQL"] },
       }),
@@ -167,7 +167,7 @@ describe("buildAskUserQuestionTool", () => {
       file,
       JSON.stringify({
         status: "declined",
-        toolName: "AskUserQuestion",
+        toolName: "ask_user_question",
         questions: [sampleQuestion],
         answers: {},
         reason: "user_dismissed",
