@@ -141,13 +141,7 @@ function ChatMessage({
             }
             if (part.type === "dynamic-tool") {
               const toolPart = part as DynamicToolUIPart;
-              // Both runner-claude (Claude Code) and runner-pi expose this tool
-              // for mid-run user prompts; the names differ by ecosystem
-              // convention (PascalCase vs snake_case).
-              if (
-                toolPart.toolName === "AskUserQuestion" ||
-                toolPart.toolName === "ask_user_question"
-              ) {
+              if (toolPart.toolName === "AskUserQuestion") {
                 return (
                   <AskUserQuestionUI
                     key={toolPart.toolCallId ?? key}
