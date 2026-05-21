@@ -9,6 +9,7 @@ import {
   SessionManager,
   type ToolDefinition,
 } from "@earendil-works/pi-coding-agent";
+import { buildAskUserQuestionTool } from "./ask-user-question-tool.js";
 import { BunnyAgentResourceLoader } from "./bunny-agent-resource-loader.js";
 import { buildImageEditTool, buildImageGenerateTool } from "./image-tools.js";
 import {
@@ -117,6 +118,13 @@ function getEnvValue(
   name: string,
 ): string | undefined {
   return optionsEnv?.[name] ?? process.env[name];
+}
+
+/** Parse a string into a positive integer, returning undefined on any non-positive or invalid value. */
+function parsePositiveInt(value: string | undefined): number | undefined {
+  if (value === undefined || value === "") return undefined;
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : undefined;
 }
 
 function applyModelOverrides(
@@ -347,6 +355,22 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           options.toolRefs && options.toolRefs.length > 0
             ? buildToolDefinitionsFromRefs(options.toolRefs)
             : [];
+
+        // AskUserQuestion is registered as a normal custom tool — callers opt
+        // in by including "AskUserQuestion" in their allowedTools list.
+        // Timeout override: ASK_USER_QUESTION_TOOL_TIMEOUT (seconds).
+        // Resolution order: options.env -> process.env -> built-in default.
+        const askTimeoutSeconds = parsePositiveInt(
+          getEnvValue(options.env, "ASK_USER_QUESTION_TOOL_TIMEOUT"),
+        );
+        const askUserQuestionTool = buildAskUserQuestionTool({
+          cwd,
+          timeoutMs:
+            askTimeoutSeconds !== undefined
+              ? askTimeoutSeconds * 1000
+              : undefined,
+        });
+        customTools.push(askUserQuestionTool);
 
         const { session } = await createAgentSession({
           cwd,

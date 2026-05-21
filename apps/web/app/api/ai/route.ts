@@ -358,15 +358,23 @@ export async function POST(request: Request) {
         ...(daemonUrl ? { daemonUrl } : {}),
         cwd: sandbox.getWorkdir?.() || "/bunny-agent",
         runnerType,
-        allowedTools: ["read", "bash", "edit", "write", "get_current_time"],
+        allowedTools: [
+          "read",
+          "bash",
+          "edit",
+          "write",
+          "get_current_time",
+          "AskUserQuestion",
+          "ask_user_question",
+        ],
         verbose: true,
         artifactProcessors: [artifactProcessor],
         resume,
         systemPrompt: "============test============",
         // Passed to RunnerSpec via createBunnyAgent merge (not only bunnyAgent(model, { skillPaths }))
         skillPaths: [
-          "/Users/zhengxu/vika/kapps/apps/buda/agent-templates/system-skills",
-          "/Users/zhengxu/vika/kapps/apps/buda/agent-templates/company-templates/entire-company/finance-agent/.agents/skills",
+          // "/Users/zhengxu/vika/kapps/apps/buda/agent-templates/system-skills",
+          // "/Users/zhengxu/vika/kapps/apps/buda/agent-templates/company-templates/entire-company/finance-agent/.agents/skills",
         ],
       };
       const bunnyAgent = createBunnyAgent(bunnyAgentOptions);

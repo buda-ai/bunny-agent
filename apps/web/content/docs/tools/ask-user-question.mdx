@@ -129,5 +129,5 @@ Location: `{workdir}/.sandagent/approvals/{toolCallId}.json`
 ## Troubleshooting
 
 - No progress → verify both APIs use the same `workdir`
-- UI not rendering → ensure you handle `dynamic-tool` parts with `toolName === "AskUserQuestion"`
+- UI not rendering → ensure you handle `dynamic-tool` parts with `toolName === "AskUserQuestion"` (runner-claude) or `toolName === "ask_user_question"` (runner-pi)
 - Answers not applied → confirm `answerEndpoint` matches your API route
