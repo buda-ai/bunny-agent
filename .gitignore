@@ -159,3 +159,4 @@ output
 .claude/
 .codex/
 *.tgz
+apps/daemon/.bunny-agent-daemon/

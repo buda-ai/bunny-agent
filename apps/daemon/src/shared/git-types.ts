@@ -148,3 +148,64 @@ export function createGitProxy(
     },
   });
 }
+
+// ---------------------------------------------------------------------------
+// simple-git RPC API (POST /api/git/simple-git-rpc)
+// ---------------------------------------------------------------------------
+
+/**
+ * Request body for POST /api/git/simple-git-rpc.
+ * The `command` field must be a member of `SIMPLE_GIT_RPC_COMMANDS`.
+ */
+export interface SimpleGitRpcRequest {
+  volume?: string;
+  repo: string;
+  command: string;
+  options?: Record<string, unknown>;
+}
+
+/** Response envelope for POST /api/git/simple-git-rpc */
+export type SimpleGitRpcResponse = ApiEnvelope<unknown>;
+
+// ---------------------------------------------------------------------------
+// simple-git Proxy Client
+// ---------------------------------------------------------------------------
+
+/** Client type returned by createSimpleGitProxy */
+export type SimpleGitProxyClient = Record<
+  string,
+  (options?: Record<string, unknown>) => Promise<unknown>
+>;
+
+/**
+ * Creates a proxy client for the simple-git RPC endpoint.
+ * Each property access returns an async function that POSTs to the endpoint.
+ *
+ * @param endpoint       Full URL of POST /api/git/simple-git-rpc
+ * @param fetchFn        fetch implementation (pass globalThis.fetch or a polyfill)
+ * @param defaultPayload { volume?, repo } merged into every request body
+ */
+export function createSimpleGitProxy(
+  endpoint: string,
+  fetchFn: typeof fetch,
+  defaultPayload: { volume?: string; repo: string },
+): SimpleGitProxyClient {
+  return new Proxy({} as SimpleGitProxyClient, {
+    get(_target, command: string) {
+      return async (options?: Record<string, unknown>) => {
+        const res = await fetchFn(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...defaultPayload,
+            command,
+            options: options ?? {},
+          }),
+        });
+        const envelope = (await res.json()) as ApiEnvelope<unknown>;
+        if (!envelope.ok) throw new Error(envelope.error ?? "Unknown error");
+        return envelope.data;
+      };
+    },
+  });
+}
