@@ -252,6 +252,9 @@ Options:
   -s, --system-prompt <prompt> Custom system prompt
   -t, --max-turns <n>          Max conversation turns
   -a, --allowed-tools <tools>  Comma-separated allowed tools
+                               Built-ins: read, bash, edit, write, grep, find, ls
+                               Pi extensions (default-on): todo, get_goal, update_goal, subagent
+                               Pi commands (always available): /plan, /goal
       --skill-path <path>      Additional skill path (can be repeated, for pi runner)
       --resume <session-id>    Resume a previous session
   -h, --help                   Show this help

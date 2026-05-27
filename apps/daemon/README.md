@@ -290,7 +290,7 @@ Request body:
 | `cwd` | string | `BUNNY_AGENT_ROOT` | Working directory inside the sandbox |
 | `systemPrompt` | string | — | Override system prompt |
 | `maxTurns` | number | — | Max agent turns |
-| `allowedTools` | string[] | — | Restrict which tools the agent can use |
+| `allowedTools` | string[] | — | Restrict which tools the agent can use. Built-ins: `read`, `bash`, `edit`, `write`, `grep`, `find`, `ls`. Pi runner extensions (registered by default): `todo`, `get_goal`, `update_goal`, `subagent`. Pi slash commands (always available, not in this list): `/plan`, `/goal`. |
 | `resume` | string | — | Session ID to resume |
 | `skillPaths` | string[] | — | Extra skill paths (pi runner) |
 

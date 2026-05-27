@@ -366,6 +366,11 @@ export async function POST(request: Request) {
           "get_current_time",
           "AskUserQuestion",
           "ask_user_question",
+          // pi runner extensions (default-on in runner-pi)
+          "todo",
+          "get_goal",
+          "update_goal",
+          "subagent",
         ],
         verbose: true,
         artifactProcessors: [artifactProcessor],
