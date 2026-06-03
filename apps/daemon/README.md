@@ -27,6 +27,27 @@ The Dockerfiles under `docker/bunny-agent-claude/` (`Dockerfile`, `Dockerfile.lo
 
 `POST /api/coding/run` starts the runner with the daemon process **`process.env`**. Configure API keys and runner settings on the daemon (or container image env), not via per-request HTTP headers from `@bunny-agent/manager`.
 
+### AI integration test
+
+The normal daemon tests are offline. To exercise the real daemon-to-Pi path,
+export credentials and opt in explicitly:
+
+```bash
+# From the repository root:
+set -a
+source apps/bunny-bench/.env
+set +a
+
+RUN_AI_INTEGRATION=1 \
+BUNNY_AI_INTEGRATION_PI_MODEL="${BUNNY_AI_INTEGRATION_PI_MODEL:-openai:gpt-5.4}" \
+pnpm --filter @bunny-agent/daemon exec vitest run src/__tests__/coding.integration.test.ts
+```
+
+This starts a local daemon on an ephemeral port and calls
+`POST /api/coding/run` with `runner=pi`, `effort=medium`, and `yolo=true`.
+The test is skipped unless `RUN_AI_INTEGRATION=1` is set and does not print API
+keys.
+
 ---
 
 ## Architecture

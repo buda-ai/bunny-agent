@@ -78,7 +78,8 @@ describe("simple-git-rpc PBT", () => {
     const endpoint = "http://localhost:3000/api/git/simple-git-rpc";
     const defaultPayload = { repo: "/test/repo" };
 
-    // Produce only JSON-serializable leaf values so the round-trip is lossless.
+    // Produce only JSON-serializable leaf values and compare the body after the
+    // same JSON round-trip used by the proxy.
     const jsonSafeValue: fc.Arbitrary<unknown> = fc.oneof(
       fc.string(),
       fc.integer(),
@@ -118,7 +119,7 @@ describe("simple-git-rpc PBT", () => {
           expect(captured).toBeDefined();
           const body = JSON.parse(captured!.body as string);
           expect(body.command).toBe(command);
-          expect(body.options).toEqual(options);
+          expect(body.options).toEqual(JSON.parse(JSON.stringify(options)));
           expect(body.repo).toBe(defaultPayload.repo);
         },
       ),
