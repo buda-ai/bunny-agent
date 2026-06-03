@@ -17,4 +17,9 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const extensionPath = join(__dirname, "extension.js");
 
 const { main } = await import("@earendil-works/pi-coding-agent");
-await main(["-e", extensionPath, ...process.argv.slice(2)]);
+const args = process.argv.slice(2);
+if (args.includes("--yolo") && !args.includes("--permission")) {
+  args.push("--permission", "yolo");
+}
+
+await main(["-e", extensionPath, ...args]);

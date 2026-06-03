@@ -5,6 +5,7 @@
 - Upgraded the Pi runtime dependencies from `0.74.0` to `0.78.0`.
 - Migrated the Bunny-specific `@earendil-works/pi-coding-agent` patch to `0.78.0` so Pi continues to use `.bunny` as its config directory.
 - Reviewed upstream Pi extension examples for candidates that could be bundled or adapted in Bunny Agent.
+- Added default Bunny TUI safety gates with `/yolo true|false`, `/permissions safe|yolo|status`, and `--permission safe|yolo`.
 
 ## Extension Candidates
 
