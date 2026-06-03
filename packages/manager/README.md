@@ -190,7 +190,7 @@ Destroy the sandbox and release resources.
 
 ## Requirements
 
-- Node.js 20+
+- Node.js >= 22.19.0
 - A sandbox adapter (@bunny-agent/sandbox-e2b, @bunny-agent/sandbox-local, etc.)
 
 ## License

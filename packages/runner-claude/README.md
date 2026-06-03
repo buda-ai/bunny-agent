@@ -11,7 +11,7 @@ A Claude Agent SDK runtime that converts Claude output into AI SDK UI streams (S
 
 ## Quick start (beginner-friendly)
 
-Prereqs: Node.js >= 20, `pnpm`, and `ANTHROPIC_API_KEY` (or Bedrock credentials).
+Prereqs: Node.js >= 22.19.0, `pnpm`, and `ANTHROPIC_API_KEY` (or Bedrock credentials).
 
 ```bash
 # 1) Install deps (from monorepo root)

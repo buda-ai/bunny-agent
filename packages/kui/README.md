@@ -8,7 +8,7 @@ A monorepo-friendly React + Tailwind component library with per-component subpat
 
 ## Quick start (beginner-friendly)
 
-Prereqs: Node.js >= 20, `pnpm`, and a Tailwind CSS app.
+Prereqs: Node.js >= 22.19.0, `pnpm`, and a Tailwind CSS app.
 
 ```bash
 # 1) Install deps from monorepo root

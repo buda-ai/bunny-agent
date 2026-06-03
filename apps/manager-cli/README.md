@@ -6,7 +6,7 @@ Start Bunny Agent from your terminal using templates, run tasks in E2B/Sandock/D
 
 ## Quick start (beginner-friendly)
 
-Prereqs: Node.js >= 20, `pnpm`, and at least one sandbox API key (e.g. `E2B_API_KEY`).
+Prereqs: Node.js >= 22.19.0, `pnpm`, and at least one sandbox API key (e.g. `E2B_API_KEY`).
 
 ```bash
 # 1) Install deps (from monorepo root)

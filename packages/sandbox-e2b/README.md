@@ -191,7 +191,7 @@ const sandbox = new E2BSandbox({
 
 ## Requirements
 
-- Node.js 20+
+- Node.js >= 22.19.0
 - E2B API key (get one at [e2b.dev](https://e2b.dev))
 - `@bunny-agent/manager` package
 

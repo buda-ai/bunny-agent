@@ -20,6 +20,7 @@
 - Required `OPENAI_BASE_URL` alongside `OPENAI_API_KEY` for the default `openai:gpt-5.4` AI integration coverage path.
 - Added manual CI dispatch and moved AI integration secret checks into the workflow shell step so missing secrets skip only the real-model coverage pass.
 - Updated GitHub Actions and the root Node engine to `>=22.19.0`, matching `undici@8.3.0` from the Pi/OpenAI dependency chain.
+- Confirmed Bunny Dockerfiles already use `node:24-slim`, then aligned package engines and Docker image examples with the newer Node runtime requirement.
 
 ## Extension Candidates
 

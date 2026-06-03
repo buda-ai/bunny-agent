@@ -386,7 +386,7 @@ describe("SandockSandbox Configuration", () => {
     const images = [
       "sandockai/sandock-code:latest",
       "python:3.11-slim",
-      "node:20-slim",
+      "node:24-slim",
     ];
     for (const image of images) {
       const sandbox = new SandockSandbox({ image });

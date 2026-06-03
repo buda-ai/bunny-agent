@@ -13,7 +13,7 @@ npm install @bunny-agent/sandbox-daytona @bunny-agent/manager
 ## Quickstart
 
 Prereqs:
-- Node.js 20+
+- Node.js >= 22.19.0
 - `DAYTONA_API_KEY` (and optionally `DAYTONA_API_URL`)
 - `ANTHROPIC_API_KEY` (or your runner credentials)
 

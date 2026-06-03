@@ -259,7 +259,7 @@ new SandockSandbox(options?: SandockSandboxOptions)
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
-| `options.image` | `string` | `"node:20-slim"` | Docker image |
+| `options.image` | `string` | `"node:24-slim"` | Docker image |
 | `options.volumePrefix` | `string` | `"/tmp/bunny-agent"` | Volume storage path |
 | `options.networkEnabled` | `boolean` | `true` | Enable networking |
 | `options.memoryLimit` | `string` | `"1g"` | Memory limit |

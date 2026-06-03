@@ -10,7 +10,7 @@ Visit the live site at: **https://bunny-agent.dev/**
 
 ### Prerequisites
 
-- Node.js >= 20.0.0
+- Node.js >= 22.19.0
 - pnpm 9.0.0+
 
 ### Installation

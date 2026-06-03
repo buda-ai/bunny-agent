@@ -251,7 +251,7 @@ async function cleanupStaleSessions() {
 import { SandockSandbox } from "@bunny-agent/sandbox-sandock";
 
 const sandbox = new SandockSandbox({
-  image: "node:20-slim",        // Docker image to use
+  image: "node:24-slim",        // Docker image to use
   volumePrefix: "/data/volumes", // Where volumes are stored
   networkEnabled: true,          // Enable network access
 });

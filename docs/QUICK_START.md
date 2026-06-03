@@ -15,7 +15,7 @@ By the end of this guide, you'll have:
 
 ## Prerequisites
 
-- Node.js 20+
+- Node.js >= 22.19.0
 - pnpm 9+
 - An Anthropic API key ([get one here](https://console.anthropic.com/))
 - (Optional) E2B API key for cloud sandboxes ([get one here](https://e2b.dev/))
@@ -202,7 +202,7 @@ Best for local development and self-hosted deployments:
 import { SandockSandbox } from "@bunny-agent/sandbox-sandock";
 
 const sandbox = new SandockSandbox({
-  image: "node:20-slim",
+  image: "node:24-slim",
   volumePrefix: "/var/bunny-agent/volumes",
   networkEnabled: true,
 });

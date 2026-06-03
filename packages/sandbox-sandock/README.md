@@ -4,7 +4,7 @@ Sandock sandbox adapter for Bunny Agent. Runs AI agents in [Sandock](https://san
 
 ## Prerequisites
 
-- Node.js 20+
+- Node.js >= 22.19.0
 - [Sandock API Key](https://sandock.ai) (env: `SANDOCK_API_KEY`)
 
 ## Install
