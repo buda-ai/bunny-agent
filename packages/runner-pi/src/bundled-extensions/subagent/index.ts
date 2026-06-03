@@ -166,7 +166,7 @@ interface UsageStats {
 
 interface SingleResult {
   agent: string;
-  agentSource: "user" | "project" | "unknown";
+  agentSource: "bundled" | "user" | "project" | "unknown";
   task: string;
   exitCode: number;
   messages: Message[];
@@ -583,8 +583,8 @@ export default function (pi: ExtensionAPI) {
     description: [
       "Delegate tasks to specialized subagents with isolated context.",
       "Modes: single (agent + task), parallel (tasks array), chain (sequential with {previous} placeholder).",
-      'Default agent scope is "user" (from ~/.bunny/agent/agents).',
-      'To enable project-local agents in .bunny/agents, set agentScope: "both" (or "project").',
+      'Bundled agents are always available. Default agent scope is "user" (from ~/.bunny/agent/agents).',
+      'To include project-local agents in .bunny/agents, set agentScope: "both" (or "project").',
     ].join(" "),
     parameters: SubagentParams,
 

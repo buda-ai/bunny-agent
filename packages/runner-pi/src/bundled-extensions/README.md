@@ -16,6 +16,6 @@ It is used by both the Bunny TUI and daemon-backed Pi runs through `BunnyAgentRe
 - Config paths: project-local subagents use `.bunny/agents`; user agents use Bunny's patched Pi agent directory.
 - Permission mode: Bunny maps `yolo` to the shared safety extension's `permissionMode: "yolo"`.
 - Subagents: child Pi processes explicitly load this shared extension pack so delegated agents inherit Bunny defaults.
-- Bundled prompts and agent markdown files are copied into `dist/` by the `copy-bundled-assets` build step.
+- Bundled subagents and workflow commands are defined in TypeScript, avoiding runtime asset copying while preserving the upstream behavior.
 
 When updating vendored upstream code, keep this README current with the source repository, upstream version or commit, and any Bunny-specific patches.

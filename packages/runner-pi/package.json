@@ -20,8 +20,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc && pnpm copy-bundled-assets",
-    "copy-bundled-assets": "mkdir -p dist/bundled-extensions/subagent/agents dist/bundled-extensions/subagent/prompts && cp src/bundled-extensions/subagent/agents/*.md dist/bundled-extensions/subagent/agents/ && cp src/bundled-extensions/subagent/prompts/*.md dist/bundled-extensions/subagent/prompts/",
+    "build": "tsc",
     "dev": "tsc --watch",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit",
