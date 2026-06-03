@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   extractLastCompactionSummary,
+  extractSessionContext,
   isSessionFileTooLarge,
   MAX_SESSION_FILE_BYTES,
 } from "../session-utils.js";
@@ -145,6 +146,68 @@ describe("session-utils", () => {
       const file = join(tmpDir, "empty.jsonl");
       writeFileSync(file, "");
       expect(extractLastCompactionSummary(file)).toBeUndefined();
+    });
+  });
+
+  describe("extractSessionContext", () => {
+    it("prefers the last compaction summary", () => {
+      const file = join(tmpDir, "context-compact.jsonl");
+      writeFileSync(
+        file,
+        [
+          JSON.stringify({
+            type: "message",
+            message: { role: "user", content: "before" },
+          }),
+          JSON.stringify({
+            type: "compaction",
+            summary: "Compact context",
+          }),
+        ].join("\n") + "\n",
+      );
+
+      expect(extractSessionContext(file)).toBe("Compact context");
+    });
+
+    it("builds context from recent string and text-array messages", () => {
+      const file = join(tmpDir, "context-messages.jsonl");
+      writeFileSync(
+        file,
+        [
+          JSON.stringify({ type: "message", message: { role: "system" } }),
+          JSON.stringify({
+            type: "message",
+            message: { role: "user", content: "Question" },
+          }),
+          JSON.stringify({
+            type: "message",
+            message: {
+              role: "assistant",
+              content: [
+                { type: "text", text: "Answer" },
+                { type: "image", text: "ignored" },
+              ],
+            },
+          }),
+          "{not-json",
+        ].join("\n") + "\n",
+      );
+
+      expect(extractSessionContext(file)).toContain("[user]: Question");
+      expect(extractSessionContext(file)).toContain("[assistant]: Answer");
+    });
+
+    it("returns undefined when no usable context exists", () => {
+      const file = join(tmpDir, "context-empty.jsonl");
+      writeFileSync(
+        file,
+        JSON.stringify({ type: "message", message: { role: "tool" } }) + "\n",
+      );
+
+      expect(extractSessionContext(file)).toBeUndefined();
+      expect(
+        extractSessionContext(join(tmpDir, "missing.jsonl")),
+      ).toBeUndefined();
     });
   });
 });

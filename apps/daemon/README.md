@@ -48,6 +48,18 @@ This starts a local daemon on an ephemeral port and calls
 The test is skipped unless `RUN_AI_INTEGRATION=1` is set and does not print API
 keys.
 
+To run the full daemon suite with real-model integration and coverage:
+
+```bash
+RUN_AI_INTEGRATION=1 \
+BUNNY_AI_INTEGRATION_PI_MODEL="${BUNNY_AI_INTEGRATION_PI_MODEL:-openai:gpt-5.4}" \
+pnpm --filter @bunny-agent/daemon exec vitest run --coverage
+```
+
+Coverage is checked against 80% global thresholds for daemon core code. CLI,
+server adapter, Next.js adapter, barrel export, and platform process inspector
+entrypoints are excluded from the daemon core coverage target.
+
 ---
 
 ## Architecture

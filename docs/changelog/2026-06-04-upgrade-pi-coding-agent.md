@@ -15,6 +15,7 @@
 - Added opt-in AI integration tests for the Pi runner and daemon-to-Pi path, guarded by `RUN_AI_INTEGRATION=1`, with README instructions for loading local API credentials.
 - Adjusted the daemon git RPC property test to compare JSON wire-format options, avoiding a `-0` round-trip flake.
 - Added Vitest's V8 coverage provider so the Pi runner and daemon test suites can generate coverage reports.
+- Added focused coverage tests and 80% global coverage thresholds for the Pi runner core and daemon suites.
 
 ## Extension Candidates
 

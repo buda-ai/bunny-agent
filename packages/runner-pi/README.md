@@ -54,3 +54,15 @@ pnpm --filter @bunny-agent/runner-pi exec vitest run src/__tests__/pi-runner.int
 
 The test verifies a real Pi runner call with `effort: "medium"` and checks that
 the stream contains `pong` and a finish event. It never prints API keys.
+
+To run the full Pi runner suite with real-model integration and coverage:
+
+```bash
+RUN_AI_INTEGRATION=1 \
+BUNNY_AI_INTEGRATION_PI_MODEL="${BUNNY_AI_INTEGRATION_PI_MODEL:-openai:gpt-5.4}" \
+pnpm --filter @bunny-agent/runner-pi exec vitest run --coverage
+```
+
+Coverage is checked against 80% global thresholds for the runner core. Bundled
+extension source, barrel exports, tool metadata types, and the optional image
+tool are excluded from the runner core coverage target.

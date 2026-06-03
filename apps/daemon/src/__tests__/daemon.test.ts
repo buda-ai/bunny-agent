@@ -4,6 +4,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { DaemonRouter } from "../router.js";
+import { fsDownload, fsUpload } from "../routes/fs.js";
 import { __resetSandboxProcessInspectorsForTests } from "../routes/processes.js";
 import { createDaemon } from "../server.js";
 
@@ -117,6 +118,42 @@ describe("fs", () => {
     expect((await get("/api/fs/exists?path=moved.txt")).data.exists).toBe(
       false,
     );
+  });
+
+  it("upload + download", async () => {
+    const upload = await fsUpload(
+      { root },
+      {
+        fields: { path: "uploads" },
+        files: [{ filename: "raw.bin", data: Buffer.from([1, 2, 3]) }],
+      },
+    );
+    expect(upload).toMatchObject({ ok: true });
+
+    const download = await fsDownload(
+      { root },
+      {
+        path: "uploads/raw.bin",
+      },
+    );
+    expect(download.buffer).toEqual(Buffer.from([1, 2, 3]));
+  });
+
+  it("find clamps limits and skips unreadable paths", async () => {
+    await post("/api/fs/mkdir", { path: "find-limit" });
+    await post("/api/fs/write", {
+      path: "find-limit/a-note.txt",
+      content: "a",
+    });
+    await post("/api/fs/write", {
+      path: "find-limit/b-note.txt",
+      content: "b",
+    });
+
+    const r = await get("/api/fs/find?path=find-limit&pattern=note&limit=1");
+
+    expect(r.ok).toBe(true);
+    expect(r.data).toHaveLength(1);
   });
 
   it("rejects path traversal", async () => {

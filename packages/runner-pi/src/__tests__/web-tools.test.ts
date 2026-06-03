@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  buildWebFetchTool,
   buildWebSearchTool,
   resolveSearchProvider,
   resolveSearchProviders,
@@ -159,5 +160,178 @@ describe("buildWebSearchTool", () => {
         },
       },
     });
+  });
+
+  it("falls back to Tavily when Brave is rate limited and fetches result content", async () => {
+    const responses = [
+      {
+        ok: false,
+        status: 429,
+        statusText: "Too Many Requests",
+        text: async () => "rate limit",
+      },
+      {
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        json: async () => ({
+          results: [
+            {
+              title: "Docs",
+              url: "https://docs.example.test/page",
+              content: "snippet",
+            },
+          ],
+        }),
+        text: async () => "",
+      },
+      {
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        text: async () =>
+          "<html><body><h1>Docs</h1><script>ignore()</script><p>Full &amp; useful content.</p></body></html>",
+      },
+    ];
+    globalThis.fetch = (async () =>
+      responses.shift() as unknown as Response) as typeof fetch;
+
+    const tool = buildWebSearchTool({
+      BRAVE_API_KEY: "bsk-test",
+      TAVILY_API_KEY: "tvly-test",
+    });
+    const result = await (
+      tool.execute as (...args: unknown[]) => Promise<{
+        content: Array<{ type: string; text?: string }>;
+        details?: unknown;
+      }>
+    )(
+      "call_1",
+      { query: "docs", count: 1, fetch_content: true },
+      undefined,
+      undefined,
+      {},
+    );
+
+    expect(result.content[0]?.text).toContain("[Tavily] 1 result(s)");
+    expect(result.content[0]?.text).toContain("Full & useful content.");
+    expect(result.details).toMatchObject({
+      usage: { raw: { tavily: { requests: 1, fetchedPages: 1 } } },
+    });
+  });
+
+  it("returns an error payload for non-rate-limit provider failures", async () => {
+    globalThis.fetch = (async () =>
+      ({
+        ok: false,
+        status: 500,
+        statusText: "Server Error",
+        text: async () => "boom",
+      }) as unknown as Response) as typeof fetch;
+
+    const tool = buildWebSearchTool({ BRAVE_API_KEY: "bsk-test" });
+    const result = await (
+      tool.execute as (...args: unknown[]) => Promise<{
+        content: Array<{ type: string; text?: string }>;
+        details?: unknown;
+      }>
+    )("call_1", { query: "docs" }, undefined, undefined, {});
+
+    expect(result.content[0]?.text).toContain("Web search error:");
+    expect(result.details).toBeUndefined();
+  });
+
+  it("throws when no search provider is configured", () => {
+    expect(() => buildWebSearchTool({})).toThrow(
+      "web_search: no search provider available",
+    );
+  });
+});
+
+describe("buildWebFetchTool", () => {
+  const originalFetch = globalThis.fetch;
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it("extracts readable text from HTML", async () => {
+    globalThis.fetch = (async () =>
+      ({
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        text: async () =>
+          "<html><body><style>.x{}</style><h1>Title</h1><p>A &lt; B &amp; C</p></body></html>",
+      }) as unknown as Response) as typeof fetch;
+
+    const tool = buildWebFetchTool();
+    const result = await (
+      tool.execute as (...args: unknown[]) => Promise<{
+        content: Array<{ type: string; text?: string }>;
+      }>
+    )("call_1", { url: "https://example.test" }, undefined, undefined, {});
+
+    expect(result.content[0]?.text).toContain("Title");
+    expect(result.content[0]?.text).toContain("A < B & C");
+  });
+
+  it("truncates very large fetched pages", async () => {
+    globalThis.fetch = (async () =>
+      ({
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        text: async () => `<p>${"x".repeat(50_100)}</p>`,
+      }) as unknown as Response) as typeof fetch;
+
+    const tool = buildWebFetchTool();
+    const result = await (
+      tool.execute as (...args: unknown[]) => Promise<{
+        content: Array<{ type: string; text?: string }>;
+      }>
+    )(
+      "call_1",
+      { url: "https://example.test/large" },
+      undefined,
+      undefined,
+      {},
+    );
+
+    expect(result.content[0]?.text).toContain("[Truncated]");
+  });
+
+  it("returns HTTP and fetch errors as text content", async () => {
+    globalThis.fetch = (async () =>
+      ({
+        ok: false,
+        status: 404,
+        statusText: "Not Found",
+        text: async () => "",
+      }) as unknown as Response) as typeof fetch;
+
+    const tool = buildWebFetchTool();
+    const httpResult = await (
+      tool.execute as (...args: unknown[]) => Promise<{
+        content: Array<{ type: string; text?: string }>;
+      }>
+    )(
+      "call_1",
+      { url: "https://example.test/missing" },
+      undefined,
+      undefined,
+      {},
+    );
+    expect(httpResult.content[0]?.text).toContain("HTTP 404");
+
+    globalThis.fetch = (async () => {
+      throw new Error("network down");
+    }) as typeof fetch;
+    const errorResult = await (
+      tool.execute as (...args: unknown[]) => Promise<{
+        content: Array<{ type: string; text?: string }>;
+      }>
+    )("call_2", { url: "https://example.test/fail" }, undefined, undefined, {});
+    expect(errorResult.content[0]?.text).toContain("network down");
   });
 });
