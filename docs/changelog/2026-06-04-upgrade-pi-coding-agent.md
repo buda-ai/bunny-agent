@@ -14,6 +14,7 @@
 - Added Bunny `effort` plumbing through SDK, daemon, runner CLI, and manager command construction, mapping it to Pi's native `thinkingLevel`.
 - Added opt-in AI integration tests for the Pi runner and daemon-to-Pi path, guarded by `RUN_AI_INTEGRATION=1`, with README instructions for loading local API credentials.
 - Adjusted the daemon git RPC property test to compare JSON wire-format options, avoiding a `-0` round-trip flake.
+- Added Vitest's V8 coverage provider so the Pi runner and daemon test suites can generate coverage reports.
 
 ## Extension Candidates
 
