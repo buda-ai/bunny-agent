@@ -1,5 +1,6 @@
 import { appendFileSync, existsSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
+import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
 import { type Api, getModel, type Model } from "@earendil-works/pi-ai";
 import {
   type AgentSessionEvent,
@@ -25,6 +26,16 @@ import { buildToolDefinitionsFromRefs, type PiToolRef } from "./tool-refs.js";
 import { getUsageFromAgentEndMessages } from "./usage-metadata.js";
 
 const LOG_PREFIX = "[bunny-agent:pi]";
+const VALID_EFFORTS = [
+  "off",
+  "minimal",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+] as const satisfies readonly ThinkingLevel[];
+
+export type PiRunnerEffort = (typeof VALID_EFFORTS)[number];
 
 export interface PiRunnerOptions {
   model?: string;
@@ -53,6 +64,11 @@ export interface PiRunnerOptions {
    * resumed pi sessions cannot keep using tools the caller has disabled.
    */
   allowedTools?: string[];
+  /**
+   * Bunny-facing reasoning effort. Pi calls this `thinkingLevel` internally.
+   * Valid values mirror Pi's thinking levels.
+   */
+  effort?: PiRunnerEffort;
   yolo?: boolean;
   /**
    * Serializable Bunny tool refs. Pi owns the conversion into pi-native
@@ -72,6 +88,16 @@ function applyAllowedTools(
   if (!allowedTools) return tools;
   const allowed = new Set(allowedTools);
   return tools.filter((tool) => allowed.has(tool.name));
+}
+
+function resolveThinkingLevel(
+  effort: PiRunnerEffort | undefined,
+): ThinkingLevel | undefined {
+  if (effort === undefined) return undefined;
+  if ((VALID_EFFORTS as readonly string[]).includes(effort)) return effort;
+  throw new Error(
+    `Invalid pi effort "${effort}". Expected one of: ${VALID_EFFORTS.join(", ")}.`,
+  );
 }
 
 export function parseModelSpec(model: string): {
@@ -260,6 +286,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
     model = registered;
   }
   applyModelOverrides(model, provider, options.env);
+  const thinkingLevel = resolveThinkingLevel(options.effort);
 
   // Unified image model for both generate_image and edit_image.
   const imageModelName = resolveImageModelName(provider, options.env);
@@ -348,6 +375,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
         const { session } = await createAgentSession({
           cwd,
           model,
+          thinkingLevel,
           sessionManager,
           modelRegistry,
           resourceLoader,

@@ -112,6 +112,7 @@ interface ParsedRunArgs {
   allowedTools?: string[];
   resume?: string;
   skillPaths?: string[];
+  effort?: PiRunnerOptions["effort"];
   yolo?: boolean;
   userInput: string;
 }
@@ -135,6 +136,7 @@ function parseRunArgs(): ParsedRunArgs {
       "max-turns": { type: "string", short: "t" },
       "allowed-tools": { type: "string", short: "a" },
       "skill-path": { type: "string", multiple: true },
+      effort: { type: "string" },
       resume: { type: "string" },
       yolo: { type: "boolean" },
       help: { type: "boolean", short: "h" },
@@ -182,6 +184,7 @@ function parseRunArgs(): ParsedRunArgs {
       : undefined,
     allowedTools: values["allowed-tools"]?.split(",").map((t) => t.trim()),
     skillPaths: values["skill-path"] as string[] | undefined,
+    effort: values.effort as PiRunnerOptions["effort"] | undefined,
     resume: values.resume,
     yolo: values["yolo"],
     userInput,
@@ -253,6 +256,7 @@ Options:
   -t, --max-turns <n>          Max conversation turns
   -a, --allowed-tools <tools>  Comma-separated allowed tools
       --skill-path <path>      Additional skill path (can be repeated, for pi runner)
+      --effort <level>         Reasoning effort for supported runners: off, minimal, low, medium, high, xhigh
       --resume <session-id>    Resume a previous session
   -h, --help                   Show this help
 
@@ -348,6 +352,7 @@ async function main(): Promise<void> {
         allowedTools: args.allowedTools,
         skillPaths: args.skillPaths,
         resume: args.resume,
+        effort: args.effort,
         yolo: args.yolo,
         ...(toolRefs ? { toolRefs: toolRefs.tools } : {}),
       });

@@ -16,6 +16,8 @@ export interface RunnerCoreOptions extends BaseRunnerOptions {
   env?: Record<string, string>;
   abortController?: AbortController;
   yolo?: boolean;
+  /** Bunny-facing reasoning effort. Pi maps this to thinkingLevel. */
+  effort?: PiRunnerOptions["effort"];
   /**
    * Whether to auto-inject CLAUDE.md/AGENTS.md as systemPrompt and
    * auto-read/write .bunny-agent/session-id for resume.
@@ -53,6 +55,7 @@ export function createRunner(
     allowedTools: options.allowedTools,
     resume,
     yolo: options.yolo,
+    effort: options.effort,
     env,
     abortController,
   };
@@ -92,6 +95,7 @@ function dispatchRunner(
         cwd,
         sessionId: base.resume,
         skillPaths: options.skillPaths ?? discoverSkillPaths(cwd),
+        effort: options.effort,
         toolRefs: options.toolRefs,
       }).run(options.userInput);
     }

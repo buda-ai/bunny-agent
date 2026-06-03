@@ -27,6 +27,7 @@ export type {
   BunnyAgentOptions,
   ExecOptions,
   Message,
+  RunnerEffort,
   RunnerSpec,
   SandboxAdapter,
   SandboxHandle,

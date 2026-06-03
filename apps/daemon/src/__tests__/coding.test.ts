@@ -9,42 +9,44 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 const createRunnerCalls: Array<Record<string, unknown>> = [];
 
 vi.mock("@bunny-agent/runner-harness", () => ({
-  createRunner: vi.fn((opts: { userInput: string; yolo?: boolean }) => {
-    createRunnerCalls.push(opts);
-    if (opts.userInput === "__THROW__") {
-      // biome-ignore lint/correctness/useYield: throw-only generator simulates immediate runner failure
+  createRunner: vi.fn(
+    (opts: { userInput: string; yolo?: boolean; effort?: string }) => {
+      createRunnerCalls.push(opts);
+      if (opts.userInput === "__THROW__") {
+        // biome-ignore lint/correctness/useYield: throw-only generator simulates immediate runner failure
+        return (async function* () {
+          throw new Error("runner exploded");
+        })();
+      }
+      if (opts.userInput === "__SLOW__") {
+        // Simulate a long-running tool execution (e.g. image generation).
+        return (async function* () {
+          yield `data: ${JSON.stringify({ type: "tool-input-start", toolCallId: "t1", toolName: "generate_image" })}\n\n`;
+          await new Promise<void>((resolve) => setTimeout(resolve, 40_000));
+          yield `data: ${JSON.stringify({ type: "tool-output-available", toolCallId: "t1", output: "/agent/img.png" })}\n\n`;
+          yield `data: ${JSON.stringify({ type: "finish", finishReason: "stop" })}\n\n`;
+          yield `data: [DONE]\n\n`;
+        })();
+      }
+      if (opts.userInput === "__SLOW_SHORT__") {
+        // Short delay (100ms) — used with a patched HEARTBEAT_INTERVAL_MS (20ms)
+        // so heartbeats fire multiple times within the pause.
+        return (async function* () {
+          yield `data: ${JSON.stringify({ type: "tool-input-start", toolCallId: "t1", toolName: "generate_image" })}\n\n`;
+          await new Promise<void>((resolve) => setTimeout(resolve, 100));
+          yield `data: ${JSON.stringify({ type: "tool-output-available", toolCallId: "t1", output: "/agent/img.png" })}\n\n`;
+          yield `data: ${JSON.stringify({ type: "finish", finishReason: "stop" })}\n\n`;
+          yield `data: [DONE]\n\n`;
+        })();
+      }
+      // Return an async iterable that yields SSE-style chunks.
       return (async function* () {
-        throw new Error("runner exploded");
-      })();
-    }
-    if (opts.userInput === "__SLOW__") {
-      // Simulate a long-running tool execution (e.g. image generation).
-      return (async function* () {
-        yield `data: ${JSON.stringify({ type: "tool-input-start", toolCallId: "t1", toolName: "generate_image" })}\n\n`;
-        await new Promise<void>((resolve) => setTimeout(resolve, 40_000));
-        yield `data: ${JSON.stringify({ type: "tool-output-available", toolCallId: "t1", output: "/agent/img.png" })}\n\n`;
+        yield `data: ${JSON.stringify({ type: "text", text: `echo: ${opts.userInput}` })}\n\n`;
         yield `data: ${JSON.stringify({ type: "finish", finishReason: "stop" })}\n\n`;
         yield `data: [DONE]\n\n`;
       })();
-    }
-    if (opts.userInput === "__SLOW_SHORT__") {
-      // Short delay (100ms) — used with a patched HEARTBEAT_INTERVAL_MS (20ms)
-      // so heartbeats fire multiple times within the pause.
-      return (async function* () {
-        yield `data: ${JSON.stringify({ type: "tool-input-start", toolCallId: "t1", toolName: "generate_image" })}\n\n`;
-        await new Promise<void>((resolve) => setTimeout(resolve, 100));
-        yield `data: ${JSON.stringify({ type: "tool-output-available", toolCallId: "t1", output: "/agent/img.png" })}\n\n`;
-        yield `data: ${JSON.stringify({ type: "finish", finishReason: "stop" })}\n\n`;
-        yield `data: [DONE]\n\n`;
-      })();
-    }
-    // Return an async iterable that yields SSE-style chunks.
-    return (async function* () {
-      yield `data: ${JSON.stringify({ type: "text", text: `echo: ${opts.userInput}` })}\n\n`;
-      yield `data: ${JSON.stringify({ type: "finish", finishReason: "stop" })}\n\n`;
-      yield `data: [DONE]\n\n`;
-    })();
-  }),
+    },
+  ),
 }));
 
 import { createNextHandler } from "../nextjs.js";
@@ -338,6 +340,33 @@ describe("yolo flag", () => {
     await codingRunStream({ userInput: "web yolo", yolo: true }, {}).text();
     const call = createRunnerCalls[before];
     expect(call.yolo).toBe(true);
+  });
+});
+
+describe("effort option", () => {
+  it("passes effort to createRunner via standalone server", async () => {
+    const before = createRunnerCalls.length;
+    await fetch(`${BASE}/api/coding/run`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userInput: "effort test",
+        runner: "pi",
+        effort: "high",
+      }),
+    });
+    const call = createRunnerCalls[before];
+    expect(call.effort).toBe("high");
+  });
+
+  it("passes effort via codingRunStream (web response)", async () => {
+    const before = createRunnerCalls.length;
+    await codingRunStream(
+      { userInput: "web effort", runner: "pi", effort: "xhigh" },
+      {},
+    ).text();
+    const call = createRunnerCalls[before];
+    expect(call.effort).toBe("xhigh");
   });
 });
 

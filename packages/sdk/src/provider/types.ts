@@ -1,6 +1,7 @@
 import type { LanguageModelV3StreamPart } from "@ai-sdk/provider";
 import type {
   BunnyAgentOptions,
+  RunnerEffort,
   SandboxAdapter,
   ToolRef,
 } from "@bunny-agent/manager";
@@ -125,6 +126,8 @@ export interface BunnyAgentProviderSettings
   allowedTools?: string[];
   /** Skip tool approval checks (bypass permissions). */
   yolo?: boolean;
+  /** Reasoning effort for runners that support it. Pi maps this to thinkingLevel. */
+  effort?: RunnerEffort;
   /** Advanced static tool refs to expose directly to the runner. */
   toolRefs?: ToolRef[];
 }

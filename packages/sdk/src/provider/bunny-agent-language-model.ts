@@ -397,6 +397,7 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
       allowedTools: runner.allowedTools ?? this.options.allowedTools,
       skillPaths: runner.skillPaths ?? this.options.skillPaths,
       yolo: this.options.yolo,
+      effort: runner.effort ?? this.options.effort,
       ...(toolRefs && toolRefs.length > 0 ? { toolRefs } : {}),
     };
   }

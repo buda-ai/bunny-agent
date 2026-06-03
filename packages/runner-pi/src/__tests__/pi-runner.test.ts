@@ -675,6 +675,27 @@ describe("createPiRunner", () => {
     expect(callArgs?.tools).toEqual(["read", "bash"]);
   });
 
+  it("maps Bunny effort to Pi thinkingLevel", async () => {
+    const { createAgentSession: mockCreateAgentSession } = await import(
+      "@earendil-works/pi-coding-agent"
+    );
+    const spy = vi.mocked(mockCreateAgentSession);
+    spy.mockClear();
+
+    const runner = createPiRunner({
+      model: "google:gemini-2.5-pro",
+      effort: "high",
+    });
+
+    for await (const _ of runner.run("verify effort mapping")) {
+      break;
+    }
+
+    expect(spy).toHaveBeenCalled();
+    const callArgs = spy.mock.calls[0]?.[0];
+    expect(callArgs?.thinkingLevel).toBe("high");
+  });
+
   it("does not mutate process.env when injecting runner env", async () => {
     const key = "__PI_RUNNER_ENV_LEAK_TEST__";
     delete process.env[key];

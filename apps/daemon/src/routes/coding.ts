@@ -4,6 +4,7 @@ import {
   type RunnerCoreOptions,
 } from "@bunny-agent/runner-harness";
 
+type RunEffort = RunnerCoreOptions["effort"];
 type RunToolRefs = RunnerCoreOptions["toolRefs"];
 
 export interface RunRequest {
@@ -18,6 +19,8 @@ export interface RunRequest {
   cwd?: string;
   /** Skip tool approval checks (bypass permissions). */
   yolo?: boolean;
+  /** Reasoning effort for runners that support it. Pi maps this to thinkingLevel. */
+  effort?: RunEffort;
   /** Inline runner env (string map); same keys override. */
   env?: Record<string, string>;
   /** Tool refs the runner should expose to the LLM. */
@@ -76,6 +79,7 @@ export async function bunnyAgentRun(
       skillPaths: req.skillPaths,
       cwd: req.cwd ?? process.env.BUNNY_AGENT_ROOT ?? "/workspace",
       yolo: req.yolo,
+      effort: req.effort,
       env,
       abortController,
       toolRefs: req.toolRefs,
@@ -137,6 +141,7 @@ export function codingRunStream(
           skillPaths: req.skillPaths,
           cwd: req.cwd ?? process.env.BUNNY_AGENT_ROOT ?? "/workspace",
           yolo: req.yolo,
+          effort: req.effort,
           env,
           abortController,
           toolRefs: req.toolRefs,

@@ -48,6 +48,18 @@ export interface ModuleToolRuntime {
 export type ToolRuntime = HttpToolRuntime | ModuleToolRuntime;
 
 /**
+ * Bunny-facing reasoning effort. Runners that support reasoning controls map
+ * this into their native setting (Pi uses `thinkingLevel`).
+ */
+export type RunnerEffort =
+  | "off"
+  | "minimal"
+  | "low"
+  | "medium"
+  | "high"
+  | "xhigh";
+
+/**
  * Runner wire-format tool. Public user APIs compile into this serializable
  * shape before the request crosses into runner-cli or bunny-agent-daemon.
  */
@@ -79,6 +91,8 @@ export interface BunnyAgentCodingRunBody {
   env?: Record<string, string>;
   /** Skip tool approval checks (bypass permissions). */
   yolo?: boolean;
+  /** Reasoning effort for runners that support it. Pi maps this to thinkingLevel. */
+  effort?: RunnerEffort;
   /**
    * Runtime tools the runner should expose to the LLM. Each tool carries both
    * its LLM-facing spec and the runtime the in-sandbox runner should use when
@@ -230,6 +244,8 @@ export interface RunnerSpec {
    * via the .bunny-agent/approvals/{toolUseID}.json file mechanism.
    */
   yolo?: boolean;
+  /** Reasoning effort for runners that support it. Pi maps this to thinkingLevel. */
+  effort?: RunnerEffort;
 }
 
 /**

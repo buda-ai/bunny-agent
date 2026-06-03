@@ -11,6 +11,7 @@
 - Added `/subagent` helper command plus bundled `scout`, `planner`, `reviewer`, and `worker` agents with `/implement`, `/implement-and-review`, and `/scout-and-plan` prompt workflows.
 - Documented bundled extension provenance in `packages/runner-pi/src/bundled-extensions/README.md`.
 - Simplified bundled extension packaging by defining default subagents and workflow commands in TypeScript, removing the `copy-bundled-assets` build step.
+- Added Bunny `effort` plumbing through SDK, daemon, runner CLI, and manager command construction, mapping it to Pi's native `thinkingLevel`.
 
 ## Extension Candidates
 

@@ -89,6 +89,7 @@ export function createBunnyAgent(
       runnerType: options.runnerType ?? defaultOptions.runnerType,
       outputFormat: "stream",
       maxTurns: options.maxTurns ?? defaultOptions.maxTurns,
+      effort: options.effort ?? defaultOptions.effort,
       ...((options.systemPrompt ?? defaultOptions.systemPrompt)
         ? { systemPrompt: options.systemPrompt ?? defaultOptions.systemPrompt }
         : {}),

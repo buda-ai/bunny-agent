@@ -125,6 +125,27 @@ describe("BunnyAgent", () => {
       );
     });
 
+    it("should pass runner effort to the CLI command", async () => {
+      const sandbox = createMockSandbox();
+      const agent = new BunnyAgent({
+        sandbox,
+        runner: {
+          model: "google:gemini-2.5-pro",
+          runnerType: "pi",
+          effort: "high",
+        },
+      });
+
+      await agent.stream({
+        messages: [{ role: "user", content: "Think carefully" }],
+      });
+
+      expect(sandbox.handle.exec).toHaveBeenCalledWith(
+        expect.arrayContaining(["--effort", "high"]),
+        expect.any(Object),
+      );
+    });
+
     it("should pass through stdout without modification", async () => {
       const testData = "test streaming data";
       const sandbox = createMockSandbox();
