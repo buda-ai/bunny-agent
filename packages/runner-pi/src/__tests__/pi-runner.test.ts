@@ -148,6 +148,23 @@ const mockPiAgentState = vi.hoisted(() => ({
 const mockCreateCodingToolsState = vi.hoisted(() => ({
   lastOptions: undefined as unknown,
 }));
+const mockModelState = vi.hoisted(() => ({
+  forceMissingCatalogModel: false,
+  registeredModel: undefined as
+    | {
+        id: string;
+        name: string;
+        provider: string;
+        baseUrl?: string;
+        api: string;
+        reasoning: boolean;
+        input: string[];
+        contextWindow: number;
+        maxTokens: number;
+        cost: Record<string, number>;
+      }
+    | undefined,
+}));
 
 vi.mock("@earendil-works/pi-coding-agent", () => {
   const mockAuthStorage = {
@@ -157,8 +174,22 @@ vi.mock("@earendil-works/pi-coding-agent", () => {
   };
   const mockModelRegistry = {
     authStorage: mockAuthStorage,
-    find: vi.fn().mockReturnValue(undefined),
-    registerProvider: vi.fn(),
+    find: vi.fn().mockImplementation(() => mockModelState.registeredModel),
+    registerProvider: vi.fn().mockImplementation((provider, config) => {
+      const registered = config.models[0];
+      mockModelState.registeredModel = {
+        id: registered.id,
+        name: registered.name,
+        provider,
+        baseUrl: config.baseUrl,
+        api: config.api,
+        reasoning: registered.reasoning,
+        input: registered.input,
+        contextWindow: registered.contextWindow,
+        maxTokens: registered.maxTokens,
+        cost: registered.cost,
+      };
+    }),
   };
   return {
     AuthStorage: {
@@ -257,18 +288,22 @@ vi.mock("@earendil-works/pi-ai", async (importOriginal) => {
     ...actual,
     getModel: vi
       .fn()
-      .mockImplementation((provider: string, modelName: string) => ({
-        id: modelName,
-        name: modelName,
-        provider,
-        baseUrl: "https://example.com",
-        api: "openai-completions",
-        reasoning: false,
-        input: ["text", "image"],
-        contextWindow: 128000,
-        maxTokens: 8192,
-        cost: { input: 3, output: 30, cacheRead: 1, cacheWrite: 2 },
-      })),
+      .mockImplementation((provider: string, modelName: string) =>
+        mockModelState.forceMissingCatalogModel
+          ? undefined
+          : {
+              id: modelName,
+              name: modelName,
+              provider,
+              baseUrl: "https://example.com",
+              api: "openai-completions",
+              reasoning: false,
+              input: ["text", "image"],
+              contextWindow: 128000,
+              maxTokens: 8192,
+              cost: { input: 3, output: 30, cacheRead: 1, cacheWrite: 2 },
+            },
+      ),
   };
 });
 
@@ -344,6 +379,8 @@ describe("createPiRunner", () => {
     nextSessionBehavior = "normal";
     mockPiAgentState.baseSystemPrompt = undefined;
     mockCreateCodingToolsState.lastOptions = undefined;
+    mockModelState.forceMissingCatalogModel = false;
+    mockModelState.registeredModel = undefined;
     const { createAgentSession: createSession } = await import(
       "@earendil-works/pi-coding-agent"
     );
@@ -673,6 +710,115 @@ describe("createPiRunner", () => {
     expect(spy).toHaveBeenCalled();
     const callArgs = spy.mock.calls[0]?.[0];
     expect(callArgs?.tools).toEqual(["read", "bash"]);
+  });
+
+  it("auto-registers unknown models from provider-specific base URL and inline API key", async () => {
+    mockModelState.forceMissingCatalogModel = true;
+    const { ModelRegistry } = await import("@earendil-works/pi-coding-agent");
+
+    const runner = createPiRunner({
+      model: "acme:custom-model",
+      env: {
+        ACME_BASE_URL: "https://acme.example/v1",
+        ACME_API_KEY: "inline-key",
+      },
+    });
+
+    for await (const _ of runner.run("verify model registration")) {
+      break;
+    }
+
+    const registryResults = vi.mocked(ModelRegistry.inMemory).mock.results;
+    const registry = registryResults[registryResults.length - 1]?.value as {
+      registerProvider: ReturnType<typeof vi.fn>;
+      authStorage: {
+        setRuntimeApiKey: ReturnType<typeof vi.fn>;
+        removeRuntimeApiKey: ReturnType<typeof vi.fn>;
+      };
+    };
+    expect(registry.registerProvider).toHaveBeenCalledWith(
+      "acme",
+      expect.objectContaining({
+        baseUrl: "https://acme.example/v1",
+        apiKey: "inline-key",
+      }),
+    );
+    expect(registry.authStorage.setRuntimeApiKey).toHaveBeenCalledWith(
+      "acme",
+      "inline-key",
+    );
+    expect(registry.authStorage.removeRuntimeApiKey).toHaveBeenCalledWith(
+      "acme",
+    );
+  });
+
+  it("falls back to OPENAI_BASE_URL when auto-registering an unknown provider model", async () => {
+    mockModelState.forceMissingCatalogModel = true;
+    const { ModelRegistry } = await import("@earendil-works/pi-coding-agent");
+
+    const runner = createPiRunner({
+      model: "custom-provider:model",
+      env: { OPENAI_BASE_URL: "https://proxy.example/v1" },
+    });
+
+    for await (const _ of runner.run("verify fallback base url")) {
+      break;
+    }
+
+    const registryResults = vi.mocked(ModelRegistry.inMemory).mock.results;
+    const registry = registryResults[registryResults.length - 1]?.value as {
+      registerProvider: ReturnType<typeof vi.fn>;
+    };
+    expect(registry.registerProvider).toHaveBeenCalledWith(
+      "custom-provider",
+      expect.objectContaining({
+        baseUrl: "https://proxy.example/v1",
+        apiKey: "CUSTOM_PROVIDER_API_KEY",
+      }),
+    );
+  });
+
+  it("throws when unknown model registration has no base URL", () => {
+    mockModelState.forceMissingCatalogModel = true;
+
+    expect(() =>
+      createPiRunner({
+        model: "acme:missing-base-url",
+      }),
+    ).toThrow("Set ACME_BASE_URL (or OPENAI_BASE_URL)");
+  });
+
+  it("opens full-path resume sessions and logs skill paths", async () => {
+    const { SessionManager, createAgentSession: mockCreateAgentSession } =
+      await import("@earendil-works/pi-coding-agent");
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const createSpy = vi.mocked(mockCreateAgentSession);
+    createSpy.mockClear();
+
+    const runner = createPiRunner({
+      model: "google:gemini-2.5-pro",
+      sessionId: "/tmp/session.jsonl",
+      skillPaths: ["./skills"],
+      yolo: true,
+    });
+
+    try {
+      for await (const _ of runner.run("resume session")) {
+        break;
+      }
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining("skillPaths"),
+      );
+    } finally {
+      consoleSpy.mockRestore();
+    }
+
+    expect(vi.mocked(SessionManager.open)).toHaveBeenCalledWith(
+      "/tmp/session.jsonl",
+    );
+    const createCall = createSpy.mock.calls[0]?.[0];
+    expect(createCall).toBeDefined();
+    expect(createCall?.resourceLoader).toBeDefined();
   });
 
   it("maps Bunny effort to Pi thinkingLevel", async () => {

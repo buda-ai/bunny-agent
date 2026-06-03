@@ -16,6 +16,7 @@
 - Adjusted the daemon git RPC property test to compare JSON wire-format options, avoiding a `-0` round-trip flake.
 - Added Vitest's V8 coverage provider so the Pi runner and daemon test suites can generate coverage reports.
 - Added focused coverage tests and 80% global coverage thresholds for the Pi runner core and daemon suites.
+- Added Pi runner and daemon coverage checks to CI, with optional real-model coverage when CI API-key secrets are present.
 
 ## Extension Candidates
 
