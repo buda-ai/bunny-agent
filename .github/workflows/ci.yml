@@ -6,6 +6,7 @@ on:
       - main
       - develop
       - "release/**"
+  workflow_dispatch:
 
 jobs:
   ci:
@@ -45,12 +46,15 @@ jobs:
           pnpm --filter @bunny-agent/daemon exec vitest run --coverage
 
       - name: AI integration coverage
-        if: ${{ secrets.OPENAI_API_KEY != '' && secrets.OPENAI_BASE_URL != '' }}
         env:
           RUN_AI_INTEGRATION: "1"
           BUNNY_AI_INTEGRATION_PI_MODEL: openai:gpt-5.4
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_BASE_URL: ${{ secrets.OPENAI_BASE_URL }}
         run: |
+          if [ -z "${OPENAI_API_KEY}" ] || [ -z "${OPENAI_BASE_URL}" ]; then
+            echo "Skipping AI integration coverage because OPENAI_API_KEY and OPENAI_BASE_URL secrets are required."
+            exit 0
+          fi
           pnpm --filter @bunny-agent/runner-pi exec vitest run --coverage
           pnpm --filter @bunny-agent/daemon exec vitest run --coverage

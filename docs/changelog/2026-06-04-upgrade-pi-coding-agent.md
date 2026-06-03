@@ -18,6 +18,7 @@
 - Added focused coverage tests and 80% global coverage thresholds for the Pi runner core and daemon suites.
 - Added Pi runner and daemon coverage checks to CI, with optional real-model coverage when CI API-key secrets are present.
 - Required `OPENAI_BASE_URL` alongside `OPENAI_API_KEY` for the default `openai:gpt-5.4` AI integration coverage path.
+- Added manual CI dispatch and moved AI integration secret checks into the workflow shell step so missing secrets skip only the real-model coverage pass.
 
 ## Extension Candidates
 

@@ -65,6 +65,8 @@ BUNNY_AI_INTEGRATION_PI_MODEL="${BUNNY_AI_INTEGRATION_PI_MODEL:-openai:gpt-5.4}"
 pnpm --filter @bunny-agent/runner-pi exec vitest run --coverage
 ```
 
-Coverage is checked against 80% global thresholds for the runner core. Bundled
-extension source, barrel exports, tool metadata types, and the optional image
-tool are excluded from the runner core coverage target.
+Coverage is checked against 80% global thresholds for the runner core. The
+real-model integration test is skipped in the default offline coverage path and
+runs only when `RUN_AI_INTEGRATION=1` is set. Bundled extension source, barrel
+exports, tool metadata types, and the optional image tool are excluded from the
+runner core coverage target.

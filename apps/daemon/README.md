@@ -58,9 +58,11 @@ BUNNY_AI_INTEGRATION_PI_MODEL="${BUNNY_AI_INTEGRATION_PI_MODEL:-openai:gpt-5.4}"
 pnpm --filter @bunny-agent/daemon exec vitest run --coverage
 ```
 
-Coverage is checked against 80% global thresholds for daemon core code. CLI,
-server adapter, Next.js adapter, barrel export, and platform process inspector
-entrypoints are excluded from the daemon core coverage target.
+Coverage is checked against 80% global thresholds for daemon core code. The
+real-model integration test is skipped in the default offline coverage path and
+runs only when `RUN_AI_INTEGRATION=1` is set. CLI, server adapter, Next.js
+adapter, barrel export, and platform process inspector entrypoints are excluded
+from the daemon core coverage target.
 
 ---
 
