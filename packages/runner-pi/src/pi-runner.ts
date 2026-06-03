@@ -307,13 +307,12 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           return SessionManager.create(cwd);
         })();
 
-        const resourceLoader = options.skillPaths
-          ? new BunnyAgentResourceLoader({
-              cwd,
-              skillPaths: options.skillPaths,
-              appendSystemPrompt: options.systemPrompt,
-            })
-          : undefined;
+        const resourceLoader = new BunnyAgentResourceLoader({
+          cwd,
+          skillPaths: options.skillPaths,
+          appendSystemPrompt: options.systemPrompt,
+          permissionMode: options.yolo ? "yolo" : "safe",
+        });
 
         if (options.skillPaths && options.skillPaths.length > 0) {
           console.error(
@@ -325,9 +324,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
         // DefaultResourceLoader.  When we supply our own BunnyAgentResourceLoader
         // we must reload it ourselves so that skills and extensions on disk are
         // picked up before the session is built.
-        if (resourceLoader) {
-          await resourceLoader.reload();
-        }
+        await resourceLoader.reload();
 
         const customTools: ToolDefinition[] =
           options.env && Object.keys(options.env).length > 0

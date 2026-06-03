@@ -10,13 +10,18 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./bundled-extension": {
+      "types": "./dist/bundled-extensions/bunny-pi-extension.d.ts",
+      "import": "./dist/bundled-extensions/bunny-pi-extension.js"
     }
   },
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && pnpm copy-bundled-assets",
+    "copy-bundled-assets": "mkdir -p dist/bundled-extensions/subagent/agents dist/bundled-extensions/subagent/prompts && cp src/bundled-extensions/subagent/agents/*.md dist/bundled-extensions/subagent/agents/ && cp src/bundled-extensions/subagent/prompts/*.md dist/bundled-extensions/subagent/prompts/",
     "dev": "tsc --watch",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit",
@@ -26,7 +31,9 @@
     "@earendil-works/pi-agent-core": "0.78.0",
     "@earendil-works/pi-ai": "0.78.0",
     "@earendil-works/pi-coding-agent": "0.78.0",
-    "@sinclair/typebox": "^0.34.0"
+    "@earendil-works/pi-tui": "0.78.0",
+    "@sinclair/typebox": "^0.34.0",
+    "typebox": "1.1.38"
   },
   "devDependencies": {
     "typescript": "^5.7.3",

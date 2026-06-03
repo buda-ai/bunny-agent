@@ -17,6 +17,7 @@ export default defineConfig([
     external: [
       "@earendil-works/pi-coding-agent",
       "@bunny-agent/runner-harness",
+      "@bunny-agent/runner-pi/bundled-extension",
     ],
   },
 ]);

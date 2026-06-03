@@ -37,6 +37,9 @@ importers:
       '@bunny-agent/runner-harness':
         specifier: workspace:*
         version: link:../../packages/runner-harness
+      '@bunny-agent/runner-pi':
+        specifier: workspace:*
+        version: link:../../packages/runner-pi
       '@earendil-works/pi-coding-agent':
         specifier: 0.78.0
         version: 0.78.0(patch_hash=9dec0e2d334998ce54437482f1fb99f33fee0e9c7561801ccec505ac4a9eddec)(ws@8.19.0)(zod@4.3.6)
@@ -593,9 +596,15 @@ importers:
       '@earendil-works/pi-coding-agent':
         specifier: 0.78.0
         version: 0.78.0(patch_hash=9dec0e2d334998ce54437482f1fb99f33fee0e9c7561801ccec505ac4a9eddec)(ws@8.19.0)(zod@4.3.6)
+      '@earendil-works/pi-tui':
+        specifier: 0.78.0
+        version: 0.78.0
       '@sinclair/typebox':
         specifier: ^0.34.0
         version: 0.34.48
+      typebox:
+        specifier: 1.1.38
+        version: 1.1.38
     devDependencies:
       typescript:
         specifier: ^5.7.3
@@ -4480,10 +4489,6 @@ packages:
 
   gcp-metadata@8.1.2:
     resolution: {integrity: sha512-zV/5HKTfCeKWnxG0Dmrw51hEWFGfcF2xiXqcA3+J90WDuP0SvoiSO5ORvcBsifmx/FoIjgQN3oNOGaQ5PhLFkg==}
-    engines: {node: '>=18'}
-
-  get-east-asian-width@1.4.0:
-    resolution: {integrity: sha512-QZjmEOC+IT1uk6Rx0sX22V6uHWVwbdbxf1faPqJ1QhLdGgsRGCZoyaQBm/piRdJy/D2um6hM1UP7ZEeQ4EkP+Q==}
     engines: {node: '>=18'}
 
   get-east-asian-width@1.6.0:
@@ -10973,8 +10978,6 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  get-east-asian-width@1.4.0: {}
-
   get-east-asian-width@1.6.0: {}
 
   get-func-name@2.0.2: {}
@@ -11793,7 +11796,7 @@ snapshots:
   micromark-extension-cjk-friendly-gfm-strikethrough@1.2.3(micromark-util-types@2.0.2)(micromark@4.0.2):
     dependencies:
       devlop: 1.1.0
-      get-east-asian-width: 1.4.0
+      get-east-asian-width: 1.6.0
       micromark: 4.0.2
       micromark-extension-cjk-friendly-util: 2.1.1(micromark-util-types@2.0.2)
       micromark-util-character: 2.1.1
@@ -11805,7 +11808,7 @@ snapshots:
 
   micromark-extension-cjk-friendly-util@2.1.1(micromark-util-types@2.0.2):
     dependencies:
-      get-east-asian-width: 1.4.0
+      get-east-asian-width: 1.6.0
       micromark-util-character: 2.1.1
       micromark-util-symbol: 2.0.1
     optionalDependencies:

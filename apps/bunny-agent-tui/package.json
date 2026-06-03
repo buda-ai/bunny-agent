@@ -13,7 +13,8 @@
   },
   "dependencies": {
     "@earendil-works/pi-coding-agent": "0.78.0",
-    "@bunny-agent/runner-harness": "workspace:*"
+    "@bunny-agent/runner-harness": "workspace:*",
+    "@bunny-agent/runner-pi": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",

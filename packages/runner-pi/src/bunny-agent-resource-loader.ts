@@ -14,6 +14,7 @@ import {
   DefaultResourceLoader,
   loadSkills,
 } from "@earendil-works/pi-coding-agent";
+import { createBunnyPiExtension } from "./bundled-extensions/bunny-pi-extension.js";
 
 const LOG_PREFIX = "[bunny-agent:pi]";
 
@@ -57,6 +58,8 @@ export interface BunnyAgentResourceLoaderOptions {
   skillPaths?: string[];
   /** Extra system prompt to append (e.g. from --system-prompt CLI flag) */
   appendSystemPrompt?: string;
+  /** Default permission mode for Bunny's bundled safety gates */
+  permissionMode?: "safe" | "yolo";
 }
 
 /**
@@ -82,6 +85,9 @@ export class BunnyAgentResourceLoader implements ResourceLoader {
       cwd: this.cwd,
       agentDir: this.agentDir,
       settingsManager: options.settingsManager,
+      extensionFactories: [
+        createBunnyPiExtension({ permissionMode: options.permissionMode }),
+      ],
     });
   }
 

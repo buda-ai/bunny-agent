@@ -5,7 +5,10 @@
 - Upgraded the Pi runtime dependencies from `0.74.0` to `0.78.0`.
 - Migrated the Bunny-specific `@earendil-works/pi-coding-agent` patch to `0.78.0` so Pi continues to use `.bunny` as its config directory.
 - Reviewed upstream Pi extension examples for candidates that could be bundled or adapted in Bunny Agent.
-- Added default Bunny TUI safety gates with `/yolo true|false`, `/permissions safe|yolo|status`, and `--permission safe|yolo`.
+- Added shared Bunny Pi safety gates with `/yolo true|false`, `/permissions safe|yolo|status`, and `--permission safe|yolo`.
+- Bundled Pi's upstream plan-mode and subagent extensions into `@bunny-agent/runner-pi` so both Bunny TUI and daemon-backed Pi runs can use them.
+- Bundled a Bunny-adapted port of `code-yeongyu/pi-goal`, including `/goal` and the `create_goal`, `update_goal`, and `get_goal` tools.
+- Added `/subagent` helper command plus bundled `scout`, `planner`, `reviewer`, and `worker` agents with `/implement`, `/implement-and-review`, and `/scout-and-plan` prompt workflows.
 
 ## Extension Candidates
 
