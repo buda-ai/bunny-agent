@@ -784,6 +784,7 @@ describe("createPiRunner", () => {
     expect(() =>
       createPiRunner({
         model: "acme:missing-base-url",
+        env: { ACME_BASE_URL: "", OPENAI_BASE_URL: "" },
       }),
     ).toThrow("Set ACME_BASE_URL (or OPENAI_BASE_URL)");
   });

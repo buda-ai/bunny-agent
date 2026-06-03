@@ -21,6 +21,7 @@
 - Added manual CI dispatch and moved AI integration secret checks into the workflow shell step so missing secrets skip only the real-model coverage pass.
 - Updated GitHub Actions and the root Node engine to `>=22.19.0`, matching `undici@8.3.0` from the Pi/OpenAI dependency chain.
 - Confirmed Bunny Dockerfiles already use `node:24-slim`, then aligned package engines and Docker image examples with the newer Node runtime requirement.
+- Isolated the Pi runner unknown-provider unit test from CI `OPENAI_BASE_URL` secrets so the real AI integration coverage step can run with repository secrets enabled.
 
 ## Extension Candidates
 
