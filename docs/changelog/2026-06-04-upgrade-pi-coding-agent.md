@@ -9,6 +9,7 @@
 - Bundled Pi's upstream plan-mode and subagent extensions into `@bunny-agent/runner-pi` so both Bunny TUI and daemon-backed Pi runs can use them.
 - Bundled a Bunny-adapted port of `code-yeongyu/pi-goal`, including `/goal` and the `create_goal`, `update_goal`, and `get_goal` tools.
 - Added `/subagent` helper command plus bundled `scout`, `planner`, `reviewer`, and `worker` agents with `/implement`, `/implement-and-review`, and `/scout-and-plan` prompt workflows.
+- Documented bundled extension provenance in `packages/runner-pi/src/bundled-extensions/README.md`.
 
 ## Extension Candidates
 
