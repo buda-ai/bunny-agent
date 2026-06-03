@@ -30,7 +30,9 @@ The Dockerfiles under `docker/bunny-agent-claude/` (`Dockerfile`, `Dockerfile.lo
 ### AI integration test
 
 The normal daemon tests are offline. To exercise the real daemon-to-Pi path,
-export credentials and opt in explicitly:
+export credentials and opt in explicitly. For the default `openai:gpt-5.4`
+model, `OPENAI_API_KEY` and `OPENAI_BASE_URL` must both be present in
+`apps/bunny-bench/.env`.
 
 ```bash
 # From the repository root:

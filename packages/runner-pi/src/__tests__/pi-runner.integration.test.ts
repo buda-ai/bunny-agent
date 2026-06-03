@@ -5,6 +5,10 @@ const RUN_AI_INTEGRATION = process.env.RUN_AI_INTEGRATION === "1";
 const describeIntegration = RUN_AI_INTEGRATION ? describe : describe.skip;
 
 function hasPiCredentials(): boolean {
+  const model = getIntegrationModel();
+  if (model.startsWith("openai:")) {
+    return Boolean(process.env.OPENAI_API_KEY && process.env.OPENAI_BASE_URL);
+  }
   return Boolean(
     process.env.OPENAI_API_KEY ||
       process.env.GEMINI_API_KEY ||
@@ -22,6 +26,7 @@ function getIntegrationModel(): string {
 function expectNoCredentialLeak(output: string): void {
   for (const credential of [
     process.env.OPENAI_API_KEY,
+    process.env.OPENAI_BASE_URL,
     process.env.GEMINI_API_KEY,
     process.env.ANTHROPIC_API_KEY,
     process.env.AWS_BEARER_TOKEN_BEDROCK,

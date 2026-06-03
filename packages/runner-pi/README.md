@@ -39,7 +39,9 @@ Produces AI SDK UI data stream (SSE) chunks.
 ## AI Integration Test
 
 The default test suite is offline. To run the guarded real-model integration
-test, export API credentials first and opt in explicitly:
+test, export API credentials first and opt in explicitly. For the default
+`openai:gpt-5.4` model, `OPENAI_API_KEY` and `OPENAI_BASE_URL` must both be
+present in `apps/bunny-bench/.env`.
 
 ```bash
 # From the repository root:

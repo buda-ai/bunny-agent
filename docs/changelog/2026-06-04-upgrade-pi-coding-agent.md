@@ -17,6 +17,7 @@
 - Added Vitest's V8 coverage provider so the Pi runner and daemon test suites can generate coverage reports.
 - Added focused coverage tests and 80% global coverage thresholds for the Pi runner core and daemon suites.
 - Added Pi runner and daemon coverage checks to CI, with optional real-model coverage when CI API-key secrets are present.
+- Required `OPENAI_BASE_URL` alongside `OPENAI_API_KEY` for the default `openai:gpt-5.4` AI integration coverage path.
 
 ## Extension Candidates
 
