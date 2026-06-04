@@ -695,6 +695,69 @@ describe("createPiRunner", () => {
     expect(callArgs?.thinkingLevel).toBeUndefined();
   });
 
+  it("passes reasoningEffort 'low' as thinkingLevel for GPT models", async () => {
+    const { createAgentSession: mockCreateAgentSession } = await import(
+      "@earendil-works/pi-coding-agent"
+    );
+    const spy = vi.mocked(mockCreateAgentSession);
+    spy.mockClear();
+
+    const runner = createPiRunner({
+      model: "openai:gpt-5.5",
+      reasoningEffort: "low",
+    });
+
+    for await (const _ of runner.run("verify low effort")) {
+      break;
+    }
+
+    expect(spy).toHaveBeenCalled();
+    const callArgs = spy.mock.calls[0]?.[0];
+    expect(callArgs?.thinkingLevel).toBe("low");
+  });
+
+  it("passes reasoningEffort 'medium' as thinkingLevel", async () => {
+    const { createAgentSession: mockCreateAgentSession } = await import(
+      "@earendil-works/pi-coding-agent"
+    );
+    const spy = vi.mocked(mockCreateAgentSession);
+    spy.mockClear();
+
+    const runner = createPiRunner({
+      model: "openai:gpt-5.5",
+      reasoningEffort: "medium",
+    });
+
+    for await (const _ of runner.run("verify medium effort")) {
+      break;
+    }
+
+    expect(spy).toHaveBeenCalled();
+    const callArgs = spy.mock.calls[0]?.[0];
+    expect(callArgs?.thinkingLevel).toBe("medium");
+  });
+
+  it("passes reasoningEffort 'xhigh' as thinkingLevel", async () => {
+    const { createAgentSession: mockCreateAgentSession } = await import(
+      "@earendil-works/pi-coding-agent"
+    );
+    const spy = vi.mocked(mockCreateAgentSession);
+    spy.mockClear();
+
+    const runner = createPiRunner({
+      model: "openai:gpt-5.5",
+      reasoningEffort: "xhigh",
+    });
+
+    for await (const _ of runner.run("verify xhigh effort")) {
+      break;
+    }
+
+    expect(spy).toHaveBeenCalled();
+    const callArgs = spy.mock.calls[0]?.[0];
+    expect(callArgs?.thinkingLevel).toBe("xhigh");
+  });
+
   it("passes allowed built-in tools to pi when allowedTools restricts defaults", async () => {
     const { createAgentSession: mockCreateAgentSession } = await import(
       "@earendil-works/pi-coding-agent"
