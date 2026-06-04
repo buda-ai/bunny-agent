@@ -654,6 +654,47 @@ describe("createPiRunner", () => {
     );
   });
 
+  it("passes reasoningEffort as thinkingLevel to createAgentSession", async () => {
+    const { createAgentSession: mockCreateAgentSession } = await import(
+      "@earendil-works/pi-coding-agent"
+    );
+    const spy = vi.mocked(mockCreateAgentSession);
+    spy.mockClear();
+
+    const runner = createPiRunner({
+      model: "google:gemini-2.5-pro",
+      reasoningEffort: "high",
+    });
+
+    for await (const _ of runner.run("verify thinking level")) {
+      break;
+    }
+
+    expect(spy).toHaveBeenCalled();
+    const callArgs = spy.mock.calls[0]?.[0];
+    expect(callArgs?.thinkingLevel).toBe("high");
+  });
+
+  it("does not pass thinkingLevel when reasoningEffort is undefined", async () => {
+    const { createAgentSession: mockCreateAgentSession } = await import(
+      "@earendil-works/pi-coding-agent"
+    );
+    const spy = vi.mocked(mockCreateAgentSession);
+    spy.mockClear();
+
+    const runner = createPiRunner({
+      model: "google:gemini-2.5-pro",
+    });
+
+    for await (const _ of runner.run("verify no thinking level")) {
+      break;
+    }
+
+    expect(spy).toHaveBeenCalled();
+    const callArgs = spy.mock.calls[0]?.[0];
+    expect(callArgs?.thinkingLevel).toBeUndefined();
+  });
+
   it("passes allowed built-in tools to pi when allowedTools restricts defaults", async () => {
     const { createAgentSession: mockCreateAgentSession } = await import(
       "@earendil-works/pi-coding-agent"
