@@ -138,7 +138,7 @@ function parseRunArgs(): ParsedRunArgs {
       "skill-path": { type: "string", multiple: true },
       resume: { type: "string" },
       yolo: { type: "boolean" },
-      "reasoning-effort": { type: "string" },
+      effort: { type: "string" },
       help: { type: "boolean", short: "h" },
     },
     allowPositionals: true,
@@ -186,7 +186,7 @@ function parseRunArgs(): ParsedRunArgs {
     skillPaths: values["skill-path"] as string[] | undefined,
     resume: values.resume,
     yolo: values["yolo"],
-    reasoningEffort: values["reasoning-effort"],
+    reasoningEffort: values["effort"],
     userInput,
   };
 }

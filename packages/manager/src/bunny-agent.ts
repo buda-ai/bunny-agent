@@ -86,7 +86,7 @@ export class BunnyAgent {
     }
 
     if (this.runner.reasoningEffort) {
-      cmd.push("--reasoning-effort", this.runner.reasoningEffort);
+      cmd.push("--effort", this.runner.reasoningEffort);
     }
 
     // Add resume parameter for multi-turn conversation
