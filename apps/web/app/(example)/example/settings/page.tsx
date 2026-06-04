@@ -183,6 +183,7 @@ const ENV_CONFIGS: EnvConfig[] = [
       { value: "low", label: "Low" },
       { value: "medium", label: "Medium" },
       { value: "high", label: "High" },
+      { value: "xhigh", label: "XHigh" },
     ],
   },
   {
