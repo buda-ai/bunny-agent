@@ -250,7 +250,10 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           id: modelName,
           name: modelName,
           reasoning: !!options.effort && options.effort !== "off",
-          thinkingLevelMap: { off: null, xhigh: "xhigh" },
+          thinkingLevelMap: { off: null, xhigh: "xhigh", max: "max" } as Record<
+            string,
+            string | null
+          >,
           input: ["text", "image"],
           cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
           contextWindow: 128000,
