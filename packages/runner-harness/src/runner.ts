@@ -28,6 +28,11 @@ export interface RunnerCoreOptions extends BaseRunnerOptions {
    * the `pi` runner consumes these; other runners ignore the field.
    */
   toolRefs?: PiRunnerOptions["toolRefs"];
+  /**
+   * Reasoning effort / thinking level (e.g. "low", "medium", "high").
+   * Currently only the `pi` runner consumes this; other runners ignore it.
+   */
+  reasoningEffort?: string;
 }
 
 export function createRunner(
@@ -93,6 +98,7 @@ function dispatchRunner(
         sessionId: base.resume,
         skillPaths: options.skillPaths ?? discoverSkillPaths(cwd),
         toolRefs: options.toolRefs,
+        reasoningEffort: options.reasoningEffort,
       }).run(options.userInput);
     }
     case "opencode":

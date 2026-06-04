@@ -85,6 +85,11 @@ export interface BunnyAgentCodingRunBody {
    * the model calls it.
    */
   toolRefs?: ToolRef[];
+  /**
+   * Reasoning effort / thinking level for the model (e.g. "low", "medium", "high").
+   * Passed through to the runner; pi maps it to its native ThinkingLevel enum.
+   */
+  reasoningEffort?: string;
 }
 
 /**

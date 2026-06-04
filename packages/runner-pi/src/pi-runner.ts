@@ -9,6 +9,7 @@ import {
   SessionManager,
   type ToolDefinition,
 } from "@earendil-works/pi-coding-agent";
+import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
 import { BunnyAgentResourceLoader } from "./bunny-agent-resource-loader.js";
 import { buildImageEditTool, buildImageGenerateTool } from "./image-tools.js";
 import {
@@ -59,6 +60,11 @@ export interface PiRunnerOptions {
    * ToolDefinition objects so the shared runner harness stays runner-agnostic.
    */
   toolRefs?: PiToolRef[];
+  /**
+   * Reasoning effort / thinking level for the model (e.g. "low", "medium", "high").
+   * Mapped to pi-mono's ThinkingLevel and passed to createAgentSession.
+   */
+  reasoningEffort?: string;
 }
 
 export interface PiRunner {
@@ -354,6 +360,9 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           sessionManager,
           modelRegistry,
           resourceLoader,
+          thinkingLevel: options.reasoningEffort
+            ? (options.reasoningEffort as ThinkingLevel)
+            : undefined,
           tools: options.allowedTools,
           customTools: [
             ...applyAllowedTools(customTools, options.allowedTools),
