@@ -99,7 +99,10 @@ export function createBunnyAgent(
         ? { allowedTools: mergedAllowedTools }
         : {}),
       ...((options.reasoningEffort ?? defaultOptions.reasoningEffort)
-        ? { reasoningEffort: options.reasoningEffort ?? defaultOptions.reasoningEffort }
+        ? {
+            reasoningEffort:
+              options.reasoningEffort ?? defaultOptions.reasoningEffort,
+          }
         : {}),
     };
 
