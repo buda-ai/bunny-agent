@@ -98,6 +98,11 @@ export function createBunnyAgent(
       ...(mergedAllowedTools !== undefined
         ? { allowedTools: mergedAllowedTools }
         : {}),
+      ...((options.effort ?? defaultOptions.effort)
+        ? {
+            effort: options.effort ?? defaultOptions.effort,
+          }
+        : {}),
     };
 
     const mergedOptions = {

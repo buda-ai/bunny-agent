@@ -654,6 +654,110 @@ describe("createPiRunner", () => {
     );
   });
 
+  it("passes effort as thinkingLevel to createAgentSession", async () => {
+    const { createAgentSession: mockCreateAgentSession } = await import(
+      "@earendil-works/pi-coding-agent"
+    );
+    const spy = vi.mocked(mockCreateAgentSession);
+    spy.mockClear();
+
+    const runner = createPiRunner({
+      model: "google:gemini-2.5-pro",
+      effort: "high",
+    });
+
+    for await (const _ of runner.run("verify thinking level")) {
+      break;
+    }
+
+    expect(spy).toHaveBeenCalled();
+    const callArgs = spy.mock.calls[0]?.[0];
+    expect(callArgs?.thinkingLevel).toBe("high");
+  });
+
+  it("does not pass thinkingLevel when effort is undefined", async () => {
+    const { createAgentSession: mockCreateAgentSession } = await import(
+      "@earendil-works/pi-coding-agent"
+    );
+    const spy = vi.mocked(mockCreateAgentSession);
+    spy.mockClear();
+
+    const runner = createPiRunner({
+      model: "google:gemini-2.5-pro",
+    });
+
+    for await (const _ of runner.run("verify no thinking level")) {
+      break;
+    }
+
+    expect(spy).toHaveBeenCalled();
+    const callArgs = spy.mock.calls[0]?.[0];
+    expect(callArgs?.thinkingLevel).toBeUndefined();
+  });
+
+  it("passes effort 'low' as thinkingLevel for GPT models", async () => {
+    const { createAgentSession: mockCreateAgentSession } = await import(
+      "@earendil-works/pi-coding-agent"
+    );
+    const spy = vi.mocked(mockCreateAgentSession);
+    spy.mockClear();
+
+    const runner = createPiRunner({
+      model: "openai:gpt-5.5",
+      effort: "low",
+    });
+
+    for await (const _ of runner.run("verify low effort")) {
+      break;
+    }
+
+    expect(spy).toHaveBeenCalled();
+    const callArgs = spy.mock.calls[0]?.[0];
+    expect(callArgs?.thinkingLevel).toBe("low");
+  });
+
+  it("passes effort 'medium' as thinkingLevel", async () => {
+    const { createAgentSession: mockCreateAgentSession } = await import(
+      "@earendil-works/pi-coding-agent"
+    );
+    const spy = vi.mocked(mockCreateAgentSession);
+    spy.mockClear();
+
+    const runner = createPiRunner({
+      model: "openai:gpt-5.5",
+      effort: "medium",
+    });
+
+    for await (const _ of runner.run("verify medium effort")) {
+      break;
+    }
+
+    expect(spy).toHaveBeenCalled();
+    const callArgs = spy.mock.calls[0]?.[0];
+    expect(callArgs?.thinkingLevel).toBe("medium");
+  });
+
+  it("passes effort 'xhigh' as thinkingLevel", async () => {
+    const { createAgentSession: mockCreateAgentSession } = await import(
+      "@earendil-works/pi-coding-agent"
+    );
+    const spy = vi.mocked(mockCreateAgentSession);
+    spy.mockClear();
+
+    const runner = createPiRunner({
+      model: "openai:gpt-5.5",
+      effort: "xhigh",
+    });
+
+    for await (const _ of runner.run("verify xhigh effort")) {
+      break;
+    }
+
+    expect(spy).toHaveBeenCalled();
+    const callArgs = spy.mock.calls[0]?.[0];
+    expect(callArgs?.thinkingLevel).toBe("xhigh");
+  });
+
   it("passes allowed built-in tools to pi when allowedTools restricts defaults", async () => {
     const { createAgentSession: mockCreateAgentSession } = await import(
       "@earendil-works/pi-coding-agent"

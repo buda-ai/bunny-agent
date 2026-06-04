@@ -22,6 +22,8 @@ export interface RunRequest {
   env?: Record<string, string>;
   /** Tool refs the runner should expose to the LLM. */
   toolRefs?: RunToolRefs;
+  /** Reasoning effort / thinking level (e.g. "low", "medium", "high"). */
+  effort?: string;
 }
 
 /** SSE comment keepalive interval (ms). Prevents idle-timeout disconnects
@@ -79,6 +81,7 @@ export async function bunnyAgentRun(
       env,
       abortController,
       toolRefs: req.toolRefs,
+      effort: req.effort,
       // API: caller owns resume/session; do not read/write cwd/.bunny-agent or auto-load CLAUDE.md.
       autoInject: false,
     });
@@ -140,6 +143,7 @@ export function codingRunStream(
           env,
           abortController,
           toolRefs: req.toolRefs,
+          effort: req.effort,
           autoInject: false,
         });
         for await (const chunk of stream) {
