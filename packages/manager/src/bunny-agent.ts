@@ -85,8 +85,8 @@ export class BunnyAgent {
       cmd.push("--yolo");
     }
 
-    if (this.runner.reasoningEffort) {
-      cmd.push("--effort", this.runner.reasoningEffort);
+    if (this.runner.effort) {
+      cmd.push("--effort", this.runner.effort);
     }
 
     // Add resume parameter for multi-turn conversation

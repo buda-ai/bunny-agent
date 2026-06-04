@@ -89,7 +89,7 @@ export interface BunnyAgentCodingRunBody {
    * Reasoning effort / thinking level for the model (e.g. "low", "medium", "high").
    * Passed through to the runner; pi maps it to its native ThinkingLevel enum.
    */
-  reasoningEffort?: string;
+  effort?: string;
 }
 
 /**
@@ -236,7 +236,7 @@ export interface RunnerSpec {
    */
   yolo?: boolean;
   /** Reasoning effort / thinking level (e.g. "low", "medium", "high"). */
-  reasoningEffort?: string;
+  effort?: string;
 }
 
 /**

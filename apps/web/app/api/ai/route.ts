@@ -365,7 +365,7 @@ export async function POST(request: Request) {
         artifactProcessors: [artifactProcessor],
         resume,
         systemPrompt: "============test============",
-        ...(REASONING_EFFORT ? { reasoningEffort: REASONING_EFFORT } : {}),
+        ...(REASONING_EFFORT ? { effort: REASONING_EFFORT } : {}),
         // Passed to RunnerSpec via createBunnyAgent merge (not only bunnyAgent(model, { skillPaths }))
         skillPaths: [
           "/Users/zhengxu/vika/kapps/apps/buda/agent-templates/system-skills",

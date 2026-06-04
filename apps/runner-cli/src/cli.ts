@@ -113,7 +113,7 @@ interface ParsedRunArgs {
   resume?: string;
   skillPaths?: string[];
   yolo?: boolean;
-  reasoningEffort?: string;
+  effort?: string;
   userInput: string;
 }
 
@@ -186,7 +186,7 @@ function parseRunArgs(): ParsedRunArgs {
     skillPaths: values["skill-path"] as string[] | undefined,
     resume: values.resume,
     yolo: values["yolo"],
-    reasoningEffort: values["effort"],
+    effort: values["effort"],
     userInput,
   };
 }
@@ -352,7 +352,7 @@ async function main(): Promise<void> {
         skillPaths: args.skillPaths,
         resume: args.resume,
         yolo: args.yolo,
-        reasoningEffort: args.reasoningEffort,
+        effort: args.effort,
         ...(toolRefs ? { toolRefs: toolRefs.tools } : {}),
       });
       break;

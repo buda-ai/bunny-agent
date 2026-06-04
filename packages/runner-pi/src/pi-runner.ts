@@ -64,7 +64,7 @@ export interface PiRunnerOptions {
    * Reasoning effort / thinking level for the model (e.g. "low", "medium", "high").
    * Mapped to pi-mono's ThinkingLevel and passed to createAgentSession.
    */
-  reasoningEffort?: string;
+  effort?: string;
 }
 
 export interface PiRunner {
@@ -249,7 +249,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
         {
           id: modelName,
           name: modelName,
-          reasoning: !!options.reasoningEffort,
+          reasoning: !!options.effort,
           input: ["text", "image"],
           cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
           contextWindow: 128000,
@@ -360,8 +360,8 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           sessionManager,
           modelRegistry,
           resourceLoader,
-          thinkingLevel: options.reasoningEffort
-            ? (options.reasoningEffort as ThinkingLevel)
+          thinkingLevel: options.effort
+            ? (options.effort as ThinkingLevel)
             : undefined,
           tools: options.allowedTools,
           customTools: [
