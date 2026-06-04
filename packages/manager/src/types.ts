@@ -235,6 +235,8 @@ export interface RunnerSpec {
    * via the .bunny-agent/approvals/{toolUseID}.json file mechanism.
    */
   yolo?: boolean;
+  /** Reasoning effort / thinking level (e.g. "low", "medium", "high"). */
+  reasoningEffort?: string;
 }
 
 /**
