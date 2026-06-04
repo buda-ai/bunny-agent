@@ -180,6 +180,7 @@ const ENV_CONFIGS: EnvConfig[] = [
     required: false,
     category: "runner",
     options: [
+      { value: "off", label: "Off" },
       { value: "low", label: "Low" },
       { value: "medium", label: "Medium" },
       { value: "high", label: "High" },
