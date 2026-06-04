@@ -250,7 +250,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           id: modelName,
           name: modelName,
           reasoning: !!options.effort && options.effort !== "off",
-          thinkingLevelMap: { off: null, xhigh: "xhigh", max: "max" } as Record<
+          thinkingLevelMap: { off: null, xhigh: "xhigh" } as Record<
             string,
             string | null
           >,
