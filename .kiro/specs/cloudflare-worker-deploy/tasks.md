@@ -58,16 +58,16 @@ Implement three REST API endpoints (`POST /api/site/deploy`, `POST /api/site/red
   - Verify TypeScript compiles without errors (`pnpm --filter @bunny-agent/daemon typecheck`)
   - **Requirements**: 8.1, 8.2, 8.3, 8.5
 
-- [ ] 4. Write tests in `apps/daemon/src/__tests__/site.test.ts`
-  - [-] 4.1 Validation tests — table-driven tests for `validateScriptName`: valid names pass, empty/whitespace/invalid-chars/too-long names each throw `AppError(400)` with correct message
-  - [~] 4.2 Framework detection tests — mock `fs.access` to simulate: vite-only → `"vite"`, next-only → `"nextjs"`, both present → `"vite"`, neither → `AppError(400)`, missing directory → `AppError(400)`
-  - [~] 4.3 Artifact location tests — mock `fs.access` to simulate Vite priority order (all three combinations), and Next.js found/not-found
-  - [~] 4.4 Deploy pipeline test — mock `Cloudflare` SDK; verify `scripts.update` is called with correct `dispatchNamespace`, `scriptName`, `account_id`, `metadata.main_module`, and that `files` contains the script buffer
-  - [~] 4.5 Delete pipeline test — mock SDK; verify `scripts.delete` called with correct args; verify SDK `APIError` with status 404 maps to `AppError(404)`; verify other SDK errors map to `AppError(500)`
-  - [~] 4.6 Env var validation test — verify each of the three missing env vars individually produces `AppError(500)` with the correct message
-  - [~] 4.7 Property-based test (Property 1) — use `fast-check` to generate arbitrary strings; assert `validateScriptName` passes iff string matches `/^[A-Za-z0-9_-]{1,64}$/`
-  - [~] 4.8 Property-based test (Property 2) — use `fast-check` boolean flags to drive `fs.access` mocks; assert `detectFramework` returns `"vite"` iff hasVite, `"nextjs"` iff !hasVite && hasNext, throws iff !hasVite && !hasNext
-  - [~] 4.9 Property-based test (Property 3) — use `fast-check` boolean flags for Vite candidate paths; assert `locateArtifact` returns the highest-priority existing path
+- [x] 4. Write tests in `apps/daemon/src/__tests__/site.test.ts`
+  - [x] 4.1 Validation tests — table-driven tests for `validateScriptName`: valid names pass, empty/whitespace/invalid-chars/too-long names each throw `AppError(400)` with correct message
+  - [x] 4.2 Framework detection tests — mock `fs.access` to simulate: vite-only → `"vite"`, next-only → `"nextjs"`, both present → `"vite"`, neither → `AppError(400)`, missing directory → `AppError(400)`
+  - [x] 4.3 Artifact location tests — mock `fs.access` to simulate Vite priority order (all three combinations), and Next.js found/not-found
+  - [x] 4.4 Deploy pipeline test — mock `Cloudflare` SDK; verify `scripts.update` is called with correct `dispatchNamespace`, `scriptName`, `account_id`, `metadata.main_module`, and that `files` contains the script buffer
+  - [x] 4.5 Delete pipeline test — mock SDK; verify `scripts.delete` called with correct args; verify SDK `APIError` with status 404 maps to `AppError(404)`; verify other SDK errors map to `AppError(500)`
+  - [x] 4.6 Env var validation test — verify each of the three missing env vars individually produces `AppError(500)` with the correct message
+  - [x] 4.7 Property-based test (Property 1) — use `fast-check` to generate arbitrary strings; assert `validateScriptName` passes iff string matches `/^[A-Za-z0-9_-]{1,64}$/`
+  - [x] 4.8 Property-based test (Property 2) — use `fast-check` boolean flags to drive `fs.access` mocks; assert `detectFramework` returns `"vite"` iff hasVite, `"nextjs"` iff !hasVite && hasNext, throws iff !hasVite && !hasNext
+  - [x] 4.9 Property-based test (Property 3) — use `fast-check` boolean flags for Vite candidate paths; assert `locateArtifact` returns the highest-priority existing path
   - Run `pnpm --filter @bunny-agent/daemon test` and verify all tests pass
   - **Requirements**: 1.1–1.6, 2.1–2.3, 3.1–3.2, 4.6–4.9, 5.3–5.6, 7.4–7.6
 
