@@ -231,6 +231,10 @@ function isRateLimitError(err: unknown): boolean {
 const BROWSER_UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
+function stripNullBytes(s: string): string {
+  return s.replace(/\0/g, "");
+}
+
 function htmlToText(html: string): string {
   return html
     .replace(/<(script|style|noscript)[^>]*>[\s\S]*?<\/\1>/gi, "")
@@ -271,7 +275,7 @@ async function fetchPageContent(
     });
     if (!res.ok) return `(HTTP ${res.status}: ${res.statusText})`;
     const html = await res.text();
-    const text = htmlToText(html);
+    const text = stripNullBytes(htmlToText(html));
     return text.length > 50_000
       ? `${text.slice(0, 50_000)}\n\n[Truncated]`
       : text;
@@ -295,12 +299,12 @@ function formatSearchResults(
       .map((r, i) => {
         const lines = [
           `--- Result ${i + 1} ---`,
-          `Title: ${r.title}`,
+          `Title: ${stripNullBytes(r.title)}`,
           `Link: ${r.link}`,
         ];
         if (r.age) lines.push(`Age: ${r.age}`);
-        lines.push(`Snippet: ${r.snippet}`);
-        if (r.content) lines.push(`Content:\n${r.content}`);
+        lines.push(`Snippet: ${stripNullBytes(r.snippet)}`);
+        if (r.content) lines.push(`Content:\n${stripNullBytes(r.content)}`);
         return lines.join("\n");
       })
       .join("\n\n")

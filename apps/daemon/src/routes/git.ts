@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as git from "isomorphic-git";
 import http from "isomorphic-git/http/node";
+import { simpleGit } from "simple-git";
 import type {
   GitCloneRequest,
   GitCommandKeys,
@@ -10,8 +11,9 @@ import type {
   GitInitRequest,
   GitRpcRequest,
   GitStatusRequest,
+  SimpleGitRpcRequest,
 } from "../shared/git-types.js";
-import type { AppState } from "../utils.js";
+import type { ApiEnvelope, AppState } from "../utils.js";
 import {
   AppError,
   ensureDir,
@@ -40,6 +42,29 @@ const ALLOWED_GIT_COMMANDS = new Set([
   "remote",
   "tag",
   "ls-files",
+]);
+
+export const SIMPLE_GIT_RPC_COMMANDS = new Set<string>([
+  "log",
+  "status",
+  "diff",
+  "show",
+  "branch",
+  "checkout",
+  "add",
+  "commit",
+  "reset",
+  "fetch",
+  "pull",
+  "push",
+  "merge",
+  "rebase",
+  "stash",
+  "cherryPick",
+  "remote",
+  "tag",
+  "revparse",
+  "raw",
 ]);
 
 const GIT_RPC_COMMANDS = {
@@ -720,6 +745,36 @@ export async function gitInit(state: AppState, body: GitInitRequest) {
       ...(body.initial_branch ? ["-b", body.initial_branch] : []),
     ]),
   );
+}
+
+export async function simpleGitRpc(
+  state: AppState,
+  body: SimpleGitRpcRequest,
+): Promise<ApiEnvelope<unknown>> {
+  // Guard 1: missing command
+  if (!body.command) throw new AppError(400, "missing git command");
+
+  // Guard 2: command not in allowlist
+  if (!SIMPLE_GIT_RPC_COMMANDS.has(body.command))
+    throw new AppError(
+      400,
+      `unsupported or invalid git command: ${body.command}`,
+    );
+
+  // Resolve path
+  const volumeRoot = resolveVolumeRoot(state, body.volume);
+  const repoPath = resolveUnderRoot(volumeRoot, body.repo);
+
+  // Dispatch
+  const sg = simpleGit({ baseDir: repoPath });
+  try {
+    const result = await (
+      sg as unknown as Record<string, (options?: unknown) => Promise<unknown>>
+    )[body.command](body.options ?? {});
+    return ok(result);
+  } catch (err) {
+    throw new AppError(400, errorMessage(err));
+  }
 }
 
 export async function gitRpc(

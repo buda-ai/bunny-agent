@@ -53,6 +53,7 @@ interface AiChatRequestBody {
   BRAVE_API_KEY?: string;
   TAVILY_API_KEY?: string;
   USE_BUNNY_AGENT_DAEMON?: string | number | boolean;
+  REASONING_EFFORT?: string;
   /** Stripped after merge; only nested keys are lifted into the top level. */
   env?: Record<string, unknown>;
 }
@@ -99,6 +100,7 @@ export async function POST(request: Request) {
     TAVILY_API_KEY,
     /** When true, provider may pass `daemonUrl` after an in-sandbox `/healthz` probe; otherwise CLI runner. */
     USE_BUNNY_AGENT_DAEMON,
+    REASONING_EFFORT,
   } = body;
 
   const useBunnyAgentDaemon =
@@ -376,6 +378,7 @@ export async function POST(request: Request) {
         artifactProcessors: [artifactProcessor],
         resume,
         systemPrompt: "============test============",
+        ...(REASONING_EFFORT ? { effort: REASONING_EFFORT } : {}),
         // Passed to RunnerSpec via createBunnyAgent merge (not only bunnyAgent(model, { skillPaths }))
         skillPaths: [
           // "/Users/zhengxu/vika/kapps/apps/buda/agent-templates/system-skills",

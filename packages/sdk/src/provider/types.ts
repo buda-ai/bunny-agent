@@ -127,6 +127,8 @@ export interface BunnyAgentProviderSettings
   yolo?: boolean;
   /** Advanced static tool refs to expose directly to the runner. */
   toolRefs?: ToolRef[];
+  /** Reasoning effort / thinking level (e.g. "low", "medium", "high"). */
+  effort?: string;
 }
 
 /**

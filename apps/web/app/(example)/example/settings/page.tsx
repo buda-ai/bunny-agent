@@ -173,6 +173,21 @@ const ENV_CONFIGS: EnvConfig[] = [
     placeholder: "e.g. global.anthropic.claude-sonnet-4-20250514",
   },
   {
+    name: "Reasoning Effort",
+    key: "REASONING_EFFORT",
+    description:
+      "Optional. Controls thinking/reasoning depth. Higher = more thorough but slower and more tokens.",
+    required: false,
+    category: "runner",
+    options: [
+      { value: "off", label: "Off" },
+      { value: "low", label: "Low" },
+      { value: "medium", label: "Medium" },
+      { value: "high", label: "High" },
+      { value: "xhigh", label: "XHigh" },
+    ],
+  },
+  {
     name: "Debug Mode",
     key: "DEBUG",
     description: "Enable debug logging (set to 'true' or '1')",
