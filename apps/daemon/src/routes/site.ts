@@ -65,12 +65,22 @@ const NEXTJS_CONFIG_FILES = [
 // Public request / response types
 // =============================================================================
 
+/** Deployment environment — controls the suffix appended to the script name. */
+export type DeployEnvironment = "production" | "preview";
+
 /** Parsed, validated body for POST /api/site/deploy and /api/site/redeploy. */
 export interface DeployBody {
   /** Absolute path to the user's project directory on the local filesystem. */
   readonly projectDir: AbsolutePath;
   /** Validated Cloudflare Worker script name (identifier in dispatch namespace). */
   readonly scriptName: ScriptName;
+  /**
+   * Target deployment environment.
+   * Determines the suffix appended to `scriptName`:
+   *   - `"production"` → `<scriptName>_production` (default)
+   *   - `"preview"`    → `<scriptName>_preview`
+   */
+  readonly environment: DeployEnvironment;
 }
 
 /** Parsed, validated body for POST /api/site/delete. */
@@ -84,6 +94,7 @@ export interface DeployResult {
   readonly scriptName: ScriptName;
   readonly dispatchNamespace: string;
   readonly framework: FrameworkType;
+  readonly environment: DeployEnvironment;
 }
 
 /** Success payload returned by POST /api/site/delete. */
@@ -230,9 +241,21 @@ export function parseDeployBody(raw: unknown): DeployBody {
     throw new AppError(400, "scriptName is required");
   }
 
+  let environment: DeployEnvironment = "production";
+  if (raw.environment !== undefined) {
+    if (raw.environment !== "production" && raw.environment !== "preview") {
+      throw new AppError(
+        400,
+        'environment must be "production" or "preview"',
+      );
+    }
+    environment = raw.environment as DeployEnvironment;
+  }
+
   return {
     projectDir: toAbsolutePath(raw.projectDir),
     scriptName: toScriptName(raw.scriptName),
+    environment,
   };
 }
 
@@ -685,7 +708,8 @@ export async function deleteWorker(
  */
 export async function runDeployPipeline(raw: unknown): Promise<DeployResult> {
   const env = validateEnv();
-  const { projectDir, scriptName } = parseDeployBody(raw);
+  const { projectDir, scriptName: originalScriptName, environment } = parseDeployBody(raw);
+  const scriptName = toScriptName(`${originalScriptName}_${environment}`);
   const framework = await detectFramework(projectDir);
 
   if (framework === "nextjs") {
@@ -699,6 +723,7 @@ export async function runDeployPipeline(raw: unknown): Promise<DeployResult> {
     scriptName,
     dispatchNamespace: env.dispatchNamespace,
     framework,
+    environment,
   };
 }
 
