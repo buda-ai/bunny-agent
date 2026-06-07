@@ -556,10 +556,32 @@ export async function deployNextjsWithWrangler(
       svc.service === originalName ? { ...svc, service: scriptName } : svc,
     );
   }
-  // Write as plain JSON (strips comments, but wrangler accepts both).
-  await fs.writeFile(configPath, JSON.stringify(patched, null, "\t"), "utf8");
+
+  // Detect whether any service bindings are self-referential (i.e. they point
+  // to the same worker being deployed). Wrangler validates service bindings
+  // by checking account-level worker scripts (/workers/scripts/<name>/settings),
+  // but workers deployed to a dispatch namespace only exist at the namespace-
+  // scoped path (/workers/dispatch/namespaces/<ns>/scripts/<name>). This means
+  // wrangler's binding validation always fails for workers in a dispatch
+  // namespace — Cloudflare API error 10143. The self-reference is used by
+  // OpenNext for ISR cache revalidation (memory queue), which is not compatible
+  // with dispatch namespace deployments. We strip it to allow the deploy to
+  // succeed; the worker still functions normally for SSR and static assets.
+  const servicesWithoutSelfRef = Array.isArray(patched.services)
+    ? (patched.services as Array<Record<string, unknown>>).filter(
+        (svc) => svc.service !== scriptName,
+      )
+    : [];
+
+  const deployConfig: Record<string, unknown> = { ...patched };
+  if (servicesWithoutSelfRef.length === 0) {
+    delete deployConfig.services;
+  } else {
+    deployConfig.services = servicesWithoutSelfRef;
+  }
 
   try {
+    await fs.writeFile(configPath, JSON.stringify(deployConfig, null, "\t"), "utf8");
     await runWranglerDeploy(projectDir, env);
   } finally {
     // Always restore the original config, even on error.
