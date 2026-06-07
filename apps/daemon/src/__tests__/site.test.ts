@@ -169,7 +169,18 @@ describe("locateArtifact", () => {
         if (String(p).endsWith(".output/worker.js")) return;
         throw new Error("not found");
       }),
+      unlink: vi.fn().mockResolvedValue(undefined),
       readFile: vi.fn(),
+      readdir: vi.fn().mockResolvedValue([]),
+    }));
+    vi.doMock("node:child_process", () => ({
+      spawn: vi.fn().mockReturnValue({
+        stdout: { on: vi.fn() },
+        stderr: { on: vi.fn() },
+        on: vi.fn().mockImplementation((event: string, cb: (code: number) => void) => {
+          if (event === "close") cb(0);
+        }),
+      }),
     }));
     vi.resetModules();
     const { locateArtifact } = await import("../routes/site.js");
@@ -185,7 +196,18 @@ describe("locateArtifact", () => {
         if (ps.endsWith("dist/worker.js")) return;
         throw new Error("not found");
       }),
+      unlink: vi.fn().mockResolvedValue(undefined),
       readFile: vi.fn(),
+      readdir: vi.fn().mockResolvedValue([]),
+    }));
+    vi.doMock("node:child_process", () => ({
+      spawn: vi.fn().mockReturnValue({
+        stdout: { on: vi.fn() },
+        stderr: { on: vi.fn() },
+        on: vi.fn().mockImplementation((event: string, cb: (code: number) => void) => {
+          if (event === "close") cb(0);
+        }),
+      }),
     }));
     vi.resetModules();
     const { locateArtifact } = await import("../routes/site.js");
@@ -201,7 +223,18 @@ describe("locateArtifact", () => {
         if (ps.endsWith("dist/_worker.js")) return;
         throw new Error("not found");
       }),
+      unlink: vi.fn().mockResolvedValue(undefined),
       readFile: vi.fn(),
+      readdir: vi.fn().mockResolvedValue([]),
+    }));
+    vi.doMock("node:child_process", () => ({
+      spawn: vi.fn().mockReturnValue({
+        stdout: { on: vi.fn() },
+        stderr: { on: vi.fn() },
+        on: vi.fn().mockImplementation((event: string, cb: (code: number) => void) => {
+          if (event === "close") cb(0);
+        }),
+      }),
     }));
     vi.resetModules();
     const { locateArtifact } = await import("../routes/site.js");
@@ -213,7 +246,18 @@ describe("locateArtifact", () => {
   it("vite: throws AppError(400) 'vite build output not found' when none exist", async () => {
     vi.doMock("node:fs/promises", () => ({
       access: vi.fn().mockRejectedValue(new Error("not found")),
+      unlink: vi.fn().mockResolvedValue(undefined),
       readFile: vi.fn(),
+      readdir: vi.fn().mockResolvedValue([]),
+    }));
+    vi.doMock("node:child_process", () => ({
+      spawn: vi.fn().mockReturnValue({
+        stdout: { on: vi.fn() },
+        stderr: { on: vi.fn() },
+        on: vi.fn().mockImplementation((event: string, cb: (code: number) => void) => {
+          if (event === "close") cb(0);
+        }),
+      }),
     }));
     vi.resetModules();
     const { locateArtifact } = await import("../routes/site.js");
@@ -279,7 +323,20 @@ describe("deploy pipeline", () => {
   it("returns ok:true with framework field", async () => {
     vi.doMock("node:fs/promises", () => ({
       access: vi.fn().mockResolvedValue(undefined),
+      unlink: vi.fn().mockResolvedValue(undefined),
       readFile: vi.fn().mockResolvedValue(Buffer.from("x")),
+      readdir: vi.fn().mockResolvedValue([]),
+      stat: vi.fn().mockResolvedValue({ isDirectory: () => false, isFile: () => false }),
+    }));
+
+    vi.doMock("node:child_process", () => ({
+      spawn: vi.fn().mockReturnValue({
+        stdout: { on: vi.fn() },
+        stderr: { on: vi.fn() },
+        on: vi.fn().mockImplementation((event: string, cb: (code: number) => void) => {
+          if (event === "close") cb(0);
+        }),
+      }),
     }));
 
     vi.doMock("cloudflare", () => {
@@ -311,7 +368,158 @@ describe("deploy pipeline", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 4.5 — deleteSite
+// 4.4b — deployNextjsWithWrangler
+// ---------------------------------------------------------------------------
+
+describe("deployNextjsWithWrangler", () => {
+  afterEach(() => {
+    vi.resetModules();
+    vi.restoreAllMocks();
+  });
+
+  function makeSpawnMock(exitCode: number) {
+    return vi.fn().mockReturnValue({
+      stdout: { on: vi.fn() },
+      stderr: { on: vi.fn() },
+      on: vi.fn().mockImplementation((event: string, cb: (code: number) => void) => {
+        if (event === "close") cb(exitCode);
+      }),
+    });
+  }
+
+  it("patches wrangler.jsonc name with scriptName, runs wrangler, then restores original", async () => {
+    const originalContent = JSON.stringify({
+      name: "original",
+      main: ".open-next/worker.js",
+      services: [{ binding: "WORKER_SELF_REFERENCE", service: "original" }],
+    });
+    let writtenContents: string[] = [];
+    const spawnMock = makeSpawnMock(0);
+
+    vi.doMock("node:fs/promises", () => ({
+      access: vi.fn().mockImplementation(async (p: unknown) => {
+        if (String(p).endsWith("wrangler.jsonc")) return;
+        throw new Error("not found");
+      }),
+      readFile: vi.fn().mockResolvedValue(originalContent),
+      writeFile: vi.fn().mockImplementation(async (_p: unknown, content: string) => {
+        writtenContents.push(content);
+        return undefined;
+      }),
+    }));
+    vi.doMock("node:child_process", () => ({ spawn: spawnMock }));
+
+    vi.resetModules();
+    const { deployNextjsWithWrangler } = await import("../routes/site.js");
+    await deployNextjsWithWrangler("my-worker" as any, "/proj" as any, {
+      apiToken: "tok",
+      accountId: "acc",
+      dispatchNamespace: "ns",
+    });
+
+    // First write: patched config with scriptName
+    const patched = JSON.parse(writtenContents[0]);
+    expect(patched.name).toBe("my-worker");
+    expect(patched.main).toBe(".open-next/worker.js");
+    // Service binding self-reference rewritten to match new name
+    expect(patched.services[0].service).toBe("my-worker");
+
+    // Second write: original content restored
+    expect(writtenContents[1]).toBe(originalContent);
+
+    // wrangler was called with dispatch-namespace flag
+    expect(spawnMock).toHaveBeenCalledWith(
+      "npx",
+      ["wrangler", "deploy", "--dispatch-namespace", "ns"],
+      expect.objectContaining({ cwd: "/proj" }),
+    );
+  });
+
+  it("restores original config even when wrangler exits non-zero", async () => {
+    const originalContent = JSON.stringify({ name: "original" });
+    let restoredContent: string | null = null;
+    const spawnMock = makeSpawnMock(1); // non-zero exit
+
+    vi.doMock("node:fs/promises", () => ({
+      access: vi.fn().mockImplementation(async (p: unknown) => {
+        if (String(p).endsWith("wrangler.jsonc")) return;
+        throw new Error("not found");
+      }),
+      readFile: vi.fn().mockResolvedValue(originalContent),
+      writeFile: vi.fn().mockImplementation(async (_p: unknown, content: string) => {
+        restoredContent = content; // capture last write
+        return undefined;
+      }),
+    }));
+    vi.doMock("node:child_process", () => ({ spawn: spawnMock }));
+    const { deployNextjsWithWrangler } = await import("../routes/site.js");
+    let err: unknown;
+    try {
+      await deployNextjsWithWrangler("my-worker" as any, "/proj" as any, {
+        apiToken: "tok",
+        accountId: "acc",
+        dispatchNamespace: "ns",
+      });
+    } catch (e) { err = e; }
+
+    expect(isAppError(err)).toBe(true);
+    expect((err as any).status).toBe(500);
+    // Original content was restored even though wrangler failed
+    expect(restoredContent).toBe(originalContent);
+  });
+
+  it("throws AppError(400) when no wrangler config file is found", async () => {
+    vi.doMock("node:fs/promises", () => ({
+      access: vi.fn().mockRejectedValue(new Error("ENOENT")),
+      readFile: vi.fn(),
+      writeFile: vi.fn(),
+    }));
+    vi.doMock("node:child_process", () => ({ spawn: vi.fn() }));
+
+    vi.resetModules();
+    const { deployNextjsWithWrangler } = await import("../routes/site.js");
+    let err: unknown;
+    try {
+      await deployNextjsWithWrangler("my-worker" as any, "/proj" as any, {
+        apiToken: "tok",
+        accountId: "acc",
+        dispatchNamespace: "ns",
+      });
+    } catch (e) { err = e; }
+
+    expect(isAppError(err)).toBe(true);
+    expect((err as any).status).toBe(400);
+    expect((err as any).message).toMatch(/wrangler config not found/);
+  });
+
+  it("passes CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID to wrangler env", async () => {
+    const spawnMock = makeSpawnMock(0);
+
+    vi.doMock("node:fs/promises", () => ({
+      access: vi.fn().mockImplementation(async (p: unknown) => {
+        if (String(p).endsWith("wrangler.jsonc")) return;
+        throw new Error("not found");
+      }),
+      readFile: vi.fn().mockResolvedValue(JSON.stringify({ name: "original" })),
+      writeFile: vi.fn().mockResolvedValue(undefined),
+    }));
+    vi.doMock("node:child_process", () => ({ spawn: spawnMock }));
+
+    vi.resetModules();
+    const { deployNextjsWithWrangler } = await import("../routes/site.js");
+    await deployNextjsWithWrangler("my-worker" as any, "/proj" as any, {
+      apiToken: "test-token",
+      accountId: "test-account",
+      dispatchNamespace: "ns",
+    });
+
+    const spawnEnv = spawnMock.mock.calls[0][2].env;
+    expect(spawnEnv.CLOUDFLARE_API_TOKEN).toBe("test-token");
+    expect(spawnEnv.CLOUDFLARE_ACCOUNT_ID).toBe("test-account");
+  });
+});
+
+
 // ---------------------------------------------------------------------------
 
 function withDeleteMock(deleteFn: () => Promise<unknown>) {
@@ -516,7 +724,18 @@ describe("PBT: locateArtifact priority", () => {
               if (ps.endsWith("dist/worker.js") && !hasDist) throw new Error("ENOENT");
               if (ps.endsWith("dist/_worker.js") && !hasDistUnderscore) throw new Error("ENOENT");
             }),
+            unlink: vi.fn().mockResolvedValue(undefined),
             readFile: vi.fn(),
+            readdir: vi.fn().mockResolvedValue([]),
+          }));
+          vi.doMock("node:child_process", () => ({
+            spawn: vi.fn().mockReturnValue({
+              stdout: { on: vi.fn() },
+              stderr: { on: vi.fn() },
+              on: vi.fn().mockImplementation((event: string, cb: (code: number) => void) => {
+                if (event === "close") cb(0);
+              }),
+            }),
           }));
           vi.resetModules();
           const { locateArtifact } = await import("../routes/site.js");

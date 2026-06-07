@@ -5,6 +5,16 @@ import Cloudflare, { toFile } from "cloudflare";
 import type { AppState, ApiEnvelope } from "../utils.js";
 import { AppError, ok } from "../utils.js";
 
+// Inline JSONC parser — strips `//` and `/* */` comments before JSON.parse.
+// This avoids adding a dependency solely for reading wrangler.jsonc.
+function parseJsonc(text: string): unknown {
+  // Remove block comments
+  let stripped = text.replace(/\/\*[\s\S]*?\*\//g, "");
+  // Remove line comments (but not inside strings — good-enough for wrangler configs)
+  stripped = stripped.replace(/\/\/[^\n]*/g, "");
+  return JSON.parse(stripped);
+}
+
 // =============================================================================
 // Branded primitive types
 // =============================================================================
@@ -117,6 +127,7 @@ interface ArtifactInfo {
 function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
+
 
 /** Narrows `unknown` to a non-empty, non-whitespace string. */
 function isNonEmptyString(v: unknown): v is string {
@@ -432,65 +443,13 @@ export async function locateArtifact(
 }
 
 // =============================================================================
-// Cloudflare SDK operations
+// Cloudflare SDK operations — Vite upload
 // =============================================================================
 
 /**
- * Collects all JS/MJS sibling modules in the same directory as the artifact.
- * These are uploaded alongside the main module so that relative imports
- * (e.g. `./cloudflare/images.js`) resolve correctly in the Workers runtime.
- *
- * Only files within the artifact's parent directory are collected; the main
- * artifact itself is excluded since it is passed separately as the main module.
- */
-async function collectSiblingModules(
-  artifact: ArtifactInfo,
-): Promise<Array<{ content: Buffer; name: string }>> {
-  const artifactDir = path.dirname(artifact.absolutePath);
-  const modules: Array<{ content: Buffer; name: string }> = [];
-
-  /** Directories that are not referenced by worker.js imports and can be skipped. */
-  const SKIP_DIRS = new Set(["server-functions", "node_modules", "assets", "cache", "cloudflare-templates"]);
-
-  async function walk(dir: string): Promise<void> {
-    let names: string[];
-    try {
-      names = await fs.readdir(dir);
-    } catch {
-      return;
-    }
-    for (const name of names) {
-      const fullPath = path.join(dir, name);
-      let stat: Awaited<ReturnType<typeof fs.stat>>;
-      try {
-        stat = await fs.stat(fullPath);
-      } catch {
-        continue;
-      }
-      if (stat.isDirectory()) {
-        if (SKIP_DIRS.has(name)) continue;
-        await walk(fullPath);
-      } else if (stat.isFile() && /\.(js|mjs)$/.test(name)) {
-        if (fullPath === artifact.absolutePath) continue; // skip main module
-        const relativeName = path.relative(artifactDir, fullPath);
-        const content = await fs.readFile(fullPath);
-        modules.push({ content, name: relativeName });
-      }
-    }
-  }
-
-  await walk(artifactDir);
-  return modules;
-}
-
-/**
- * Uploads an artifact to the Cloudflare Workers for Platforms dispatch namespace.
- * Uses `scripts.update` which has upsert semantics (creates or overwrites).
- *
- * For Next.js builds produced by opennextjs-cloudflare, the worker.js contains
- * relative imports (e.g. `./cloudflare/images.js`) that must be uploaded as
- * additional ES modules alongside the main entry point. All sibling JS/MJS
- * files in the build output directory are collected and included in the upload.
+ * Uploads a Vite artifact directly to the Cloudflare Workers for Platforms
+ * dispatch namespace via the Cloudflare SDK. Uses `scripts.update` which has
+ * upsert semantics (creates or overwrites).
  *
  * SDK errors propagate uncaught — the DaemonRouter maps them to HTTP 500.
  */
@@ -505,20 +464,6 @@ export async function uploadWorker(
     type: "application/javascript+module",
   });
 
-  const additionalFiles: Awaited<ReturnType<typeof toFile>>[] = [];
-
-  if (artifact.framework === "nextjs") {
-    const siblings = await collectSiblingModules(artifact);
-    for (const sibling of siblings) {
-      const mimeType = sibling.name.endsWith(".mjs")
-        ? "application/javascript+module"
-        : "application/javascript+module";
-      additionalFiles.push(
-        await toFile(sibling.content, sibling.name, { type: mimeType }),
-      );
-    }
-  }
-
   await client.workersForPlatforms.dispatch.namespaces.scripts.update(
     env.dispatchNamespace,
     scriptName,
@@ -529,9 +474,154 @@ export async function uploadWorker(
         compatibility_date: "2025-01-01",
         bindings: [],
       },
-      files: [scriptFile, ...additionalFiles],
+      files: [scriptFile],
     },
   );
+}
+
+// =============================================================================
+// Next.js deploy via wrangler
+// =============================================================================
+
+/**
+ * Wrangler config filenames tried in order when patching the `name` field.
+ * Only JSON/JSONC are supported for in-place patching; wrangler.toml is not.
+ */
+const WRANGLER_CONFIG_FILENAMES = ["wrangler.jsonc", "wrangler.json"] as const;
+
+/**
+ * Deploys a Next.js project by delegating entirely to `npx wrangler deploy`.
+ *
+ * Strategy:
+ * 1. Locate the wrangler config file (`wrangler.jsonc` or `wrangler.json`).
+ * 2. Parse it, overwrite the `name` field with `scriptName`, write it back.
+ * 3. Spawn `npx wrangler deploy` in the project directory, forwarding
+ *    `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` from the environment.
+ * 4. Restore the original config content regardless of success or failure.
+ *
+ * Using wrangler avoids the need to manually replicate its module bundling,
+ * JSON-manifest uploads, asset handling, and compatibility-flag logic.
+ *
+ * Throws AppError(400) if no wrangler config file is found.
+ * Throws AppError(500) if wrangler exits with a non-zero code.
+ */
+export async function deployNextjsWithWrangler(
+  scriptName: ScriptName,
+  projectDir: AbsolutePath,
+  env: CloudflareEnv,
+): Promise<void> {
+  // Locate the wrangler config file.
+  let configPath: string | null = null;
+  for (const filename of WRANGLER_CONFIG_FILENAMES) {
+    const candidate = path.join(projectDir, filename);
+    try {
+      await fs.access(candidate);
+      configPath = candidate;
+      break;
+    } catch {
+      // not found, try next
+    }
+  }
+
+  if (configPath === null) {
+    throw new AppError(
+      400,
+      "wrangler config not found: expected wrangler.jsonc or wrangler.json in project directory",
+    );
+  }
+
+  // Read original content — preserved for restoration.
+  const originalContent = await fs.readFile(configPath, "utf8");
+
+  // Parse, patch the name, and write back.
+  let parsed: unknown;
+  try {
+    parsed = parseJsonc(originalContent);
+  } catch {
+    throw new AppError(400, `failed to parse wrangler config: ${configPath}`);
+  }
+
+  if (!isPlainObject(parsed)) {
+    throw new AppError(400, "wrangler config must be a JSON object");
+  }
+
+  const originalName = typeof parsed.name === "string" ? parsed.name : null;
+
+  const patched: Record<string, unknown> = { ...parsed, name: scriptName };
+
+  // Rewrite service bindings that reference the original worker name so
+  // self-references (e.g. WORKER_SELF_REFERENCE) point to the new scriptName.
+  if (originalName && Array.isArray(patched.services)) {
+    patched.services = (patched.services as Array<Record<string, unknown>>).map((svc) =>
+      svc.service === originalName ? { ...svc, service: scriptName } : svc,
+    );
+  }
+  // Write as plain JSON (strips comments, but wrangler accepts both).
+  await fs.writeFile(configPath, JSON.stringify(patched, null, "\t"), "utf8");
+
+  try {
+    await runWranglerDeploy(projectDir, env);
+  } finally {
+    // Always restore the original config, even on error.
+    await fs.writeFile(configPath, originalContent, "utf8").catch(() => {
+      // Best-effort restore — if this fails the original file is at least
+      // recoverable by the user from their VCS.
+    });
+  }
+}
+
+/**
+ * Spawns `npx wrangler deploy --dispatch-namespace <namespace>` inside `projectDir`.
+ *
+ * The `--dispatch-namespace` flag targets the Workers for Platforms dispatch
+ * namespace so the user Worker is scoped to the namespace rather than being
+ * deployed as a standalone account-level Worker.
+ *
+ * Forwards `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` in the child
+ * process environment so wrangler authenticates without interactive login.
+ *
+ * Resolves when wrangler exits with code 0.
+ * Throws AppError(500) on non-zero exit or spawn error.
+ */
+function runWranglerDeploy(projectDir: AbsolutePath, env: CloudflareEnv): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(
+      "npx",
+      ["wrangler", "deploy", "--dispatch-namespace", env.dispatchNamespace],
+      {
+        cwd: projectDir,
+        stdio: ["ignore", "pipe", "pipe"],
+        env: {
+          ...process.env,
+          CLOUDFLARE_API_TOKEN: env.apiToken,
+          CLOUDFLARE_ACCOUNT_ID: env.accountId,
+        },
+      },
+    );
+
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk: Buffer) => { stdout += chunk.toString(); });
+    child.stderr.on("data", (chunk: Buffer) => { stderr += chunk.toString(); });
+
+    child.on("error", (err) => {
+      reject(new AppError(500, `failed to spawn wrangler: ${err.message}`));
+    });
+
+    child.on("close", (code) => {
+      if (code === 0) {
+        resolve();
+      } else {
+        const detail = (stderr || stdout).trim();
+        reject(
+          new AppError(
+            500,
+            `wrangler deploy exited with code ${code}${detail ? ": " + detail : ""}`,
+          ),
+        );
+      }
+    });
+  });
 }
 
 /**
@@ -564,17 +654,25 @@ export async function deleteWorker(
 
 /**
  * Shared pipeline for deploy and redeploy:
- *   validateEnv → parseDeployBody → detectFramework → locateArtifact → uploadWorker
+ *   validateEnv → parseDeployBody → detectFramework → deploy
  *
- * Each step returns a fully-typed value consumed by the next step.
+ * Next.js: patches wrangler.jsonc with scriptName, then runs `npx wrangler deploy`.
+ * Vite: locates the build artifact and uploads it directly via the Cloudflare SDK.
+ *
  * Any step failure throws an AppError with the appropriate HTTP status.
  */
 export async function runDeployPipeline(raw: unknown): Promise<DeployResult> {
   const env = validateEnv();
   const { projectDir, scriptName } = parseDeployBody(raw);
   const framework = await detectFramework(projectDir);
-  const artifact = await locateArtifact(projectDir, framework);
-  await uploadWorker(scriptName, artifact, env);
+
+  if (framework === "nextjs") {
+    await deployNextjsWithWrangler(scriptName, projectDir, env);
+  } else {
+    const artifact = await locateArtifact(projectDir, framework);
+    await uploadWorker(scriptName, artifact, env);
+  }
+
   return {
     scriptName,
     dispatchNamespace: env.dispatchNamespace,
