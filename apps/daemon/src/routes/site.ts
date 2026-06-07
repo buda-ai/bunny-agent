@@ -37,8 +37,8 @@ const VITE_ARTIFACT_CANDIDATES = [
 
 type ViteArtifactPath = (typeof VITE_ARTIFACT_CANDIDATES)[number];
 
-/** Canonical Next.js artifact path (produced by @cloudflare/next-on-pages). */
-const NEXTJS_ARTIFACT_PATH = ".vercel/output/static/_worker.js" as const;
+/** Canonical Next.js artifact path (produced by opennextjs-cloudflare). */
+const NEXTJS_ARTIFACT_PATH = ".open-next/worker.js" as const;
 type NextjsArtifactPath = typeof NEXTJS_ARTIFACT_PATH;
 
 /** Vite config filenames checked during framework detection (in order). */
@@ -362,8 +362,14 @@ async function probeViteArtifacts(
  * Vite — probes in priority order:
  *   `.output/worker.js`  →  `dist/worker.js`  →  `dist/_worker.js`
  *
+ * If no artifact is found on the first probe, automatically runs
+ * `node build-worker.mjs` inside the project directory (which embeds the
+ * Vite `dist/` static assets into a self-contained `dist/_worker.js`),
+ * then re-probes. This covers the common case where `vite build` has been
+ * run but `build-worker.mjs` has not yet been executed.
+ *
  * Next.js — probes:
- *   `.vercel/output/static/_worker.js`  (output of @cloudflare/next-on-pages)
+ *   `.open-next/worker.js`  (output of opennextjs-cloudflare)
  *
  * Returns a fully-typed `ArtifactInfo` including the canonical relative path.
  * Throws AppError(400) with actionable build instructions if no artifact found.
@@ -419,8 +425,8 @@ export async function locateArtifact(
   } catch {
     throw new AppError(
       400,
-      "next-on-pages build output not found:" +
-        " run 'npx @cloudflare/next-on-pages' first (.vercel/output/static/_worker.js)",
+      "opennextjs-cloudflare build output not found:" +
+        " run 'npx opennextjs-cloudflare build' first (.open-next/worker.js)",
     );
   }
 }
@@ -430,8 +436,62 @@ export async function locateArtifact(
 // =============================================================================
 
 /**
+ * Collects all JS/MJS sibling modules in the same directory as the artifact.
+ * These are uploaded alongside the main module so that relative imports
+ * (e.g. `./cloudflare/images.js`) resolve correctly in the Workers runtime.
+ *
+ * Only files within the artifact's parent directory are collected; the main
+ * artifact itself is excluded since it is passed separately as the main module.
+ */
+async function collectSiblingModules(
+  artifact: ArtifactInfo,
+): Promise<Array<{ content: Buffer; name: string }>> {
+  const artifactDir = path.dirname(artifact.absolutePath);
+  const modules: Array<{ content: Buffer; name: string }> = [];
+
+  /** Directories that are not referenced by worker.js imports and can be skipped. */
+  const SKIP_DIRS = new Set(["server-functions", "node_modules", "assets", "cache", "cloudflare-templates"]);
+
+  async function walk(dir: string): Promise<void> {
+    let names: string[];
+    try {
+      names = await fs.readdir(dir);
+    } catch {
+      return;
+    }
+    for (const name of names) {
+      const fullPath = path.join(dir, name);
+      let stat: Awaited<ReturnType<typeof fs.stat>>;
+      try {
+        stat = await fs.stat(fullPath);
+      } catch {
+        continue;
+      }
+      if (stat.isDirectory()) {
+        if (SKIP_DIRS.has(name)) continue;
+        await walk(fullPath);
+      } else if (stat.isFile() && /\.(js|mjs)$/.test(name)) {
+        if (fullPath === artifact.absolutePath) continue; // skip main module
+        const relativeName = path.relative(artifactDir, fullPath);
+        const content = await fs.readFile(fullPath);
+        modules.push({ content, name: relativeName });
+      }
+    }
+  }
+
+  await walk(artifactDir);
+  return modules;
+}
+
+/**
  * Uploads an artifact to the Cloudflare Workers for Platforms dispatch namespace.
  * Uses `scripts.update` which has upsert semantics (creates or overwrites).
+ *
+ * For Next.js builds produced by opennextjs-cloudflare, the worker.js contains
+ * relative imports (e.g. `./cloudflare/images.js`) that must be uploaded as
+ * additional ES modules alongside the main entry point. All sibling JS/MJS
+ * files in the build output directory are collected and included in the upload.
+ *
  * SDK errors propagate uncaught — the DaemonRouter maps them to HTTP 500.
  */
 export async function uploadWorker(
@@ -444,6 +504,21 @@ export async function uploadWorker(
   const scriptFile = await toFile(fileContent, artifact.filename, {
     type: "application/javascript+module",
   });
+
+  const additionalFiles: Awaited<ReturnType<typeof toFile>>[] = [];
+
+  if (artifact.framework === "nextjs") {
+    const siblings = await collectSiblingModules(artifact);
+    for (const sibling of siblings) {
+      const mimeType = sibling.name.endsWith(".mjs")
+        ? "application/javascript+module"
+        : "application/javascript+module";
+      additionalFiles.push(
+        await toFile(sibling.content, sibling.name, { type: mimeType }),
+      );
+    }
+  }
+
   await client.workersForPlatforms.dispatch.namespaces.scripts.update(
     env.dispatchNamespace,
     scriptName,
@@ -454,7 +529,7 @@ export async function uploadWorker(
         compatibility_date: "2025-01-01",
         bindings: [],
       },
-      files: [scriptFile],
+      files: [scriptFile, ...additionalFiles],
     },
   );
 }

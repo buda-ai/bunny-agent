@@ -223,7 +223,7 @@ describe("locateArtifact", () => {
     expect((err as any).message).toMatch(/vite build output not found/);
   });
 
-  it("nextjs: returns .vercel/output/static/_worker.js", async () => {
+  it("nextjs: returns .open-next/worker.js", async () => {
     vi.doMock("node:fs/promises", () => ({
       access: vi.fn().mockResolvedValue(undefined),
       readFile: vi.fn(),
@@ -231,11 +231,11 @@ describe("locateArtifact", () => {
     vi.resetModules();
     const { locateArtifact } = await import("../routes/site.js");
     const result = await locateArtifact("/proj", "nextjs");
-    expect(result.absolutePath).toMatch(/\.vercel\/output\/static\/_worker\.js$/);
-    expect(result.filename).toBe("_worker.js");
+    expect(result.absolutePath).toMatch(/\.open-next\/worker\.js$/);
+    expect(result.filename).toBe("worker.js");
   });
 
-  it("nextjs: throws AppError(400) 'next-on-pages build output not found'", async () => {
+  it("nextjs: throws AppError(400) 'opennextjs-cloudflare build output not found'", async () => {
     vi.doMock("node:fs/promises", () => ({
       access: vi.fn().mockRejectedValue(new Error("not found")),
       readFile: vi.fn(),
@@ -245,7 +245,7 @@ describe("locateArtifact", () => {
     let err: unknown;
     try { await locateArtifact("/proj", "nextjs"); } catch (e) { err = e; }
     expect(isAppError(err)).toBe(true);
-    expect((err as any).message).toMatch(/next-on-pages build output not found/);
+    expect((err as any).message).toMatch(/opennextjs-cloudflare build output not found/);
   });
 });
 
