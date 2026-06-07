@@ -1,5 +1,6 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
+import { spawn } from "node:child_process";
 import Cloudflare, { toFile } from "cloudflare";
 import type { AppState, ApiEnvelope } from "../utils.js";
 import { AppError, ok } from "../utils.js";
@@ -283,8 +284,77 @@ export async function detectFramework(projectDir: AbsolutePath): Promise<Framewo
 }
 
 // =============================================================================
+// Build helpers
+// =============================================================================
+
+/**
+ * Runs `node build-worker.mjs` inside `projectDir` to generate the
+ * self-contained Cloudflare Worker bundle (`dist/_worker.js`) from an
+ * already-present Vite `dist/` output.
+ *
+ * Resolves when the script exits with code 0.
+ * Throws AppError(500) on non-zero exit or spawn error.
+ */
+function runBuildWorker(projectDir: AbsolutePath): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const script = path.join(projectDir, "build-worker.mjs");
+    const child = spawn("node", [script], {
+      cwd: projectDir,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk: Buffer) => { stdout += chunk.toString(); });
+    child.stderr.on("data", (chunk: Buffer) => { stderr += chunk.toString(); });
+
+    child.on("error", (err) => {
+      reject(new AppError(500, `failed to spawn build-worker.mjs: ${err.message}`));
+    });
+
+    child.on("close", (code) => {
+      if (code === 0) {
+        resolve();
+      } else {
+        const detail = (stderr || stdout).trim();
+        reject(
+          new AppError(
+            500,
+            `build-worker.mjs exited with code ${code}${detail ? ": " + detail : ""}`,
+          ),
+        );
+      }
+    });
+  });
+}
+
+// =============================================================================
 // Artifact location
 // =============================================================================
+
+/**
+ * Probes the known Vite artifact candidate paths inside `projectDir`.
+ * Returns the first match, or `undefined` if none are present.
+ */
+async function probeViteArtifacts(
+  projectDir: AbsolutePath,
+): Promise<ArtifactInfo | undefined> {
+  for (const relativePath of VITE_ARTIFACT_CANDIDATES) {
+    const absolutePath = path.join(projectDir, relativePath) as AbsolutePath;
+    try {
+      await fs.access(absolutePath);
+      return {
+        absolutePath,
+        filename: path.basename(absolutePath),
+        framework: "vite" as FrameworkType,
+        relativePath,
+      };
+    } catch {
+      // not present, try next candidate
+    }
+  }
+  return undefined;
+}
 
 /**
  * Locates the pre-built worker artifact for the detected framework.
@@ -303,23 +373,34 @@ export async function locateArtifact(
   framework: FrameworkType,
 ): Promise<ArtifactInfo> {
   if (framework === "vite") {
+    // Always regenerate the worker bundle on every deploy to ensure a fresh,
+    // consistent artifact. Remove any stale worker files first.
     for (const relativePath of VITE_ARTIFACT_CANDIDATES) {
       const absolutePath = path.join(projectDir, relativePath) as AbsolutePath;
       try {
-        await fs.access(absolutePath);
-        return {
-          absolutePath,
-          filename: path.basename(absolutePath),
-          framework,
-          relativePath,
-        };
+        await fs.unlink(absolutePath);
       } catch {
-        // not present, try next candidate
+        // File didn't exist — nothing to remove.
       }
     }
+
+    try {
+      await runBuildWorker(projectDir);
+    } catch (err) {
+      if (err instanceof AppError) throw err;
+      throw new AppError(
+        500,
+        `build-worker.mjs failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+
+    const generated = await probeViteArtifacts(projectDir);
+    if (generated) return generated;
+
     throw new AppError(
       400,
-      "vite build output not found: run your build first" +
+      "vite build output not found after running build-worker.mjs:" +
+        " run 'vite build' first, then retry" +
         " (expected .output/worker.js, dist/worker.js, or dist/_worker.js)",
     );
   }
