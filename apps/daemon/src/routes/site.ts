@@ -1,8 +1,8 @@
+import { spawn } from "node:child_process";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { spawn } from "node:child_process";
 import Cloudflare, { toFile } from "cloudflare";
-import type { AppState, ApiEnvelope } from "../utils.js";
+import type { ApiEnvelope, AppState } from "../utils.js";
 import { AppError, ok } from "../utils.js";
 
 // Inline JSONC parser — strips `//` and `/* */` comments before JSON.parse.
@@ -23,13 +23,13 @@ function parseJsonc(text: string): unknown {
  * A non-empty absolute filesystem path string.
  * Branding prevents accidental use of unvalidated strings as directory paths.
  */
-type AbsolutePath = string & { readonly __brand: "AbsolutePath" };
+export type AbsolutePath = string & { readonly __brand: "AbsolutePath" };
 
 /**
  * A validated Cloudflare Worker script name:
  * 1–64 chars, only [A-Za-z0-9_-].
  */
-type ScriptName = string & { readonly __brand: "ScriptName" };
+export type ScriptName = string & { readonly __brand: "ScriptName" };
 
 // =============================================================================
 // Domain enums and constants
@@ -139,7 +139,6 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
-
 /** Narrows `unknown` to a non-empty, non-whitespace string. */
 function isNonEmptyString(v: unknown): v is string {
   return typeof v === "string" && v.trim().length > 0;
@@ -244,10 +243,7 @@ export function parseDeployBody(raw: unknown): DeployBody {
   let environment: DeployEnvironment = "production";
   if (raw.environment !== undefined) {
     if (raw.environment !== "production" && raw.environment !== "preview") {
-      throw new AppError(
-        400,
-        'environment must be "production" or "preview"',
-      );
+      throw new AppError(400, 'environment must be "production" or "preview"');
     }
     environment = raw.environment as DeployEnvironment;
   }
@@ -288,7 +284,9 @@ export function parseDeleteBody(raw: unknown): DeleteBody {
  * - The directory does not exist or is not accessible (treated identically).
  * - No supported framework config file is found.
  */
-export async function detectFramework(projectDir: AbsolutePath): Promise<FrameworkType> {
+export async function detectFramework(
+  projectDir: AbsolutePath,
+): Promise<FrameworkType> {
   try {
     await fs.access(projectDir);
   } catch {
@@ -314,7 +312,10 @@ export async function detectFramework(projectDir: AbsolutePath): Promise<Framewo
     }
   }
 
-  throw new AppError(400, "unsupported framework: no vite.config or next.config found");
+  throw new AppError(
+    400,
+    "unsupported framework: no vite.config or next.config found",
+  );
 }
 
 // =============================================================================
@@ -323,25 +324,37 @@ export async function detectFramework(projectDir: AbsolutePath): Promise<Framewo
 
 /** MIME type map for common static asset extensions. */
 const MIME_TYPES: Record<string, string> = {
-  ".html":  "text/html; charset=utf-8",
-  ".js":    "application/javascript",
-  ".mjs":   "application/javascript",
-  ".css":   "text/css",
-  ".svg":   "image/svg+xml",
-  ".png":   "image/png",
-  ".jpg":   "image/jpeg",
-  ".jpeg":  "image/jpeg",
-  ".ico":   "image/x-icon",
-  ".json":  "application/json",
-  ".txt":   "text/plain",
-  ".woff":  "font/woff",
+  ".html": "text/html; charset=utf-8",
+  ".js": "application/javascript",
+  ".mjs": "application/javascript",
+  ".css": "text/css",
+  ".svg": "image/svg+xml",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".ico": "image/x-icon",
+  ".json": "application/json",
+  ".txt": "text/plain",
+  ".woff": "font/woff",
   ".woff2": "font/woff2",
 };
 
-const TEXT_EXTENSIONS = new Set([".html", ".js", ".mjs", ".css", ".svg", ".json", ".txt"]);
+const TEXT_EXTENSIONS = new Set([
+  ".html",
+  ".js",
+  ".mjs",
+  ".css",
+  ".svg",
+  ".json",
+  ".txt",
+]);
 
 /** Files inside dist/ that should not be embedded as assets. */
-const SKIP_DIST_FILES = new Set(["/_worker.js", "/.assetsignore", "/wrangler.json"]);
+const SKIP_DIST_FILES = new Set([
+  "/_worker.js",
+  "/.assetsignore",
+  "/wrangler.json",
+]);
 
 interface AssetEntry {
   rel: string;
@@ -349,12 +362,15 @@ interface AssetEntry {
 }
 
 /** Recursively collects all file paths under `dir`, returning relative web paths. */
-async function collectDistFiles(dir: string, base: string = dir): Promise<AssetEntry[]> {
+async function collectDistFiles(
+  dir: string,
+  base: string = dir,
+): Promise<AssetEntry[]> {
   const result: AssetEntry[] = [];
   for (const entry of await fs.readdir(dir)) {
     const full = path.join(dir, entry);
     if ((await fs.stat(full)).isDirectory()) {
-      result.push(...await collectDistFiles(full, base));
+      result.push(...(await collectDistFiles(full, base)));
     } else {
       const rel = "/" + path.relative(base, full).replace(/\\/g, "/");
       if (!SKIP_DIST_FILES.has(rel)) {
@@ -389,14 +405,16 @@ async function buildWorker(projectDir: AbsolutePath): Promise<void> {
     );
   }
 
-  const assetLines = await Promise.all(files.map(async ({ rel, full }) => {
-    const ext = path.extname(full);
-    const isText = TEXT_EXTENSIONS.has(ext);
-    const content = await fs.readFile(full);
-    const b64 = content.toString("base64");
-    const type = MIME_TYPES[ext] ?? "application/octet-stream";
-    return `  ${JSON.stringify(rel)}: { type: ${JSON.stringify(type)}, data: ${JSON.stringify(b64)}, text: ${isText} }`;
-  }));
+  const assetLines = await Promise.all(
+    files.map(async ({ rel, full }) => {
+      const ext = path.extname(full);
+      const isText = TEXT_EXTENSIONS.has(ext);
+      const content = await fs.readFile(full);
+      const b64 = content.toString("base64");
+      const type = MIME_TYPES[ext] ?? "application/octet-stream";
+      return `  ${JSON.stringify(rel)}: { type: ${JSON.stringify(type)}, data: ${JSON.stringify(b64)}, text: ${isText} }`;
+    }),
+  );
 
   const workerSource = `// Auto-generated by bunny-agent daemon — do not edit manually
 // All static assets are embedded as base64 for self-contained deployment.
@@ -668,8 +686,9 @@ export async function deployNextjsWithWrangler(
   // Rewrite service bindings that reference the original worker name so
   // self-references (e.g. WORKER_SELF_REFERENCE) point to the new scriptName.
   if (originalName && Array.isArray(patched.services)) {
-    patched.services = (patched.services as Array<Record<string, unknown>>).map((svc) =>
-      svc.service === originalName ? { ...svc, service: scriptName } : svc,
+    patched.services = (patched.services as Array<Record<string, unknown>>).map(
+      (svc) =>
+        svc.service === originalName ? { ...svc, service: scriptName } : svc,
     );
   }
 
@@ -697,7 +716,11 @@ export async function deployNextjsWithWrangler(
   }
 
   try {
-    await fs.writeFile(configPath, JSON.stringify(deployConfig, null, "\t"), "utf8");
+    await fs.writeFile(
+      configPath,
+      JSON.stringify(deployConfig, null, "\t"),
+      "utf8",
+    );
     await runWranglerDeploy(projectDir, env);
   } finally {
     // Always restore the original config, even on error.
@@ -721,7 +744,10 @@ export async function deployNextjsWithWrangler(
  * Resolves when wrangler exits with code 0.
  * Throws AppError(500) on non-zero exit or spawn error.
  */
-function runWranglerDeploy(projectDir: AbsolutePath, env: CloudflareEnv): Promise<void> {
+function runWranglerDeploy(
+  projectDir: AbsolutePath,
+  env: CloudflareEnv,
+): Promise<void> {
   return new Promise((resolve, reject) => {
     const child = spawn(
       "npx",
@@ -739,8 +765,12 @@ function runWranglerDeploy(projectDir: AbsolutePath, env: CloudflareEnv): Promis
 
     let stdout = "";
     let stderr = "";
-    child.stdout.on("data", (chunk: Buffer) => { stdout += chunk.toString(); });
-    child.stderr.on("data", (chunk: Buffer) => { stderr += chunk.toString(); });
+    child.stdout.on("data", (chunk: Buffer) => {
+      stdout += chunk.toString();
+    });
+    child.stderr.on("data", (chunk: Buffer) => {
+      stderr += chunk.toString();
+    });
 
     child.on("error", (err) => {
       reject(new AppError(500, `failed to spawn wrangler: ${err.message}`));
@@ -779,7 +809,11 @@ export async function deleteWorker(
     );
   } catch (err) {
     // The Cloudflare SDK throws APIError objects that carry an HTTP status code.
-    if (typeof err === "object" && err !== null && (err as { status?: unknown }).status === 404) {
+    if (
+      typeof err === "object" &&
+      err !== null &&
+      (err as { status?: unknown }).status === 404
+    ) {
       throw new AppError(404, `worker not found: ${scriptName}`);
     }
     throw new AppError(500, err instanceof Error ? err.message : String(err));
@@ -801,7 +835,11 @@ export async function deleteWorker(
  */
 export async function runDeployPipeline(raw: unknown): Promise<DeployResult> {
   const env = validateEnv();
-  const { projectDir, scriptName: originalScriptName, environment } = parseDeployBody(raw);
+  const {
+    projectDir,
+    scriptName: originalScriptName,
+    environment,
+  } = parseDeployBody(raw);
   const scriptName = toScriptName(`${originalScriptName}_${environment}`);
   const framework = await detectFramework(projectDir);
 

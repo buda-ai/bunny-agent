@@ -1,4 +1,11 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type {
+  AbsolutePath,
+  DeleteResult,
+  DeployResult,
+  ScriptName,
+} from "../routes/site.js";
+import type { AppState } from "../utils.js";
 import { AppError } from "../utils.js";
 
 // ---------------------------------------------------------------------------
@@ -8,8 +15,8 @@ function isAppError(err: unknown): err is { status: number; message: string } {
   return (
     typeof err === "object" &&
     err !== null &&
-    typeof (err as any).status === "number" &&
-    typeof (err as any).message === "string"
+    typeof (err as Record<string, unknown>).status === "number" &&
+    typeof (err as Record<string, unknown>).message === "string"
   );
 }
 
@@ -27,42 +34,56 @@ describe("validateScriptName", () => {
     validateScriptName = mod.validateScriptName;
   });
 
-  it.each(["my-worker", "worker_1", "a", "a".repeat(64)])(
-    "accepts valid name '%s'",
-    (name) => {
-      expect(() => validateScriptName(name)).not.toThrow();
-    },
-  );
+  it.each([
+    "my-worker",
+    "worker_1",
+    "a",
+    "a".repeat(64),
+  ])("accepts valid name '%s'", (name) => {
+    expect(() => validateScriptName(name)).not.toThrow();
+  });
 
-  it.each(["", "   "])(
-    "rejects empty/whitespace %j with 400",
-    (name) => {
-      let err: unknown;
-      try { validateScriptName(name); } catch (e) { err = e; }
-      expect(err).toBeInstanceOf(AppError);
-      expect((err as AppError).status).toBe(400);
-      expect((err as AppError).message).toMatch(/scriptName is required/);
-    },
-  );
+  it.each(["", "   "])("rejects empty/whitespace %j with 400", (name) => {
+    let err: unknown;
+    try {
+      validateScriptName(name);
+    } catch (e) {
+      err = e;
+    }
+    expect(err).toBeInstanceOf(AppError);
+    expect((err as AppError).status).toBe(400);
+    expect((err as AppError).message).toMatch(/scriptName is required/);
+  });
 
   it("rejects name longer than 64 chars with 400", () => {
     let err: unknown;
-    try { validateScriptName("a".repeat(65)); } catch (e) { err = e; }
+    try {
+      validateScriptName("a".repeat(65));
+    } catch (e) {
+      err = e;
+    }
     expect(err).toBeInstanceOf(AppError);
     expect((err as AppError).status).toBe(400);
     expect((err as AppError).message).toMatch(/64 characters or fewer/);
   });
 
-  it.each(["my worker", "foo.bar", "foo@bar"])(
-    "rejects invalid chars in '%s' with 400",
-    (name) => {
-      let err: unknown;
-      try { validateScriptName(name); } catch (e) { err = e; }
-      expect(err).toBeInstanceOf(AppError);
-      expect((err as AppError).status).toBe(400);
-      expect((err as AppError).message).toMatch(/alphanumeric|hyphens|underscores/);
-    },
-  );
+  it.each([
+    "my worker",
+    "foo.bar",
+    "foo@bar",
+  ])("rejects invalid chars in '%s' with 400", (name) => {
+    let err: unknown;
+    try {
+      validateScriptName(name);
+    } catch (e) {
+      err = e;
+    }
+    expect(err).toBeInstanceOf(AppError);
+    expect((err as AppError).status).toBe(400);
+    expect((err as AppError).message).toMatch(
+      /alphanumeric|hyphens|underscores/,
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -121,8 +142,10 @@ describe("detectFramework", () => {
       access: vi.fn().mockImplementation(async (p: unknown) => {
         const ps = String(p);
         if (
-          ps.endsWith("vite.config.ts") || ps.endsWith("vite.config.js") ||
-          ps.endsWith("next.config.js") || ps.endsWith("next.config.mjs") ||
+          ps.endsWith("vite.config.ts") ||
+          ps.endsWith("vite.config.js") ||
+          ps.endsWith("next.config.js") ||
+          ps.endsWith("next.config.mjs") ||
           ps.endsWith("next.config.ts")
         ) {
           throw new Error("not found");
@@ -134,9 +157,13 @@ describe("detectFramework", () => {
     vi.resetModules();
     const { detectFramework } = await import("../routes/site.js");
     let err: unknown;
-    try { await detectFramework("/proj"); } catch (e) { err = e; }
+    try {
+      await detectFramework("/proj");
+    } catch (e) {
+      err = e;
+    }
     expect(isAppError(err)).toBe(true);
-    expect((err as any).status).toBe(400);
+    expect((err as { status: number }).status).toBe(400);
   });
 
   it("throws AppError(400) 'project directory not found' when dir is inaccessible", async () => {
@@ -147,9 +174,15 @@ describe("detectFramework", () => {
     vi.resetModules();
     const { detectFramework } = await import("../routes/site.js");
     let err: unknown;
-    try { await detectFramework("/no-such-dir"); } catch (e) { err = e; }
+    try {
+      await detectFramework("/no-such-dir");
+    } catch (e) {
+      err = e;
+    }
     expect(isAppError(err)).toBe(true);
-    expect((err as any).message).toMatch(/project directory not found/);
+    expect((err as { status: number; message: string }).message).toMatch(
+      /project directory not found/,
+    );
   });
 });
 
@@ -234,9 +267,15 @@ describe("locateArtifact", () => {
     vi.resetModules();
     const { locateArtifact } = await import("../routes/site.js");
     let err: unknown;
-    try { await locateArtifact("/proj", "vite"); } catch (e) { err = e; }
+    try {
+      await locateArtifact("/proj", "vite");
+    } catch (e) {
+      err = e;
+    }
     expect(isAppError(err)).toBe(true);
-    expect((err as any).message).toMatch(/vite build output not found/);
+    expect((err as { status: number; message: string }).message).toMatch(
+      /vite build output not found/,
+    );
   });
 
   it("nextjs: returns .open-next/worker.js", async () => {
@@ -259,9 +298,15 @@ describe("locateArtifact", () => {
     vi.resetModules();
     const { locateArtifact } = await import("../routes/site.js");
     let err: unknown;
-    try { await locateArtifact("/proj", "nextjs"); } catch (e) { err = e; }
+    try {
+      await locateArtifact("/proj", "nextjs");
+    } catch (e) {
+      err = e;
+    }
     expect(isAppError(err)).toBe(true);
-    expect((err as any).message).toMatch(/opennextjs-cloudflare build output not found/);
+    expect((err as { status: number; message: string }).message).toMatch(
+      /opennextjs-cloudflare build output not found/,
+    );
   });
 });
 
@@ -306,9 +351,11 @@ describe("deploy pipeline", () => {
       spawn: vi.fn().mockReturnValue({
         stdout: { on: vi.fn() },
         stderr: { on: vi.fn() },
-        on: vi.fn().mockImplementation((event: string, cb: (code: number) => void) => {
-          if (event === "close") cb(0);
-        }),
+        on: vi
+          .fn()
+          .mockImplementation((event: string, cb: (code: number) => void) => {
+            if (event === "close") cb(0);
+          }),
       }),
     }));
 
@@ -331,12 +378,12 @@ describe("deploy pipeline", () => {
 
     vi.resetModules(); // flush module cache so the doMocks take effect
     const { deploy } = await import("../routes/site.js");
-    const result = await deploy({} as any, {
-      projectDir: "/tmp/proj",
-      scriptName: "my-worker",
+    const result = await deploy({} as AppState, {
+      projectDir: "/tmp/proj" as AbsolutePath,
+      scriptName: "my-worker" as ScriptName,
     });
     expect(result.ok).toBe(true);
-    expect((result.data as any).framework).toMatch(/^(vite|nextjs)$/);
+    expect((result.data as DeployResult).framework).toMatch(/^(vite|nextjs)$/);
   });
 });
 
@@ -354,9 +401,11 @@ describe("deployNextjsWithWrangler", () => {
     return vi.fn().mockReturnValue({
       stdout: { on: vi.fn() },
       stderr: { on: vi.fn() },
-      on: vi.fn().mockImplementation((event: string, cb: (code: number) => void) => {
-        if (event === "close") cb(exitCode);
-      }),
+      on: vi
+        .fn()
+        .mockImplementation((event: string, cb: (code: number) => void) => {
+          if (event === "close") cb(exitCode);
+        }),
     });
   }
 
@@ -366,7 +415,7 @@ describe("deployNextjsWithWrangler", () => {
       main: ".open-next/worker.js",
       services: [{ binding: "WORKER_SELF_REFERENCE", service: "original" }],
     });
-    let writtenContents: string[] = [];
+    const writtenContents: string[] = [];
     const spawnMock = makeSpawnMock(0);
 
     vi.doMock("node:fs/promises", () => ({
@@ -375,20 +424,26 @@ describe("deployNextjsWithWrangler", () => {
         throw new Error("not found");
       }),
       readFile: vi.fn().mockResolvedValue(originalContent),
-      writeFile: vi.fn().mockImplementation(async (_p: unknown, content: string) => {
-        writtenContents.push(content);
-        return undefined;
-      }),
+      writeFile: vi
+        .fn()
+        .mockImplementation(async (_p: unknown, content: string) => {
+          writtenContents.push(content);
+          return undefined;
+        }),
     }));
     vi.doMock("node:child_process", () => ({ spawn: spawnMock }));
 
     vi.resetModules();
     const { deployNextjsWithWrangler } = await import("../routes/site.js");
-    await deployNextjsWithWrangler("my-worker" as any, "/proj" as any, {
-      apiToken: "tok",
-      accountId: "acc",
-      dispatchNamespace: "ns",
-    });
+    await deployNextjsWithWrangler(
+      "my-worker" as ScriptName,
+      "/proj" as AbsolutePath,
+      {
+        apiToken: "tok",
+        accountId: "acc",
+        dispatchNamespace: "ns",
+      },
+    );
 
     // First write: patched config with scriptName
     const patched = JSON.parse(writtenContents[0]);
@@ -420,24 +475,32 @@ describe("deployNextjsWithWrangler", () => {
         throw new Error("not found");
       }),
       readFile: vi.fn().mockResolvedValue(originalContent),
-      writeFile: vi.fn().mockImplementation(async (_p: unknown, content: string) => {
-        restoredContent = content; // capture last write
-        return undefined;
-      }),
+      writeFile: vi
+        .fn()
+        .mockImplementation(async (_p: unknown, content: string) => {
+          restoredContent = content; // capture last write
+          return undefined;
+        }),
     }));
     vi.doMock("node:child_process", () => ({ spawn: spawnMock }));
     const { deployNextjsWithWrangler } = await import("../routes/site.js");
     let err: unknown;
     try {
-      await deployNextjsWithWrangler("my-worker" as any, "/proj" as any, {
-        apiToken: "tok",
-        accountId: "acc",
-        dispatchNamespace: "ns",
-      });
-    } catch (e) { err = e; }
+      await deployNextjsWithWrangler(
+        "my-worker" as ScriptName,
+        "/proj" as AbsolutePath,
+        {
+          apiToken: "tok",
+          accountId: "acc",
+          dispatchNamespace: "ns",
+        },
+      );
+    } catch (e) {
+      err = e;
+    }
 
     expect(isAppError(err)).toBe(true);
-    expect((err as any).status).toBe(500);
+    expect((err as { status: number; message: string }).status).toBe(500);
     // Original content was restored even though wrangler failed
     expect(restoredContent).toBe(originalContent);
   });
@@ -454,16 +517,24 @@ describe("deployNextjsWithWrangler", () => {
     const { deployNextjsWithWrangler } = await import("../routes/site.js");
     let err: unknown;
     try {
-      await deployNextjsWithWrangler("my-worker" as any, "/proj" as any, {
-        apiToken: "tok",
-        accountId: "acc",
-        dispatchNamespace: "ns",
-      });
-    } catch (e) { err = e; }
+      await deployNextjsWithWrangler(
+        "my-worker" as ScriptName,
+        "/proj" as AbsolutePath,
+        {
+          apiToken: "tok",
+          accountId: "acc",
+          dispatchNamespace: "ns",
+        },
+      );
+    } catch (e) {
+      err = e;
+    }
 
     expect(isAppError(err)).toBe(true);
-    expect((err as any).status).toBe(400);
-    expect((err as any).message).toMatch(/wrangler config not found/);
+    expect((err as { status: number; message: string }).status).toBe(400);
+    expect((err as { status: number; message: string }).message).toMatch(
+      /wrangler config not found/,
+    );
   });
 
   it("passes CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID to wrangler env", async () => {
@@ -481,18 +552,21 @@ describe("deployNextjsWithWrangler", () => {
 
     vi.resetModules();
     const { deployNextjsWithWrangler } = await import("../routes/site.js");
-    await deployNextjsWithWrangler("my-worker" as any, "/proj" as any, {
-      apiToken: "test-token",
-      accountId: "test-account",
-      dispatchNamespace: "ns",
-    });
+    await deployNextjsWithWrangler(
+      "my-worker" as ScriptName,
+      "/proj" as AbsolutePath,
+      {
+        apiToken: "test-token",
+        accountId: "test-account",
+        dispatchNamespace: "ns",
+      },
+    );
 
     const spawnEnv = spawnMock.mock.calls[0][2].env;
     expect(spawnEnv.CLOUDFLARE_API_TOKEN).toBe("test-token");
     expect(spawnEnv.CLOUDFLARE_ACCOUNT_ID).toBe("test-account");
   });
 });
-
 
 // ---------------------------------------------------------------------------
 
@@ -534,9 +608,11 @@ describe("deleteSite", () => {
     withDeleteMock(() => Promise.resolve({}));
     vi.resetModules();
     const { deleteSite } = await import("../routes/site.js");
-    const result = await deleteSite({} as any, { scriptName: "my-worker" });
+    const result = await deleteSite({} as AppState, {
+      scriptName: "my-worker" as ScriptName,
+    });
     expect(result.ok).toBe(true);
-    expect((result.data as any).deleted).toBe(true);
+    expect((result.data as DeleteResult).deleted).toBe(true);
   });
 
   it("throws AppError(404) 'worker not found' when delete returns 404", async () => {
@@ -544,10 +620,18 @@ describe("deleteSite", () => {
     vi.resetModules();
     const { deleteSite } = await import("../routes/site.js");
     let err: unknown;
-    try { await deleteSite({} as any, { scriptName: "missing-worker" }); } catch (e) { err = e; }
+    try {
+      await deleteSite({} as AppState, {
+        scriptName: "missing-worker" as ScriptName,
+      });
+    } catch (e) {
+      err = e;
+    }
     expect(isAppError(err)).toBe(true);
-    expect((err as any).status).toBe(404);
-    expect((err as any).message).toMatch(/worker not found/);
+    expect((err as { status: number; message: string }).status).toBe(404);
+    expect((err as { status: number; message: string }).message).toMatch(
+      /worker not found/,
+    );
   });
 
   it("throws AppError(500) for generic errors", async () => {
@@ -555,9 +639,15 @@ describe("deleteSite", () => {
     vi.resetModules();
     const { deleteSite } = await import("../routes/site.js");
     let err: unknown;
-    try { await deleteSite({} as any, { scriptName: "my-worker" }); } catch (e) { err = e; }
+    try {
+      await deleteSite({} as AppState, {
+        scriptName: "my-worker" as ScriptName,
+      });
+    } catch (e) {
+      err = e;
+    }
     expect(isAppError(err)).toBe(true);
-    expect((err as any).status).toBe(500);
+    expect((err as { status: number; message: string }).status).toBe(500);
   });
 });
 
@@ -595,10 +685,16 @@ describe("validateEnv", () => {
       vi.resetModules();
       const { validateEnv } = await import("../routes/site.js");
       let err: unknown;
-      try { validateEnv(); } catch (e) { err = e; }
+      try {
+        validateEnv();
+      } catch (e) {
+        err = e;
+      }
       expect(isAppError(err)).toBe(true);
-      expect((err as any).status).toBe(500);
-      expect((err as any).message).toBe(`missing required env var: ${key}`);
+      expect((err as { status: number; message: string }).status).toBe(500);
+      expect((err as { status: number; message: string }).message).toBe(
+        `missing required env var: ${key}`,
+      );
     });
   }
 });
@@ -627,13 +723,17 @@ describe("PBT: validateScriptName", () => {
 
   it("always throws for strings containing disallowed characters", () => {
     // Generate a string that has at least one char not in [A-Za-z0-9_-], is non-empty
-    const disallowedCharArb = fc.string({ minLength: 1 }).filter(
-      (s) => s.trim().length > 0 && !/^[A-Za-z0-9_-]{1,64}$/.test(s),
-    );
+    const disallowedCharArb = fc
+      .string({ minLength: 1 })
+      .filter((s) => s.trim().length > 0 && !/^[A-Za-z0-9_-]{1,64}$/.test(s));
     fc.assert(
       fc.property(disallowedCharArb, (s) => {
         let threw = false;
-        try { validateScriptName(s); } catch { threw = true; }
+        try {
+          validateScriptName(s);
+        } catch {
+          threw = true;
+        }
         expect(threw).toBe(true);
       }),
     );
@@ -646,7 +746,10 @@ describe("PBT: validateScriptName", () => {
 // ---------------------------------------------------------------------------
 
 describe("PBT: detectFramework", () => {
-  afterEach(() => { vi.resetModules(); vi.restoreAllMocks(); });
+  afterEach(() => {
+    vi.resetModules();
+    vi.restoreAllMocks();
+  });
 
   it("is deterministic given same file presence", async () => {
     await fc.assert(
@@ -654,8 +757,12 @@ describe("PBT: detectFramework", () => {
         vi.doMock("node:fs/promises", () => ({
           access: vi.fn().mockImplementation(async (p: unknown) => {
             const ps = String(p);
-            const isViteConfig = ps.endsWith("vite.config.ts") || ps.endsWith("vite.config.js");
-            const isNextConfig = ps.endsWith("next.config.js") || ps.endsWith("next.config.mjs") || ps.endsWith("next.config.ts");
+            const isViteConfig =
+              ps.endsWith("vite.config.ts") || ps.endsWith("vite.config.js");
+            const isNextConfig =
+              ps.endsWith("next.config.js") ||
+              ps.endsWith("next.config.mjs") ||
+              ps.endsWith("next.config.ts");
             if (isViteConfig && !hasVite) throw new Error("ENOENT");
             if (isNextConfig && !hasNext) throw new Error("ENOENT");
           }),
@@ -669,7 +776,11 @@ describe("PBT: detectFramework", () => {
           expect(await detectFramework("/proj")).toBe("nextjs");
         } else {
           let threw = false;
-          try { await detectFramework("/proj"); } catch { threw = true; }
+          try {
+            await detectFramework("/proj");
+          } catch {
+            threw = true;
+          }
           expect(threw).toBe(true);
         }
       }),
@@ -684,19 +795,27 @@ describe("PBT: detectFramework", () => {
 // ---------------------------------------------------------------------------
 
 describe("PBT: locateArtifact priority", () => {
-  afterEach(() => { vi.resetModules(); vi.restoreAllMocks(); });
+  afterEach(() => {
+    vi.resetModules();
+    vi.restoreAllMocks();
+  });
 
   it("always returns highest-priority existing vite path", async () => {
     await fc.assert(
       fc.asyncProperty(
-        fc.boolean(), fc.boolean(), fc.boolean(),
+        fc.boolean(),
+        fc.boolean(),
+        fc.boolean(),
         async (hasOutput, hasDist, hasDistUnderscore) => {
           vi.doMock("node:fs/promises", () => ({
             access: vi.fn().mockImplementation(async (p: unknown) => {
               const ps = String(p);
-              if (ps.endsWith(".output/worker.js") && !hasOutput) throw new Error("ENOENT");
-              if (ps.endsWith("dist/worker.js") && !hasDist) throw new Error("ENOENT");
-              if (ps.endsWith("dist/_worker.js") && !hasDistUnderscore) throw new Error("ENOENT");
+              if (ps.endsWith(".output/worker.js") && !hasOutput)
+                throw new Error("ENOENT");
+              if (ps.endsWith("dist/worker.js") && !hasDist)
+                throw new Error("ENOENT");
+              if (ps.endsWith("dist/_worker.js") && !hasDistUnderscore)
+                throw new Error("ENOENT");
             }),
             unlink: vi.fn().mockResolvedValue(undefined),
             readFile: vi.fn().mockResolvedValue(Buffer.from("")),
@@ -718,7 +837,11 @@ describe("PBT: locateArtifact priority", () => {
             expect(r.absolutePath).toMatch(/dist\/_worker\.js$/);
           } else {
             let threw = false;
-            try { await locateArtifact("/proj", "vite"); } catch { threw = true; }
+            try {
+              await locateArtifact("/proj", "vite");
+            } catch {
+              threw = true;
+            }
             expect(threw).toBe(true);
           }
         },
