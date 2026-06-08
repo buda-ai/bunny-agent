@@ -170,17 +170,10 @@ describe("locateArtifact", () => {
         throw new Error("not found");
       }),
       unlink: vi.fn().mockResolvedValue(undefined),
-      readFile: vi.fn(),
+      readFile: vi.fn().mockResolvedValue(Buffer.from("")),
       readdir: vi.fn().mockResolvedValue([]),
-    }));
-    vi.doMock("node:child_process", () => ({
-      spawn: vi.fn().mockReturnValue({
-        stdout: { on: vi.fn() },
-        stderr: { on: vi.fn() },
-        on: vi.fn().mockImplementation((event: string, cb: (code: number) => void) => {
-          if (event === "close") cb(0);
-        }),
-      }),
+      stat: vi.fn().mockResolvedValue({ isDirectory: () => false }),
+      writeFile: vi.fn().mockResolvedValue(undefined),
     }));
     vi.resetModules();
     const { locateArtifact } = await import("../routes/site.js");
@@ -197,17 +190,10 @@ describe("locateArtifact", () => {
         throw new Error("not found");
       }),
       unlink: vi.fn().mockResolvedValue(undefined),
-      readFile: vi.fn(),
+      readFile: vi.fn().mockResolvedValue(Buffer.from("")),
       readdir: vi.fn().mockResolvedValue([]),
-    }));
-    vi.doMock("node:child_process", () => ({
-      spawn: vi.fn().mockReturnValue({
-        stdout: { on: vi.fn() },
-        stderr: { on: vi.fn() },
-        on: vi.fn().mockImplementation((event: string, cb: (code: number) => void) => {
-          if (event === "close") cb(0);
-        }),
-      }),
+      stat: vi.fn().mockResolvedValue({ isDirectory: () => false }),
+      writeFile: vi.fn().mockResolvedValue(undefined),
     }));
     vi.resetModules();
     const { locateArtifact } = await import("../routes/site.js");
@@ -224,17 +210,10 @@ describe("locateArtifact", () => {
         throw new Error("not found");
       }),
       unlink: vi.fn().mockResolvedValue(undefined),
-      readFile: vi.fn(),
+      readFile: vi.fn().mockResolvedValue(Buffer.from("")),
       readdir: vi.fn().mockResolvedValue([]),
-    }));
-    vi.doMock("node:child_process", () => ({
-      spawn: vi.fn().mockReturnValue({
-        stdout: { on: vi.fn() },
-        stderr: { on: vi.fn() },
-        on: vi.fn().mockImplementation((event: string, cb: (code: number) => void) => {
-          if (event === "close") cb(0);
-        }),
-      }),
+      stat: vi.fn().mockResolvedValue({ isDirectory: () => false }),
+      writeFile: vi.fn().mockResolvedValue(undefined),
     }));
     vi.resetModules();
     const { locateArtifact } = await import("../routes/site.js");
@@ -247,17 +226,10 @@ describe("locateArtifact", () => {
     vi.doMock("node:fs/promises", () => ({
       access: vi.fn().mockRejectedValue(new Error("not found")),
       unlink: vi.fn().mockResolvedValue(undefined),
-      readFile: vi.fn(),
+      readFile: vi.fn().mockResolvedValue(Buffer.from("")),
       readdir: vi.fn().mockResolvedValue([]),
-    }));
-    vi.doMock("node:child_process", () => ({
-      spawn: vi.fn().mockReturnValue({
-        stdout: { on: vi.fn() },
-        stderr: { on: vi.fn() },
-        on: vi.fn().mockImplementation((event: string, cb: (code: number) => void) => {
-          if (event === "close") cb(0);
-        }),
-      }),
+      stat: vi.fn().mockResolvedValue({ isDirectory: () => false }),
+      writeFile: vi.fn().mockResolvedValue(undefined),
     }));
     vi.resetModules();
     const { locateArtifact } = await import("../routes/site.js");
@@ -326,7 +298,8 @@ describe("deploy pipeline", () => {
       unlink: vi.fn().mockResolvedValue(undefined),
       readFile: vi.fn().mockResolvedValue(Buffer.from("x")),
       readdir: vi.fn().mockResolvedValue([]),
-      stat: vi.fn().mockResolvedValue({ isDirectory: () => false, isFile: () => false }),
+      stat: vi.fn().mockResolvedValue({ isDirectory: () => false }),
+      writeFile: vi.fn().mockResolvedValue(undefined),
     }));
 
     vi.doMock("node:child_process", () => ({
@@ -421,8 +394,9 @@ describe("deployNextjsWithWrangler", () => {
     const patched = JSON.parse(writtenContents[0]);
     expect(patched.name).toBe("my-worker");
     expect(patched.main).toBe(".open-next/worker.js");
-    // Service binding self-reference rewritten to match new name
-    expect(patched.services[0].service).toBe("my-worker");
+    // Self-referential service binding is stripped to avoid CF API error 10143
+    // on dispatch namespace deployments, so services should be absent.
+    expect(patched.services).toBeUndefined();
 
     // Second write: original content restored
     expect(writtenContents[1]).toBe(originalContent);
@@ -725,17 +699,10 @@ describe("PBT: locateArtifact priority", () => {
               if (ps.endsWith("dist/_worker.js") && !hasDistUnderscore) throw new Error("ENOENT");
             }),
             unlink: vi.fn().mockResolvedValue(undefined),
-            readFile: vi.fn(),
+            readFile: vi.fn().mockResolvedValue(Buffer.from("")),
             readdir: vi.fn().mockResolvedValue([]),
-          }));
-          vi.doMock("node:child_process", () => ({
-            spawn: vi.fn().mockReturnValue({
-              stdout: { on: vi.fn() },
-              stderr: { on: vi.fn() },
-              on: vi.fn().mockImplementation((event: string, cb: (code: number) => void) => {
-                if (event === "close") cb(0);
-              }),
-            }),
+            stat: vi.fn().mockResolvedValue({ isDirectory: () => false }),
+            writeFile: vi.fn().mockResolvedValue(undefined),
           }));
           vi.resetModules();
           const { locateArtifact } = await import("../routes/site.js");
