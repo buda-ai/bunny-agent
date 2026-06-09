@@ -81,12 +81,23 @@ export interface DeployBody {
    *   - `"preview"`    → `<scriptName>_preview`
    */
   readonly environment: DeployEnvironment;
+  /** Cloudflare credentials extracted from the request body `env` map. */
+  readonly cloudflareEnv: CloudflareEnv;
+  /**
+   * Full caller-supplied `env` map from the request body.
+   * Forwarded as-is into the wrangler child process environment so every
+   * key the caller provides (beyond the three Cloudflare credentials) is
+   * available to wrangler without the daemon hard-coding individual vars.
+   */
+  readonly callerEnv: Record<string, string>;
 }
 
 /** Parsed, validated body for POST /api/site/delete. */
 export interface DeleteBody {
   /** Validated Cloudflare Worker script name to delete. */
   readonly scriptName: ScriptName;
+  /** Cloudflare credentials extracted from the request body `env` map. */
+  readonly cloudflareEnv: CloudflareEnv;
 }
 
 /** Success payload returned by POST /api/site/deploy and /api/site/redeploy. */
@@ -108,7 +119,10 @@ export interface DeleteResult {
 // Internal types
 // =============================================================================
 
-/** Resolved Cloudflare credentials read from environment variables. */
+/**
+ * Resolved Cloudflare credentials.
+ * Sourced from the request body `env` map — never from `process.env` directly.
+ */
 interface CloudflareEnv {
   readonly apiToken: string;
   readonly accountId: string;
@@ -189,26 +203,26 @@ function toAbsolutePath(raw: string): AbsolutePath {
 // =============================================================================
 
 /**
- * Reads and validates the three required Cloudflare environment variables.
- * All three are checked up-front — before any SDK call — so missing config
- * surfaces as a clear 500 rather than an opaque SDK authentication failure.
- * Throws AppError(500) for any missing or empty variable.
+ * Extracts and validates the three required Cloudflare credentials from the
+ * caller-supplied `env` map (sourced from the request body, not `process.env`).
+ *
+ * All three keys are checked up-front before any SDK call so a missing value
+ * surfaces as a clear 400 rather than an opaque authentication failure.
+ * Throws AppError(400) for any missing or empty key.
  */
-export function validateEnv(): CloudflareEnv {
+export function validateEnv(env: Record<string, string>): CloudflareEnv {
   const entries = [
     ["CLOUDFLARE_API_TOKEN", "apiToken"],
     ["CLOUDFLARE_ACCOUNT_ID", "accountId"],
     ["CLOUDFLARE_DISPATCH_NAMESPACE", "dispatchNamespace"],
-  ] as const satisfies ReadonlyArray<
-    readonly [keyof NodeJS.ProcessEnv, keyof CloudflareEnv]
-  >;
+  ] as const satisfies ReadonlyArray<readonly [string, keyof CloudflareEnv]>;
 
   const result = {} as Record<keyof CloudflareEnv, string>;
 
-  for (const [envVar, field] of entries) {
-    const value = process.env[envVar];
+  for (const [key, field] of entries) {
+    const value = env[key];
     if (!value) {
-      throw new AppError(500, `missing required env var: ${envVar}`);
+      throw new AppError(400, `missing required env key: ${key}`);
     }
     result[field] = value;
   }
@@ -227,6 +241,9 @@ export function validateEnv(): CloudflareEnv {
  * accepts raw `unknown` so it can be called directly in tests without casting.
  * Returns a strongly-typed `DeployBody` with branded field types on success.
  * Throws AppError(400) on any validation failure.
+ *
+ * Cloudflare credentials are read from the `env` field of the request body
+ * (a `Record<string, string>`) — never from `process.env`.
  */
 export function parseDeployBody(raw: unknown): DeployBody {
   if (!isPlainObject(raw)) {
@@ -248,10 +265,20 @@ export function parseDeployBody(raw: unknown): DeployBody {
     environment = raw.environment as DeployEnvironment;
   }
 
+  // Extract credentials from the `env` map in the request body.
+  const envMap =
+    isPlainObject(raw.env) &&
+    Object.values(raw.env).every((v) => typeof v === "string")
+      ? (raw.env as Record<string, string>)
+      : {};
+  const cloudflareEnv = validateEnv(envMap);
+
   return {
     projectDir: toAbsolutePath(raw.projectDir),
     scriptName: toScriptName(raw.scriptName),
     environment,
+    cloudflareEnv,
+    callerEnv: envMap,
   };
 }
 
@@ -259,6 +286,9 @@ export function parseDeployBody(raw: unknown): DeployBody {
  * Parses and validates a delete request body.
  * Returns a strongly-typed `DeleteBody` with a branded `scriptName` on success.
  * Throws AppError(400) on any validation failure.
+ *
+ * Cloudflare credentials are read from the `env` field of the request body
+ * (a `Record<string, string>`) — never from `process.env`.
  */
 export function parseDeleteBody(raw: unknown): DeleteBody {
   if (!isPlainObject(raw)) {
@@ -269,7 +299,15 @@ export function parseDeleteBody(raw: unknown): DeleteBody {
     throw new AppError(400, "scriptName is required");
   }
 
-  return { scriptName: toScriptName(raw.scriptName) };
+  // Extract credentials from the `env` map in the request body.
+  const envMap =
+    isPlainObject(raw.env) &&
+    Object.values(raw.env).every((v) => typeof v === "string")
+      ? (raw.env as Record<string, string>)
+      : {};
+  const cloudflareEnv = validateEnv(envMap);
+
+  return { scriptName: toScriptName(raw.scriptName), cloudflareEnv };
 }
 
 // =============================================================================
@@ -643,6 +681,7 @@ export async function deployNextjsWithWrangler(
   scriptName: ScriptName,
   projectDir: AbsolutePath,
   env: CloudflareEnv,
+  callerEnv: Record<string, string>,
 ): Promise<void> {
   // Locate the wrangler config file.
   let configPath: string | null = null;
@@ -721,7 +760,7 @@ export async function deployNextjsWithWrangler(
       JSON.stringify(deployConfig, null, "\t"),
       "utf8",
     );
-    await runWranglerDeploy(projectDir, env);
+    await runWranglerDeploy(projectDir, env, callerEnv);
   } finally {
     // Always restore the original config, even on error.
     await fs.writeFile(configPath, originalContent, "utf8").catch(() => {
@@ -738,8 +777,11 @@ export async function deployNextjsWithWrangler(
  * namespace so the user Worker is scoped to the namespace rather than being
  * deployed as a standalone account-level Worker.
  *
- * Forwards `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` in the child
- * process environment so wrangler authenticates without interactive login.
+ * Merges `callerEnv` (the full `env` map from the request body) into the child
+ * process environment on top of `process.env`, then pins the three Cloudflare
+ * credentials from the validated `CloudflareEnv` so wrangler authenticates
+ * without interactive login and all caller-supplied vars (e.g. NODE_ENV,
+ * WRANGLER_SEND_METRICS) are also available to the child process.
  *
  * Resolves when wrangler exits with code 0.
  * Throws AppError(500) on non-zero exit or spawn error.
@@ -747,6 +789,7 @@ export async function deployNextjsWithWrangler(
 function runWranglerDeploy(
   projectDir: AbsolutePath,
   env: CloudflareEnv,
+  callerEnv: Record<string, string>,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const child = spawn(
@@ -757,8 +800,16 @@ function runWranglerDeploy(
         stdio: ["ignore", "pipe", "pipe"],
         env: {
           ...process.env,
+          // Spread the full caller-supplied env map so every key the caller
+          // provides (e.g. WRANGLER_SEND_METRICS, CF_PAGES_BRANCH, …) reaches
+          // wrangler, not just the three Cloudflare credentials.
+          ...callerEnv,
+          // Pin the three credentials explicitly so they always match the
+          // validated CloudflareEnv values, even if callerEnv contained stale
+          // or differently-cased copies.
           CLOUDFLARE_API_TOKEN: env.apiToken,
           CLOUDFLARE_ACCOUNT_ID: env.accountId,
+          CLOUDFLARE_DISPATCH_NAMESPACE: env.dispatchNamespace,
         },
       },
     );
@@ -834,25 +885,31 @@ export async function deleteWorker(
  * Any step failure throws an AppError with the appropriate HTTP status.
  */
 export async function runDeployPipeline(raw: unknown): Promise<DeployResult> {
-  const env = validateEnv();
   const {
     projectDir,
     scriptName: originalScriptName,
     environment,
+    cloudflareEnv,
+    callerEnv,
   } = parseDeployBody(raw);
-  const scriptName = toScriptName(`${originalScriptName}_${environment}`);
+  const scriptName = toScriptName(`${originalScriptName}`);
   const framework = await detectFramework(projectDir);
 
   if (framework === "nextjs") {
-    await deployNextjsWithWrangler(scriptName, projectDir, env);
+    await deployNextjsWithWrangler(
+      scriptName,
+      projectDir,
+      cloudflareEnv,
+      callerEnv,
+    );
   } else {
     const artifact = await locateArtifact(projectDir, framework);
-    await uploadWorker(scriptName, artifact, env);
+    await uploadWorker(scriptName, artifact, cloudflareEnv);
   }
 
   return {
     scriptName,
-    dispatchNamespace: env.dispatchNamespace,
+    dispatchNamespace: cloudflareEnv.dispatchNamespace,
     framework,
     environment,
   };
@@ -880,12 +937,11 @@ export async function deleteSite(
   _state: AppState,
   body: Record<string, unknown>,
 ): Promise<ApiEnvelope<DeleteResult>> {
-  const env = validateEnv();
-  const { scriptName } = parseDeleteBody(body);
-  await deleteWorker(scriptName, env);
+  const { scriptName, cloudflareEnv } = parseDeleteBody(body);
+  await deleteWorker(scriptName, cloudflareEnv);
   return ok({
     scriptName,
-    dispatchNamespace: env.dispatchNamespace,
+    dispatchNamespace: cloudflareEnv.dispatchNamespace,
     deleted: true,
   });
 }
