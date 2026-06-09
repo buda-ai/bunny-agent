@@ -896,7 +896,12 @@ export async function runDeployPipeline(raw: unknown): Promise<DeployResult> {
   const framework = await detectFramework(projectDir);
 
   if (framework === "nextjs") {
-    await deployNextjsWithWrangler(scriptName, projectDir, cloudflareEnv, callerEnv);
+    await deployNextjsWithWrangler(
+      scriptName,
+      projectDir,
+      cloudflareEnv,
+      callerEnv,
+    );
   } else {
     const artifact = await locateArtifact(projectDir, framework);
     await uploadWorker(scriptName, artifact, cloudflareEnv);
