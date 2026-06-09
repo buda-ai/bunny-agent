@@ -381,6 +381,11 @@ describe("deploy pipeline", () => {
     const result = await deploy({} as AppState, {
       projectDir: "/tmp/proj" as AbsolutePath,
       scriptName: "my-worker" as ScriptName,
+      env: {
+        CLOUDFLARE_API_TOKEN: "test-CLOUDFLARE_API_TOKEN",
+        CLOUDFLARE_ACCOUNT_ID: "test-CLOUDFLARE_ACCOUNT_ID",
+        CLOUDFLARE_DISPATCH_NAMESPACE: "test-CLOUDFLARE_DISPATCH_NAMESPACE",
+      },
     });
     expect(result.ok).toBe(true);
     expect((result.data as DeployResult).framework).toMatch(/^(vite|nextjs)$/);
@@ -604,12 +609,19 @@ describe("deleteSite", () => {
     vi.restoreAllMocks();
   });
 
+  const CF_ENV = {
+    CLOUDFLARE_API_TOKEN: "test-CLOUDFLARE_API_TOKEN",
+    CLOUDFLARE_ACCOUNT_ID: "test-CLOUDFLARE_ACCOUNT_ID",
+    CLOUDFLARE_DISPATCH_NAMESPACE: "test-CLOUDFLARE_DISPATCH_NAMESPACE",
+  };
+
   it("returns ok:true with deleted:true on success", async () => {
     withDeleteMock(() => Promise.resolve({}));
     vi.resetModules();
     const { deleteSite } = await import("../routes/site.js");
     const result = await deleteSite({} as AppState, {
       scriptName: "my-worker" as ScriptName,
+      env: CF_ENV,
     });
     expect(result.ok).toBe(true);
     expect((result.data as DeleteResult).deleted).toBe(true);
@@ -623,6 +635,7 @@ describe("deleteSite", () => {
     try {
       await deleteSite({} as AppState, {
         scriptName: "missing-worker" as ScriptName,
+        env: CF_ENV,
       });
     } catch (e) {
       err = e;
@@ -642,6 +655,7 @@ describe("deleteSite", () => {
     try {
       await deleteSite({} as AppState, {
         scriptName: "my-worker" as ScriptName,
+        env: CF_ENV,
       });
     } catch (e) {
       err = e;
@@ -662,38 +676,27 @@ describe("validateEnv", () => {
     "CLOUDFLARE_DISPATCH_NAMESPACE",
   ] as const;
 
-  const savedEnv: Record<string, string | undefined> = {};
-
-  beforeEach(() => {
-    for (const k of ENV_KEYS) {
-      savedEnv[k] = process.env[k];
-      process.env[k] = `test-value-${k}`;
-    }
-  });
-
   afterEach(() => {
-    for (const [k, v] of Object.entries(savedEnv)) {
-      if (v === undefined) delete process.env[k];
-      else process.env[k] = v;
-    }
     vi.resetModules();
   });
 
   for (const key of ENV_KEYS) {
-    it(`throws AppError(500) 'missing required env var: ${key}' when ${key} is absent`, async () => {
-      delete process.env[key];
+    it(`throws AppError(400) 'missing required env key: ${key}' when ${key} is absent`, async () => {
       vi.resetModules();
       const { validateEnv } = await import("../routes/site.js");
+      const envWithoutKey = Object.fromEntries(
+        ENV_KEYS.filter((k) => k !== key).map((k) => [k, `test-value-${k}`]),
+      );
       let err: unknown;
       try {
-        validateEnv();
+        validateEnv(envWithoutKey);
       } catch (e) {
         err = e;
       }
       expect(isAppError(err)).toBe(true);
-      expect((err as { status: number; message: string }).status).toBe(500);
+      expect((err as { status: number; message: string }).status).toBe(400);
       expect((err as { status: number; message: string }).message).toBe(
-        `missing required env var: ${key}`,
+        `missing required env key: ${key}`,
       );
     });
   }
