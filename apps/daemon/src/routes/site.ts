@@ -892,7 +892,7 @@ export async function runDeployPipeline(raw: unknown): Promise<DeployResult> {
     cloudflareEnv,
     callerEnv,
   } = parseDeployBody(raw);
-  const scriptName = toScriptName(`${originalScriptName}_${environment}`);
+  const scriptName = toScriptName(`${originalScriptName}`);
   const framework = await detectFramework(projectDir);
 
   if (framework === "nextjs") {
