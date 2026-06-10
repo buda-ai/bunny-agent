@@ -82,7 +82,9 @@ describe("simple-git-rpc PBT", () => {
     const jsonSafeValue: fc.Arbitrary<unknown> = fc.oneof(
       fc.string(),
       fc.integer(),
-      fc.double({ noNaN: true, noDefaultInfinity: true }),
+      fc
+        .double({ noNaN: true, noDefaultInfinity: true })
+        .map((v) => (Object.is(v, -0) ? 0 : v)),
       fc.boolean(),
       fc.constant(null),
     );
