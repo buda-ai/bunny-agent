@@ -2,6 +2,7 @@ import * as fsRoutes from "./routes/fs.js";
 import * as gitRoutes from "./routes/git.js";
 import { healthHandler } from "./routes/health.js";
 import * as processRoutes from "./routes/processes.js";
+import * as siteRoutes from "./routes/site.js";
 import { volumesEnsure, volumesList, volumesRemove } from "./routes/volumes.js";
 import type { ApiEnvelope, AppState } from "./utils.js";
 import { AppError, fail } from "./utils.js";
@@ -57,6 +58,9 @@ export class DaemonRouter {
         "/api/git/simple-git-rpc",
         (s, b) => gitRoutes.simpleGitRpc(s, b),
       ],
+      ["POST", "/api/site/deploy", (s, b) => siteRoutes.deploy(s, b)],
+      ["POST", "/api/site/redeploy", (s, b) => siteRoutes.redeploy(s, b)],
+      ["POST", "/api/site/delete", (s, b) => siteRoutes.deleteSite(s, b)],
     ];
   }
 

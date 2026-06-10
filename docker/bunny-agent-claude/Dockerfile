@@ -48,6 +48,7 @@ RUN mkdir -p /opt/bunny-agent && \
     cd /opt/bunny-agent && \
     npm init -y && \
     npm install --no-audit --no-fund \
+    wrangler@latest \
     @anthropic-ai/claude-agent-sdk \
     @bunny-agent/runner-cli@${RUNNER_CLI_VERSION} \
     @bunny-agent/daemon@${RUNNER_CLI_VERSION} \
@@ -69,7 +70,7 @@ RUN apt-get update && \
     && DEBIAN_FRONTEND=noninteractive npx playwright install --with-deps chromium \
     && rm -rf /var/lib/apt/lists/*
 
-RUN npm install simple-git brave-search-cli -g
+RUN npm install brave-search-cli -g
 
 # Create init script to copy deps to workspace on startup
 RUN echo '#!/bin/bash\n\
