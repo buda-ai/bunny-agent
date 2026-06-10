@@ -1,6 +1,6 @@
 {
   "name": "@bunny-agent/sandbox-e2b",
-  "version": "0.9.43",
+  "version": "0.9.43-beta.9",
   "description": "E2B sandbox adapter for BunnyAgent",
   "type": "module",
   "main": "./dist/index.js",
