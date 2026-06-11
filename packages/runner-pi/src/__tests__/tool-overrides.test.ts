@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { redactSecrets } from "../tool-overrides.js";
 
 // ---------------------------------------------------------------------------
@@ -92,17 +92,111 @@ describe("redactSecrets", () => {
 // buildEnvInjectedBashTool — caller-declared systemEnv only
 // ---------------------------------------------------------------------------
 
-describe("buildEnvInjectedBashTool", () => {
-  it("never reaches bash without an explicit systemEnv (smoke check)", async () => {
-    // Sanity: with no opts, the bash tool relies on its own ctx.env (process.env);
-    // nothing from extraEnv leaks. We don't actually spawn here — just exercise
-    // the import path so a regression that reintroduces classifier magic would
-    // show up via type errors rather than runtime checks.
+// Capture spawnHook input + output so we can assert what reaches bash.
+type SpawnHook = (ctx: {
+  env: Record<string, string>;
+  command?: string;
+}) => { env: Record<string, string> };
+
+let capturedSpawnHook: SpawnHook | null = null;
+
+vi.mock("@earendil-works/pi-coding-agent", () => ({
+  createBashTool: vi.fn((_cwd: string, opts: { spawnHook: SpawnHook }) => {
+    capturedSpawnHook = opts.spawnHook;
+    return {
+      name: "bash",
+      label: "bash",
+      description: "stub",
+      parameters: { type: "object", properties: {}, required: [] },
+      execute: vi.fn().mockResolvedValue({
+        content: [{ type: "text", text: "ok" }],
+        details: undefined,
+      }),
+    };
+  }),
+  createReadTool: vi.fn(() => ({
+    name: "read",
+    label: "read",
+    description: "stub",
+    parameters: { type: "object", properties: {}, required: [] },
+    execute: vi.fn().mockResolvedValue({
+      content: [{ type: "text", text: "" }],
+      details: undefined,
+    }),
+  })),
+}));
+
+describe("buildEnvInjectedBashTool spawnHook", () => {
+  async function build(
+    extraEnv: Record<string, string>,
+    systemEnv?: Record<string, string>,
+  ): Promise<SpawnHook> {
+    capturedSpawnHook = null;
     const { buildEnvInjectedBashTool } = await import("../tool-overrides.js");
-    const tool = buildEnvInjectedBashTool("/tmp", {
+    buildEnvInjectedBashTool(
+      "/tmp",
+      extraEnv,
+      systemEnv ? { systemEnv } : {},
+    );
+    const hook = capturedSpawnHook as SpawnHook | null;
+    if (hook == null) throw new Error("spawnHook was not registered");
+    return hook;
+  }
+
+  it("injects nothing extra when systemEnv is omitted", async () => {
+    const hook = await build({
       ANTHROPIC_API_KEY: "sk-y",
       MY_PRODUCT_KEY: "x",
     });
-    expect(tool.name).toBeTruthy();
+    const { env } = hook({ env: { PATH: "/usr/bin", HOME: "/root" } });
+    expect(env).toEqual({ PATH: "/usr/bin", HOME: "/root" });
+    expect(env.ANTHROPIC_API_KEY).toBeUndefined();
+    expect(env.MY_PRODUCT_KEY).toBeUndefined();
+  });
+
+  it("injects exactly the keys in systemEnv (daemon use case)", async () => {
+    const hook = await build(
+      {
+        ANTHROPIC_API_KEY: "sk-y",
+        BRAVE_API_KEY: "bsk-1",
+        TAVILY_API_KEY: "tvly-2",
+        MY_PRODUCT_KEY: "x",
+      },
+      { MY_PRODUCT_KEY: "x" },
+    );
+    const { env } = hook({ env: { PATH: "/usr/bin" } });
+    expect(env).toEqual({ PATH: "/usr/bin", MY_PRODUCT_KEY: "x" });
+    expect(env.ANTHROPIC_API_KEY).toBeUndefined();
+    expect(env.BRAVE_API_KEY).toBeUndefined();
+    expect(env.TAVILY_API_KEY).toBeUndefined();
+  });
+
+  it("no policy: a key declared in systemEnv reaches bash even if it looks like an auth key", async () => {
+    // The runner has zero opinion on what counts as "system" — caller's
+    // responsibility. Pinned by this test so a future regression that
+    // re-adds a blocklist gets caught.
+    const hook = await build(
+      { ANTHROPIC_API_KEY: "sk-y" },
+      { ANTHROPIC_API_KEY: "sk-y" },
+    );
+    const { env } = hook({ env: { PATH: "/usr/bin" } });
+    expect(env.ANTHROPIC_API_KEY).toBe("sk-y");
+  });
+
+  it("ctx.env is preserved (default OS env still reaches bash)", async () => {
+    const hook = await build({}, { MY_KEY: "v" });
+    const { env } = hook({
+      env: { PATH: "/usr/bin", HOME: "/root", LANG: "en_US.UTF-8" },
+    });
+    expect(env.PATH).toBe("/usr/bin");
+    expect(env.HOME).toBe("/root");
+    expect(env.LANG).toBe("en_US.UTF-8");
+    expect(env.MY_KEY).toBe("v");
+  });
+
+  it("systemEnv overrides ctx.env on key collision", async () => {
+    const hook = await build({}, { PATH: "/custom/bin" });
+    const { env } = hook({ env: { PATH: "/usr/bin" } });
+    expect(env.PATH).toBe("/custom/bin");
   });
 });

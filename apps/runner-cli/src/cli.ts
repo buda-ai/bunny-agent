@@ -18,81 +18,9 @@ config({ path: resolve(process.cwd(), "../.env") });
 config({ path: resolve(process.cwd(), "../../.env") });
 
 import { parseArgs } from "node:util";
-import type { PiRunnerOptions } from "@bunny-agent/runner-pi";
 import { buildImage } from "./build-image.js";
+import { takeToolRefsFromEnv } from "./env-payload.js";
 import { runAgent } from "./runner.js";
-
-type RunnerToolRefs = NonNullable<PiRunnerOptions["toolRefs"]>;
-type RunnerToolRefsPayload = {
-  tools: RunnerToolRefs;
-};
-
-/**
- * Read and immediately unset the tool-ref env var the SDK passes through
- * `BunnyAgent.stream`. We unset before any child process can be spawned so the
- * payload (which can contain Bearer tokens or HTTP headers) does not leak via
- * environment inheritance to bash tools the runner may shell out to.
- */
-function takeToolRefsFromEnv(): RunnerToolRefsPayload | null {
-  const raw = process.env.BUNNY_AGENT_TOOL_REFS_JSON;
-  if (!raw) return null;
-  delete process.env.BUNNY_AGENT_TOOL_REFS_JSON;
-  try {
-    const parsed = JSON.parse(raw) as {
-      tools?: RunnerToolRefs;
-    };
-    if (!Array.isArray(parsed.tools)) {
-      console.error(
-        "[bunny-agent] BUNNY_AGENT_TOOL_REFS_JSON missing tools array; ignoring.",
-      );
-      return null;
-    }
-    return {
-      tools: parsed.tools,
-    };
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error(
-      `[bunny-agent] Failed to parse BUNNY_AGENT_TOOL_REFS_JSON: ${message}`,
-    );
-    return null;
-  }
-}
-
-/**
- * Read and immediately unset `BUNNY_AGENT_SYSTEM_ENV_JSON` — the SDK's CLI
- * fallback uses this to declare which env vars the runner should inject into
- * the bash spawn process. Unset before any child spawns so the JSON payload
- * itself doesn't reach bash via env inheritance.
- *
- * Format: `{"K1":"v1","K2":"v2"}` — same shape as the daemon body's
- * `systemEnv` field.
- */
-function takeSystemEnvFromEnv(): Record<string, string> | null {
-  const raw = process.env.BUNNY_AGENT_SYSTEM_ENV_JSON;
-  if (!raw) return null;
-  delete process.env.BUNNY_AGENT_SYSTEM_ENV_JSON;
-  try {
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
-    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
-      console.error(
-        "[bunny-agent] BUNNY_AGENT_SYSTEM_ENV_JSON must be a JSON object; ignoring.",
-      );
-      return null;
-    }
-    const out: Record<string, string> = {};
-    for (const [k, v] of Object.entries(parsed)) {
-      if (typeof v === "string") out[k] = v;
-    }
-    return Object.keys(out).length > 0 ? out : null;
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error(
-      `[bunny-agent] Failed to parse BUNNY_AGENT_SYSTEM_ENV_JSON: ${message}`,
-    );
-    return null;
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -300,10 +228,6 @@ Environment:
   CODEX_API_KEY                OpenAI API key alias (for codex runner)
   GEMINI_API_KEY               Gemini API key (for gemini runner)
   BUNNY_AGENT_WORKSPACE        Default workspace path
-  BUNNY_AGENT_SYSTEM_ENV_JSON  JSON object of env vars to inject into the
-                               pi runner's bash spawn process. Read once and
-                               unset on startup. Example: '{"FOO":"bar"}'.
-                               Anything not listed here stays out of bash.
 `);
 }
 
@@ -381,7 +305,6 @@ async function main(): Promise<void> {
       const args = parseRunArgs();
       process.chdir(args.cwd);
       const toolRefs = takeToolRefsFromEnv();
-      const systemEnv = takeSystemEnvFromEnv();
       await runAgent({
         runner: args.runner,
         model: args.model,
@@ -394,7 +317,6 @@ async function main(): Promise<void> {
         yolo: args.yolo,
         effort: args.effort,
         ...(toolRefs ? { toolRefs: toolRefs.tools } : {}),
-        ...(systemEnv ? { systemEnv } : {}),
       });
       break;
     }

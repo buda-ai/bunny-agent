@@ -1,80 +1,103 @@
-# Split env into runtime vs bash channels
+# Split env channels for daemon mode bash isolation
 
 **Date:** 2026-06-11
 **Branch:** `feat/env-classification`
 
 ## Problem
 
-The pi-runner's bash tool inherited nearly the full `env` map from the request — only a small hardcoded `MODEL_AUTH_KEYS` blocklist was filtered out (`packages/runner-pi/src/tool-overrides.ts`, commit 3ca56ff).
-
-That left every other credential reachable from inside bash:
+The pi-runner's bash tool inherited nearly the full `env` map from the request — only a small hardcoded `MODEL_AUTH_KEYS` blocklist was filtered out (commit 3ca56ff). That let every other credential reach bash:
 
 - `BRAVE_API_KEY`, `TAVILY_API_KEY` (web search)
-- `IMAGE_GENERATION_MODEL` and any image-gen API keys
+- `IMAGE_GENERATION_MODEL`
 - Any caller-defined `*_API_KEY` from a daemon `RunRequest.env`
-- Any business secret a CLI user happened to export
 
-A model could exfiltrate these via outbound HTTP from a bash command. The existing redaction layer only scrubs them out of bash stdout text — it does not stop them from being read in the first place.
+In the **daemon scenario** (long-lived process, many requests, possibly many tenants), this is a real leak: a model can exfiltrate any of those keys via outbound HTTP. Redaction only scrubs bash stdout — it does not stop reads.
 
 ## Approach
 
-Two independent channels with **no classification logic in the runner**. The caller routes each key explicitly.
+Two independent channels, routed by the caller:
 
 ```
-body.env       → runner runtime (model auth, native tools); never reaches bash
-body.systemEnv → bash spawn env (caller's choice)
+body.env       → runner runtime (model auth, native tools, image-gen, web_search)
+body.systemEnv → bash spawn env (caller's choice of what bash should see)
 ```
 
-That is the entire design. No allowlist, no blocklist, no prefix matching. The runner does what the caller says. If the caller wants `MY_PRODUCT_TOKEN` in bash, they put it in `systemEnv`. If they want `OPENAI_API_KEY` only inside the runner, they put it in `env`. If they accidentally put it in `systemEnv` — it goes to bash, because bunny-agent is not a policy engine.
+The runner has no policy. No allowlist, no blocklist, no prefix matching, no force-deny set. Each project's "system vs business" line lives in the caller's code.
 
-### Wire-protocol changes (forward-compatible)
+### Daemon mode (the scenario this PR fixes)
 
-| Surface | Field |
-|---------|-------|
+`body.env` populates the runner's runtime config. `body.systemEnv` is forwarded into pi's `createBashTool` via `spawnHook`, on top of the bash tool's default `ctx.env`. Anything not in `systemEnv` stays out of bash.
+
+### CLI mode (`bunny-agent run` direct, or SDK CLI fallback)
+
+Each invocation is single-request / single-tenant — there is no tenant-mixing risk, and the runner's `process.env` *is* the expected bash environment. So `env` and `systemEnv` are simply merged and passed via the standard `sandbox.exec({ env })` path; pi's bash tool inherits everything via its default `ctx.env`. No special JSON-payload channel for systemEnv. The CLI argv protocol is unchanged.
+
+The existing `BUNNY_AGENT_TOOL_REFS_JSON` mechanism is unchanged — toolRefs really cannot reach bash because they may contain Bearer tokens.
+
+## Wire protocol (forward-compatible)
+
+| Surface | New field |
+|---------|-----------|
 | Daemon `RunRequest` | `systemEnv?: Record<string, string>` |
 | `BunnyAgentCodingRunBody` | `systemEnv?: Record<string, string>` |
 | SDK `BunnyAgentProviderSettings` | `systemEnv?: Record<string, string>` |
 | Pi `PiRunnerOptions` | `systemEnv?: Record<string, string>` |
-| `RunnerCoreOptions` | `systemEnv?: Record<string, string>` |
+| Harness `RunnerCoreOptions` | `systemEnv?: Record<string, string>` |
 
-All optional. Old daemons ignore the field; old clients don't send it. Both sides keep working — no breaking change.
-
-### CLI fallback
-
-The SDK's CLI fallback path forwards `systemEnv` to runner-cli through `BUNNY_AGENT_SYSTEM_ENV_JSON`. runner-cli reads it on startup, immediately deletes it (so the JSON payload itself doesn't leak via env inheritance), and hands the parsed map to the pi runner. This mirrors the existing `BUNNY_AGENT_TOOL_REFS_JSON` pattern. The CLI argv protocol is unchanged.
-
-There is **no `--system-env` flag**. A user running `bunny-agent run` directly on a workstation already has their shell env in `process.env` — pi's `createBashTool` uses that as the default `ctx.env`, so basic shell utilities keep working. Only callers that programmatically spawn the runner via the SDK need to declare `systemEnv`.
+All optional. Old daemons ignore the field; old clients don't send it. Either side can be upgraded first.
 
 ## Compatibility / migration
 
 | Caller | bunny-agent | Behaviour |
 |--------|-------------|-----------|
 | Old (only `env`) | Old | Unchanged (current leaky behaviour) |
-| Old (only `env`) | New | `body.env` no longer reaches bash. **This is the fix.** Any workflow that genuinely needs a key inside bash must update the client to also send `systemEnv`. |
+| Old (only `env`) | New (daemon) | `body.env` no longer reaches bash. **This is the fix.** Workflows that need a key in bash must update the client to send `systemEnv`. |
+| Old (only `env`) | New (CLI) | Unchanged — env still merged into sandbox.exec, bash sees everything (intentional in CLI mode). |
 | New (`env` + `systemEnv`) | Old | Old daemon ignores `systemEnv`, runs as before |
-| New (`env` + `systemEnv`) | New | `systemEnv` is the bash subset; everything else stays in runner only |
-
-Migration: any caller whose bash scripts read a key like `$MY_PRODUCT_TOKEN` must move that key into `systemEnv`. There is no operational backdoor — that's intentional.
+| New (`env` + `systemEnv`) | New | Daemon: `systemEnv` is the bash subset. CLI: env+systemEnv merged. |
 
 ## Critical files
 
 | File | Change |
 |------|--------|
-| `packages/manager/src/types.ts` | Added `systemEnv` to `BunnyAgentCodingRunBody` |
-| `packages/manager/src/env.ts` | Added `systemEnv` to `RunnerEnvParams` |
-| `packages/runner-pi/src/tool-overrides.ts` | `buildEnvInjectedBashTool` and `buildSecretAwareTools` accept `BashToolOptions.systemEnv`; bash spawn env is exactly that map. Removed `MODEL_AUTH_KEYS` blocklist, `filterAuthEnvVars`, and all classifier code. |
+| `packages/runner-pi/src/tool-overrides.ts` | `buildEnvInjectedBashTool` accepts `BashToolOptions.systemEnv`; bash spawn env = caller's `systemEnv` (or empty). Removed `MODEL_AUTH_KEYS`, `filterAuthEnvVars`, classifier code. |
 | `packages/runner-pi/src/pi-runner.ts` | `PiRunnerOptions.systemEnv` plumbed through |
-| `packages/runner-harness/src/runner.ts` | `RunnerCoreOptions.systemEnv` plumbed through |
-| `apps/daemon/src/routes/coding.ts` | `RunRequest.systemEnv` forwarded to `createRunner` |
+| `packages/runner-harness/src/runner.ts` | `RunnerCoreOptions.systemEnv` plumbed to pi runner |
+| `apps/daemon/src/routes/coding.ts` | `RunRequest.systemEnv` forwarded |
 | `apps/daemon/src/coding-run-env.ts` | `sanitizeCodingRunBodySystemEnv` |
 | `apps/daemon/src/server.ts`, `apps/daemon/src/nextjs.ts` | Sanitise & forward |
-| `apps/runner-cli/src/cli.ts` | `takeSystemEnvFromEnv()` reads & deletes `BUNNY_AGENT_SYSTEM_ENV_JSON` on startup |
+| `apps/runner-cli/src/env-payload.ts` | Extracted `takeToolRefsFromEnv` for direct testing (unchanged behaviour). No systemEnv-specific helper — CLI mode merges env+systemEnv via sandbox.exec. |
+| `apps/runner-cli/src/cli.ts` | Imports the helper |
 | `packages/sdk/src/provider/types.ts` | `BunnyAgentProviderSettings.systemEnv` |
 | `packages/sdk/src/provider/bunny-agent-provider.ts` | Merges `systemEnv` across default/per-call options |
-| `packages/sdk/src/provider/bunny-agent-language-model.ts` | Daemon path forwards `body.systemEnv`; CLI path injects `BUNNY_AGENT_SYSTEM_ENV_JSON` |
+| `packages/sdk/src/provider/bunny-agent-language-model.ts` | Daemon path forwards `body.systemEnv`; CLI path merges env+systemEnv into `sandbox.exec({ env })` |
 
 ## Tests
 
-- `packages/runner-pi/src/__tests__/tool-overrides.test.ts` — kept the redaction suite, added a smoke test for the simplified `buildEnvInjectedBashTool` API.
+- `packages/runner-pi/src/__tests__/tool-overrides.test.ts` — kept full redaction suite. Added 5 spawnHook behaviour tests via `vi.mock` of `createBashTool`: empty systemEnv → only ctx.env; explicit systemEnv → exactly those keys; "no policy" pin (caller can put auth keys in systemEnv if they really want); ctx.env preserved; systemEnv overrides on collision.
+- `apps/runner-cli/src/__tests__/env-payload.test.ts` (new) — `takeToolRefsFromEnv` read-and-unset semantics, malformed-JSON unset, one-shot behaviour.
 - `apps/daemon/src/__tests__/coding-run-env.test.ts` (new) — sanitiser/merge for the new field.
-- `pnpm -r typecheck`, `pnpm -r test`, `pnpm -r build` all pass.
+- `pnpm -r typecheck` / `pnpm -r test` / `pnpm -r build` — green on this branch.
+
+## Recommended pattern
+
+In **daemon deployments**, route credentials by purpose:
+
+```ts
+// SDK
+createBunnyAgent({
+  sandbox,
+  daemonUrl,
+  env: {
+    ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,    // model auth
+    BRAVE_API_KEY: process.env.BRAVE_API_KEY,            // web_search
+    IMAGE_GENERATION_MODEL: "openai:gpt-image-1",        // image-gen
+  },
+  systemEnv: {
+    // only what bash genuinely needs — typically nothing or a
+    // narrow allowlist of OS-level variables you want to override.
+  },
+});
+```
+
+Anything missing from `systemEnv` does not reach bash, even if it's in `env`.
