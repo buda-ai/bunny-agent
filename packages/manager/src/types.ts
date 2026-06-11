@@ -77,6 +77,13 @@ export interface BunnyAgentCodingRunBody {
    * String keys and string values only; invalid entries are dropped by the daemon.
    */
   env?: Record<string, string>;
+  /**
+   * Optional subset of `env` whose keys are safe to expose to the runner's
+   * bash tool. When omitted, the runner classifies `env` via a built-in
+   * whitelist so business credentials (model auth, third-party API keys, etc.)
+   * never leak into the shell. Currently consumed by the `pi` runner.
+   */
+  systemEnv?: Record<string, string>;
   /** Skip tool approval checks (bypass permissions). */
   yolo?: boolean;
   /**

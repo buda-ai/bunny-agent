@@ -1,6 +1,9 @@
 import * as http from "node:http";
 import { URL } from "node:url";
-import { mergeCodingRunProcessEnv } from "./coding-run-env.js";
+import {
+  mergeCodingRunProcessEnv,
+  sanitizeCodingRunBodySystemEnv,
+} from "./coding-run-env.js";
 import { parseMultipart } from "./multipart.js";
 import { DaemonRouter } from "./router.js";
 import { bunnyAgentRun } from "./routes/coding.js";
@@ -37,6 +40,14 @@ export function createDaemon(config: DaemonConfig): http.Server {
           unknown
         >;
         const mergedEnv = mergeCodingRunProcessEnv(env, body);
+        const sanitizedSystemEnv = sanitizeCodingRunBodySystemEnv(
+          body.systemEnv,
+        );
+        if (sanitizedSystemEnv) {
+          body.systemEnv = sanitizedSystemEnv;
+        } else {
+          delete body.systemEnv;
+        }
         return bunnyAgentRun(
           body as unknown as Parameters<typeof bunnyAgentRun>[0],
           res,

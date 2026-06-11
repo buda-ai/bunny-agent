@@ -129,6 +129,15 @@ export interface BunnyAgentProviderSettings
   toolRefs?: ToolRef[];
   /** Reasoning effort / thinking level (e.g. "low", "medium", "high"). */
   effort?: string;
+  /**
+   * Optional subset of `env` whose keys are safe to expose to the pi runner's
+   * bash tool. When omitted, the runner classifies `env` via a built-in
+   * whitelist so business credentials never leak into the shell. Use this to
+   * opt specific business keys back into bash when a workflow requires it.
+   *
+   * Ignored by runners other than `pi`.
+   */
+  systemEnv?: Record<string, string>;
 }
 
 /**

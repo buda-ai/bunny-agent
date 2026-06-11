@@ -2,13 +2,18 @@
  * Tool overrides for bunny-agent pi runner.
  *
  * Builds custom bash and read ToolDefinitions that:
- * - Inject env vars into bash via spawnHook (secrets never in command string)
+ * - Inject only system env vars into bash via spawnHook (model auth and
+ *   business credentials never leave the runner process)
  * - Redact secret values from both bash and read tool output before the LLM sees them
  *
  * Registered via customTools so they override the built-in tools in
  * AgentSession._refreshToolRegistry's Map.set loop.
  */
 
+import {
+  classifyEnv,
+  parseSystemEnvKeysFromEnv,
+} from "@bunny-agent/manager";
 import {
   createBashTool,
   createReadTool,
@@ -95,16 +100,55 @@ const MODEL_AUTH_KEYS = new Set([
   "LITELLM_MASTER_KEY",
 ]);
 
-function filterAuthEnvVars(
+/**
+ * Drop model-auth keys from any env map. Defence-in-depth: even if a caller
+ * misclassifies a model auth key as systemEnv (or sets BUNNY_AGENT_SYSTEM_ENV_KEYS
+ * incorrectly), the bash spawn env stays clean.
+ */
+function stripModelAuth(
   env: Record<string, string>,
 ): Record<string, string> {
-  const filtered: Record<string, string> = {};
+  const out: Record<string, string> = {};
   for (const [key, value] of Object.entries(env)) {
-    if (!MODEL_AUTH_KEYS.has(key)) {
-      filtered[key] = value;
-    }
+    if (!MODEL_AUTH_KEYS.has(key)) out[key] = value;
   }
-  return filtered;
+  return out;
+}
+
+/**
+ * Resolve the env subset that should land in the bash spawn process.
+ *
+ * Preference order:
+ *   1. Explicit `systemEnv` (declared by a caller — daemon body, SDK, CLI flag)
+ *   2. Auto-classify `extraEnv` via the manager whitelist
+ *
+ * Either way, `MODEL_AUTH_KEYS` are stripped at the end as a safety net.
+ * The `BUNNY_AGENT_SYSTEM_ENV_KEYS` env var on the runner host (the deploy
+ * escape hatch) is folded into the auto-classify path.
+ *
+ * Exported for testing — this is the security boundary that decides what
+ * actually enters bash.
+ */
+export function resolveBashSpawnEnv(
+  extraEnv: Record<string, string>,
+  systemEnv: Record<string, string> | undefined,
+): Record<string, string> {
+  if (systemEnv) {
+    return stripModelAuth(systemEnv);
+  }
+  const extraKeys = parseSystemEnvKeysFromEnv(process.env);
+  const { system } = classifyEnv(extraEnv, { extraSystemKeys: extraKeys });
+  return stripModelAuth(system);
+}
+
+export interface BashToolOptions {
+  /**
+   * Caller-declared subset of `extraEnv` that is safe to expose to bash.
+   * When provided, exactly these keys (minus model auth) are injected into
+   * the bash spawn env. When omitted, the runner classifies `extraEnv` via
+   * the built-in whitelist.
+   */
+  systemEnv?: Record<string, string>;
 }
 
 /**
@@ -113,14 +157,17 @@ function filterAuthEnvVars(
  * 2. Redacts secrets from output before the LLM sees them.
  * 3. Delegates execution to pi's createBashTool for full built-in behavior.
  *
- * Auth-related env vars (API keys, base URLs, host) are excluded from the
- * spawned process environment but still used for output redaction.
+ * Only "system" env keys are forwarded to the spawned bash process — model
+ * auth keys, business credentials and other agent-only env never appear in
+ * the bash environment. The full `extraEnv` is still used for output
+ * redaction so leaks via printenv-style commands are scrubbed.
  */
 export function buildEnvInjectedBashTool(
   cwd: string,
   extraEnv: Record<string, string>,
+  opts: BashToolOptions = {},
 ): ToolDefinition {
-  const safeEnv = filterAuthEnvVars(extraEnv);
+  const safeEnv = resolveBashSpawnEnv(extraEnv, opts.systemEnv);
   const bashAgentTool = createBashTool(cwd, {
     spawnHook: (ctx) => ({
       ...ctx,
@@ -210,13 +257,17 @@ import {
  * - read: secret redaction on file content
  * - web_search: auto-detected provider (Brave > Tavily), only if API key available
  * - web_fetch: URL content extraction (always available)
+ *
+ * `opts.systemEnv` (optional) lists keys that should be exposed to bash.
+ * When omitted, the bash tool falls back to whitelist-based classification.
  */
 export function buildSecretAwareTools(
   cwd: string,
   secrets: Record<string, string>,
+  opts: BashToolOptions = {},
 ): ToolDefinition[] {
   const tools: ToolDefinition[] = [
-    buildEnvInjectedBashTool(cwd, secrets),
+    buildEnvInjectedBashTool(cwd, secrets, opts),
     buildSecretRedactingReadTool(cwd, secrets),
     buildWebFetchTool(),
   ];

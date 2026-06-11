@@ -587,6 +587,9 @@ importers:
 
   packages/runner-pi:
     dependencies:
+      '@bunny-agent/manager':
+        specifier: workspace:*
+        version: link:../manager
       '@earendil-works/pi-agent-core':
         specifier: 0.78.0
         version: 0.78.0(ws@8.19.0)(zod@4.3.6)

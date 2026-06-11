@@ -36,6 +36,14 @@ export interface PiRunnerOptions {
    * auth helpers; values are injected into bash spawn context only.
    */
   env?: Record<string, string>;
+  /**
+   * Optional caller-declared subset of `env` whose keys are safe to forward
+   * to the bash tool's child process. When omitted, the runner classifies
+   * `env` via the manager's whitelist so business credentials never leak
+   * into the shell. Use this to opt specific business keys into bash when a
+   * task genuinely needs them.
+   */
+  systemEnv?: Record<string, string>;
   abortController?: AbortController;
   /**
    * Session ID to resume (from previous run's message-metadata.sessionId).
@@ -341,7 +349,9 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
 
         const customTools: ToolDefinition[] =
           options.env && Object.keys(options.env).length > 0
-            ? buildSecretAwareTools(cwd, options.env)
+            ? buildSecretAwareTools(cwd, options.env, {
+                systemEnv: options.systemEnv,
+              })
             : [];
 
         if (imageModelName) {

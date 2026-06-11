@@ -43,6 +43,14 @@ export interface RunnerEnvParams {
    * etc.) are automatically stripped.
    */
   inherit?: Record<string, string | undefined | null>;
+  /**
+   * Caller-declared system env subset — keys safe to inject into the runner's
+   * bash tool. Forwarded to the child runner process so it can pass exactly
+   * this subset to bash spawn, while keeping everything else (model auth,
+   * business keys) out of the shell. Optional; if omitted, runner falls back
+   * to whitelist-based classification.
+   */
+  systemEnv?: Record<string, string>;
 }
 
 /**

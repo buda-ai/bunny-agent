@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { redactSecrets } from "../tool-overrides.js";
+import { afterEach, describe, expect, it } from "vitest";
+import { redactSecrets, resolveBashSpawnEnv } from "../tool-overrides.js";
 
 // ---------------------------------------------------------------------------
 // redactSecrets
@@ -85,5 +85,86 @@ describe("redactSecrets", () => {
     expect(result).not.toContain("GEMINI_API_KEY");
     expect(result).toContain("TERM=xterm-256color");
     expect(result).toContain("HOME=/root");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// resolveBashSpawnEnv — security boundary that decides what enters bash
+// ---------------------------------------------------------------------------
+
+describe("resolveBashSpawnEnv", () => {
+  const originalSysKeys = process.env.BUNNY_AGENT_SYSTEM_ENV_KEYS;
+  afterEach(() => {
+    if (originalSysKeys === undefined)
+      delete process.env.BUNNY_AGENT_SYSTEM_ENV_KEYS;
+    else process.env.BUNNY_AGENT_SYSTEM_ENV_KEYS = originalSysKeys;
+  });
+
+  it("auto-classifies when systemEnv is undefined: business keys stay out", () => {
+    const result = resolveBashSpawnEnv(
+      {
+        PATH: "/usr/bin",
+        HOME: "/root",
+        BRAVE_API_KEY: "bsk-1",
+        TAVILY_API_KEY: "tvly-2",
+        MY_PRODUCT_KEY: "x",
+        ANTHROPIC_API_KEY: "sk-y",
+      },
+      undefined,
+    );
+    expect(result).toEqual({ PATH: "/usr/bin", HOME: "/root" });
+  });
+
+  it("respects explicit systemEnv when provided", () => {
+    const result = resolveBashSpawnEnv(
+      {
+        PATH: "/usr/bin",
+        BRAVE_API_KEY: "bsk-1",
+        MY_PRODUCT_KEY: "x",
+      },
+      { PATH: "/usr/bin", MY_PRODUCT_KEY: "x" },
+    );
+    expect(result).toEqual({ PATH: "/usr/bin", MY_PRODUCT_KEY: "x" });
+    expect(result.BRAVE_API_KEY).toBeUndefined();
+  });
+
+  it("strips model auth keys even when caller adds them to systemEnv", () => {
+    const result = resolveBashSpawnEnv(
+      {},
+      {
+        PATH: "/usr/bin",
+        ANTHROPIC_API_KEY: "sk-y",
+        OPENAI_API_KEY: "sk-z",
+      },
+    );
+    expect(result).toEqual({ PATH: "/usr/bin" });
+  });
+
+  it("BUNNY_AGENT_SYSTEM_ENV_KEYS extends the auto-classify whitelist", () => {
+    process.env.BUNNY_AGENT_SYSTEM_ENV_KEYS = "MY_PRODUCT_KEY";
+    const result = resolveBashSpawnEnv(
+      {
+        PATH: "/usr/bin",
+        MY_PRODUCT_KEY: "x",
+        OTHER_KEY: "y",
+      },
+      undefined,
+    );
+    expect(result).toEqual({
+      PATH: "/usr/bin",
+      MY_PRODUCT_KEY: "x",
+    });
+  });
+
+  it("BUNNY_AGENT_SYSTEM_ENV_KEYS cannot promote model auth keys", () => {
+    process.env.BUNNY_AGENT_SYSTEM_ENV_KEYS = "ANTHROPIC_API_KEY";
+    const result = resolveBashSpawnEnv(
+      {
+        PATH: "/usr/bin",
+        ANTHROPIC_API_KEY: "sk-y",
+      },
+      undefined,
+    );
+    expect(result).toEqual({ PATH: "/usr/bin" });
   });
 });

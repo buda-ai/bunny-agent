@@ -114,6 +114,7 @@ interface ParsedRunArgs {
   skillPaths?: string[];
   yolo?: boolean;
   effort?: string;
+  systemEnvKeys?: string[];
   userInput: string;
 }
 
@@ -139,6 +140,7 @@ function parseRunArgs(): ParsedRunArgs {
       resume: { type: "string" },
       yolo: { type: "boolean" },
       effort: { type: "string" },
+      "system-env-keys": { type: "string" },
       help: { type: "boolean", short: "h" },
     },
     allowPositionals: true,
@@ -187,6 +189,10 @@ function parseRunArgs(): ParsedRunArgs {
     resume: values.resume,
     yolo: values["yolo"],
     effort: values["effort"],
+    systemEnvKeys: values["system-env-keys"]
+      ?.split(",")
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0),
     userInput,
   };
 }
@@ -257,6 +263,10 @@ Options:
   -a, --allowed-tools <tools>  Comma-separated allowed tools
       --skill-path <path>      Additional skill path (can be repeated, for pi runner)
       --resume <session-id>    Resume a previous session
+      --system-env-keys <list> Comma-separated env keys exposed to the pi bash
+                               tool in addition to the built-in safe whitelist
+                               (e.g. PATH, HOME, LANG). Use to opt specific
+                               business keys back into bash.
   -h, --help                   Show this help
 
 Environment:
@@ -264,7 +274,10 @@ Environment:
   OPENAI_API_KEY               OpenAI API key (for codex runner)
   CODEX_API_KEY                OpenAI API key alias (for codex runner)
   GEMINI_API_KEY               Gemini API key (for gemini runner)
-  BUNNY_AGENT_WORKSPACE          Default workspace path
+  BUNNY_AGENT_WORKSPACE        Default workspace path
+  BUNNY_AGENT_SYSTEM_ENV_KEYS  Comma-separated env keys exposed to the pi bash
+                               tool (same as --system-env-keys, deploy-side
+                               escape hatch).
 `);
 }
 
@@ -341,6 +354,16 @@ async function main(): Promise<void> {
     case "run": {
       const args = parseRunArgs();
       process.chdir(args.cwd);
+      // Merge --system-env-keys into BUNNY_AGENT_SYSTEM_ENV_KEYS so pi-runner's
+      // auto-classifier picks them up alongside its built-in whitelist.
+      if (args.systemEnvKeys && args.systemEnvKeys.length > 0) {
+        const existing = (process.env.BUNNY_AGENT_SYSTEM_ENV_KEYS ?? "")
+          .split(",")
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0);
+        const merged = Array.from(new Set([...existing, ...args.systemEnvKeys]));
+        process.env.BUNNY_AGENT_SYSTEM_ENV_KEYS = merged.join(",");
+      }
       const toolRefs = takeToolRefsFromEnv();
       await runAgent({
         runner: args.runner,

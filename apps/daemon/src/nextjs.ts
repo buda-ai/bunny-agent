@@ -15,7 +15,10 @@
  * Requests to /api/daemon/api/coding/run    → daemon /api/coding/run (NDJSON stream)
  */
 
-import { mergeCodingRunProcessEnv } from "./coding-run-env.js";
+import {
+  mergeCodingRunProcessEnv,
+  sanitizeCodingRunBodySystemEnv,
+} from "./coding-run-env.js";
 import { parseMultipart } from "./multipart.js";
 import { DaemonRouter } from "./router.js";
 import { codingRunStream, type RunRequest } from "./routes/coding.js";
@@ -43,6 +46,9 @@ export function createNextHandler(opts: { root: string; prefix?: string }) {
     if (method === "POST" && pathname === "/api/coding/run") {
       const body = (await req.json().catch(() => ({}))) as RunRequest;
       const mergedEnv = mergeCodingRunProcessEnv(env, body);
+      const sanitizedSystemEnv = sanitizeCodingRunBodySystemEnv(body.systemEnv);
+      if (sanitizedSystemEnv) body.systemEnv = sanitizedSystemEnv;
+      else delete body.systemEnv;
       return codingRunStream(body, mergedEnv);
     }
 
