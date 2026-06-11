@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  mergeCodingRunProcessEnv,
+  prepareCodingRunEnv,
   sanitizeCodingRunBodyEnv,
   sanitizeCodingRunBodySystemEnv,
 } from "../coding-run-env.js";
@@ -48,21 +48,31 @@ describe("sanitizeCodingRunBodySystemEnv", () => {
   });
 });
 
-describe("mergeCodingRunProcessEnv", () => {
+describe("prepareCodingRunEnv", () => {
   it("inline env overrides daemon env", () => {
-    const merged = mergeCodingRunProcessEnv(
+    const { env, systemEnv } = prepareCodingRunEnv(
       { PATH: "/usr/bin", FOO: "daemon" },
       { env: { FOO: "inline", BAR: "new" } },
     );
-    expect(merged).toEqual({
+    expect(env).toEqual({
       PATH: "/usr/bin",
       FOO: "inline",
       BAR: "new",
     });
+    expect(systemEnv).toBeUndefined();
   });
 
   it("returns daemon env unchanged when body has no env", () => {
-    const merged = mergeCodingRunProcessEnv({ PATH: "/usr/bin" }, {});
-    expect(merged).toEqual({ PATH: "/usr/bin" });
+    const { env, systemEnv } = prepareCodingRunEnv({ PATH: "/usr/bin" }, {});
+    expect(env).toEqual({ PATH: "/usr/bin" });
+    expect(systemEnv).toBeUndefined();
+  });
+
+  it("sanitizes systemEnv from body", () => {
+    const { systemEnv } = prepareCodingRunEnv(
+      { PATH: "/usr/bin" },
+      { systemEnv: { PATH: "/usr/bin", BAD: 42 } },
+    );
+    expect(systemEnv).toEqual({ PATH: "/usr/bin" });
   });
 });

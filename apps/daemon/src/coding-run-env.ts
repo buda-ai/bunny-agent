@@ -41,15 +41,24 @@ export interface CodingRunBodyWithEnv {
   systemEnv?: unknown;
 }
 
+export interface PreparedCodingRunEnv {
+  /** Full env passed to the runner (daemon env + inline body.env). */
+  env: Record<string, string>;
+  /** Sanitized subset of env keys safe to expose to the bash tool. */
+  systemEnv: Record<string, string> | undefined;
+}
+
 /**
- * Merge daemon `process.env` with optional inline `env` from the request JSON.
+ * Sanitize and merge env-related fields from a `/api/coding/run` body.
+ * Returns the runner env (daemon env + inline `body.env`) and the
+ * sanitized `systemEnv` subset, with no body mutation.
  */
-export function mergeCodingRunProcessEnv(
+export function prepareCodingRunEnv(
   daemonEnv: Record<string, string>,
   body: CodingRunBodyWithEnv,
-): Record<string, string> {
-  let merged = { ...daemonEnv };
+): PreparedCodingRunEnv {
   const inline = sanitizeCodingRunBodyEnv(body.env);
-  if (inline) merged = { ...merged, ...inline };
-  return merged;
+  const env = inline ? { ...daemonEnv, ...inline } : { ...daemonEnv };
+  const systemEnv = sanitizeCodingRunBodySystemEnv(body.systemEnv);
+  return { env, systemEnv };
 }
