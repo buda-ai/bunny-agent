@@ -2,18 +2,16 @@
  * Tool overrides for bunny-agent pi runner.
  *
  * Builds custom bash and read ToolDefinitions that:
- * - Inject only system env vars into bash via spawnHook (model auth and
- *   business credentials never leave the runner process)
- * - Redact secret values from both bash and read tool output before the LLM sees them
+ * - Inject only caller-declared env vars into bash via spawnHook (`systemEnv`).
+ *   Anything in the runner's `env` map (model auth, business credentials,
+ *   native-tool API keys) stays in the runner process — it never reaches bash.
+ * - Redact secret values from both bash and read tool output before the LLM
+ *   sees them, using the full env map as the secret set.
  *
  * Registered via customTools so they override the built-in tools in
  * AgentSession._refreshToolRegistry's Map.set loop.
  */
 
-import {
-  classifyEnv,
-  parseSystemEnvKeysFromEnv,
-} from "@bunny-agent/manager";
 import {
   createBashTool,
   createReadTool,
@@ -88,86 +86,37 @@ function isEnvDumpCommand(command: string): boolean {
   return /(?:^|[|;&])\s*(?:env|printenv|export\s+-p|declare\s+-x)\b/.test(cmd);
 }
 
-const MODEL_AUTH_KEYS = new Set([
-  "OPENAI_API_KEY",
-  "OPENAI_BASE_URL",
-  "GEMINI_API_KEY",
-  "GEMINI_BASE_URL",
-  "ANTHROPIC_API_KEY",
-  "ANTHROPIC_BASE_URL",
-  "ANTHROPIC_AUTH_TOKEN",
-  "ANTHROPIC_BEDROCK_BASE_URL",
-  "LITELLM_MASTER_KEY",
-]);
-
-/**
- * Drop model-auth keys from any env map. Defence-in-depth: even if a caller
- * misclassifies a model auth key as systemEnv (or sets BUNNY_AGENT_SYSTEM_ENV_KEYS
- * incorrectly), the bash spawn env stays clean.
- */
-function stripModelAuth(
-  env: Record<string, string>,
-): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const [key, value] of Object.entries(env)) {
-    if (!MODEL_AUTH_KEYS.has(key)) out[key] = value;
-  }
-  return out;
-}
-
-/**
- * Resolve the env subset that should land in the bash spawn process.
- *
- * Preference order:
- *   1. Explicit `systemEnv` (declared by a caller — daemon body, SDK, CLI flag)
- *   2. Auto-classify `extraEnv` via the manager whitelist
- *
- * Either way, `MODEL_AUTH_KEYS` are stripped at the end as a safety net.
- * The `BUNNY_AGENT_SYSTEM_ENV_KEYS` env var on the runner host (the deploy
- * escape hatch) is folded into the auto-classify path.
- *
- * Exported for testing — this is the security boundary that decides what
- * actually enters bash.
- */
-export function resolveBashSpawnEnv(
-  extraEnv: Record<string, string>,
-  systemEnv: Record<string, string> | undefined,
-): Record<string, string> {
-  if (systemEnv) {
-    return stripModelAuth(systemEnv);
-  }
-  const extraKeys = parseSystemEnvKeysFromEnv(process.env);
-  const { system } = classifyEnv(extraEnv, { extraSystemKeys: extraKeys });
-  return stripModelAuth(system);
-}
-
 export interface BashToolOptions {
   /**
-   * Caller-declared subset of `extraEnv` that is safe to expose to bash.
-   * When provided, exactly these keys (minus model auth) are injected into
-   * the bash spawn env. When omitted, the runner classifies `extraEnv` via
-   * the built-in whitelist.
+   * Caller-declared env vars to inject into the bash spawn process. The
+   * runner does NOT classify or filter — every key in this map is forwarded
+   * to bash on top of the bash tool's default `ctx.env`. When omitted, bash
+   * runs with only its default environment (the runner host's `process.env`).
+   *
+   * Routing is the caller's responsibility: anything secret that should not
+   * reach bash belongs in the runner's `env` map instead.
    */
   systemEnv?: Record<string, string>;
 }
 
 /**
  * Build a custom "bash" ToolDefinition that:
- * 1. Injects env vars via spawnHook (secrets never in command string / procfs).
+ * 1. Injects caller-declared env vars via spawnHook (off the command line).
  * 2. Redacts secrets from output before the LLM sees them.
  * 3. Delegates execution to pi's createBashTool for full built-in behavior.
  *
- * Only "system" env keys are forwarded to the spawned bash process — model
- * auth keys, business credentials and other agent-only env never appear in
- * the bash environment. The full `extraEnv` is still used for output
- * redaction so leaks via printenv-style commands are scrubbed.
+ * Only `opts.systemEnv` is forwarded to bash. The `extraEnv` map (model auth,
+ * business credentials, etc.) is used **only** to redact those values from
+ * any bash output that happens to contain them. Routing is the caller's
+ * decision: keys that bash should see go into `systemEnv`, everything else
+ * stays in `extraEnv` and never reaches the shell.
  */
 export function buildEnvInjectedBashTool(
   cwd: string,
   extraEnv: Record<string, string>,
   opts: BashToolOptions = {},
 ): ToolDefinition {
-  const safeEnv = resolveBashSpawnEnv(extraEnv, opts.systemEnv);
+  const safeEnv = opts.systemEnv ?? {};
   const bashAgentTool = createBashTool(cwd, {
     spawnHook: (ctx) => ({
       ...ctx,
@@ -253,13 +202,15 @@ import {
  * Returns an array of ToolDefinitions to pass as customTools.
  *
  * Includes:
- * - bash: env injection via spawnHook + secret redaction
+ * - bash: caller-declared `opts.systemEnv` injection + secret redaction
  * - read: secret redaction on file content
  * - web_search: auto-detected provider (Brave > Tavily), only if API key available
  * - web_fetch: URL content extraction (always available)
  *
- * `opts.systemEnv` (optional) lists keys that should be exposed to bash.
- * When omitted, the bash tool falls back to whitelist-based classification.
+ * `opts.systemEnv` (optional) is the only env that reaches bash. When
+ * omitted, bash runs with just its default `ctx.env` (the runner host's
+ * `process.env`). The `secrets` map is used for redaction only and is
+ * never injected into bash.
  */
 export function buildSecretAwareTools(
   cwd: string,

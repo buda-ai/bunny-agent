@@ -353,21 +353,18 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
     const sandboxWorkdir =
       this.options.cwd ?? sandbox.getWorkdir?.() ?? "/workspace";
 
-    // CLI fallback path: forward systemEnv via the BUNNY_AGENT_SYSTEM_ENV_KEYS
-    // hint that runner-cli already understands. This keeps the CLI runner
-    // protocol unchanged while still letting callers opt specific keys
-    // back into the bash tool.
+    // CLI fallback path: forward systemEnv to runner-cli via
+    // BUNNY_AGENT_SYSTEM_ENV_JSON. runner-cli reads & unsets this on startup
+    // and hands the parsed map straight to the pi runner's bash tool.
+    // The CLI protocol (argv, options) stays unchanged.
     const cliExtraEnv: Record<string, string> = {};
     if (
       this.options.systemEnv &&
       Object.keys(this.options.systemEnv).length > 0
     ) {
-      cliExtraEnv.BUNNY_AGENT_SYSTEM_ENV_KEYS = Object.keys(
+      cliExtraEnv.BUNNY_AGENT_SYSTEM_ENV_JSON = JSON.stringify(
         this.options.systemEnv,
-      ).join(",");
-      // The systemEnv values themselves must reach the runner so they exist
-      // in `process.env` by the time the classifier runs.
-      Object.assign(cliExtraEnv, this.options.systemEnv);
+      );
     }
 
     const agent = new BunnyAgent({

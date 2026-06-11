@@ -59,6 +59,41 @@ function takeToolRefsFromEnv(): RunnerToolRefsPayload | null {
   }
 }
 
+/**
+ * Read and immediately unset `BUNNY_AGENT_SYSTEM_ENV_JSON` — the SDK's CLI
+ * fallback uses this to declare which env vars the runner should inject into
+ * the bash spawn process. Unset before any child spawns so the JSON payload
+ * itself doesn't reach bash via env inheritance.
+ *
+ * Format: `{"K1":"v1","K2":"v2"}` — same shape as the daemon body's
+ * `systemEnv` field.
+ */
+function takeSystemEnvFromEnv(): Record<string, string> | null {
+  const raw = process.env.BUNNY_AGENT_SYSTEM_ENV_JSON;
+  if (!raw) return null;
+  delete process.env.BUNNY_AGENT_SYSTEM_ENV_JSON;
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+      console.error(
+        "[bunny-agent] BUNNY_AGENT_SYSTEM_ENV_JSON must be a JSON object; ignoring.",
+      );
+      return null;
+    }
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(parsed)) {
+      if (typeof v === "string") out[k] = v;
+    }
+    return Object.keys(out).length > 0 ? out : null;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(
+      `[bunny-agent] Failed to parse BUNNY_AGENT_SYSTEM_ENV_JSON: ${message}`,
+    );
+    return null;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Shared helpers
 // ---------------------------------------------------------------------------
@@ -114,7 +149,6 @@ interface ParsedRunArgs {
   skillPaths?: string[];
   yolo?: boolean;
   effort?: string;
-  systemEnvKeys?: string[];
   userInput: string;
 }
 
@@ -140,7 +174,6 @@ function parseRunArgs(): ParsedRunArgs {
       resume: { type: "string" },
       yolo: { type: "boolean" },
       effort: { type: "string" },
-      "system-env-keys": { type: "string" },
       help: { type: "boolean", short: "h" },
     },
     allowPositionals: true,
@@ -189,10 +222,6 @@ function parseRunArgs(): ParsedRunArgs {
     resume: values.resume,
     yolo: values["yolo"],
     effort: values["effort"],
-    systemEnvKeys: values["system-env-keys"]
-      ?.split(",")
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0),
     userInput,
   };
 }
@@ -263,10 +292,6 @@ Options:
   -a, --allowed-tools <tools>  Comma-separated allowed tools
       --skill-path <path>      Additional skill path (can be repeated, for pi runner)
       --resume <session-id>    Resume a previous session
-      --system-env-keys <list> Comma-separated env keys exposed to the pi bash
-                               tool in addition to the built-in safe whitelist
-                               (e.g. PATH, HOME, LANG). Use to opt specific
-                               business keys back into bash.
   -h, --help                   Show this help
 
 Environment:
@@ -275,9 +300,10 @@ Environment:
   CODEX_API_KEY                OpenAI API key alias (for codex runner)
   GEMINI_API_KEY               Gemini API key (for gemini runner)
   BUNNY_AGENT_WORKSPACE        Default workspace path
-  BUNNY_AGENT_SYSTEM_ENV_KEYS  Comma-separated env keys exposed to the pi bash
-                               tool (same as --system-env-keys, deploy-side
-                               escape hatch).
+  BUNNY_AGENT_SYSTEM_ENV_JSON  JSON object of env vars to inject into the
+                               pi runner's bash spawn process. Read once and
+                               unset on startup. Example: '{"FOO":"bar"}'.
+                               Anything not listed here stays out of bash.
 `);
 }
 
@@ -354,17 +380,8 @@ async function main(): Promise<void> {
     case "run": {
       const args = parseRunArgs();
       process.chdir(args.cwd);
-      // Merge --system-env-keys into BUNNY_AGENT_SYSTEM_ENV_KEYS so pi-runner's
-      // auto-classifier picks them up alongside its built-in whitelist.
-      if (args.systemEnvKeys && args.systemEnvKeys.length > 0) {
-        const existing = (process.env.BUNNY_AGENT_SYSTEM_ENV_KEYS ?? "")
-          .split(",")
-          .map((s) => s.trim())
-          .filter((s) => s.length > 0);
-        const merged = Array.from(new Set([...existing, ...args.systemEnvKeys]));
-        process.env.BUNNY_AGENT_SYSTEM_ENV_KEYS = merged.join(",");
-      }
       const toolRefs = takeToolRefsFromEnv();
+      const systemEnv = takeSystemEnvFromEnv();
       await runAgent({
         runner: args.runner,
         model: args.model,
@@ -377,6 +394,7 @@ async function main(): Promise<void> {
         yolo: args.yolo,
         effort: args.effort,
         ...(toolRefs ? { toolRefs: toolRefs.tools } : {}),
+        ...(systemEnv ? { systemEnv } : {}),
       });
       break;
     }
