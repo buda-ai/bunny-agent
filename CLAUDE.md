@@ -10,6 +10,7 @@ You are working on the Bunny Agent project - a framework that turns powerful cod
 4. **Testing**: Write tests for new features when appropriate
 5. **Documentation**: Update relevant docs when adding features
 6. **Session Changelog**: Continuously update `docs/changelog/YYYY-MM-DD-description.md` throughout the session, documenting each change as it happens
+7. **Pre-commit checks**: Before every `git commit`, run `pnpm run -w lint`, `pnpm -r typecheck`, and `pnpm -r test` (scoped via `--filter` when only a few packages changed). Do NOT commit if any of them fails. If lint reports formatting issues, run `pnpm exec biome format --write <files>` (or `pnpm exec biome check --write .`) before re-staging.
 
 ## Project Structure
 
@@ -43,6 +44,19 @@ bunny-agent/
 2. **Build all packages**: `pnpm build`
 3. **Run tests**: `pnpm test`
 4. **Type check**: `pnpm typecheck`
+5. **Lint / format check**: `pnpm run -w lint` (Biome). Auto-fix with `pnpm exec biome check --write .`.
+
+### Required before every commit
+
+Run all three; commit only if green:
+
+```bash
+pnpm run -w lint
+pnpm -r typecheck
+pnpm -r test           # or pnpm -r --filter <changed-pkg> test
+```
+
+If lint reports a formatting diff, fix it with `pnpm exec biome format --write <file>` (or `--write .`) and re-stage before committing — never bypass with `--no-verify`.
 
 ## Runner Architecture
 

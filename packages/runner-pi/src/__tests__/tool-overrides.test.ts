@@ -93,10 +93,9 @@ describe("redactSecrets", () => {
 // ---------------------------------------------------------------------------
 
 // Capture spawnHook input + output so we can assert what reaches bash.
-type SpawnHook = (ctx: {
+type SpawnHook = (ctx: { env: Record<string, string>; command?: string }) => {
   env: Record<string, string>;
-  command?: string;
-}) => { env: Record<string, string> };
+};
 
 let capturedSpawnHook: SpawnHook | null = null;
 
@@ -133,11 +132,7 @@ describe("buildEnvInjectedBashTool spawnHook", () => {
   ): Promise<SpawnHook> {
     capturedSpawnHook = null;
     const { buildEnvInjectedBashTool } = await import("../tool-overrides.js");
-    buildEnvInjectedBashTool(
-      "/tmp",
-      extraEnv,
-      systemEnv ? { systemEnv } : {},
-    );
+    buildEnvInjectedBashTool("/tmp", extraEnv, systemEnv ? { systemEnv } : {});
     const hook = capturedSpawnHook as SpawnHook | null;
     if (hook == null) throw new Error("spawnHook was not registered");
     return hook;
