@@ -14,6 +14,13 @@ export interface RunnerCoreOptions extends BaseRunnerOptions {
   skillPaths?: string[];
   cwd?: string;
   env?: Record<string, string>;
+  /**
+   * Optional caller-declared subset of `env` that is safe to forward to the
+   * bash tool's child process. Currently only the `pi` runner consumes this;
+   * other runners ignore it. When omitted, pi-runner falls back to
+   * whitelist-based classification of `env`.
+   */
+  systemEnv?: Record<string, string>;
   abortController?: AbortController;
   yolo?: boolean;
   /**
@@ -99,6 +106,7 @@ function dispatchRunner(
         skillPaths: options.skillPaths ?? discoverSkillPaths(cwd),
         toolRefs: options.toolRefs,
         effort: options.effort,
+        systemEnv: options.systemEnv,
       }).run(options.userInput);
     }
     case "opencode":

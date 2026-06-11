@@ -20,6 +20,12 @@ export interface RunRequest {
   yolo?: boolean;
   /** Inline runner env (string map); same keys override. */
   env?: Record<string, string>;
+  /**
+   * Optional subset of `env` whose keys are safe to expose to the bash tool.
+   * When omitted, the runner classifies `env` via a whitelist so business
+   * credentials never leak into the shell.
+   */
+  systemEnv?: Record<string, string>;
   /** Tool refs the runner should expose to the LLM. */
   toolRefs?: RunToolRefs;
   /** Reasoning effort / thinking level (e.g. "low", "medium", "high"). */
@@ -79,6 +85,7 @@ export async function bunnyAgentRun(
       cwd: req.cwd ?? process.env.BUNNY_AGENT_ROOT ?? "/workspace",
       yolo: req.yolo,
       env,
+      systemEnv: req.systemEnv,
       abortController,
       toolRefs: req.toolRefs,
       effort: req.effort,
@@ -141,6 +148,7 @@ export function codingRunStream(
           cwd: req.cwd ?? process.env.BUNNY_AGENT_ROOT ?? "/workspace",
           yolo: req.yolo,
           env,
+          systemEnv: req.systemEnv,
           abortController,
           toolRefs: req.toolRefs,
           effort: req.effort,

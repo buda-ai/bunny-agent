@@ -2,8 +2,11 @@
  * Tool overrides for bunny-agent pi runner.
  *
  * Builds custom bash and read ToolDefinitions that:
- * - Inject env vars into bash via spawnHook (secrets never in command string)
- * - Redact secret values from both bash and read tool output before the LLM sees them
+ * - Inject only caller-declared env vars into bash via spawnHook (`systemEnv`).
+ *   Anything in the runner's `env` map (model auth, business credentials,
+ *   native-tool API keys) stays in the runner process — it never reaches bash.
+ * - Redact secret values from both bash and read tool output before the LLM
+ *   sees them, using the full env map as the secret set.
  *
  * Registered via customTools so they override the built-in tools in
  * AgentSession._refreshToolRegistry's Map.set loop.
@@ -83,44 +86,37 @@ function isEnvDumpCommand(command: string): boolean {
   return /(?:^|[|;&])\s*(?:env|printenv|export\s+-p|declare\s+-x)\b/.test(cmd);
 }
 
-const MODEL_AUTH_KEYS = new Set([
-  "OPENAI_API_KEY",
-  "OPENAI_BASE_URL",
-  "GEMINI_API_KEY",
-  "GEMINI_BASE_URL",
-  "ANTHROPIC_API_KEY",
-  "ANTHROPIC_BASE_URL",
-  "ANTHROPIC_AUTH_TOKEN",
-  "ANTHROPIC_BEDROCK_BASE_URL",
-  "LITELLM_MASTER_KEY",
-]);
-
-function filterAuthEnvVars(
-  env: Record<string, string>,
-): Record<string, string> {
-  const filtered: Record<string, string> = {};
-  for (const [key, value] of Object.entries(env)) {
-    if (!MODEL_AUTH_KEYS.has(key)) {
-      filtered[key] = value;
-    }
-  }
-  return filtered;
+export interface BashToolOptions {
+  /**
+   * Caller-declared env vars to inject into the bash spawn process. The
+   * runner does NOT classify or filter — every key in this map is forwarded
+   * to bash on top of the bash tool's default `ctx.env`. When omitted, bash
+   * runs with only its default environment (the runner host's `process.env`).
+   *
+   * Routing is the caller's responsibility: anything secret that should not
+   * reach bash belongs in the runner's `env` map instead.
+   */
+  systemEnv?: Record<string, string>;
 }
 
 /**
  * Build a custom "bash" ToolDefinition that:
- * 1. Injects env vars via spawnHook (secrets never in command string / procfs).
+ * 1. Injects caller-declared env vars via spawnHook (off the command line).
  * 2. Redacts secrets from output before the LLM sees them.
  * 3. Delegates execution to pi's createBashTool for full built-in behavior.
  *
- * Auth-related env vars (API keys, base URLs, host) are excluded from the
- * spawned process environment but still used for output redaction.
+ * Only `opts.systemEnv` is forwarded to bash. The `extraEnv` map (model auth,
+ * business credentials, etc.) is used **only** to redact those values from
+ * any bash output that happens to contain them. Routing is the caller's
+ * decision: keys that bash should see go into `systemEnv`, everything else
+ * stays in `extraEnv` and never reaches the shell.
  */
 export function buildEnvInjectedBashTool(
   cwd: string,
   extraEnv: Record<string, string>,
+  opts: BashToolOptions = {},
 ): ToolDefinition {
-  const safeEnv = filterAuthEnvVars(extraEnv);
+  const safeEnv = opts.systemEnv ?? {};
   const bashAgentTool = createBashTool(cwd, {
     spawnHook: (ctx) => ({
       ...ctx,
@@ -206,17 +202,23 @@ import {
  * Returns an array of ToolDefinitions to pass as customTools.
  *
  * Includes:
- * - bash: env injection via spawnHook + secret redaction
+ * - bash: caller-declared `opts.systemEnv` injection + secret redaction
  * - read: secret redaction on file content
  * - web_search: auto-detected provider (Brave > Tavily), only if API key available
  * - web_fetch: URL content extraction (always available)
+ *
+ * `opts.systemEnv` (optional) is the only env that reaches bash. When
+ * omitted, bash runs with just its default `ctx.env` (the runner host's
+ * `process.env`). The `secrets` map is used for redaction only and is
+ * never injected into bash.
  */
 export function buildSecretAwareTools(
   cwd: string,
   secrets: Record<string, string>,
+  opts: BashToolOptions = {},
 ): ToolDefinition[] {
   const tools: ToolDefinition[] = [
-    buildEnvInjectedBashTool(cwd, secrets),
+    buildEnvInjectedBashTool(cwd, secrets, opts),
     buildSecretRedactingReadTool(cwd, secrets),
     buildWebFetchTool(),
   ];

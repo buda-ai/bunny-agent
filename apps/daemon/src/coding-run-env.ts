@@ -25,8 +25,20 @@ export function sanitizeCodingRunBodyEnv(
   return Object.keys(out).length > 0 ? out : undefined;
 }
 
+/**
+ * Normalize `body.systemEnv` — same shape rules as `env`. Returned undefined
+ * when the field is missing or yields no valid entries so callers can keep
+ * the field optional on the wire (forward/back compat).
+ */
+export function sanitizeCodingRunBodySystemEnv(
+  parsed: unknown,
+): Record<string, string> | undefined {
+  return sanitizeCodingRunBodyEnv(parsed);
+}
+
 export interface CodingRunBodyWithEnv {
   env?: unknown;
+  systemEnv?: unknown;
 }
 
 /**

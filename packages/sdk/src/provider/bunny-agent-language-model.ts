@@ -330,6 +330,10 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
       const body: BunnyAgentCodingRunBody = {
         ...this.buildCodingRunBody(messages, handle.getWorkdir(), toolRefs),
         ...(Object.keys(runnerEnv).length > 0 ? { env: runnerEnv } : {}),
+        ...(this.options.systemEnv &&
+        Object.keys(this.options.systemEnv).length > 0
+          ? { systemEnv: this.options.systemEnv }
+          : {}),
       };
       const execOpts = {
         cwd: this.options.cwd ?? handle.getWorkdir(),
@@ -349,10 +353,19 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
     const sandboxWorkdir =
       this.options.cwd ?? sandbox.getWorkdir?.() ?? "/workspace";
 
+    // CLI fallback path: each `bunny-agent run` invocation is single-request /
+    // single-tenant, so the runner's `process.env` IS the expected bash
+    // environment. We therefore merge env + systemEnv into one map and let
+    // sandbox.exec inject everything. Pi's bash tool inherits this via its
+    // default `ctx.env`, so no JSON-payload channel is needed.
     const agent = new BunnyAgent({
       sandbox,
       runner: this.options.runner,
-      env: { ...sandboxEnv, ...this.options.env },
+      env: {
+        ...sandboxEnv,
+        ...this.options.env,
+        ...(this.options.systemEnv ?? {}),
+      },
     });
 
     try {

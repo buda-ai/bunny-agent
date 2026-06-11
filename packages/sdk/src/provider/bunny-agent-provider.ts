@@ -113,6 +113,13 @@ export function createBunnyAgent(
         ...defaultOptions.env,
         ...options.env,
       },
+      systemEnv:
+        defaultOptions.systemEnv || options.systemEnv
+          ? {
+              ...(defaultOptions.systemEnv ?? {}),
+              ...(options.systemEnv ?? {}),
+            }
+          : undefined,
       artifactProcessors: [
         ...(defaultOptions.artifactProcessors ?? []),
         ...(options.artifactProcessors ?? []),
