@@ -83,20 +83,48 @@ function isEnvDumpCommand(command: string): boolean {
   return /(?:^|[|;&])\s*(?:env|printenv|export\s+-p|declare\s+-x)\b/.test(cmd);
 }
 
+const MODEL_AUTH_KEYS = new Set([
+  "OPENAI_API_KEY",
+  "OPENAI_BASE_URL",
+  "GEMINI_API_KEY",
+  "GEMINI_BASE_URL",
+  "ANTHROPIC_API_KEY",
+  "ANTHROPIC_BASE_URL",
+  "ANTHROPIC_AUTH_TOKEN",
+  "ANTHROPIC_BEDROCK_BASE_URL",
+  "LITELLM_MASTER_KEY",
+]);
+
+function filterAuthEnvVars(
+  env: Record<string, string>,
+): Record<string, string> {
+  const filtered: Record<string, string> = {};
+  for (const [key, value] of Object.entries(env)) {
+    if (!MODEL_AUTH_KEYS.has(key)) {
+      filtered[key] = value;
+    }
+  }
+  return filtered;
+}
+
 /**
  * Build a custom "bash" ToolDefinition that:
  * 1. Injects env vars via spawnHook (secrets never in command string / procfs).
  * 2. Redacts secrets from output before the LLM sees them.
  * 3. Delegates execution to pi's createBashTool for full built-in behavior.
+ *
+ * Auth-related env vars (API keys, base URLs, host) are excluded from the
+ * spawned process environment but still used for output redaction.
  */
 export function buildEnvInjectedBashTool(
   cwd: string,
   extraEnv: Record<string, string>,
 ): ToolDefinition {
+  const safeEnv = filterAuthEnvVars(extraEnv);
   const bashAgentTool = createBashTool(cwd, {
     spawnHook: (ctx) => ({
       ...ctx,
-      env: { ...ctx.env, ...extraEnv },
+      env: { ...ctx.env, ...safeEnv },
     }),
   });
 
