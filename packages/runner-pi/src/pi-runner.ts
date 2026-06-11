@@ -6,11 +6,17 @@ import {
   type AgentSessionEvent,
   AuthStorage,
   createAgentSession,
+  type ExtensionFactory,
   ModelRegistry,
   SessionManager,
   type ToolDefinition,
 } from "@earendil-works/pi-coding-agent";
+import { buildAskUserQuestionTool } from "./ask-user-question-tool.js";
 import { BunnyAgentResourceLoader } from "./bunny-agent-resource-loader.js";
+import goalExtension from "./extensions/goal/index.js";
+import planModeExtension from "./extensions/plan-mode/index.js";
+import subagentExtension from "./extensions/subagent/index.js";
+import todoExtension from "./extensions/todo.js";
 import { buildImageEditTool, buildImageGenerateTool } from "./image-tools.js";
 import {
   extractSessionContext,
@@ -123,6 +129,13 @@ function getEnvValue(
   name: string,
 ): string | undefined {
   return optionsEnv?.[name] ?? process.env[name];
+}
+
+/** Parse a string into a positive integer, returning undefined on any non-positive or invalid value. */
+function parsePositiveInt(value: string | undefined): number | undefined {
+  if (value === undefined || value === "") return undefined;
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : undefined;
 }
 
 function applyModelOverrides(
@@ -317,17 +330,32 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           return SessionManager.create(cwd);
         })();
 
-        const resourceLoader = options.skillPaths
-          ? new BunnyAgentResourceLoader({
-              cwd,
-              skillPaths: options.skillPaths,
-              appendSystemPrompt: options.systemPrompt,
-            })
-          : undefined;
+        // All built-in extensions are registered by default. Callers filter
+        // their tools via `allowedTools`; mode-only extensions (plan-mode,
+        // goal commands) sit dormant until the user invokes them.
+        // subagentExtension is a factory-of-factories so we can thread
+        // childEnv (API keys) through to spawned `pi` subprocesses.
+        const extensionFactories: ExtensionFactory[] = [
+          todoExtension,
+          planModeExtension,
+          goalExtension,
+          subagentExtension({ childEnv: options.env }),
+        ];
+
+        const resourceLoader = new BunnyAgentResourceLoader({
+          cwd,
+          skillPaths: options.skillPaths,
+          appendSystemPrompt: options.systemPrompt,
+          extensionFactories,
+        });
 
         if (options.skillPaths && options.skillPaths.length > 0) {
           console.error(
-            `${LOG_PREFIX} runner: cwd=${cwd} skillPaths=${JSON.stringify(options.skillPaths)}`,
+            `${LOG_PREFIX} runner: cwd=${cwd} skillPaths=${JSON.stringify(options.skillPaths)} extensions=todo,plan-mode,goal,subagent`,
+          );
+        } else {
+          console.error(
+            `${LOG_PREFIX} runner: cwd=${cwd} extensions=todo,plan-mode,goal,subagent`,
           );
         }
 
@@ -335,9 +363,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
         // DefaultResourceLoader.  When we supply our own BunnyAgentResourceLoader
         // we must reload it ourselves so that skills and extensions on disk are
         // picked up before the session is built.
-        if (resourceLoader) {
-          await resourceLoader.reload();
-        }
+        await resourceLoader.reload();
 
         const customTools: ToolDefinition[] =
           options.env && Object.keys(options.env).length > 0
@@ -357,6 +383,22 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           options.toolRefs && options.toolRefs.length > 0
             ? buildToolDefinitionsFromRefs(options.toolRefs)
             : [];
+
+        // AskUserQuestion is registered as a normal custom tool — callers opt
+        // in by including "AskUserQuestion" in their allowedTools list.
+        // Timeout override: ASK_USER_QUESTION_TOOL_TIMEOUT (seconds).
+        // Resolution order: options.env -> process.env -> built-in default.
+        const askTimeoutSeconds = parsePositiveInt(
+          getEnvValue(options.env, "ASK_USER_QUESTION_TOOL_TIMEOUT"),
+        );
+        const askUserQuestionTool = buildAskUserQuestionTool({
+          cwd,
+          timeoutMs:
+            askTimeoutSeconds !== undefined
+              ? askTimeoutSeconds * 1000
+              : undefined,
+        });
+        customTools.push(askUserQuestionTool);
 
         const { session } = await createAgentSession({
           cwd,

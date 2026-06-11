@@ -16,11 +16,13 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && npm run copy-assets",
     "dev": "tsc --watch",
     "clean": "rm -rf dist",
+    "copy-assets": "node -e \"const fs=require('fs'),path=require('path');for(const d of ['agents','prompts']){const src=path.join('src/extensions/subagent',d);const dst=path.join('dist/extensions/subagent',d);fs.mkdirSync(dst,{recursive:true});for(const f of fs.readdirSync(src))if(f.endsWith('.md'))fs.copyFileSync(path.join(src,f),path.join(dst,f));}\"",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "smoke": "node scripts/smoke.mjs"
   },
   "dependencies": {
     "@earendil-works/pi-agent-core": "0.78.0",

@@ -360,7 +360,20 @@ export async function POST(request: Request) {
         ...(daemonUrl ? { daemonUrl } : {}),
         cwd: sandbox.getWorkdir?.() || "/bunny-agent",
         runnerType,
-        allowedTools: ["read", "bash", "edit", "write", "get_current_time"],
+        allowedTools: [
+          "read",
+          "bash",
+          "edit",
+          "write",
+          "get_current_time",
+          "AskUserQuestion",
+          "ask_user_question",
+          // pi runner extensions (default-on in runner-pi)
+          "todo",
+          "get_goal",
+          "update_goal",
+          "subagent",
+        ],
         verbose: true,
         artifactProcessors: [artifactProcessor],
         resume,
@@ -368,8 +381,8 @@ export async function POST(request: Request) {
         ...(REASONING_EFFORT ? { effort: REASONING_EFFORT } : {}),
         // Passed to RunnerSpec via createBunnyAgent merge (not only bunnyAgent(model, { skillPaths }))
         skillPaths: [
-          "/Users/zhengxu/vika/kapps/apps/buda/agent-templates/system-skills",
-          "/Users/zhengxu/vika/kapps/apps/buda/agent-templates/company-templates/entire-company/finance-agent/.agents/skills",
+          // "/Users/zhengxu/vika/kapps/apps/buda/agent-templates/system-skills",
+          // "/Users/zhengxu/vika/kapps/apps/buda/agent-templates/company-templates/entire-company/finance-agent/.agents/skills",
         ],
       };
       const bunnyAgent = createBunnyAgent(bunnyAgentOptions);

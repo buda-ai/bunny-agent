@@ -1,5 +1,6 @@
 import type { Usage } from "@earendil-works/pi-ai";
 import type { AgentSessionEvent } from "@earendil-works/pi-coding-agent";
+import { sanitizeToolCallId } from "./ask-user-question-tool.js";
 import type { ToolDetailsWithUsage } from "./tool-details.js";
 import {
   accumulateToolUsage,
@@ -103,17 +104,18 @@ export class PiAISDKStreamConverter {
 
     if (event.type === "tool_execution_start") {
       chunks.push(...this.endTextStreamIfOpen());
+      const toolCallId = sanitizeToolCallId(event.toolCallId);
       chunks.push(
         sseData({
           type: "tool-input-start",
-          toolCallId: event.toolCallId,
+          toolCallId,
           toolName: event.toolName,
           dynamic: true,
           providerExecuted: true,
         }),
         sseData({
           type: "tool-input-available",
-          toolCallId: event.toolCallId,
+          toolCallId,
           toolName: event.toolName,
           input: event.args,
           dynamic: true,
@@ -128,11 +130,12 @@ export class PiAISDKStreamConverter {
       const raw = (event.result as { details?: ToolDetailsWithUsage })?.details
         ?.usage?.raw;
       if (raw != null) accumulateToolUsage(this.toolUsageTally, raw);
+      const toolCallId = sanitizeToolCallId(event.toolCallId);
       if (event.isError) {
         chunks.push(
           sseData({
             type: "tool-output-error",
-            toolCallId: event.toolCallId,
+            toolCallId,
             errorText: output,
             dynamic: true,
             providerExecuted: true,
@@ -142,7 +145,7 @@ export class PiAISDKStreamConverter {
         chunks.push(
           sseData({
             type: "tool-output-available",
-            toolCallId: event.toolCallId,
+            toolCallId,
             output,
             dynamic: true,
             providerExecuted: true,
