@@ -298,7 +298,10 @@ export async function fsWriteStream(
     throw new AppError(400, "path is required");
   }
 
-  const root = resolveVolumeRoot(state, opts.volume);
+  // Default to "agent" volume so relative paths resolve under /agent/ (home dir)
+  // instead of the daemon's internal root (.bunny-agent-daemon)
+  const volume = opts.volume ?? "agent";
+  const root = resolveVolumeRoot(state, volume);
   const target = resolveUnderRoot(root, opts.path);
   if (opts.create_dirs !== false) {
     await ensureDir(path.dirname(target));
