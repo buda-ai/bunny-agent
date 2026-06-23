@@ -15,11 +15,12 @@
  * Requests to /api/daemon/api/coding/run    → daemon /api/coding/run (NDJSON stream)
  */
 
+import { Readable } from "node:stream";
 import { prepareCodingRunEnv } from "./coding-run-env.js";
 import { parseMultipart } from "./multipart.js";
 import { DaemonRouter } from "./router.js";
 import { codingRunStream, type RunRequest } from "./routes/coding.js";
-import { fsDownload, fsUpload } from "./routes/fs.js";
+import { fsDownload, fsUpload, fsWriteStream } from "./routes/fs.js";
 import { AppError, type AppState, fail, guessMimeType } from "./utils.js";
 
 export function createNextHandler(opts: { root: string; prefix?: string }) {
@@ -45,6 +46,28 @@ export function createNextHandler(opts: { root: string; prefix?: string }) {
       const { env: mergedEnv, systemEnv } = prepareCodingRunEnv(env, body);
       body.systemEnv = systemEnv;
       return codingRunStream(body, mergedEnv);
+    }
+
+    // Raw streamed upload: /api/fs/write-stream?path=...
+    if (method === "PUT" && pathname === "/api/fs/write-stream") {
+      try {
+        if (!req.body) {
+          return Response.json(fail("request body is required"), {
+            status: 400,
+          });
+        }
+        const result = await fsWriteStream(state, Readable.fromWeb(req.body), {
+          path: url.searchParams.get("path"),
+          volume: url.searchParams.get("volume") ?? undefined,
+          create_dirs: url.searchParams.get("create_dirs") !== "false",
+          max_bytes: parseOptionalNumber(url.searchParams.get("max_bytes")),
+        });
+        return Response.json(result);
+      } catch (err) {
+        const status = err instanceof AppError ? err.status : 500;
+        const msg = err instanceof Error ? err.message : String(err);
+        return Response.json(fail(msg), { status });
+      }
     }
 
     // Multipart upload: /api/fs/upload
@@ -112,4 +135,8 @@ export function createNextHandler(opts: { root: string; prefix?: string }) {
     }
     return Response.json(result.body, { status: result.status });
   };
+}
+
+function parseOptionalNumber(value: string | null): number | undefined {
+  return value == null ? undefined : Number(value);
 }

@@ -128,6 +128,20 @@ describe("codingRunStream (Web Response)", () => {
 
 describe("createNextHandler", () => {
   const handler = createNextHandler({ root: os.tmpdir() });
+  let adapterBase: string;
+  let adapterRoot: string;
+  let adapterHandler: ReturnType<typeof createNextHandler>;
+
+  beforeAll(async () => {
+    adapterBase = await fs.mkdtemp(path.join(os.tmpdir(), "daemon-next-test-"));
+    adapterRoot = path.join(adapterBase, "agent");
+    await fs.mkdir(adapterRoot, { recursive: true });
+    adapterHandler = createNextHandler({ root: adapterRoot });
+  });
+
+  afterAll(async () => {
+    await fs.rm(adapterBase, { recursive: true });
+  });
 
   it("routes /api/daemon/api/coding/run to stream", async () => {
     const req = new Request("http://localhost/api/daemon/api/coding/run", {
@@ -174,6 +188,26 @@ describe("createNextHandler", () => {
     const readJson = await readRes.json();
     expect(readJson.ok).toBe(true);
     expect(readJson.data.content).toBe("via adapter");
+  });
+
+  it("routes fs write-stream through nextjs adapter", async () => {
+    const payload = Buffer.from("next adapter stream");
+    const writeReq = new Request(
+      "http://localhost/api/daemon/api/fs/write-stream?path=next/stream.bin",
+      {
+        method: "PUT",
+        body: payload,
+      },
+    );
+    const writeRes = await adapterHandler(writeReq);
+    const writeJson = await writeRes.json();
+    expect(writeJson.ok).toBe(true);
+    expect(writeJson.data.size).toBe(payload.length);
+
+    const written = await fs.readFile(
+      path.join(adapterRoot, "next", "stream.bin"),
+    );
+    expect(written.equals(payload)).toBe(true);
   });
 
   it("supports custom prefix", async () => {

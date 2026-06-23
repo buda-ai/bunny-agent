@@ -334,6 +334,45 @@ Response: `application/x-ndjson` chunked stream — each line is an AI SDK UI me
 | POST | `/api/fs/move` | `{"from":"a.txt","to":"b.txt"}` |
 | POST | `/api/fs/copy` | `{"from":"a.txt","to":"b.txt"}` |
 | POST | `/api/fs/upload` | `multipart/form-data` — see below |
+| PUT | `/api/fs/write-stream` | `?path=file.bin&max_bytes=536870912` — raw streamed body |
+
+#### `PUT /api/fs/write-stream`
+
+Upload a single large file by streaming the raw request body directly to disk.
+The daemon writes to a temporary `.part` file and renames it only after the
+stream completes, so the full upload is never buffered in memory.
+
+Query parameters:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `path` | string | Yes | Target file path under the daemon root or volume |
+| `volume` | string | No | Volume name for multi-tenant isolation |
+| `create_dirs` | string | No | Create parent dirs (default: `"true"`) |
+| `max_bytes` | number | No | Per-request size limit, capped at 512 MiB |
+
+Example:
+
+```bash
+curl -X PUT "http://localhost:3080/api/fs/write-stream?path=uploads/video.mp4" \
+  --data-binary @video.mp4
+
+curl -X PUT "http://localhost:3080/api/fs/write-stream?path=docs/archive.zip&volume=vol-001" \
+  --data-binary @archive.zip
+```
+
+Response:
+
+```json
+{
+  "ok": true,
+  "data": {
+    "path": "/workspace/uploads/video.mp4",
+    "size": 314572800
+  },
+  "error": null
+}
+```
 
 #### `POST /api/fs/upload`
 
