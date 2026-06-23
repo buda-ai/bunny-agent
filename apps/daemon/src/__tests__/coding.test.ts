@@ -128,16 +128,19 @@ describe("codingRunStream (Web Response)", () => {
 
 describe("createNextHandler", () => {
   const handler = createNextHandler({ root: os.tmpdir() });
+  let adapterBase: string;
   let adapterRoot: string;
   let adapterHandler: ReturnType<typeof createNextHandler>;
 
   beforeAll(async () => {
-    adapterRoot = await fs.mkdtemp(path.join(os.tmpdir(), "daemon-next-test-"));
+    adapterBase = await fs.mkdtemp(path.join(os.tmpdir(), "daemon-next-test-"));
+    adapterRoot = path.join(adapterBase, "agent");
+    await fs.mkdir(adapterRoot, { recursive: true });
     adapterHandler = createNextHandler({ root: adapterRoot });
   });
 
   afterAll(async () => {
-    await fs.rm(adapterRoot, { recursive: true });
+    await fs.rm(adapterBase, { recursive: true });
   });
 
   it("routes /api/daemon/api/coding/run to stream", async () => {

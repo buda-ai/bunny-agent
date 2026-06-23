@@ -299,7 +299,9 @@ export async function fsWriteStream(
   }
 
   // Default to "agent" volume so relative paths resolve under /agent/ (home dir)
-  // instead of the daemon's internal root (.bunny-agent-daemon)
+  // instead of the daemon's internal root (.bunny-agent-daemon).
+  // Other fs routes receive volume from the JSON body (set by the SDK client),
+  // but write-stream uses query params and callers often omit volume.
   const volume = opts.volume ?? "agent";
   const root = resolveVolumeRoot(state, volume);
   const target = resolveUnderRoot(root, opts.path);

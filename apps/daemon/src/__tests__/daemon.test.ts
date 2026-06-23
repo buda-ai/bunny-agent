@@ -14,14 +14,16 @@ let server: http.Server;
 let root: string;
 
 beforeAll(async () => {
-  root = await fs.mkdtemp(path.join(os.tmpdir(), "daemon-test-"));
+  const base = await fs.mkdtemp(path.join(os.tmpdir(), "daemon-test-"));
+  root = path.join(base, "agent");
+  await fs.mkdir(root, { recursive: true });
   server = createDaemon({ host: "127.0.0.1", port: PORT, root });
   await new Promise<void>((r) => server.listen(PORT, r));
 });
 
 afterAll(async () => {
   await new Promise<void>((r) => server.close(() => r()));
-  await fs.rm(root, { recursive: true });
+  await fs.rm(path.dirname(root), { recursive: true });
 });
 
 afterEach(() => {
