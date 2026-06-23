@@ -1,5 +1,6 @@
 import * as fs from "node:fs/promises";
 import type * as http from "node:http";
+import * as httpClient from "node:http";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
@@ -39,6 +40,18 @@ async function post(path: string, body: unknown) {
     body: JSON.stringify(body),
   });
   return r.json();
+}
+
+async function putStream(path: string, body: BodyInit) {
+  const r = await fetch(`${BASE}${path}`, {
+    method: "PUT",
+    body,
+  });
+  return r.json();
+}
+
+async function listNames(dir: string): Promise<string[]> {
+  return fs.readdir(path.join(root, dir)).catch(() => []);
 }
 
 describe("healthz", () => {
@@ -125,6 +138,93 @@ describe("fs", () => {
       content: "x",
     });
     expect(r.ok).toBe(false);
+  });
+});
+
+describe("fs write-stream", () => {
+  it("streams raw upload bytes into the target file", async () => {
+    const payload = Buffer.from("hello-stream-upload");
+    const r = await putStream(
+      "/api/fs/write-stream?path=uploads/raw.bin",
+      payload,
+    );
+    expect(r.ok).toBe(true);
+    expect(r.data.size).toBe(payload.length);
+
+    const written = await fs.readFile(path.join(root, "uploads", "raw.bin"));
+    expect(written.equals(payload)).toBe(true);
+  });
+
+  it("creates nested parent directories by default", async () => {
+    const payload = Buffer.from("nested");
+    const r = await putStream(
+      "/api/fs/write-stream?path=stream/nested/file.txt",
+      payload,
+    );
+    expect(r.ok).toBe(true);
+
+    const written = await fs.readFile(
+      path.join(root, "stream", "nested", "file.txt"),
+      "utf8",
+    );
+    expect(written).toBe("nested");
+  });
+
+  it("fails when create_dirs=false and parent directory is missing", async () => {
+    const r = await putStream(
+      "/api/fs/write-stream?path=missing-parent/file.txt&create_dirs=false",
+      Buffer.from("no parent"),
+    );
+    expect(r.ok).toBe(false);
+    expect(await listNames("missing-parent")).toEqual([]);
+  });
+
+  it("rejects path traversal", async () => {
+    const r = await putStream(
+      "/api/fs/write-stream?path=../../etc/evil.bin",
+      Buffer.from("evil"),
+    );
+    expect(r.ok).toBe(false);
+  });
+
+  it("returns 413 and removes partial files when upload exceeds max_bytes", async () => {
+    const r = await putStream(
+      "/api/fs/write-stream?path=limits/too-large.bin&max_bytes=4",
+      Buffer.from("12345"),
+    );
+    expect(r.ok).toBe(false);
+    expect(r.error).toMatch(/max_bytes/);
+
+    const entries = await listNames("limits");
+    expect(entries.includes("too-large.bin")).toBe(false);
+    expect(entries.some((name) => name.includes(".part"))).toBe(false);
+  });
+
+  it("cleans up partial files when the client aborts mid-upload", async () => {
+    await fs.mkdir(path.join(root, "aborted"), { recursive: true });
+    await new Promise<void>((resolve) => {
+      const req = httpClient.request(
+        `${BASE}/api/fs/write-stream?path=aborted/partial.bin`,
+        {
+          method: "PUT",
+          headers: { "Content-Length": "1048576" },
+        },
+      );
+      req.on("error", () => resolve());
+      req.write(Buffer.alloc(1024, 1));
+      req.destroy();
+      setTimeout(resolve, 100);
+    });
+
+    for (let i = 0; i < 20; i++) {
+      const entries = await listNames("aborted");
+      if (!entries.some((name) => name.includes(".part"))) break;
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+
+    const entries = await listNames("aborted");
+    expect(entries.includes("partial.bin")).toBe(false);
+    expect(entries.some((name) => name.includes(".part"))).toBe(false);
   });
 });
 

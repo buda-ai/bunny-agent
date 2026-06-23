@@ -7,7 +7,7 @@ import {
 import { parseMultipart } from "./multipart.js";
 import { DaemonRouter } from "./router.js";
 import { bunnyAgentRun } from "./routes/coding.js";
-import { fsDownload, fsUpload } from "./routes/fs.js";
+import { fsDownload, fsUpload, fsWriteStream } from "./routes/fs.js";
 import { AppError, type AppState, fail, guessMimeType } from "./utils.js";
 
 export interface DaemonConfig {
@@ -49,6 +49,24 @@ export function createDaemon(config: DaemonConfig): http.Server {
           res,
           mergedEnv,
         );
+      }
+
+      // Raw streamed upload: /api/fs/write-stream?path=...
+      if (method === "PUT" && pathname === "/api/fs/write-stream") {
+        try {
+          const result = await fsWriteStream(state, req, {
+            path: url.searchParams.get("path"),
+            volume: url.searchParams.get("volume") ?? undefined,
+            create_dirs: url.searchParams.get("create_dirs") !== "false",
+            max_bytes: parseOptionalNumber(url.searchParams.get("max_bytes")),
+          });
+          sendJson(res, 200, result);
+        } catch (err) {
+          const status = err instanceof AppError ? err.status : 500;
+          const msg = err instanceof Error ? err.message : String(err);
+          sendJson(res, status, fail(msg));
+        }
+        return;
       }
 
       // Multipart upload: /api/fs/upload
@@ -155,6 +173,10 @@ function sendJson(
 ): void {
   res.writeHead(status, { "Content-Type": "application/json" });
   res.end(JSON.stringify(body));
+}
+
+function parseOptionalNumber(value: string | null): number | undefined {
+  return value == null ? undefined : Number(value);
 }
 
 /** Safely parse JSON, returning {} on invalid input instead of throwing. */

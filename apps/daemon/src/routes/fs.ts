@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { createWriteStream } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { Readable } from "node:stream";
+import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import type { ReadableStream as NodeWebReadableStream } from "node:stream/web";
 import type { AppState } from "../utils.js";
@@ -65,6 +65,20 @@ interface MoveCopyBody {
   to: string;
   create_dirs?: boolean;
 }
+
+export interface WriteStreamOptions {
+  volume?: string;
+  path?: string | null;
+  create_dirs?: boolean;
+  max_bytes?: number;
+}
+
+export interface WriteStreamResult {
+  path: string;
+  size: number;
+}
+
+export const DEFAULT_WRITE_STREAM_MAX_BYTES = 512 * 1024 * 1024;
 
 // --- Handlers ---
 
@@ -245,6 +259,71 @@ export async function fsCopy(state: AppState, body: MoveCopyBody) {
   }
   await fs.copyFile(from, to);
   return ok({ path: to });
+}
+
+// --- Raw streamed upload ---
+
+function normalizeMaxBytes(maxBytes?: number): number {
+  if (maxBytes == null) return DEFAULT_WRITE_STREAM_MAX_BYTES;
+  if (!Number.isFinite(maxBytes) || maxBytes <= 0) {
+    throw new AppError(400, "max_bytes must be a positive number");
+  }
+  return Math.min(Math.floor(maxBytes), DEFAULT_WRITE_STREAM_MAX_BYTES);
+}
+
+function createByteLimitStream(
+  maxBytes: number,
+  onBytes: (bytes: number) => void,
+) {
+  let bytes = 0;
+  return new Transform({
+    transform(chunk: Buffer, _encoding, callback) {
+      bytes += chunk.length;
+      onBytes(bytes);
+      if (bytes > maxBytes) {
+        callback(new AppError(413, `upload exceeds max_bytes: ${maxBytes}`));
+        return;
+      }
+      callback(null, chunk);
+    },
+  });
+}
+
+export async function fsWriteStream(
+  state: AppState,
+  source: NodeJS.ReadableStream,
+  opts: WriteStreamOptions,
+) {
+  if (!opts.path || typeof opts.path !== "string") {
+    throw new AppError(400, "path is required");
+  }
+
+  const root = resolveVolumeRoot(state, opts.volume);
+  const target = resolveUnderRoot(root, opts.path);
+  if (opts.create_dirs !== false) {
+    await ensureDir(path.dirname(target));
+  }
+
+  const maxBytes = normalizeMaxBytes(opts.max_bytes);
+  const tmpPath = `${target}.${randomUUID()}.part`;
+  let bytes = 0;
+
+  try {
+    await pipeline(
+      source,
+      createByteLimitStream(maxBytes, (n) => {
+        bytes = n;
+      }),
+      createWriteStream(tmpPath),
+    );
+    await fs.rename(tmpPath, target);
+    return ok<WriteStreamResult>({ path: target, size: bytes });
+  } catch (err) {
+    await fs.unlink(tmpPath).catch(() => {});
+    if (err instanceof AppError) throw err;
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new AppError(500, `write-stream failed: ${msg}`);
+  }
 }
 
 // --- Upload types ---
