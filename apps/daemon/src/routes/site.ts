@@ -676,8 +676,6 @@ function runWranglerDeploy(
     });
 
     child.on("close", (code) => {
-      const detail = (stderr || stdout).trim();
-      console.log('stu', detail);
       if (code === 0) {
         resolve();
       } else {

@@ -670,10 +670,7 @@ describe("PBT: deployViteWithWrangler artifact priority", () => {
               if (ps.endsWith("vite.config.ts")) return;
               if (ps.includes("next.config")) throw new Error("ENOENT");
               // no wrangler config
-              if (
-                ps.endsWith("wrangler.jsonc") ||
-                ps.endsWith("wrangler.json")
-              )
+              if (ps.endsWith("wrangler.jsonc") || ps.endsWith("wrangler.json"))
                 throw new Error("ENOENT");
               // artifacts
               if (ps.endsWith(".output/worker.js") && !hasOutput)
@@ -696,10 +693,7 @@ describe("PBT: deployViteWithWrangler artifact priority", () => {
               const ps = String(p);
               if (ps.endsWith("vite.config.ts")) return;
               if (ps.includes("next.config")) throw new Error("ENOENT");
-              if (
-                ps.endsWith("wrangler.jsonc") ||
-                ps.endsWith("wrangler.json")
-              )
+              if (ps.endsWith("wrangler.jsonc") || ps.endsWith("wrangler.json"))
                 throw new Error("ENOENT");
               if (ps.endsWith(".output/worker.js") && !hasOutput)
                 throw new Error("ENOENT");
