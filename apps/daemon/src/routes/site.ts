@@ -808,13 +808,6 @@ export async function deploy(
   _state: AppState,
   body: Record<string, unknown>,
 ): Promise<ApiEnvelope<DeployResult>> {
-  console.log('body bodybody bodybody body', body);
-  console.log('body bodybody bodybody body', body);
-  console.log('body bodybody bodybody body', body);
-  console.log('body', body);
-  console.log('body', body);
-  console.log('body', body);
-  console.log('body', body);
   return ok(await runDeployPipeline(body));
 }
 
