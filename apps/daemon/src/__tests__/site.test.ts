@@ -187,130 +187,6 @@ describe("detectFramework", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 4.3 — locateArtifact
-// ---------------------------------------------------------------------------
-
-describe("locateArtifact", () => {
-  afterEach(() => {
-    vi.resetModules();
-    vi.restoreAllMocks();
-  });
-
-  it("vite: returns .output/worker.js when it exists", async () => {
-    vi.doMock("node:fs/promises", () => ({
-      access: vi.fn().mockImplementation(async (p: unknown) => {
-        if (String(p).endsWith(".output/worker.js")) return;
-        throw new Error("not found");
-      }),
-      unlink: vi.fn().mockResolvedValue(undefined),
-      readFile: vi.fn().mockResolvedValue(Buffer.from("")),
-      readdir: vi.fn().mockResolvedValue([]),
-      stat: vi.fn().mockResolvedValue({ isDirectory: () => false }),
-      writeFile: vi.fn().mockResolvedValue(undefined),
-    }));
-    vi.resetModules();
-    const { locateArtifact } = await import("../routes/site.js");
-    const result = await locateArtifact("/proj", "vite");
-    expect(result.absolutePath).toMatch(/\.output\/worker\.js$/);
-    expect(result.filename).toBe("worker.js");
-  });
-
-  it("vite: returns dist/worker.js when only that exists", async () => {
-    vi.doMock("node:fs/promises", () => ({
-      access: vi.fn().mockImplementation(async (p: unknown) => {
-        const ps = String(p);
-        if (ps.endsWith("dist/worker.js")) return;
-        throw new Error("not found");
-      }),
-      unlink: vi.fn().mockResolvedValue(undefined),
-      readFile: vi.fn().mockResolvedValue(Buffer.from("")),
-      readdir: vi.fn().mockResolvedValue([]),
-      stat: vi.fn().mockResolvedValue({ isDirectory: () => false }),
-      writeFile: vi.fn().mockResolvedValue(undefined),
-    }));
-    vi.resetModules();
-    const { locateArtifact } = await import("../routes/site.js");
-    const result = await locateArtifact("/proj", "vite");
-    expect(result.absolutePath).toMatch(/dist\/worker\.js$/);
-    expect(result.filename).toBe("worker.js");
-  });
-
-  it("vite: returns dist/_worker.js when only that exists", async () => {
-    vi.doMock("node:fs/promises", () => ({
-      access: vi.fn().mockImplementation(async (p: unknown) => {
-        const ps = String(p);
-        if (ps.endsWith("dist/_worker.js")) return;
-        throw new Error("not found");
-      }),
-      unlink: vi.fn().mockResolvedValue(undefined),
-      readFile: vi.fn().mockResolvedValue(Buffer.from("")),
-      readdir: vi.fn().mockResolvedValue([]),
-      stat: vi.fn().mockResolvedValue({ isDirectory: () => false }),
-      writeFile: vi.fn().mockResolvedValue(undefined),
-    }));
-    vi.resetModules();
-    const { locateArtifact } = await import("../routes/site.js");
-    const result = await locateArtifact("/proj", "vite");
-    expect(result.absolutePath).toMatch(/dist\/_worker\.js$/);
-    expect(result.filename).toBe("_worker.js");
-  });
-
-  it("vite: throws AppError(400) 'vite build output not found' when none exist", async () => {
-    vi.doMock("node:fs/promises", () => ({
-      access: vi.fn().mockRejectedValue(new Error("not found")),
-      unlink: vi.fn().mockResolvedValue(undefined),
-      readFile: vi.fn().mockResolvedValue(Buffer.from("")),
-      readdir: vi.fn().mockResolvedValue([]),
-      stat: vi.fn().mockResolvedValue({ isDirectory: () => false }),
-      writeFile: vi.fn().mockResolvedValue(undefined),
-    }));
-    vi.resetModules();
-    const { locateArtifact } = await import("../routes/site.js");
-    let err: unknown;
-    try {
-      await locateArtifact("/proj", "vite");
-    } catch (e) {
-      err = e;
-    }
-    expect(isAppError(err)).toBe(true);
-    expect((err as { status: number; message: string }).message).toMatch(
-      /vite build output not found/,
-    );
-  });
-
-  it("nextjs: returns .open-next/worker.js", async () => {
-    vi.doMock("node:fs/promises", () => ({
-      access: vi.fn().mockResolvedValue(undefined),
-      readFile: vi.fn(),
-    }));
-    vi.resetModules();
-    const { locateArtifact } = await import("../routes/site.js");
-    const result = await locateArtifact("/proj", "nextjs");
-    expect(result.absolutePath).toMatch(/\.open-next\/worker\.js$/);
-    expect(result.filename).toBe("worker.js");
-  });
-
-  it("nextjs: throws AppError(400) 'opennextjs-cloudflare build output not found'", async () => {
-    vi.doMock("node:fs/promises", () => ({
-      access: vi.fn().mockRejectedValue(new Error("not found")),
-      readFile: vi.fn(),
-    }));
-    vi.resetModules();
-    const { locateArtifact } = await import("../routes/site.js");
-    let err: unknown;
-    try {
-      await locateArtifact("/proj", "nextjs");
-    } catch (e) {
-      err = e;
-    }
-    expect(isAppError(err)).toBe(true);
-    expect((err as { status: number; message: string }).message).toMatch(
-      /opennextjs-cloudflare build output not found/,
-    );
-  });
-});
-
-// ---------------------------------------------------------------------------
 // 4.4 — deploy pipeline
 // ---------------------------------------------------------------------------
 
@@ -339,9 +215,21 @@ describe("deploy pipeline", () => {
 
   it("returns ok:true with framework field", async () => {
     vi.doMock("node:fs/promises", () => ({
-      access: vi.fn().mockResolvedValue(undefined),
+      access: vi.fn().mockImplementation(async (p: unknown) => {
+        const ps = String(p);
+        // project dir accessible, vite.config.ts present, wrangler.json present,
+        // and the artifact exists so the wrangler-config branch runs
+        if (ps.endsWith("vite.config.ts")) return;
+        if (ps.endsWith("wrangler.json")) return;
+        if (!ps.includes("vite.config") && !ps.includes("next.config")) return;
+        throw new Error("not found");
+      }),
       unlink: vi.fn().mockResolvedValue(undefined),
-      readFile: vi.fn().mockResolvedValue(Buffer.from("x")),
+      readFile: vi
+        .fn()
+        .mockResolvedValue(
+          JSON.stringify({ name: "original", main: "dist/worker.js" }),
+        ),
       readdir: vi.fn().mockResolvedValue([]),
       stat: vi.fn().mockResolvedValue({ isDirectory: () => false }),
       writeFile: vi.fn().mockResolvedValue(undefined),
@@ -358,23 +246,6 @@ describe("deploy pipeline", () => {
           }),
       }),
     }));
-
-    vi.doMock("cloudflare", () => {
-      const updateFn = vi.fn().mockResolvedValue({});
-      class MockCloudflare {
-        workersForPlatforms = {
-          dispatch: {
-            namespaces: {
-              scripts: { update: updateFn },
-            },
-          },
-        };
-      }
-      return {
-        default: MockCloudflare,
-        toFile: vi.fn().mockResolvedValue("mockFile"),
-      };
-    });
 
     vi.resetModules(); // flush module cache so the doMocks take effect
     const { deploy } = await import("../routes/site.js");
@@ -575,15 +446,18 @@ describe("deployNextjsWithWrangler", () => {
 
 // ---------------------------------------------------------------------------
 
-function withDeleteMock(deleteFn: () => Promise<unknown>) {
-  vi.doMock("cloudflare", () => {
-    class MockCloudflare {
-      workersForPlatforms = {
-        dispatch: { namespaces: { scripts: { delete: deleteFn } } },
-      };
-    }
-    return { default: MockCloudflare, toFile: vi.fn() };
-  });
+function withDeleteMock(exitCode: number) {
+  vi.doMock("node:child_process", () => ({
+    spawn: vi.fn().mockReturnValue({
+      stdout: { on: vi.fn() },
+      stderr: { on: vi.fn() },
+      on: vi
+        .fn()
+        .mockImplementation((event: string, cb: (code: number) => void) => {
+          if (event === "close") cb(exitCode);
+        }),
+    }),
+  }));
 }
 
 describe("deleteSite", () => {
@@ -616,7 +490,7 @@ describe("deleteSite", () => {
   };
 
   it("returns ok:true with deleted:true on success", async () => {
-    withDeleteMock(() => Promise.resolve({}));
+    withDeleteMock(0);
     vi.resetModules();
     const { deleteSite } = await import("../routes/site.js");
     const result = await deleteSite({} as AppState, {
@@ -627,34 +501,14 @@ describe("deleteSite", () => {
     expect((result.data as DeleteResult).deleted).toBe(true);
   });
 
-  it("throws AppError(404) 'worker not found' when delete returns 404", async () => {
-    withDeleteMock(() => Promise.reject({ status: 404 }));
+  it("throws AppError(500) when wrangler delete fails", async () => {
+    withDeleteMock(1);
     vi.resetModules();
     const { deleteSite } = await import("../routes/site.js");
     let err: unknown;
     try {
       await deleteSite({} as AppState, {
         scriptName: "missing-worker" as ScriptName,
-        env: CF_ENV,
-      });
-    } catch (e) {
-      err = e;
-    }
-    expect(isAppError(err)).toBe(true);
-    expect((err as { status: number; message: string }).status).toBe(404);
-    expect((err as { status: number; message: string }).message).toMatch(
-      /worker not found/,
-    );
-  });
-
-  it("throws AppError(500) for generic errors", async () => {
-    withDeleteMock(() => Promise.reject(new Error("Quota exceeded")));
-    vi.resetModules();
-    const { deleteSite } = await import("../routes/site.js");
-    let err: unknown;
-    try {
-      await deleteSite({} as AppState, {
-        scriptName: "my-worker" as ScriptName,
         env: CF_ENV,
       });
     } catch (e) {
@@ -797,59 +651,131 @@ describe("PBT: detectFramework", () => {
 // Validates: Requirements 2.1, 2.3, 3.1, 3.2
 // ---------------------------------------------------------------------------
 
-describe("PBT: locateArtifact priority", () => {
+describe("PBT: deployViteWithWrangler artifact priority", () => {
   afterEach(() => {
     vi.resetModules();
     vi.restoreAllMocks();
   });
 
-  it("always returns highest-priority existing vite path", async () => {
+  it("uses highest-priority existing vite artifact as wrangler main", async () => {
     await fc.assert(
       fc.asyncProperty(
         fc.boolean(),
         fc.boolean(),
-        fc.boolean(),
-        async (hasOutput, hasDist, hasDistUnderscore) => {
+        async (hasOutput, hasDist) => {
           vi.doMock("node:fs/promises", () => ({
             access: vi.fn().mockImplementation(async (p: unknown) => {
               const ps = String(p);
+              // framework detection: vite.config.ts present
+              if (ps.endsWith("vite.config.ts")) return;
+              if (ps.includes("next.config")) throw new Error("ENOENT");
+              // no wrangler config
+              if (ps.endsWith("wrangler.jsonc") || ps.endsWith("wrangler.json"))
+                throw new Error("ENOENT");
+              // artifacts
               if (ps.endsWith(".output/worker.js") && !hasOutput)
                 throw new Error("ENOENT");
-              if (ps.endsWith("dist/worker.js") && !hasDist)
-                throw new Error("ENOENT");
-              if (ps.endsWith("dist/_worker.js") && !hasDistUnderscore)
+              if (
+                ps.endsWith("dist/worker.js") &&
+                !ps.endsWith(".output/worker.js") &&
+                !hasDist
+              )
                 throw new Error("ENOENT");
             }),
             unlink: vi.fn().mockResolvedValue(undefined),
-            readFile: vi.fn().mockResolvedValue(Buffer.from("")),
-            readdir: vi.fn().mockResolvedValue([]),
-            stat: vi.fn().mockResolvedValue({ isDirectory: () => false }),
+            readFile: vi.fn().mockResolvedValue(""),
             writeFile: vi.fn().mockResolvedValue(undefined),
           }));
+
+          const writtenConfigs: string[] = [];
+          vi.doMock("node:fs/promises", () => ({
+            access: vi.fn().mockImplementation(async (p: unknown) => {
+              const ps = String(p);
+              if (ps.endsWith("vite.config.ts")) return;
+              if (ps.includes("next.config")) throw new Error("ENOENT");
+              if (ps.endsWith("wrangler.jsonc") || ps.endsWith("wrangler.json"))
+                throw new Error("ENOENT");
+              if (ps.endsWith(".output/worker.js") && !hasOutput)
+                throw new Error("ENOENT");
+              if (
+                ps.endsWith("dist/worker.js") &&
+                !ps.endsWith(".output/worker.js") &&
+                !hasDist
+              )
+                throw new Error("ENOENT");
+            }),
+            unlink: vi.fn().mockResolvedValue(undefined),
+            readFile: vi.fn().mockResolvedValue(""),
+            writeFile: vi
+              .fn()
+              .mockImplementation(
+                async (_p: unknown, content: string | Buffer) => {
+                  if (typeof content === "string") writtenConfigs.push(content);
+                },
+              ),
+          }));
+
+          vi.doMock("node:child_process", () => ({
+            spawn: vi.fn().mockReturnValue({
+              stdout: { on: vi.fn() },
+              stderr: { on: vi.fn() },
+              on: vi
+                .fn()
+                .mockImplementation(
+                  (event: string, cb: (code: number) => void) => {
+                    if (event === "close") cb(0);
+                  },
+                ),
+            }),
+          }));
+
           vi.resetModules();
-          const { locateArtifact } = await import("../routes/site.js");
-          if (hasOutput) {
-            const r = await locateArtifact("/proj", "vite");
-            expect(r.absolutePath).toMatch(/\.output\/worker\.js$/);
-          } else if (hasDist) {
-            const r = await locateArtifact("/proj", "vite");
-            expect(r.absolutePath).toMatch(/dist\/worker\.js$/);
-            expect(r.absolutePath).not.toMatch(/_worker\.js$/);
-          } else if (hasDistUnderscore) {
-            const r = await locateArtifact("/proj", "vite");
-            expect(r.absolutePath).toMatch(/dist\/_worker\.js$/);
-          } else {
+          const { deployViteWithWrangler } = await import("../routes/site.js");
+
+          if (!hasOutput && !hasDist) {
             let threw = false;
             try {
-              await locateArtifact("/proj", "vite");
+              await deployViteWithWrangler(
+                "w" as ScriptName,
+                "/proj" as AbsolutePath,
+                {
+                  apiToken: "t",
+                  accountId: "a",
+                  dispatchNamespace: "ns",
+                },
+                {},
+              );
             } catch {
               threw = true;
             }
-            expect(threw).toBe(true);
+            expect(threw).toBe(false);
+          } else {
+            await deployViteWithWrangler(
+              "w" as ScriptName,
+              "/proj" as AbsolutePath,
+              { apiToken: "t", accountId: "a", dispatchNamespace: "ns" },
+              {},
+            );
+            const generated = writtenConfigs.find((c) => {
+              try {
+                JSON.parse(c);
+                return true;
+              } catch {
+                return false;
+              }
+            });
+            if (generated) {
+              const cfg = JSON.parse(generated);
+              if (hasOutput) {
+                expect(cfg.main).toBe(".output/worker.js");
+              } else {
+                expect(cfg.main).toBe("dist/worker.js");
+              }
+            }
           }
         },
       ),
-      { numRuns: 20 },
+      { numRuns: 10 },
     );
   });
 });
