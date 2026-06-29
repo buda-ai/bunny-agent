@@ -344,51 +344,16 @@ export async function detectFramework(
 const WRANGLER_CONFIG_FILENAMES = ["wrangler.jsonc", "wrangler.json"] as const;
 
 /**
- * Verifies that wrangler is available on PATH by running `npx wrangler --version`.
- * Throws AppError(500) with an actionable message if wrangler cannot be found or
- * the version check exits with a non-zero code.
- */
-async function checkWranglerAvailable(): Promise<void> {
-  await new Promise<void>((resolve, reject) => {
-    const child = spawn("npx", ["wrangler", "--version"], {
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-
-    child.on("error", () => {
-      reject(
-        new AppError(
-          500,
-          "wrangler not found: install it with 'npm install -g wrangler' or add it as a project dependency",
-        ),
-      );
-    });
-
-    child.on("close", (code) => {
-      if (code === 0) {
-        resolve();
-      } else {
-        reject(
-          new AppError(
-            500,
-            "wrangler not found: install it with 'npm install -g wrangler' or add it as a project dependency",
-          ),
-        );
-      }
-    });
-  });
-}
-
-/**
  * Deploys a Vite project by delegating to `npx wrangler deploy`.
  *
  * Strategy:
- * 1. Confirm wrangler is available — throws AppError(500) with install instructions if not.
- * 2. Check for an existing wrangler config (`wrangler.jsonc` or `wrangler.json`).
- *    - If found: patch the `name` field with `scriptName`, deploy, then restore.
- *    - If not found: probe for the first built artifact (.output/worker.js or dist/worker.js)
- *      to use as `main`, generate a minimal `wrangler.json`, deploy, then delete it.
+ * 1. Check for an existing wrangler config (`wrangler.jsonc` or `wrangler.json`).
+ *    - If found: delegate to `deployNextjsWithWrangler` which patches the `name`
+ *      field, deploys, then restores the original config.
+ *    - If not found: probe for the first built artifact (.output/worker.js or
+ *      dist/worker.js) to use as `main`, generate a minimal `wrangler.json`,
+ *      deploy via `deployNextjsWithWrangler`, then delete the generated config.
  *      If no artifact exists yet, throws AppError(400) with actionable build instructions.
- * 3. Run `npx wrangler deploy --dispatch-namespace` in both cases.
  *
  * Throws AppError(400) if no artifact is found and no wrangler config exists.
  * Throws AppError(500) if wrangler is not available or exits with a non-zero code.
@@ -399,75 +364,23 @@ export async function deployViteWithWrangler(
   env: CloudflareEnv,
   callerEnv: Record<string, string>,
 ): Promise<void> {
-  // Fail fast with an actionable message if wrangler is not installed.
-  await checkWranglerAvailable();
-
   // Check for an existing wrangler config.
-  let configPath: string | null = null;
+  let hasConfig = false;
   for (const filename of WRANGLER_CONFIG_FILENAMES) {
-    const candidate = path.join(projectDir, filename);
     try {
-      await fs.access(candidate);
-      configPath = candidate;
+      await fs.access(path.join(projectDir, filename));
+      hasConfig = true;
       break;
     } catch {
       // not found, try next
     }
   }
 
-  if (configPath !== null) {
-    // ── Existing config: patch name, deploy, restore ──────────────────────
-    const originalContent = await fs.readFile(configPath, "utf8");
-
-    let parsed: unknown;
-    try {
-      parsed = parseJsonc(originalContent);
-    } catch {
-      throw new AppError(400, `failed to parse wrangler config: ${configPath}`);
-    }
-
-    if (!isPlainObject(parsed)) {
-      throw new AppError(400, "wrangler config must be a JSON object");
-    }
-
-    const originalName = typeof parsed.name === "string" ? parsed.name : null;
-    const patched: Record<string, unknown> = { ...parsed, name: scriptName };
-
-    // Rewrite self-referential service bindings.
-    if (originalName && Array.isArray(patched.services)) {
-      patched.services = (
-        patched.services as Array<Record<string, unknown>>
-      ).map((svc) =>
-        svc.service === originalName ? { ...svc, service: scriptName } : svc,
-      );
-    }
-
-    // Strip self-referential service bindings that would fail dispatch-namespace validation.
-    const servicesWithoutSelfRef = Array.isArray(patched.services)
-      ? (patched.services as Array<Record<string, unknown>>).filter(
-          (svc) => svc.service !== scriptName,
-        )
-      : [];
-
-    const deployConfig: Record<string, unknown> = { ...patched };
-    if (servicesWithoutSelfRef.length === 0) {
-      delete deployConfig.services;
-    } else {
-      deployConfig.services = servicesWithoutSelfRef;
-    }
-
-    try {
-      await fs.writeFile(
-        configPath,
-        JSON.stringify(deployConfig, null, "\t"),
-        "utf8",
-      );
-      await runWranglerDeploy(projectDir, env, callerEnv);
-    } finally {
-      await fs.writeFile(configPath, originalContent, "utf8").catch(() => {});
-    }
+  if (hasConfig) {
+    // ── Existing config: delegate entirely to the Next.js deploy path ──────
+    await deployNextjsWithWrangler(scriptName, projectDir, env, callerEnv);
   } else {
-    // ── No config: locate artifact, generate a minimal wrangler.json, deploy, then remove ──
+    // ── No config: generate a minimal wrangler.json, deploy, then remove ───
     //
     // Probe for a built artifact to use as the `main` entry point.
     let relativeMain: string | undefined;
@@ -480,14 +393,6 @@ export async function deployViteWithWrangler(
         // not present, try next
       }
     }
-
-    // if (!relativeMain) {
-    //   throw new AppError(
-    //     400,
-    //     "vite build output not found: run 'vite build' first, then retry" +
-    //       " (expected .output/worker.js or dist/worker.js)",
-    //   );
-    // }
 
     const generatedConfigPath = path.join(projectDir, "wrangler.json");
     const minimalConfig = {
@@ -502,7 +407,8 @@ export async function deployViteWithWrangler(
         JSON.stringify(minimalConfig, null, "\t"),
         "utf8",
       );
-      await runWranglerDeploy(projectDir, env, callerEnv);
+      // Delegate to the shared deploy path — it will find and use the generated config.
+      await deployNextjsWithWrangler(scriptName, projectDir, env, callerEnv);
     } finally {
       await fs.unlink(generatedConfigPath).catch(() => {});
     }

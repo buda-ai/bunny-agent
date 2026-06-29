@@ -688,9 +688,11 @@ describe("PBT: deployViteWithWrangler artifact priority", () => {
           }));
 
           const writtenConfigs: string[] = [];
+          const writtenPaths = new Map<string, string>();
           vi.doMock("node:fs/promises", () => ({
             access: vi.fn().mockImplementation(async (p: unknown) => {
               const ps = String(p);
+              if (writtenPaths.has(ps)) return;
               if (ps.endsWith("vite.config.ts")) return;
               if (ps.includes("next.config")) throw new Error("ENOENT");
               if (ps.endsWith("wrangler.jsonc") || ps.endsWith("wrangler.json"))
@@ -704,13 +706,20 @@ describe("PBT: deployViteWithWrangler artifact priority", () => {
               )
                 throw new Error("ENOENT");
             }),
-            unlink: vi.fn().mockResolvedValue(undefined),
-            readFile: vi.fn().mockResolvedValue(""),
+            unlink: vi.fn().mockImplementation(async (p: unknown) => {
+              writtenPaths.delete(String(p));
+            }),
+            readFile: vi.fn().mockImplementation(async (p: unknown) => {
+              return writtenPaths.get(String(p)) ?? "";
+            }),
             writeFile: vi
               .fn()
               .mockImplementation(
-                async (_p: unknown, content: string | Buffer) => {
-                  if (typeof content === "string") writtenConfigs.push(content);
+                async (p: unknown, content: string | Buffer) => {
+                  const text =
+                    typeof content === "string" ? content : content.toString();
+                  writtenPaths.set(String(p), text);
+                  writtenConfigs.push(text);
                 },
               ),
           }));
