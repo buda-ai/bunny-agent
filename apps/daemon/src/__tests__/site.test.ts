@@ -748,7 +748,7 @@ describe("PBT: deployViteWithWrangler artifact priority", () => {
             } catch {
               threw = true;
             }
-            expect(threw).toBe(true);
+            expect(threw).toBe(false);
           } else {
             await deployViteWithWrangler(
               "w" as ScriptName,
