@@ -1,5 +1,27 @@
+diff --git a/dist/core/system-prompt.js b/dist/core/system-prompt.js
+index 4fa08b2a2665ee733849ba27ad144289a9c943e1..b59cbb23ca27bc1508161ef37b85df989b24357a 100644
+--- a/dist/core/system-prompt.js
++++ b/dist/core/system-prompt.js
+@@ -78,7 +78,7 @@ export function buildSystemPrompt(options) {
+     addGuideline("Be concise in your responses");
+     addGuideline("Show file paths clearly when working with files");
+     const guidelines = guidelinesList.map((g) => `- ${g}`).join("\n");
+-    let prompt = `You are an expert coding assistant operating inside pi, a coding agent harness. You help users by reading files, executing commands, editing code, and writing new files.
++    let prompt = `${appendSystemPrompt || "You are an expert coding assistant operating inside pi, a coding agent harness. You help users by reading files, executing commands, editing code, and writing new files."}
+ 
+ Available tools:
+ ${toolsList}
+@@ -96,7 +96,7 @@ Pi documentation (read only when the user asks about pi itself, its SDK, extensi
+ - When asked about: extensions (docs/extensions.md, examples/extensions/), themes (docs/themes.md), skills (docs/skills.md), prompt templates (docs/prompt-templates.md), TUI components (docs/tui.md), keybindings (docs/keybindings.md), SDK integrations (docs/sdk.md), custom providers (docs/custom-provider.md), adding models (docs/models.md), pi packages (docs/packages.md)
+ - When working on pi topics, read the docs and examples, and follow .md cross-references before implementing
+ - Always read pi .md files completely and follow links to related docs (e.g., tui.md for TUI API details)`;
+-    if (appendSection) {
++    if (!appendSystemPrompt && appendSection) {
+         prompt += appendSection;
+     }
+     // Append project context files
 diff --git a/package.json b/package.json
-index 60e3a139e6ee936f79c5061672c5e76948f96be2..7bba6db47ecf5f675fa8a32932713d2065f2ff8f 100644
+index b9fdb2891cd3a270322616933e83710dac6f809d..f228025f57668644ae4309ac7ec8f4f591b8ccb3 100644
 --- a/package.json
 +++ b/package.json
 @@ -4,7 +4,8 @@
