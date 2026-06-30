@@ -31,6 +31,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     python3 \
     python3-pip \
     nginx \
+    patch \
     && rm -rf /var/lib/apt/lists/* \
     && break || sleep 5; \
     done
@@ -56,6 +57,15 @@ RUN mkdir -p /opt/bunny-agent && \
     rm package.json package-lock.json && \
     npm cache clean --force && \
     chown -R agent:agent /opt/bunny-agent
+
+# Apply pi-coding-agent patch so the harness uses the caller-provided system
+# prompt (appendSystemPrompt) as the opening identity instead of the default
+# "operating inside pi" wording. Mirrors patches/@earendil-works__pi-coding-agent@0.78.0.patch.
+COPY pi-coding-agent.patch /tmp/pi-coding-agent.patch
+RUN cd /opt/bunny-agent/node_modules/@earendil-works/pi-coding-agent && \
+    patch -p1 < /tmp/pi-coding-agent.patch && \
+    rm /tmp/pi-coding-agent.patch && \
+    chown -R agent:agent /opt/bunny-agent/node_modules/@earendil-works/pi-coding-agent
 
 # Install Playwright Chromium browser and system dependencies.
 # Refresh apt signing keys before Playwright runs apt-get again: under buildx+QEMU

@@ -6,3 +6,6 @@
 
 # Environment variables
 .env
+
+# Patch file staged by CI from ../../patches/ before docker build
+pi-coding-agent.patch
