@@ -332,10 +332,17 @@ describe("deployNextjsWithWrangler", () => {
     // Second write: original content restored
     expect(writtenContents[1]).toBe(originalContent);
 
-    // wrangler was called with dispatch-namespace flag
+    // wrangler was called with --name and --dispatch-namespace flags
     expect(spawnMock).toHaveBeenCalledWith(
       "npx",
-      ["wrangler", "deploy", "--dispatch-namespace", "ns"],
+      [
+        "wrangler",
+        "deploy",
+        "--name",
+        "my-worker",
+        "--dispatch-namespace",
+        "ns",
+      ],
       expect.objectContaining({ cwd: "/proj" }),
     );
   });
