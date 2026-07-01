@@ -514,7 +514,7 @@ export async function deployNextjsWithWrangler(
       JSON.stringify(deployConfig, null, "\t"),
       "utf8",
     );
-    await runWranglerDeploy(projectDir, env, callerEnv);
+    await runWranglerDeploy(projectDir, env,scriptName, callerEnv);
   } finally {
     // Always restore the original config, even on error.
     await fs.writeFile(configPath, originalContent, "utf8").catch(() => {
@@ -543,12 +543,13 @@ export async function deployNextjsWithWrangler(
 function runWranglerDeploy(
   projectDir: AbsolutePath,
   env: CloudflareEnv,
+  scriptName: string,
   callerEnv: Record<string, string>,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const child = spawn(
       "npx",
-      ["wrangler", "deploy", "--dispatch-namespace", env.dispatchNamespace],
+      ["wrangler", "deploy", "--name", scriptName, "--dispatch-namespace", env.dispatchNamespace],
       {
         cwd: projectDir,
         stdio: ["ignore", "pipe", "pipe"],
