@@ -70,6 +70,15 @@ export interface BunnyAgentCodingRunBody {
   maxTurns?: number;
   allowedTools?: string[];
   resume?: string;
+  /**
+   * Source pi session id to fork from before running the current turn. When
+   * set, the runner snapshot-clones the source session into a fresh session
+   * (new id, header.parentSession = source) and continues chat on top of the
+   * copied history. Mutually exclusive with `resume`.
+   *
+   * Currently only the `pi` runner consumes this; other runners ignore it.
+   */
+  forkFrom?: string;
   skillPaths?: string[];
   cwd?: string;
   /**
@@ -290,6 +299,15 @@ export interface StreamInput {
   transcriptWriter?: TranscriptWriter;
   /** Runner session ID to resume a previous conversation (from assistant message metadata) */
   resume?: string;
+  /**
+   * Source pi session id to fork from before running the current turn. When
+   * set, the runner snapshot-clones the source session into a fresh session
+   * (new id, header.parentSession = source) and continues chat on top of the
+   * copied history. Mutually exclusive with `resume`.
+   *
+   * Currently only the `pi` runner consumes this; other runners ignore it.
+   */
+  forkFrom?: string;
   /** AbortSignal for cancelling the operation */
   signal?: AbortSignal;
   /**

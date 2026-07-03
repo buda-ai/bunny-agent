@@ -125,6 +125,45 @@ describe("BunnyAgent", () => {
       );
     });
 
+    it("passes --fork-from when StreamInput.forkFrom is set", async () => {
+      const sandbox = createMockSandbox();
+      const agent = new BunnyAgent({
+        sandbox,
+        runner: {
+          model: "google:gemini-2.5-pro",
+          runnerType: "pi",
+        },
+      });
+
+      await agent.stream({
+        messages: [{ role: "user", content: "continue from shared" }],
+        forkFrom: "sess_source_abc",
+      });
+
+      expect(sandbox.handle.exec).toHaveBeenCalledWith(
+        expect.arrayContaining(["--fork-from", "sess_source_abc"]),
+        expect.any(Object),
+      );
+    });
+
+    it("omits --fork-from when StreamInput.forkFrom is unset", async () => {
+      const sandbox = createMockSandbox();
+      const agent = new BunnyAgent({
+        sandbox,
+        runner: {
+          model: "google:gemini-2.5-pro",
+          runnerType: "pi",
+        },
+      });
+
+      await agent.stream({
+        messages: [{ role: "user", content: "fresh session" }],
+      });
+
+      const call = vi.mocked(sandbox.handle.exec).mock.calls[0];
+      expect(call?.[0]).not.toContain("--fork-from");
+    });
+
     it("should pass through stdout without modification", async () => {
       const testData = "test streaming data";
       const sandbox = createMockSandbox();

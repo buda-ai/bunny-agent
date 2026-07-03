@@ -375,6 +375,7 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
           path: sandboxWorkdir,
         },
         resume: this.options.resume,
+        forkFrom: this.options.forkFrom,
         signal: abortSignal,
         ...(toolRefs && toolRefs.length > 0 ? { toolRefs } : {}),
       });
@@ -405,6 +406,7 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
       userInput: getLastUserTextFromMessages(messages),
       cwd,
       resume: this.options.resume,
+      forkFrom: this.options.forkFrom,
       systemPrompt: this.options.systemPrompt ?? runner.systemPrompt,
       maxTurns: this.options.maxTurns ?? runner.maxTurns,
       allowedTools: runner.allowedTools ?? this.options.allowedTools,

@@ -356,6 +356,27 @@ describe("Bunny provider tool refs", () => {
       ],
     });
   });
+
+  it("forwards forkFrom into the daemon coding-run body", async () => {
+    const capturedBodies: BunnyAgentCodingRunBody[] = [];
+    const sandbox = createCodingRunSandbox(capturedBodies);
+    const bunnyAgent = createBunnyAgent({
+      sandbox,
+      daemonUrl: "http://127.0.0.1:3080",
+      forkFrom: "sess_source_abc",
+    });
+
+    const result = streamText({
+      model: bunnyAgent("google:gemini-2.5-pro", { runnerType: "pi" }),
+      messages: [{ role: "user", content: "continue from shared" }],
+    });
+
+    await result.consumeStream();
+
+    expect(capturedBodies[0]).toMatchObject({
+      forkFrom: "sess_source_abc",
+    });
+  });
 });
 
 function createCodingRunSandbox(
