@@ -74,6 +74,7 @@ interface ParsedRunArgs {
   maxTurns?: number;
   allowedTools?: string[];
   resume?: string;
+  forkFrom?: string;
   skillPaths?: string[];
   yolo?: boolean;
   effort?: string;
@@ -100,6 +101,7 @@ function parseRunArgs(): ParsedRunArgs {
       "allowed-tools": { type: "string", short: "a" },
       "skill-path": { type: "string", multiple: true },
       resume: { type: "string" },
+      "fork-from": { type: "string" },
       yolo: { type: "boolean" },
       effort: { type: "string" },
       help: { type: "boolean", short: "h" },
@@ -148,6 +150,7 @@ function parseRunArgs(): ParsedRunArgs {
     allowedTools: values["allowed-tools"]?.split(",").map((t) => t.trim()),
     skillPaths: values["skill-path"] as string[] | undefined,
     resume: values.resume,
+    forkFrom: values["fork-from"],
     yolo: values["yolo"],
     effort: values["effort"],
     userInput,
@@ -220,6 +223,9 @@ Options:
   -a, --allowed-tools <tools>  Comma-separated allowed tools
       --skill-path <path>      Additional skill path (can be repeated, for pi runner)
       --resume <session-id>    Resume a previous session
+      --fork-from <session-id> Snapshot-clone the given source session into a
+                               fresh session and run the current turn on it
+                               (pi runner only, mutually exclusive with --resume)
   -h, --help                   Show this help
 
 Environment:
@@ -314,6 +320,7 @@ async function main(): Promise<void> {
         allowedTools: args.allowedTools,
         skillPaths: args.skillPaths,
         resume: args.resume,
+        forkFrom: args.forkFrom,
         yolo: args.yolo,
         effort: args.effort,
         ...(toolRefs ? { toolRefs: toolRefs.tools } : {}),

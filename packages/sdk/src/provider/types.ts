@@ -109,6 +109,15 @@ export interface BunnyAgentProviderSettings
   cwd?: string;
   /** Resume session ID for multi-turn conversation. */
   resume?: string;
+  /**
+   * Source pi session id to fork from before running the current turn. When
+   * set, the runner snapshot-clones the source session into a fresh session
+   * (new id, header.parentSession = source) and continues chat on top of the
+   * copied history. Mutually exclusive with `resume`.
+   *
+   * Currently only the `pi` runner consumes this; other runners ignore it.
+   */
+  forkFrom?: string;
   /** Enable verbose logging for debugging. */
   verbose?: boolean;
   /** Custom logger for handling warnings and errors. */

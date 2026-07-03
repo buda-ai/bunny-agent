@@ -94,6 +94,12 @@ export class BunnyAgent {
       cmd.push("--resume", input.resume);
     }
 
+    // Add fork-from parameter: snapshot-clone the source session before running
+    // the current turn. Mutually exclusive with --resume at the runner level.
+    if (input.forkFrom) {
+      cmd.push("--fork-from", input.forkFrom);
+    }
+
     // runner-cli always outputs AI SDK stream; --output-format is no longer accepted
 
     // Add separator and user input
