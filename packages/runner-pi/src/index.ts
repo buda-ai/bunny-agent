@@ -5,6 +5,7 @@ export {
   type PiRunner,
   type PiRunnerOptions,
 } from "./pi-runner.js";
+export { getSessionDir } from "./session-utils.js";
 export type { ToolDetailsWithUsage, ToolUsageDetails } from "./tool-details.js";
 export {
   buildToolDefinitionsFromRefs,

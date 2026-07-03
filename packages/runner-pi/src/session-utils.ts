@@ -23,6 +23,22 @@ export const MAX_SESSION_FILE_BYTES =
   Number(process.env.SANDAGENT_MAX_SESSION_BYTES) || 10 * 1024 * 1024; // 10 MB
 
 /**
+ * Absolute path to pi's on-disk sessions directory for the given cwd.
+ *
+ * Wraps `SessionManager.create(cwd).getSessionDir()` so callers outside this
+ * package don't need to construct a manager instance. Pi encodes cwd into a
+ * safe directory name under `~/<configDir>/agent/sessions/`. The exact
+ * `configDir` and encoding rule come from pi-mono — never hardcode them here.
+ *
+ * Callers (e.g. daemon) surface this so external orchestrators (e.g. buda's
+ * share-copy job) can locate a specific session file across sandboxes
+ * without duplicating pi's path convention.
+ */
+export function getSessionDir(cwd: string): string {
+  return SessionManager.create(cwd).getSessionDir();
+}
+
+/**
  * Resolve a session reference to an on-disk path without loading/parsing
  * session contents.
  *
@@ -39,8 +55,7 @@ export function resolveSessionPathById(
   sessionIdOrPath: string,
 ): string | undefined {
   if (sessionIdOrPath.includes("/")) return sessionIdOrPath;
-  const tempMgr = SessionManager.create(cwd);
-  const sessionsDir = tempMgr.getSessionDir();
+  const sessionsDir = getSessionDir(cwd);
   try {
     const suffix = `_${sessionIdOrPath}.jsonl`;
     const match = readdirSync(sessionsDir).find((f) => f.endsWith(suffix));

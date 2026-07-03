@@ -7,8 +7,9 @@ import {
 import { parseMultipart } from "./multipart.js";
 import { DaemonRouter } from "./router.js";
 import { bunnyAgentRun } from "./routes/coding.js";
+import { codingSessionDir } from "./routes/coding-session-dir.js";
 import { fsDownload, fsUpload, fsWriteStream } from "./routes/fs.js";
-import { AppError, type AppState, fail, guessMimeType } from "./utils.js";
+import { AppError, type AppState, fail, guessMimeType, ok } from "./utils.js";
 
 export interface DaemonConfig {
   host: string;
@@ -49,6 +50,21 @@ export function createDaemon(config: DaemonConfig): http.Server {
           res,
           mergedEnv,
         );
+      }
+
+      // Session directory lookup: /api/coding/session/dir?runner=pi&cwd=/agent
+      if (method === "GET" && pathname === "/api/coding/session/dir") {
+        try {
+          const result = codingSessionDir({
+            runner: url.searchParams.get("runner") ?? undefined,
+            cwd: url.searchParams.get("cwd") ?? undefined,
+          });
+          sendJson(res, 200, ok(result));
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          sendJson(res, 400, fail(msg));
+        }
+        return;
       }
 
       // Raw streamed upload: /api/fs/write-stream?path=...

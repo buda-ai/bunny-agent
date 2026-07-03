@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   extractLastCompactionSummary,
+  getSessionDir,
   isSessionFileTooLarge,
   MAX_SESSION_FILE_BYTES,
   resolveSessionPathById,
@@ -159,6 +160,23 @@ describe("session-utils", () => {
     it("returns undefined when id cannot be resolved in the sessions dir", () => {
       // tmpDir is not a real pi sessions dir; readdir throws → undefined.
       expect(resolveSessionPathById(tmpDir, "sess_missing")).toBeUndefined();
+    });
+  });
+
+  describe("getSessionDir", () => {
+    it("returns an absolute path derived from pi-mono for a given cwd", () => {
+      const dir = getSessionDir("/agent");
+      // We don't hardcode the configDir here — pi-mono owns that string. Just
+      // assert the shape: absolute path that ends with a cwd-encoded segment
+      // under an `agent/sessions/` prefix.
+      expect(dir.startsWith("/")).toBe(true);
+      expect(dir).toContain("/agent/sessions/");
+    });
+
+    it("changes with cwd", () => {
+      const a = getSessionDir("/agent");
+      const b = getSessionDir("/workspace");
+      expect(a).not.toBe(b);
     });
   });
 });

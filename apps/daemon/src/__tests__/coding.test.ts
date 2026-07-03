@@ -9,6 +9,12 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 const createRunnerCalls: Array<Record<string, unknown>> = [];
 
 vi.mock("@bunny-agent/runner-harness", () => ({
+  getSessionDirForRunner: vi.fn((runner: string, cwd: string) => {
+    if (runner !== "pi") {
+      throw new Error(`getSessionDir not supported for runner: ${runner}`);
+    }
+    return `/root/.pi/agent/sessions/${cwd.replace(/\//g, "-")}`;
+  }),
   createRunner: vi.fn((opts: { userInput: string; yolo?: boolean }) => {
     createRunnerCalls.push(opts);
     if (opts.userInput === "__THROW__") {
@@ -426,5 +432,72 @@ describe("heartbeat keepalive", () => {
     expect(text).not.toContain(": heartbeat");
     expect(text).toContain("echo: fast");
     expect(text).toContain("[DONE]");
+  });
+});
+
+describe("GET /api/coding/session/dir (standalone server)", () => {
+  it("returns pi sessions dir for default cwd", async () => {
+    const res = await fetch(`${BASE}/api/coding/session/dir?runner=pi`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.data.runner).toBe("pi");
+    expect(body.data.cwd).toBe("/agent");
+    expect(body.data.dir).toBe("/root/.pi/agent/sessions/-agent");
+  });
+
+  it("returns pi sessions dir for explicit cwd", async () => {
+    const res = await fetch(
+      `${BASE}/api/coding/session/dir?runner=pi&cwd=${encodeURIComponent("/workspace")}`,
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.data.cwd).toBe("/workspace");
+    expect(body.data.dir).toBe("/root/.pi/agent/sessions/-workspace");
+  });
+
+  it("defaults runner to pi and cwd to /agent when omitted", async () => {
+    const res = await fetch(`${BASE}/api/coding/session/dir`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.data.runner).toBe("pi");
+    expect(body.data.cwd).toBe("/agent");
+  });
+
+  it("returns 400 for unsupported runner", async () => {
+    const res = await fetch(`${BASE}/api/coding/session/dir?runner=claude`);
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.ok).toBe(false);
+    expect(body.error).toContain("getSessionDir not supported");
+  });
+});
+
+describe("GET /api/coding/session/dir (Web Response via nextjs handler)", () => {
+  it("returns pi sessions dir via Next handler", async () => {
+    const handler = createNextHandler({ root: "/tmp/session-dir-nextjs" });
+    const req = new Request(
+      "http://localhost/api/daemon/api/coding/session/dir?runner=pi&cwd=/agent",
+      { method: "GET" },
+    );
+    const res = await handler(req);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.data.dir).toBe("/root/.pi/agent/sessions/-agent");
+  });
+
+  it("returns 400 for unsupported runner via Next handler", async () => {
+    const handler = createNextHandler({ root: "/tmp/session-dir-nextjs" });
+    const req = new Request(
+      "http://localhost/api/daemon/api/coding/session/dir?runner=gemini",
+      { method: "GET" },
+    );
+    const res = await handler(req);
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.ok).toBe(false);
+    expect(body.error).toContain("getSessionDir not supported");
   });
 });
