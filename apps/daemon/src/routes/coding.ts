@@ -14,6 +14,15 @@ export interface RunRequest {
   maxTurns?: number;
   allowedTools?: string[];
   resume?: string;
+  /**
+   * Source pi session id to fork from before running the current turn. When
+   * set, the pi runner snapshot-clones the source session into a fresh one
+   * (new id, header.parentSession = source) and continues chat on top of the
+   * copied history. Mutually exclusive with `resume`.
+   *
+   * Currently only the `pi` runner consumes this; other runners ignore it.
+   */
+  forkFrom?: string;
   skillPaths?: string[];
   cwd?: string;
   /** Skip tool approval checks (bypass permissions). */
@@ -81,6 +90,7 @@ export async function bunnyAgentRun(
       maxTurns: req.maxTurns,
       allowedTools: req.allowedTools,
       resume: req.resume,
+      forkFrom: req.forkFrom,
       skillPaths: req.skillPaths,
       cwd: req.cwd ?? process.env.BUNNY_AGENT_ROOT ?? "/workspace",
       yolo: req.yolo,
@@ -144,6 +154,7 @@ export function codingRunStream(
           maxTurns: req.maxTurns,
           allowedTools: req.allowedTools,
           resume: req.resume,
+          forkFrom: req.forkFrom,
           skillPaths: req.skillPaths,
           cwd: req.cwd ?? process.env.BUNNY_AGENT_ROOT ?? "/workspace",
           yolo: req.yolo,

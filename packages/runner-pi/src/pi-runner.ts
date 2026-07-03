@@ -54,6 +54,20 @@ export interface PiRunnerOptions {
    * Sessions use Bunny's patched pi config directory (~/.bunny/agent/sessions/...) so workspace is not used.
    */
   sessionId?: string;
+  /**
+   * Source session ID to fork from. When set, the runner locates the source
+   * session file, snapshot-clones it via SessionManager.forkFrom into a brand
+   * new session (with a fresh id and header pointing at the source as
+   * parentSession), and runs the current turn on top of that copied history.
+   *
+   * Mutually exclusive with `sessionId`. If both are set, `forkFrom` wins and
+   * `sessionId` is ignored (the fork produces the new session id, which is
+   * emitted back to the caller via message-metadata for subsequent resumes).
+   *
+   * The source may be either a raw pi session id or a full session file path
+   * (contains '/'), mirroring how `sessionId` accepts both.
+   */
+  forkFrom?: string;
   /** Additional skill paths (files or directories) */
   skillPaths?: string[];
   /**
@@ -288,16 +302,31 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
         modelRegistry.authStorage.setRuntimeApiKey(provider, inlineApiKey);
       }
       try {
+        const forkFrom = options.forkFrom?.trim();
         const resume = options.sessionId?.trim();
         const sessionManager = await (async (): Promise<
           ReturnType<typeof SessionManager.create>
         > => {
-          if (resume !== undefined && resume !== "") {
-            if (resume.includes("/")) {
-              // Full path provided — open directly
-              return SessionManager.open(resume);
+          // forkFrom wins over sessionId: snapshot-clone the source session
+          // into a fresh session file (new id, header.parentSession = source)
+          // and run the current turn on top of that copy. The new id is
+          // emitted back via message-metadata so callers can resume from it.
+          if (forkFrom) {
+            const sourcePath = resolveSessionPathById(cwd, forkFrom);
+            console.error(
+              `${LOG_PREFIX} fork: sourceId=${forkFrom} sourcePath=${sourcePath ?? "(not found)"}`,
+            );
+            if (!sourcePath) {
+              throw new Error(
+                `Pi runner: forkFrom source session not found: ${forkFrom}`,
+              );
             }
-            // Find session file by id without parsing contents (OOM fix)
+            // SessionManager.forkFrom copies every non-header entry verbatim
+            // into a new file; the OOM guard used on resume does not apply
+            // because forkFrom is intended to preserve the full history.
+            return SessionManager.forkFrom(sourcePath, cwd);
+          }
+          if (resume) {
             const sessionPath = resolveSessionPathById(cwd, resume);
             console.error(
               `${LOG_PREFIX} resume: id=${resume} path=${sessionPath ?? "(not found)"}`,

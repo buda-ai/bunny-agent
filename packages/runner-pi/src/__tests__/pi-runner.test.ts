@@ -196,9 +196,12 @@ vi.mock("@earendil-works/pi-coding-agent", () => {
     lsTool: { name: "ls" },
     SessionManager: {
       continueRecent: vi.fn().mockReturnValue({}),
-      create: vi.fn().mockReturnValue({}),
+      create: vi.fn().mockReturnValue({
+        getSessionDir: () => "/tmp/pi-runner-mock-sessions",
+      }),
       open: vi.fn().mockReturnValue({}),
       list: vi.fn().mockResolvedValue([]),
+      forkFrom: vi.fn().mockReturnValue({}),
     },
     createAgentSession: vi.fn().mockImplementation(async () => {
       const session = new MockSession();
@@ -793,6 +796,72 @@ describe("createPiRunner", () => {
 
     // process.env must not be permanently modified
     expect(process.env[key]).toBeUndefined();
+  });
+
+  it("snapshot-clones via SessionManager.forkFrom when forkFrom is set", async () => {
+    const { SessionManager } = await import("@earendil-works/pi-coding-agent");
+    const forkFromSpy = vi
+      .mocked(SessionManager.forkFrom)
+      .mockClear()
+      .mockReturnValue(
+        {} as unknown as ReturnType<typeof SessionManager.forkFrom>,
+      );
+
+    const runner = createPiRunner({
+      model: "google:gemini-2.5-pro",
+      forkFrom: "/tmp/pi-sessions/2026-07-03_src.jsonl",
+      cwd: "/workspace/target",
+    });
+    for await (const _ of runner.run("continue from shared")) {
+      // consume until done
+    }
+
+    expect(forkFromSpy).toHaveBeenCalledTimes(1);
+    const [sourcePath, targetCwd] = forkFromSpy.mock.calls[0] ?? [];
+    expect(sourcePath).toBe("/tmp/pi-sessions/2026-07-03_src.jsonl");
+    expect(targetCwd).toBe("/workspace/target");
+  });
+
+  it("prefers forkFrom over sessionId when both are provided", async () => {
+    const { SessionManager } = await import("@earendil-works/pi-coding-agent");
+    const forkFromSpy = vi
+      .mocked(SessionManager.forkFrom)
+      .mockClear()
+      .mockReturnValue(
+        {} as unknown as ReturnType<typeof SessionManager.forkFrom>,
+      );
+    const openSpy = vi.mocked(SessionManager.open).mockClear();
+
+    const runner = createPiRunner({
+      model: "google:gemini-2.5-pro",
+      forkFrom: "/tmp/pi-sessions/src.jsonl",
+      sessionId: "/tmp/pi-sessions/should-be-ignored.jsonl",
+    });
+    for await (const _ of runner.run("fork wins")) {
+      // consume
+    }
+
+    expect(forkFromSpy).toHaveBeenCalledTimes(1);
+    expect(openSpy).not.toHaveBeenCalled();
+  });
+
+  it("throws when forkFrom source session cannot be resolved by id", async () => {
+    const { SessionManager } = await import("@earendil-works/pi-coding-agent");
+    const forkFromSpy = vi.mocked(SessionManager.forkFrom).mockClear();
+
+    const runner = createPiRunner({
+      model: "google:gemini-2.5-pro",
+      // No slash → treated as bare session id → resolveSessionPathById returns
+      // undefined against a scratch dir → the runner throws before forkFrom.
+      forkFrom: "sess_does_not_exist_zzz",
+    });
+
+    await expect(async () => {
+      for await (const _ of runner.run("missing source")) {
+        // consume until throw
+      }
+    }).rejects.toThrow(/forkFrom source session not found/);
+    expect(forkFromSpy).not.toHaveBeenCalled();
   });
 
   it("accumulates generate_image tool usage into finish messageMetadata", async () => {

@@ -40,6 +40,15 @@ export interface RunnerCoreOptions extends BaseRunnerOptions {
    * Currently only the `pi` runner consumes this; other runners ignore it.
    */
   effort?: string;
+  /**
+   * Source session ID to fork from before running the current turn. When set,
+   * the runner snapshot-clones the source session into a fresh session with a
+   * new id (header.parentSession points at the source) and continues chat on
+   * top of that copied history. Mutually exclusive with `resume`.
+   *
+   * Currently only the `pi` runner consumes this; other runners ignore it.
+   */
+  forkFrom?: string;
 }
 
 export function createRunner(
@@ -103,6 +112,7 @@ function dispatchRunner(
         ...base,
         cwd,
         sessionId: base.resume,
+        forkFrom: options.forkFrom,
         skillPaths: options.skillPaths ?? discoverSkillPaths(cwd),
         toolRefs: options.toolRefs,
         effort: options.effort,

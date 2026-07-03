@@ -23,21 +23,26 @@ export const MAX_SESSION_FILE_BYTES =
   Number(process.env.SANDAGENT_MAX_SESSION_BYTES) || 10 * 1024 * 1024; // 10 MB
 
 /**
- * Resolve a session file path by id without loading/parsing session contents.
+ * Resolve a session reference to an on-disk path without loading/parsing
+ * session contents.
  *
- * Pi session files are named `<timestamp>_<id>.jsonl`. This only reads
- * directory entry names — no content parsing.
+ * Accepts either:
+ *  - A full session file path (contains '/') — returned as-is.
+ *  - A bare pi session id — resolved against the pi sessions directory for
+ *    `cwd` by scanning filenames (`<timestamp>_<id>.jsonl`). Only entry names
+ *    are read; no JSON is parsed.
  *
  * @returns Full path to the session file, or undefined if not found.
  */
 export function resolveSessionPathById(
   cwd: string,
-  sessionId: string,
+  sessionIdOrPath: string,
 ): string | undefined {
+  if (sessionIdOrPath.includes("/")) return sessionIdOrPath;
   const tempMgr = SessionManager.create(cwd);
   const sessionsDir = tempMgr.getSessionDir();
   try {
-    const suffix = `_${sessionId}.jsonl`;
+    const suffix = `_${sessionIdOrPath}.jsonl`;
     const match = readdirSync(sessionsDir).find((f) => f.endsWith(suffix));
     return match ? join(sessionsDir, match) : undefined;
   } catch {
