@@ -6,6 +6,7 @@ import {
   extractLastCompactionSummary,
   isSessionFileTooLarge,
   MAX_SESSION_FILE_BYTES,
+  resolveSessionPathById,
 } from "../session-utils.js";
 
 describe("session-utils", () => {
@@ -145,6 +146,19 @@ describe("session-utils", () => {
       const file = join(tmpDir, "empty.jsonl");
       writeFileSync(file, "");
       expect(extractLastCompactionSummary(file)).toBeUndefined();
+    });
+  });
+
+  describe("resolveSessionPathById", () => {
+    it("returns the input unchanged when it already looks like a path", () => {
+      const p = "/tmp/pi-sessions/2026-07-03_abc.jsonl";
+      // No filesystem lookup — the caller owns paths that contain '/'.
+      expect(resolveSessionPathById(tmpDir, p)).toBe(p);
+    });
+
+    it("returns undefined when id cannot be resolved in the sessions dir", () => {
+      // tmpDir is not a real pi sessions dir; readdir throws → undefined.
+      expect(resolveSessionPathById(tmpDir, "sess_missing")).toBeUndefined();
     });
   });
 });
