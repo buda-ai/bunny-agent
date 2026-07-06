@@ -1,11 +1,12 @@
-# daemon: expose pi session directory via HTTP
+# session directory lookup: end-to-end from runner to SDK
 
-Date: 2026-07-04
+Date: 2026-07-04 (SDK helper added 2026-07-06)
 
 ## Summary
 
-Add a small introspection endpoint that surfaces pi-runner's on-disk session
-directory to external callers:
+Expose pi-runner's on-disk session directory to external callers all the
+way from the runner up through the SDK, so downstream consumers never
+have to hardcode pi's filesystem conventions:
 
 - `runner-pi` now exports `getSessionDir(cwd)` — a thin wrapper around
   `SessionManager.create(cwd).getSessionDir()`.
@@ -16,6 +17,11 @@ directory to external callers:
   both transports (standalone `server.ts` + Next.js `nextjs.ts`), returning
   `{ ok: true, data: { runner, cwd, dir } }` or `400` with the error
   message when the runner isn't supported.
+- `@bunny-agent/sdk` exports `getBunnyAgentSessionDir(daemonUrl, opts?)`
+  — a `fetch`-based helper that wraps the daemon endpoint, mirroring the
+  existing `isBunnyAgentDaemonHealthy` pattern. Downstream apps that only
+  depend on the SDK (e.g. buda) call one function instead of assembling
+  a URL and parsing the envelope.
 
 ## Motivation
 
@@ -50,6 +56,15 @@ patch to `piConfig.configDir`.
   - Wire `GET /api/coding/session/dir` on the Node `http` server.
 - `apps/daemon/src/nextjs.ts`
   - Wire the same endpoint on the Web `Request/Response` handler.
+- `packages/sdk/src/session-dir.ts` (new)
+  - `getBunnyAgentSessionDir(daemonUrl, opts?)` — wraps `fetch` +
+    envelope parsing so downstream consumers don't reimplement it.
+    Defaults: `runner = "pi"`, `cwd = "/agent"`. Throws with a
+    descriptive message when the daemon returns non-JSON, a failure
+    envelope, or a missing `data.dir`.
+- `packages/sdk/src/index.ts`
+  - Export `getBunnyAgentSessionDir` and
+    `GetBunnyAgentSessionDirOptions`.
 
 ## Tests
 
@@ -61,11 +76,16 @@ patch to `piConfig.configDir`.
   - 4 cases on the standalone server: default cwd, explicit cwd, omitted
     runner/cwd defaults, unsupported runner (400).
   - 2 cases through the Next handler: happy path + unsupported runner.
+- `packages/sdk/src/__tests__/session-dir.test.ts`
+  - 6 cases: default runner/cwd, custom runner/cwd, error envelope,
+    non-JSON body, missing `data.dir`, fetch failure. All stub
+    `globalThis.fetch`.
 
 ## Verification
 
 - `pnpm --filter @bunny-agent/runner-pi test` — 130 pass
 - `pnpm --filter @bunny-agent/daemon test` — 109 pass
+- `pnpm --filter @bunny-agent/sdk test` — 28 pass
 - `pnpm -r typecheck` — clean
 - `pnpm run -w lint` — clean
 
@@ -73,9 +93,10 @@ patch to `piConfig.configDir`.
 
 - CLI is intentionally not touched. This endpoint is daemon-scoped
   introspection; CLI users can `ls` locally and don't need a flag.
-- SDK/manager unchanged. External callers (like buda) hit the daemon
-  endpoint directly via sandock proxy; no new SDK method needed for the
-  current use case.
+- Manager package is unchanged. The SDK helper hits the daemon via
+  plain `fetch` (matching how it's typically reached — through a
+  sandock proxy URL that consumers already have) rather than via an
+  in-sandbox exec-based curl.
 - Only `pi` is supported at the harness layer. Adding `claude`/`codex`/
   etc. is one switch case each — done when a runner grows a stable
   session-directory concept.

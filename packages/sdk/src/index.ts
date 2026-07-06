@@ -64,5 +64,7 @@ export {
   getBunnyAgentUsage,
   submitAnswer,
 } from "./provider";
+export type { GetBunnyAgentSessionDirOptions } from "./session-dir";
+export { getBunnyAgentSessionDir } from "./session-dir";
 
 export const VERSION = "0.1.0";
