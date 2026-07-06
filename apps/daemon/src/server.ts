@@ -1,5 +1,6 @@
 import * as http from "node:http";
 import { URL } from "node:url";
+import { getSessionDirForRunner } from "@bunny-agent/runner-harness";
 import {
   type CodingRunBodyWithEnv,
   prepareCodingRunEnv,
@@ -7,7 +8,6 @@ import {
 import { parseMultipart } from "./multipart.js";
 import { DaemonRouter } from "./router.js";
 import { bunnyAgentRun } from "./routes/coding.js";
-import { codingSessionDir } from "./routes/coding-session-dir.js";
 import { fsDownload, fsUpload, fsWriteStream } from "./routes/fs.js";
 import { AppError, type AppState, fail, guessMimeType, ok } from "./utils.js";
 
@@ -55,11 +55,10 @@ export function createDaemon(config: DaemonConfig): http.Server {
       // Session directory lookup: /api/coding/session/dir?runner=pi&cwd=/agent
       if (method === "GET" && pathname === "/api/coding/session/dir") {
         try {
-          const result = codingSessionDir({
-            runner: url.searchParams.get("runner") ?? undefined,
-            cwd: url.searchParams.get("cwd") ?? undefined,
-          });
-          sendJson(res, 200, ok(result));
+          const runner = url.searchParams.get("runner") || "pi";
+          const cwd = url.searchParams.get("cwd") || "/agent";
+          const dir = getSessionDirForRunner(runner, cwd);
+          sendJson(res, 200, ok({ runner, cwd, dir }));
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           sendJson(res, 400, fail(msg));

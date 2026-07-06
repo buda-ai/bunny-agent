@@ -49,13 +49,12 @@ patch to `piConfig.configDir`.
     switch.
 - `packages/runner-harness/src/index.ts`
   - Export `getSessionDirForRunner`.
-- `apps/daemon/src/routes/coding-session-dir.ts` (new)
-  - `codingSessionDir({ runner, cwd })` handler with `pi` / `/agent`
-    defaults.
-- `apps/daemon/src/server.ts`
-  - Wire `GET /api/coding/session/dir` on the Node `http` server.
-- `apps/daemon/src/nextjs.ts`
-  - Wire the same endpoint on the Web `Request/Response` handler.
+- `apps/daemon/src/server.ts` / `apps/daemon/src/nextjs.ts`
+  - Wire `GET /api/coding/session/dir` on both transports. Handler is
+    inline — pulls `runner`/`cwd` from the query with `pi`/`/agent`
+    defaults, calls `getSessionDirForRunner`, wraps in the standard
+    envelope. No separate route file: dispatch stays local to the
+    transports that already build the URL.
 - `packages/sdk/src/session-dir.ts` (new)
   - `getBunnyAgentSessionDir(daemonUrl, opts?)` — wraps `fetch` +
     envelope parsing so downstream consumers don't reimplement it.
