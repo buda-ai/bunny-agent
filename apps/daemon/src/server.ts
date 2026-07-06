@@ -1,4 +1,6 @@
+import { createReadStream } from "node:fs";
 import * as http from "node:http";
+import { pipeline } from "node:stream/promises";
 import { URL } from "node:url";
 import {
   type CodingRunBodyWithEnv,
@@ -94,7 +96,7 @@ export function createDaemon(config: DaemonConfig): http.Server {
         return;
       }
 
-      // Binary file download: /api/fs/download?path=...
+      // Binary file download: /api/fs/download?path=... (streamed)
       if (method === "GET" && pathname === "/api/fs/download") {
         try {
           const filePath = url.searchParams.get("path");
@@ -104,16 +106,23 @@ export function createDaemon(config: DaemonConfig): http.Server {
             res.end(JSON.stringify(fail("path query parameter is required")));
             return;
           }
-          const { path: resolvedPath, buffer } = await fsDownload(state, {
+          const { path: resolvedPath, size } = await fsDownload(state, {
             path: filePath,
             volume,
           });
           const mimeType = guessMimeType(resolvedPath);
           res.writeHead(200, {
             "Content-Type": mimeType,
-            "Content-Length": buffer.length,
+            "Content-Length": size,
           });
-          res.end(buffer);
+          try {
+            await pipeline(createReadStream(resolvedPath), res);
+          } catch (streamErr) {
+            // Headers already sent; log and destroy so client sees a broken
+            // stream instead of a "success" without full bytes.
+            console.error("Unhandled request error (stream):", streamErr);
+            if (!res.destroyed) res.destroy();
+          }
         } catch (err) {
           const status = err instanceof AppError ? err.status : 500;
           const msg = err instanceof Error ? err.message : String(err);

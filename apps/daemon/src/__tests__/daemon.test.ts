@@ -143,6 +143,57 @@ describe("fs", () => {
   });
 });
 
+describe("fs download", () => {
+  it("streams raw file bytes with Content-Length and MIME type", async () => {
+    const payload = "line one\nline two\nline three\n";
+    await post("/api/fs/write", { path: "download-me.txt", content: payload });
+
+    const r = await fetch(`${BASE}/api/fs/download?path=download-me.txt`);
+    expect(r.status).toBe(200);
+    expect(r.headers.get("content-type")).toContain("text/plain");
+    expect(r.headers.get("content-length")).toBe(
+      String(Buffer.byteLength(payload)),
+    );
+
+    const bytes = await r.arrayBuffer();
+    expect(Buffer.from(bytes).toString("utf-8")).toBe(payload);
+  });
+
+  it("streams binary content without corrupting bytes", async () => {
+    // Bytes that would break under naive utf-8 round-tripping.
+    const raw = Buffer.from([0x00, 0xff, 0x7f, 0x80, 0xc3, 0x28, 0x89, 0xab]);
+    const targetDir = path.join(root, "bin");
+    await fs.mkdir(targetDir, { recursive: true });
+    await fs.writeFile(path.join(targetDir, "raw.bin"), raw);
+
+    const r = await fetch(`${BASE}/api/fs/download?path=bin/raw.bin`);
+    expect(r.status).toBe(200);
+    expect(r.headers.get("content-length")).toBe(String(raw.length));
+
+    const bytes = Buffer.from(await r.arrayBuffer());
+    expect(bytes.equals(raw)).toBe(true);
+  });
+
+  it("returns 400 when path query is missing", async () => {
+    const r = await fetch(`${BASE}/api/fs/download`);
+    expect(r.status).toBe(400);
+    const body = await r.json();
+    expect(body.ok).toBe(false);
+  });
+
+  it("returns 400 when target is a directory", async () => {
+    const dir = "some-dir";
+    await post("/api/fs/mkdir", { path: dir });
+    const r = await fetch(
+      `${BASE}/api/fs/download?path=${encodeURIComponent(dir)}`,
+    );
+    expect(r.status).toBe(400);
+    const body = await r.json();
+    expect(body.ok).toBe(false);
+    expect(body.error).toContain("directory");
+  });
+});
+
 describe("fs write-stream", () => {
   it("streams raw upload bytes into the target file", async () => {
     const payload = Buffer.from("hello-stream-upload");
