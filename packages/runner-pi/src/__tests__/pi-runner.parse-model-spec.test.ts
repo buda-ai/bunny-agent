@@ -88,7 +88,7 @@ describe("resolveImageModelName", () => {
 });
 
 describe("stripLLMThoughtSignaturesFromSessionManager", () => {
-  it("strips thought signatures for OpenAI Responses history", () => {
+  it("strips thought signatures for non-Gemini history", () => {
     const assistantMessage = {
       role: "assistant",
       id: "msg_keep__thought__not-a-tool-id",
@@ -121,8 +121,9 @@ describe("stripLLMThoughtSignaturesFromSessionManager", () => {
     };
 
     stripLLMThoughtSignaturesFromSessionManager(sessionManager, {
-      provider: "openai-responses",
-      api: "openai-responses",
+      provider: "openai",
+      api: "openai-completions",
+      id: "gpt-5.1",
     });
 
     expect(assistantMessage.id).toBe("msg_keep__thought__not-a-tool-id");
@@ -133,7 +134,7 @@ describe("stripLLMThoughtSignaturesFromSessionManager", () => {
     expect(toolResultMessage.toolCallId).toBe("call_abc");
   });
 
-  it("keeps non-Responses history unchanged", () => {
+  it("keeps Gemini history unchanged", () => {
     const messages = [
       {
         role: "assistant",
@@ -148,6 +149,7 @@ describe("stripLLMThoughtSignaturesFromSessionManager", () => {
     stripLLMThoughtSignaturesFromSessionManager(sessionManager, {
       provider: "google",
       api: "google",
+      id: "gemini-2.5-pro",
     });
 
     expect(

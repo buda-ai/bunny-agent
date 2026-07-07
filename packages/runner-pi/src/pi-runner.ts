@@ -106,14 +106,18 @@ function applyAllowedTools(
 export function shouldStripLLMThoughtSignaturesForModel(model: {
   provider?: string;
   api?: string;
+  id?: string;
 }): boolean {
-  const provider = model.provider ?? "";
-  const api = model.api ?? "";
-  return (
-    provider === "openai-responses" ||
-    provider === "azure-openai-responses" ||
-    api === "openai-responses" ||
-    api === "azure-openai-responses"
+  const provider = (model.provider ?? "").toLowerCase();
+  const api = (model.api ?? "").toLowerCase();
+  const id = (model.id ?? "").toLowerCase();
+  return !(
+    provider === "google" ||
+    provider === "gemini" ||
+    provider === "google-ai-studio" ||
+    provider === "vertex-ai" ||
+    api.includes("gemini") ||
+    id.includes("gemini")
   );
 }
 
@@ -125,7 +129,7 @@ export function stripLLMThoughtSignatureFromId(id: string): string {
 
 export function stripLLMThoughtSignaturesFromSessionManager(
   sessionManager: unknown,
-  model: { provider?: string; api?: string },
+  model: { provider?: string; api?: string; id?: string },
 ): void {
   if (!shouldStripLLMThoughtSignaturesForModel(model)) return;
 
