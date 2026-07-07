@@ -119,18 +119,25 @@ export async function fsRead(state: AppState, q: PathQuery) {
 }
 
 /**
- * Read a file as raw binary Buffer (for serving images, PDFs, etc.).
- * Unlike fsRead which returns UTF-8 text inside JSON, this returns { path, buffer }
- * so the HTTP layer can stream the raw bytes with the correct Content-Type.
+ * Resolve a downloadable file's path and size without loading it into memory.
+ *
+ * Unlike {@link fsRead} which returns UTF-8 text inside JSON, this returns
+ * only the resolved path + size so the HTTP transport can `createReadStream`
+ * and pipe the raw bytes end-to-end (constant memory regardless of file size).
+ * The transport is responsible for picking the Content-Type via
+ * {@link guessMimeType} and for handling stream errors.
  */
 export async function fsDownload(
   state: AppState,
   q: PathQuery,
-): Promise<{ path: string; buffer: Buffer }> {
+): Promise<{ path: string; size: number }> {
   const root = resolveVolumeRoot(state, q.volume);
   const target = resolveUnderRoot(root, q.path);
-  const buffer = await fs.readFile(target);
-  return { path: target, buffer };
+  const stat = await fs.stat(target);
+  if (stat.isDirectory()) {
+    throw new AppError(400, `Cannot download a directory: ${target}`);
+  }
+  return { path: target, size: stat.size };
 }
 
 export async function fsStat(state: AppState, q: PathQuery) {

@@ -15,6 +15,7 @@
  * Requests to /api/daemon/api/coding/run    → daemon /api/coding/run (NDJSON stream)
  */
 
+import { createReadStream } from "node:fs";
 import { Readable } from "node:stream";
 import { prepareCodingRunEnv } from "./coding-run-env.js";
 import { parseMultipart } from "./multipart.js";
@@ -91,7 +92,7 @@ export function createNextHandler(opts: { root: string; prefix?: string }) {
       }
     }
 
-    // Binary file download: /api/fs/download?path=...
+    // Binary file download: /api/fs/download?path=... (streamed)
     if (method === "GET" && pathname === "/api/fs/download") {
       try {
         const filePath = url.searchParams.get("path");
@@ -101,16 +102,21 @@ export function createNextHandler(opts: { root: string; prefix?: string }) {
             status: 400,
           });
         }
-        const { path: resolvedPath, buffer } = await fsDownload(state, {
+        const { path: resolvedPath, size } = await fsDownload(state, {
           path: filePath,
           volume,
         });
         const mimeType = guessMimeType(resolvedPath);
-        return new Response(buffer, {
+        // Node's createReadStream is an async iterable — wrap it in a Web
+        // ReadableStream so we can hand it to `new Response(...)` and stream
+        // the body end-to-end without buffering the whole file.
+        const nodeStream = createReadStream(resolvedPath);
+        const webStream = Readable.toWeb(nodeStream) as ReadableStream;
+        return new Response(webStream, {
           status: 200,
           headers: {
             "Content-Type": mimeType,
-            "Content-Length": String(buffer.length),
+            "Content-Length": String(size),
           },
         });
       } catch (err) {
