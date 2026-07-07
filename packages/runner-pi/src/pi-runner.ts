@@ -26,6 +26,7 @@ import { buildToolDefinitionsFromRefs, type PiToolRef } from "./tool-refs.js";
 import { getUsageFromAgentEndMessages } from "./usage-metadata.js";
 
 const LOG_PREFIX = "[bunny-agent:pi]";
+const LLM_THOUGHT_SIGNATURE_SEPARATOR = "__thought__";
 
 export interface PiRunnerOptions {
   model?: string;
@@ -100,6 +101,109 @@ function applyAllowedTools(
   if (!allowedTools) return tools;
   const allowed = new Set(allowedTools);
   return tools.filter((tool) => allowed.has(tool.name));
+}
+
+export function shouldStripLLMThoughtSignaturesForModel(model: {
+  provider?: string;
+  api?: string;
+}): boolean {
+  const provider = model.provider ?? "";
+  const api = model.api ?? "";
+  return (
+    provider === "openai-responses" ||
+    provider === "azure-openai-responses" ||
+    api === "openai-responses" ||
+    api === "azure-openai-responses"
+  );
+}
+
+export function stripLLMThoughtSignatureFromId(id: string): string {
+  const separatorIndex = id.indexOf(LLM_THOUGHT_SIGNATURE_SEPARATOR);
+  if (separatorIndex === -1) return id;
+  return id.slice(0, separatorIndex);
+}
+
+export function stripLLMThoughtSignaturesFromSessionManager(
+  sessionManager: unknown,
+  model: { provider?: string; api?: string },
+): void {
+  if (!shouldStripLLMThoughtSignaturesForModel(model)) return;
+
+  const manager = sessionManager as {
+    getEntries?: () => unknown[];
+    buildSessionContext?: () => { messages?: unknown[] };
+  };
+  const entries = manager.getEntries?.();
+  if (Array.isArray(entries)) {
+    for (const entry of entries) {
+      if (entry == null || typeof entry !== "object") continue;
+      const message = (entry as { type?: string; message?: unknown }).message;
+      if ((entry as { type?: string }).type === "message") {
+        stripLLMThoughtSignaturesFromMessage(message);
+      }
+    }
+    return;
+  }
+
+  const context = (
+    sessionManager as {
+      buildSessionContext?: () => { messages?: unknown[] };
+    }
+  ).buildSessionContext?.();
+  const messages = context?.messages;
+  if (!Array.isArray(messages)) return;
+
+  for (const message of messages) {
+    stripLLMThoughtSignaturesFromMessage(message);
+  }
+}
+
+function stripLLMThoughtSignaturesFromMessage(message: unknown): void {
+  if (message == null || typeof message !== "object") return;
+  const msg = message as {
+    role?: string;
+    toolCallId?: string;
+    tool_call_id?: string;
+    content?: unknown;
+  };
+
+  if (typeof msg.toolCallId === "string") {
+    msg.toolCallId = stripLLMThoughtSignatureFromId(msg.toolCallId);
+  }
+  if (typeof msg.tool_call_id === "string") {
+    msg.tool_call_id = stripLLMThoughtSignatureFromId(msg.tool_call_id);
+  }
+
+  if (!Array.isArray(msg.content)) return;
+  for (const block of msg.content) {
+    if (block == null || typeof block !== "object") continue;
+    const contentBlock = block as {
+      type?: string;
+      id?: string;
+      toolCallId?: string;
+      tool_call_id?: string;
+      call_id?: string;
+    };
+    if (contentBlock.type !== "toolCall") continue;
+    if (typeof contentBlock.id === "string") {
+      contentBlock.id = stripLLMThoughtSignatureFromId(contentBlock.id);
+    }
+    if (typeof contentBlock.toolCallId === "string") {
+      contentBlock.toolCallId = stripLLMThoughtSignatureFromId(
+        contentBlock.toolCallId,
+      );
+    }
+    if (typeof contentBlock.tool_call_id === "string") {
+      contentBlock.tool_call_id = stripLLMThoughtSignatureFromId(
+        contentBlock.tool_call_id,
+      );
+    }
+    if (typeof contentBlock.call_id === "string") {
+      contentBlock.call_id = stripLLMThoughtSignatureFromId(
+        contentBlock.call_id,
+      );
+    }
+  }
 }
 
 export function parseModelSpec(model: string): {
@@ -353,6 +457,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           }
           return SessionManager.create(cwd);
         })();
+        stripLLMThoughtSignaturesFromSessionManager(sessionManager, model);
 
         const resourceLoader = options.skillPaths
           ? new BunnyAgentResourceLoader({

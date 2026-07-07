@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { parseModelSpec, resolveImageModelName } from "../pi-runner.js";
+import {
+  parseModelSpec,
+  resolveImageModelName,
+  stripLLMThoughtSignaturesFromSessionManager,
+} from "../pi-runner.js";
 
 describe("parseModelSpec", () => {
   it("parses standard provider:model format", () => {
@@ -16,7 +20,7 @@ describe("parseModelSpec", () => {
     });
   });
 
-  it("preserves slashes in model name (LiteLLM routing)", () => {
+  it("preserves slashes in model name (LLM gateway routing)", () => {
     expect(parseModelSpec("openai:openai/gpt-4o")).toEqual({
       provider: "openai",
       modelName: "openai/gpt-4o",
@@ -74,11 +78,81 @@ describe("resolveImageModelName", () => {
     ).toBeUndefined();
   });
 
-  it("works with LiteLLM-style model names", () => {
+  it("works with LLM gateway-style model names", () => {
     expect(
       resolveImageModelName("openai", {
         IMAGE_GENERATION_MODEL: "openai:gemini-3-pro-image",
       }),
     ).toBe("gemini-3-pro-image");
+  });
+});
+
+describe("stripLLMThoughtSignaturesFromSessionManager", () => {
+  it("strips thought signatures for OpenAI Responses history", () => {
+    const assistantMessage = {
+      role: "assistant",
+      id: "msg_keep__thought__not-a-tool-id",
+      content: [
+        {
+          type: "toolCall",
+          id: "call_abc__thought__signature",
+          name: "read",
+          arguments: { path: "/tmp/a" },
+        },
+      ],
+    };
+    const toolResultMessage = {
+      role: "toolResult",
+      toolCallId: "call_abc__thought__signature",
+      content: [{ type: "text", text: "ok" }],
+    };
+    const entries = [
+      {
+        type: "message",
+        message: assistantMessage,
+      },
+      {
+        type: "message",
+        message: toolResultMessage,
+      },
+    ];
+    const sessionManager = {
+      getEntries: () => entries,
+    };
+
+    stripLLMThoughtSignaturesFromSessionManager(sessionManager, {
+      provider: "openai-responses",
+      api: "openai-responses",
+    });
+
+    expect(assistantMessage.id).toBe("msg_keep__thought__not-a-tool-id");
+    expect(
+      (assistantMessage.content as Array<{ id?: string }> | undefined)?.[0]
+        ?.id,
+    ).toBe("call_abc");
+    expect(toolResultMessage.toolCallId).toBe("call_abc");
+  });
+
+  it("keeps non-Responses history unchanged", () => {
+    const messages = [
+      {
+        role: "assistant",
+        content: [{ type: "toolCall", id: "call_abc__thought__signature" }],
+      },
+      { role: "toolResult", toolCallId: "call_abc__thought__signature" },
+    ];
+    const sessionManager = {
+      buildSessionContext: () => ({ messages }),
+    };
+
+    stripLLMThoughtSignaturesFromSessionManager(sessionManager, {
+      provider: "google",
+      api: "google",
+    });
+
+    expect(
+      (messages[0]?.content as Array<{ id?: string }> | undefined)?.[0]?.id,
+    ).toBe("call_abc__thought__signature");
+    expect(messages[1]?.toolCallId).toBe("call_abc__thought__signature");
   });
 });
