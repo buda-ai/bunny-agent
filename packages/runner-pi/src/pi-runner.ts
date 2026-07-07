@@ -104,21 +104,10 @@ function applyAllowedTools(
 }
 
 export function shouldStripLLMThoughtSignaturesForModel(model: {
-  provider?: string;
-  api?: string;
   id?: string;
 }): boolean {
-  const provider = (model.provider ?? "").toLowerCase();
-  const api = (model.api ?? "").toLowerCase();
   const id = (model.id ?? "").toLowerCase();
-  return !(
-    provider === "google" ||
-    provider === "gemini" ||
-    provider === "google-ai-studio" ||
-    provider === "vertex-ai" ||
-    api.includes("gemini") ||
-    id.includes("gemini")
-  );
+  return !id.includes("gemini");
 }
 
 export function stripLLMThoughtSignatureFromId(id: string): string {
@@ -129,7 +118,7 @@ export function stripLLMThoughtSignatureFromId(id: string): string {
 
 export function stripLLMThoughtSignaturesFromSessionManager(
   sessionManager: unknown,
-  model: { provider?: string; api?: string; id?: string },
+  model: { id?: string },
 ): void {
   if (!shouldStripLLMThoughtSignaturesForModel(model)) return;
 

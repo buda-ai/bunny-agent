@@ -121,8 +121,6 @@ describe("stripLLMThoughtSignaturesFromSessionManager", () => {
     };
 
     stripLLMThoughtSignaturesFromSessionManager(sessionManager, {
-      provider: "openai",
-      api: "openai-completions",
       id: "gpt-5.1",
     });
 
@@ -147,8 +145,6 @@ describe("stripLLMThoughtSignaturesFromSessionManager", () => {
     };
 
     stripLLMThoughtSignaturesFromSessionManager(sessionManager, {
-      provider: "google",
-      api: "google",
       id: "gemini-2.5-pro",
     });
 
