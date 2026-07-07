@@ -98,6 +98,14 @@ function mergeToolRefs(
   return merged.length > 0 ? merged : undefined;
 }
 
+function extractTextContent(content: Message["content"]): string {
+  if (typeof content === "string") return content;
+  return content
+    .filter((p): p is { type: "text"; text: string } => p.type === "text")
+    .map((p) => p.text)
+    .join("\n");
+}
+
 function getLastUserTextFromMessages(messages: Message[]): string {
   // Collect all trailing user messages (handles batched/queued messages)
   const trailingUserMessages: Message[] = [];
@@ -110,15 +118,63 @@ function getLastUserTextFromMessages(messages: Message[]): string {
   }
   if (trailingUserMessages.length === 0) return "";
   return trailingUserMessages
-    .map((msg) => {
-      const c = msg.content;
-      if (typeof c === "string") return c;
-      return c
-        .filter((p): p is { type: "text"; text: string } => p.type === "text")
-        .map((p) => p.text)
-        .join("\n");
-    })
+    .map((msg) => extractTextContent(msg.content))
     .join("\n\n");
+}
+
+/**
+ * Serialize the full transcript into a single userInput string.
+ *
+ * Used when the runtime has no session context to hydrate from — i.e. neither
+ * `resume` (existing runner session id) nor `forkFrom` (parent session to
+ * snapshot-clone) is set. In that case the runner starts a brand-new session
+ * whose only visible input is the `userInput` payload; if we passed only the
+ * last user turn the runner would lose all prior conversation, which is what
+ * happened when share-continued fallback sessions arrived at pi with just
+ * the current question instead of the copied `agent_messages` history.
+ *
+ * Format: prior turns labeled by role, then the current user message under
+ * a "Current message" header so the runner treats it as the actual prompt.
+ */
+function serializeMessagesToUserInput(messages: Message[]): string {
+  // Split trailing consecutive user messages (the "current" turn) from history.
+  let currentStart = messages.length;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role === "user") {
+      currentStart = i;
+    } else {
+      break;
+    }
+  }
+
+  const history = messages.slice(0, currentStart);
+  const current = messages.slice(currentStart);
+
+  const currentText = current
+    .map((msg) => extractTextContent(msg.content))
+    .filter((t) => t.length > 0)
+    .join("\n\n");
+
+  if (history.length === 0) return currentText;
+
+  const historyLines: string[] = [];
+  for (const msg of history) {
+    const text = extractTextContent(msg.content);
+    if (text.length === 0) continue;
+    const label =
+      msg.role === "user"
+        ? "User"
+        : msg.role === "assistant"
+          ? "Assistant"
+          : "System";
+    historyLines.push(`${label}: ${text}`);
+  }
+
+  if (historyLines.length === 0) return currentText;
+
+  const historyBlock = `Previous conversation:\n\n${historyLines.join("\n\n")}`;
+  if (currentText.length === 0) return historyBlock;
+  return `${historyBlock}\n\nCurrent message:\n\n${currentText}`;
 }
 
 function createEmptyUsage(): LanguageModelV3Usage {
@@ -400,10 +456,22 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
     const runner = this.options.runner;
     const cwd = this.options.cwd ?? cwdFallback;
 
+    // When the runner has session context to hydrate from (resume points at
+    // an existing runner session, or forkFrom snapshot-clones a parent), send
+    // only the last user turn — history lives in the runner's session file.
+    // Otherwise it's a fresh session with no server-side history, so serialize
+    // the full transcript into userInput so the runner sees prior turns.
+    const hasRuntimeHistory = Boolean(
+      this.options.resume ?? this.options.forkFrom,
+    );
+    const userInput = hasRuntimeHistory
+      ? getLastUserTextFromMessages(messages)
+      : serializeMessagesToUserInput(messages);
+
     return {
       runner: runner.runnerType ?? "claude",
       model: this.modelId,
-      userInput: getLastUserTextFromMessages(messages),
+      userInput,
       cwd,
       resume: this.options.resume,
       forkFrom: this.options.forkFrom,
