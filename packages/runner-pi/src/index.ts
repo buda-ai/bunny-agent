@@ -1,4 +1,10 @@
 export type { ToolDefinition } from "@earendil-works/pi-coding-agent";
+export {
+  type ForkPiSessionOptions,
+  type ForkPiSessionResult,
+  ForkSourceNotFoundError,
+  forkPiSession,
+} from "./fork.js";
 export type { ImageToolDetails, ImageToolUsageDetails } from "./image-tools.js";
 export {
   createPiRunner,

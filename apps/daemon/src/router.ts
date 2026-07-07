@@ -2,6 +2,7 @@ import * as fsRoutes from "./routes/fs.js";
 import * as gitRoutes from "./routes/git.js";
 import { healthHandler } from "./routes/health.js";
 import * as processRoutes from "./routes/processes.js";
+import { sessionFork } from "./routes/sessions.js";
 import * as siteRoutes from "./routes/site.js";
 import { volumesEnsure, volumesList, volumesRemove } from "./routes/volumes.js";
 import type { ApiEnvelope, AppState } from "./utils.js";
@@ -61,6 +62,7 @@ export class DaemonRouter {
       ["POST", "/api/site/deploy", (s, b) => siteRoutes.deploy(s, b)],
       ["POST", "/api/site/redeploy", (s, b) => siteRoutes.redeploy(s, b)],
       ["POST", "/api/site/delete", (s, b) => siteRoutes.deleteSite(s, b)],
+      ["POST", "/api/session/fork", (s, b) => sessionFork(s, b)],
     ];
   }
 

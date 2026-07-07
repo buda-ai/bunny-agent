@@ -1,3 +1,7 @@
+export {
+  forkOpenCodeSession,
+  RunnerForkUnsupportedError,
+} from "./fork.js";
 export type {
   OpenCodeRunner,
   OpenCodeRunnerOptions,

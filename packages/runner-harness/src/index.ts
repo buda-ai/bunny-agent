@@ -1,5 +1,12 @@
 export type { BaseRunnerOptions } from "@bunny-agent/runner-claude";
 export { BUNNY_AGENT_SYSTEM_PROMPT } from "./agent-context.js";
+export {
+  type ForkSessionOptions,
+  type ForkSessionResult,
+  ForkSourceNotFoundError,
+  forkSession,
+  RunnerForkUnsupportedError,
+} from "./fork.js";
 export { loadSystemPrompt } from "./prompt.js";
 export type { RunnerCoreOptions } from "./runner.js";
 export { createRunner } from "./runner.js";
