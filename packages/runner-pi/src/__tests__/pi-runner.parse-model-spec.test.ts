@@ -126,8 +126,7 @@ describe("stripLLMThoughtSignaturesFromSessionManager", () => {
 
     expect(assistantMessage.id).toBe("msg_keep__thought__not-a-tool-id");
     expect(
-      (assistantMessage.content as Array<{ id?: string }> | undefined)?.[0]
-        ?.id,
+      (assistantMessage.content as Array<{ id?: string }> | undefined)?.[0]?.id,
     ).toBe("call_abc");
     expect(toolResultMessage.toolCallId).toBe("call_abc");
   });
