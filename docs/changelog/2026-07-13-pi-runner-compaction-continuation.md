@@ -10,7 +10,7 @@
 - Deferred final stream completion until the full Pi prompt, including automatic compaction and continuation, has settled.
 - Buffered intermediate `agent_end` events and finalized the stream from the last event only.
 - Added regression coverage for overflow recovery continuing successfully without exposing the intermediate context-window error, while preserving terminal model errors.
-- Initialized the buffered terminal event explicitly so clean TypeScript builds can prove it is safe to read before any `agent_end` event arrives.
+- Declared the buffered terminal event as optional so clean TypeScript builds can prove it is safe to read before any `agent_end` event arrives.
 
 ## Verification
 
@@ -18,5 +18,6 @@
 - `pnpm --filter @bunny-agent/runner-pi typecheck`
 - `pnpm --filter @bunny-agent/runner-pi build`
 - `pnpm build`
+- `pnpm run -w lint`
 - `pnpm exec biome check packages/runner-pi/src/pi-runner.ts packages/runner-pi/src/__tests__/pi-runner.test.ts docs/changelog/2026-07-13-pi-runner-compaction-continuation.md`
 - `git diff --check`

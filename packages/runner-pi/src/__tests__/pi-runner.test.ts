@@ -642,9 +642,7 @@ describe("createPiRunner", () => {
     expect(chunks.some((c) => c.includes("after compaction"))).toBe(true);
     expect(chunks.some((c) => c.includes('"type":"error"'))).toBe(false);
 
-    const finishChunks = chunks.filter((c) =>
-      c.includes('"type":"finish"'),
-    );
+    const finishChunks = chunks.filter((c) => c.includes('"type":"finish"'));
     expect(finishChunks).toHaveLength(1);
     expect(finishChunks[0]).toContain('"finishReason":"stop"');
     expect(chunks.filter((c) => c.includes("[DONE]"))).toHaveLength(1);
@@ -663,8 +661,7 @@ describe("createPiRunner", () => {
     expect(
       chunks.some(
         (c) =>
-          c.includes('"type":"finish"') &&
-          c.includes('"finishReason":"error"'),
+          c.includes('"type":"finish"') && c.includes('"finishReason":"error"'),
       ),
     ).toBe(true);
     expect(chunks.filter((c) => c.includes("[DONE]"))).toHaveLength(1);
