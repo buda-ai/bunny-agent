@@ -11,7 +11,9 @@ class MockSession {
   private behavior:
     | "normal"
     | "pending"
+    | "terminal_error"
     | "tool_error"
+    | "overflow_compaction_continue"
     | "text_tool_text_with_boundaries" = "normal";
 
   subscribe(fn: Listener): () => void {
@@ -25,7 +27,9 @@ class MockSession {
     behavior:
       | "normal"
       | "pending"
+      | "terminal_error"
       | "tool_error"
+      | "overflow_compaction_continue"
       | "text_tool_text_with_boundaries",
   ): void {
     this.behavior = behavior;
@@ -36,6 +40,26 @@ class MockSession {
       return new Promise(() => {
         // Keep pending forever so the abort test can fire.
       });
+    }
+
+    if (this.behavior === "terminal_error") {
+      this.emit({
+        type: "agent_end",
+        messages: [
+          {
+            role: "assistant",
+            stopReason: "error",
+            errorMessage: "Terminal model error",
+            usage: {
+              input: 0,
+              output: 0,
+              cacheRead: 0,
+              cacheWrite: 0,
+            },
+          },
+        ],
+      });
+      return;
     }
 
     if (this.behavior === "tool_error") {
@@ -57,6 +81,73 @@ class MockSession {
         isError: true,
       });
       this.emit({ type: "agent_end", messages: [] });
+      return;
+    }
+
+    if (this.behavior === "overflow_compaction_continue") {
+      this.emit({
+        type: "message_update",
+        assistantMessageEvent: {
+          type: "text_delta",
+          delta: "before compaction",
+        },
+      });
+      this.emit({
+        type: "agent_end",
+        messages: [
+          {
+            role: "assistant",
+            stopReason: "error",
+            errorMessage: "Your input exceeds the context window.",
+            usage: {
+              input: 0,
+              output: 0,
+              cacheRead: 0,
+              cacheWrite: 0,
+            },
+          },
+        ],
+      });
+
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      this.emit({ type: "compaction_start", reason: "overflow" });
+      this.emit({
+        type: "compaction_end",
+        reason: "overflow",
+        result: {
+          summary: "Compacted context",
+          firstKeptEntryId: "kept-entry",
+          tokensBefore: 130000,
+        },
+        aborted: false,
+        willRetry: true,
+      });
+      this.emit({
+        type: "message_update",
+        assistantMessageEvent: { type: "text_start" },
+      });
+      this.emit({
+        type: "message_update",
+        assistantMessageEvent: {
+          type: "text_delta",
+          delta: "after compaction",
+        },
+      });
+      this.emit({
+        type: "agent_end",
+        messages: [
+          {
+            role: "assistant",
+            stopReason: "stop",
+            usage: {
+              input: 100,
+              output: 20,
+              cacheRead: 0,
+              cacheWrite: 0,
+            },
+          },
+        ],
+      });
       return;
     }
 
@@ -138,7 +229,9 @@ const createdSessions: MockSession[] = [];
 let nextSessionBehavior:
   | "normal"
   | "pending"
+  | "terminal_error"
   | "tool_error"
+  | "overflow_compaction_continue"
   | "text_tool_text_with_boundaries" = "normal";
 
 /** When set, `createAgentSession` seeds `agent.state.systemPrompt` (simulates Pi after _rebuildSystemPrompt). */
@@ -534,6 +627,44 @@ describe("createPiRunner", () => {
     expect(chunks.some((c) => c.includes('"type":"error"'))).toBe(true);
     expect(chunks.some((c) => c.includes('"type":"finish"'))).toBe(true);
     expect(chunks.some((c) => c.includes("[DONE]"))).toBe(true);
+  });
+
+  it("waits for overflow compaction and continuation before finishing", async () => {
+    nextSessionBehavior = "overflow_compaction_continue";
+    const runner = createPiRunner({ model: "google:gemini-2.5-pro" });
+    const chunks: string[] = [];
+
+    for await (const chunk of runner.run("continue after compaction")) {
+      chunks.push(chunk);
+    }
+
+    expect(chunks.some((c) => c.includes("before compaction"))).toBe(true);
+    expect(chunks.some((c) => c.includes("after compaction"))).toBe(true);
+    expect(chunks.some((c) => c.includes('"type":"error"'))).toBe(false);
+
+    const finishChunks = chunks.filter((c) => c.includes('"type":"finish"'));
+    expect(finishChunks).toHaveLength(1);
+    expect(finishChunks[0]).toContain('"finishReason":"stop"');
+    expect(chunks.filter((c) => c.includes("[DONE]"))).toHaveLength(1);
+  });
+
+  it("emits an error when the final agent_end remains an error", async () => {
+    nextSessionBehavior = "terminal_error";
+    const runner = createPiRunner({ model: "google:gemini-2.5-pro" });
+    const chunks: string[] = [];
+
+    for await (const chunk of runner.run("fail after retries")) {
+      chunks.push(chunk);
+    }
+
+    expect(chunks.some((c) => c.includes("Terminal model error"))).toBe(true);
+    expect(
+      chunks.some(
+        (c) =>
+          c.includes('"type":"finish"') && c.includes('"finishReason":"error"'),
+      ),
+    ).toBe(true);
+    expect(chunks.filter((c) => c.includes("[DONE]"))).toHaveLength(1);
   });
 
   it("creates separate text parts for text before and after tool", async () => {
