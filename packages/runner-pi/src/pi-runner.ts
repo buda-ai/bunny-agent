@@ -517,7 +517,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
         let finalAgentEnd: Extract<
           AgentSessionEvent,
           { type: "agent_end" }
-        >;
+        > | undefined = undefined;
         let aborted = false;
         let wakeConsumer: (() => void) | null = null;
 
