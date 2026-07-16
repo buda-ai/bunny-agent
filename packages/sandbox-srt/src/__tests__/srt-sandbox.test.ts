@@ -1,10 +1,10 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, execSync } from "node:child_process";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import type { SandboxHandle } from "@bunny-agent/manager";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { SrtSandbox } from "../srt-sandbox.js";
+import { buildInstallHint, SrtSandbox } from "../srt-sandbox.js";
 
 /**
  * These are real isolation tests: they execute commands through the actual
@@ -152,4 +152,195 @@ describe.skipIf(!sandboxingAvailable)("SrtSandbox (real isolation)", () => {
     }
     expect(deniedSomewhere).toBe(true);
   }, 120000);
+
+  it("abort/timeout leaves no orphaned grandchild process (PID namespace)", async () => {
+    // LocalMachine (no isolation) needs its own process-group kill logic to
+    // catch backgrounded grandchildren on abort/timeout (see
+    // sandbox-local's local-machine.test.ts). SrtSandbox doesn't need that
+    // extra mechanism: srt passes bwrap `--unshare-pid`, so the kernel tears
+    // down every process in that PID namespace the moment its init process
+    // dies — this test locks that guarantee in so a future srt/bwrap flag
+    // change can't silently regress it.
+    const sandbox = new SrtSandbox({ workdir });
+    const handle = await sandbox.attach();
+    const marker = `srt-orphan-test-${process.pid}-${Date.now()}`;
+
+    const controller = new AbortController();
+    const consume = (async () => {
+      try {
+        for await (const chunk of handle.exec(
+          [
+            "bash",
+            "-c",
+            `(exec -a ${marker} sleep 60) & echo started; sleep 60`,
+          ],
+          { signal: controller.signal },
+        )) {
+          void chunk;
+        }
+      } catch {
+        // Expected: exec() rejects once aborted.
+      }
+    })();
+
+    await new Promise((r) => setTimeout(r, 3000));
+    controller.abort();
+    await consume;
+    await new Promise((r) => setTimeout(r, 3000));
+
+    let survived = false;
+    try {
+      execSync(`pgrep -f -x "${marker} 60"`, { stdio: "ignore" });
+      survived = true;
+    } catch {
+      survived = false; // pgrep exits non-zero when nothing matches
+    }
+    expect(survived).toBe(false);
+  }, 120000);
+
+  it("destroy() removes the generated srt-settings temp directory", async () => {
+    // Regression: ensureSettingsFile() mkdtemp's a `srt-sandbox-*` dir under
+    // the OS temp dir for the generated policy file, but nothing removed it
+    // — every SrtSandbox instance that ran a command leaked one directory
+    // for the life of the host. Confirmed for real: a debugging session
+    // running this suite repeatedly had accumulated 80+ leaked directories
+    // in /tmp before this fix.
+    const before = new Set(
+      (await fs.readdir(os.tmpdir())).filter((d) =>
+        d.startsWith("srt-sandbox-"),
+      ),
+    );
+
+    const sandbox = new SrtSandbox({ workdir });
+    const handle = await sandbox.attach();
+    const result = await run(handle, "echo hi");
+    expect(result.ok).toBe(true);
+
+    const afterRun = new Set(
+      (await fs.readdir(os.tmpdir())).filter((d) =>
+        d.startsWith("srt-sandbox-"),
+      ),
+    );
+    const created = [...afterRun].filter((d) => !before.has(d));
+    expect(created.length).toBeGreaterThan(0);
+
+    await handle.destroy();
+
+    const afterDestroy = new Set(
+      (await fs.readdir(os.tmpdir())).filter((d) =>
+        d.startsWith("srt-sandbox-"),
+      ),
+    );
+    for (const dir of created) {
+      expect(afterDestroy.has(dir)).toBe(false);
+    }
+  }, 120000);
+});
+
+describe("buildInstallHint", () => {
+  it("suggests installing all dependencies named in srt's message", () => {
+    const hint = buildInstallHint(
+      "Sandbox dependencies not available: ripgrep (rg) not found, bubblewrap (bwrap) not installed, socat not installed",
+    );
+    expect(hint).toContain("apt-get install -y ripgrep bubblewrap socat");
+    expect(hint).toContain("brew install ripgrep socat");
+    expect(hint).toContain("userns");
+  });
+
+  it("only mentions what the message actually names as missing", () => {
+    const hint = buildInstallHint(
+      "Sandbox dependencies not available: socat not installed",
+    );
+    expect(hint).toContain("apt-get install -y socat");
+    expect(hint).not.toContain("ripgrep");
+    expect(hint).not.toContain("bubblewrap");
+  });
+
+  it("returns an empty string for a message naming no known dependency", () => {
+    expect(buildInstallHint("some unrelated failure")).toBe("");
+  });
+});
+
+/**
+ * Preflight-check tests use a fake `srtCommand` (a tiny throwaway script)
+ * instead of the real srt/bwrap wrapper, so they exercise attach()'s
+ * fail-fast behavior deterministically on any platform/CI environment —
+ * unlike the "real isolation" suite above, they don't need bubblewrap,
+ * socat, or ripgrep actually installed.
+ */
+describe("SrtSandbox preflight check (fake wrapper)", () => {
+  let workdir: string;
+
+  beforeEach(async () => {
+    workdir = await fs.mkdtemp(path.join(os.tmpdir(), "srt-preflight-wd-"));
+  });
+
+  afterEach(async () => {
+    await fs.rm(workdir, { recursive: true, force: true }).catch(() => {});
+  });
+
+  async function writeFakeSrt(script: string): Promise<string[]> {
+    const scriptPath = path.join(workdir, "fake-srt.cjs");
+    await fs.writeFile(scriptPath, script);
+    return [process.execPath, scriptPath];
+  }
+
+  it("attach() rejects immediately with an actionable message on a missing-dependency signature", async () => {
+    const srtCommand = await writeFakeSrt(
+      'console.error("Error: Sandbox dependencies not available: ripgrep (rg) not found, bubblewrap (bwrap) not installed, socat not installed"); process.exit(1);',
+    );
+    const sandbox = new SrtSandbox({ workdir, isolation: { srtCommand } });
+
+    await expect(sandbox.attach()).rejects.toThrow(/ripgrep/);
+  });
+
+  it("does not mislabel an unrelated startup failure as a missing dependency", async () => {
+    const srtCommand = await writeFakeSrt(
+      'console.error("Error: something else entirely broke"); process.exit(1);',
+    );
+    const sandbox = new SrtSandbox({ workdir, isolation: { srtCommand } });
+
+    await expect(sandbox.attach()).rejects.toThrow(
+      /failed its startup preflight check/,
+    );
+    await expect(
+      new SrtSandbox({ workdir, isolation: { srtCommand } }).attach(),
+    ).rejects.not.toThrow(/apt-get install/);
+  });
+
+  it("attach() succeeds once the preflight probe passes", async () => {
+    const srtCommand = await writeFakeSrt("process.exit(0);");
+    const sandbox = new SrtSandbox({ workdir, isolation: { srtCommand } });
+
+    const handle = await sandbox.attach();
+    expect(handle).toBeDefined();
+  });
+
+  it("does not re-run the preflight probe on a second attach() (already attached)", async () => {
+    const scriptPath = path.join(workdir, "counting-srt.cjs");
+    const counterPath = path.join(workdir, "count.txt");
+    await fs.writeFile(counterPath, "0");
+    // Every invocation bumps a counter file — including the real payload
+    // args exec()/runCommand() would pass — but this test only calls
+    // attach() twice, so any increment beyond 1 means the probe re-ran.
+    await fs.writeFile(
+      scriptPath,
+      [
+        'const fs = require("fs");',
+        `const p = ${JSON.stringify(counterPath)};`,
+        "fs.writeFileSync(p, String(Number(fs.readFileSync(p, 'utf8')) + 1));",
+        "process.exit(0);",
+      ].join("\n"),
+    );
+    const sandbox = new SrtSandbox({
+      workdir,
+      isolation: { srtCommand: [process.execPath, scriptPath] },
+    });
+
+    await sandbox.attach();
+    expect(Number(await fs.readFile(counterPath, "utf8"))).toBe(1);
+
+    await sandbox.attach();
+    expect(Number(await fs.readFile(counterPath, "utf8"))).toBe(1);
+  });
 });

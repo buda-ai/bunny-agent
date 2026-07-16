@@ -8,6 +8,7 @@ import type {
   Volume,
 } from "@bunny-agent/manager";
 import { createSandockClient, type SandockClient } from "sandock";
+import { withNetworkRetry } from "./retry.js";
 
 /** Single volume mount configuration (name → get/create by name; mountPath inside container) */
 export interface SandockVolumeConfig {
@@ -220,14 +221,18 @@ export class SandockSandbox implements SandboxAdapter {
     const id = this._sandboxId;
     if (!id) return null;
     try {
-      const { data } = await this.client.sandbox.get(id);
+      const { data } = await withNetworkRetry(() =>
+        this.client.sandbox.get(id),
+      );
       const status = data.status;
 
       if (status === "STOPPED" || status === "PAUSED") {
         console.log(
           `[Sandock] Restarting existing sandbox ${id} (status: ${status})`,
         );
-        const startResult = await this.client.sandbox.start(id);
+        const startResult = await withNetworkRetry(() =>
+          this.client.sandbox.start(id),
+        );
         if (!startResult.data.started) {
           console.warn(
             `[Sandock] start() did not report started for ${id}, creating new`,
@@ -297,7 +302,9 @@ export class SandockSandbox implements SandboxAdapter {
     const volumeMounts: Volume[] = [];
     for (const v of this.volumeConfigs) {
       console.log(`[Sandock] Getting/creating volume: ${v.volumeName}`);
-      const volume = await this.client.volume.getByName(v.volumeName, true);
+      const volume = await withNetworkRetry(() =>
+        this.client.volume.getByName(v.volumeName, true),
+      );
       const mountPath = v.volumeMountPath;
 
       if (volume.data.status && volume.data.status !== "ready") {
@@ -327,7 +334,9 @@ export class SandockSandbox implements SandboxAdapter {
     maxWaitMs: number,
   ): Promise<boolean> {
     const startTime = Date.now();
-    let current = await this.client.volume.getByName(volumeName, false);
+    let current = await withNetworkRetry(() =>
+      this.client.volume.getByName(volumeName, false),
+    );
     while (
       current.data.status !== "ready" &&
       Date.now() - startTime < maxWaitMs
@@ -336,7 +345,9 @@ export class SandockSandbox implements SandboxAdapter {
         `[Sandock] Volume ${volumeName} status: ${current.data.status}, waiting...`,
       );
       await new Promise((resolve) => setTimeout(resolve, 1000));
-      current = await this.client.volume.getByName(volumeName, false);
+      current = await withNetworkRetry(() =>
+        this.client.volume.getByName(volumeName, false),
+      );
     }
     return current.data.status === "ready";
   }
@@ -374,7 +385,12 @@ export class SandockSandbox implements SandboxAdapter {
       createOptions.env = this.env;
     }
 
-    const createResult = await this.client.sandbox.create(createOptions);
+    // Retried on transient network failure too (see retry.ts's doc comment
+    // for the accepted risk: a create() whose request landed server-side
+    // but whose response was lost would create a second sandbox on retry).
+    const createResult = await withNetworkRetry(() =>
+      this.client.sandbox.create(createOptions),
+    );
     const sandboxId = createResult.data.id;
     if (!sandboxId) {
       throw new Error("No sandbox ID returned from Sandock API");
@@ -382,7 +398,7 @@ export class SandockSandbox implements SandboxAdapter {
     console.log(
       `[Sandock] Created new sandbox: ${sandboxId} ${this.name ? `, title: ${this.name}` : ""}`,
     );
-    await this.client.sandbox.start(sandboxId);
+    await withNetworkRetry(() => this.client.sandbox.start(sandboxId));
     return { sandboxId, volumeMounts };
   }
 
@@ -860,12 +876,16 @@ class SandockHandle implements SandboxHandle {
           : new TextDecoder().decode(file.content);
 
       // Use high-level fs.write API
-      await this.client.fs.write(this.sandboxId, fullPath, content);
+      await withNetworkRetry(() =>
+        this.client.fs.write(this.sandboxId, fullPath, content),
+      );
     }
   }
 
   async readFile(filePath: string): Promise<string> {
-    const result = await this.client.fs.read(this.sandboxId, filePath);
+    const result = await withNetworkRetry(() =>
+      this.client.fs.read(this.sandboxId, filePath),
+    );
     // Sandock fs.read returns { success: true, data: { path: string, content: string } }
     if (result.success && result.data) {
       return typeof result.data === "string"
@@ -880,10 +900,10 @@ class SandockHandle implements SandboxHandle {
    */
   async destroy(): Promise<void> {
     // Stop the sandbox using high-level API
-    await this.client.sandbox.stop(this.sandboxId);
+    await withNetworkRetry(() => this.client.sandbox.stop(this.sandboxId));
 
     // Delete sandbox using high-level API
-    await this.client.sandbox.delete(this.sandboxId);
+    await withNetworkRetry(() => this.client.sandbox.delete(this.sandboxId));
 
     this.onDestroy();
   }

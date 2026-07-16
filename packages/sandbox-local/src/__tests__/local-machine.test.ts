@@ -1,8 +1,22 @@
+import { execSync } from "node:child_process";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { LocalMachine, LocalSandbox } from "../local-machine.js";
+
+/** True if a process whose argv0 is exactly `marker` is currently running
+ *  (used to detect orphaned grandchildren after abort/timeout). POSIX only —
+ *  `pgrep` isn't available on Windows, and process-group kill is POSIX-only
+ *  in local-machine.ts's killProcessTree() too. */
+function isProcessRunning(marker: string): boolean {
+  try {
+    execSync(`pgrep -f -x "${marker} 60"`, { stdio: "ignore" });
+    return true;
+  } catch {
+    return false; // pgrep exits non-zero when nothing matches
+  }
+}
 
 describe("LocalMachine", () => {
   let tempDir: string;
@@ -363,6 +377,80 @@ describe("LocalMachine", () => {
       await handle.destroy();
     });
   });
+
+  describe.skipIf(process.platform === "win32")(
+    "process tree cleanup (abort/timeout)",
+    () => {
+      // Regression: a plain child.kill(signal) only signals the direct
+      // child. If that child backgrounds its own grandchild (e.g. a shell's
+      // `cmd &`, or a coding-agent CLI spawning a tool subprocess), the
+      // grandchild survived as an orphan — confirmed by a live repro before
+      // this fix. killProcessTree() (spawn with detached:true + signaling
+      // the negative pid) reaps the whole group instead.
+      const backgroundedSleep = (marker: string) => [
+        "bash",
+        "-c",
+        `(exec -a ${marker} sleep 60) & echo started; sleep 60`,
+      ];
+
+      it("abort() kills a backgrounded grandchild, not just the direct child", async () => {
+        const sandbox = new LocalMachine({ workdir: tempDir });
+        const handle = await sandbox.attach();
+        const marker = `orphan-test-abort-${process.pid}-${Date.now()}`;
+
+        const controller = new AbortController();
+        const chunks: string[] = [];
+        const consume = (async () => {
+          try {
+            for await (const chunk of handle.exec(backgroundedSleep(marker), {
+              signal: controller.signal,
+            })) {
+              chunks.push(new TextDecoder().decode(chunk));
+            }
+          } catch {
+            // Expected: exec() rejects with "Command was aborted".
+          }
+        })();
+
+        // Wait for the shell to actually background the grandchild.
+        await new Promise((r) => setTimeout(r, 500));
+        expect(isProcessRunning(marker)).toBe(true);
+
+        controller.abort();
+        await consume;
+
+        // killProcessTree sends SIGTERM immediately; give it a moment to land.
+        await new Promise((r) => setTimeout(r, 500));
+        expect(isProcessRunning(marker)).toBe(false);
+
+        await handle.destroy();
+      }, 15000);
+
+      it("timeout kills a backgrounded grandchild, not just the direct child", async () => {
+        const sandbox = new LocalMachine({
+          workdir: tempDir,
+          defaultTimeout: 300,
+        });
+        const handle = await sandbox.attach();
+        const marker = `orphan-test-timeout-${process.pid}-${Date.now()}`;
+
+        const chunks: string[] = [];
+        try {
+          for await (const chunk of handle.exec(backgroundedSleep(marker))) {
+            chunks.push(new TextDecoder().decode(chunk));
+          }
+          throw new Error("expected exec() to reject on timeout");
+        } catch (error) {
+          expect(String(error)).toContain("timed out");
+        }
+
+        await new Promise((r) => setTimeout(r, 500));
+        expect(isProcessRunning(marker)).toBe(false);
+
+        await handle.destroy();
+      }, 15000);
+    },
+  );
 });
 
 describe("LocalSandbox (deprecated alias)", () => {
