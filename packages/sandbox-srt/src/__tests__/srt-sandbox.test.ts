@@ -59,11 +59,10 @@ describe.skipIf(!sandboxingAvailable)("SrtSandbox (real isolation)", () => {
   beforeEach(async () => {
     workdir = await fs.mkdtemp(path.join(os.tmpdir(), "srt-sandbox-wd-"));
     // A directory the policy does NOT allow writes to. It must live outside
-    // the OS temp dir (which SrtSandbox always allows), so a repo-local
-    // scratch dir is used instead of the user's real home.
-    outsideDir = await fs.mkdtemp(
-      path.join(process.cwd(), ".srt-test-outside-"),
-    );
+    // the OS temp dir (which SrtSandbox always allows) — and the repo itself
+    // can sit under the temp dir (e.g. a /tmp git worktree), so anchor to
+    // the user's home rather than process.cwd(). Removed in afterEach.
+    outsideDir = await fs.mkdtemp(path.join(os.homedir(), ".srt-test-outside-"));
   });
 
   afterEach(async () => {
