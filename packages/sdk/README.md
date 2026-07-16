@@ -306,7 +306,7 @@ Omit `daemonUrl` to use the **CLI runner** in the same sandbox. `createBunnyAgen
 
 | Entry Point | Exports |
 |-------------|---------|
-| `@bunny-agent/sdk` | `createBunnyAgent`, `LocalMachine`, `SrtSandbox`, `BunnyAgentLanguageModel`, `submitAnswer`, `DEFAULT_BUNNY_AGENT_DAEMON_URL` (re-exported from `@bunny-agent/manager`) |
+| `@bunny-agent/sdk` | `createBunnyAgent`, `BunnyAgentLanguageModel`, `submitAnswer`, `DEFAULT_BUNNY_AGENT_DAEMON_URL`; re-exports `LocalMachine` (from `@bunny-agent/sandbox-local`) and `SrtSandbox` (from `@bunny-agent/sandbox-srt`) |
 | `@bunny-agent/sdk/react` | `useBunnyAgentChat`, `useArtifacts`, `useWriteTool`, `useAskUserQuestion`, `DEFAULT_BUNNY_AGENT_DAEMON_URL` (re-exported from `@bunny-agent/manager`) |
 
 ---

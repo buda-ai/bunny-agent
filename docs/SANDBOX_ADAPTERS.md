@@ -12,12 +12,13 @@ Both provide the same interface, so you can switch with one line of code.
 
 ## Quick Comparison
 
-| Feature | E2B | Sandock |
-|---------|-----|---------|
-| Setup | API key only | API key only |
-| Best for | Production | Development |
-| Hosting | Cloud (e2b.dev) | Cloud (sandock.ai) |
-| Customization | Templates | Any Docker image |
+| Feature | E2B | Sandock | LocalMachine | SrtSandbox |
+|---------|-----|---------|--------------|------------|
+| Setup | API key only | API key only | none | none (Linux: bwrap + socat) |
+| Best for | Production | Development | Trusted local dev / debugging | Untrusted code on your machine |
+| Hosting | Cloud (e2b.dev) | Cloud (sandock.ai) | Your machine | Your machine |
+| Isolation | Firecracker microVM | Docker container | **NONE** | OS-level (bubblewrap / Seatbelt) |
+| Customization | Templates | Any Docker image | workdir + templates | workdir + templates + srt policy |
 
 ---
 
@@ -86,6 +87,77 @@ Get your API key at [sandock.ai](https://sandock.ai).
 | `memoryLimitMb` | `number` | - | Memory limit in MB |
 | `cpuShares` | `number` | - | CPU shares |
 | `keep` | `boolean` | `true` | Keep sandbox after execution |
+
+---
+
+## LocalMachine (host, NO isolation)
+
+`@bunny-agent/sandbox-local` runs commands **directly on your machine with
+your user's permissions** — it implements the `SandboxAdapter` interface but
+provides no sandboxing at all. Use it only with trusted code (it was
+previously named `LocalSandbox`; that alias still works but is deprecated).
+
+```typescript
+import { LocalMachine } from "@bunny-agent/sandbox-local";
+
+const sandbox = new LocalMachine({
+  workdir: "/tmp/my-agent",
+  templatesPath: "./my-agent-template",
+});
+```
+
+### Configuration Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `workdir` | `string` | `process.cwd()` | Working directory |
+| `templatesPath` | `string` | — | Template dir copied into workdir on attach |
+| `runnerCommand` | `string[]` | `["bunny-agent", "run"]` | Runner invocation |
+| `env` | `Record<string, string>` | `{}` | Extra env for every command |
+| `defaultTimeout` | `number` | `300000` | Command timeout (ms) |
+
+---
+
+## SrtSandbox (local, OS-level isolation)
+
+`@bunny-agent/sandbox-srt` is `LocalMachine` + real isolation: every command
+is wrapped with [Anthropic's sandbox runtime](https://www.npmjs.com/package/@anthropic-ai/sandbox-runtime)
+(the sandbox used by Claude Code) — bubblewrap + network-namespace isolation
+on Linux, Seatbelt on macOS, `srt-win` (alpha) on Windows. Policy is
+allow-only: no network unless domains are allowlisted; writes only to the
+workdir + OS temp dir (+ opted-in paths); reads open minus `denyRead`.
+
+```typescript
+import { SrtSandbox } from "@bunny-agent/sandbox-srt";
+
+const sandbox = new SrtSandbox({
+  workdir: "/tmp/my-agent",
+  isolation: {
+    allowedDomains: ["api.anthropic.com", "*.npmjs.org"],
+    denyRead: ["~/.ssh", "~/.aws"],
+    allowWrite: ["~/.npm"], // runners that write to the home dir need this
+  },
+});
+```
+
+### Configuration Options
+
+All `LocalMachine` options, plus `isolation`:
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `isolation.allowedDomains` | `string[]` | `[]` (no network) | Reachable domains (`*.example.com` ok) |
+| `isolation.deniedDomains` | `string[]` | `[]` | Always-blocked domains |
+| `isolation.denyRead` | `string[]` | `[]` | Unreadable paths |
+| `isolation.allowWrite` | `string[]` | `[]` | Extra writable paths |
+| `isolation.denyWrite` | `string[]` | `[]` | Deny-writes inside allowed paths |
+| `isolation.allowLocalBinding` | `boolean` | `false` | Allow binding local ports |
+| `isolation.settingsPath` | `string` | generated | Bring-your-own srt settings file |
+| `isolation.srtCommand` | `string[]` | resolved srt CLI | Override wrapper argv |
+
+Linux requirements: `bubblewrap` and `socat` installed; on Ubuntu 24.04+ an
+AppArmor profile granting bwrap `userns` (see
+`docs/changelog/2026-07-16-local-machine-rename-srt-sandbox.md`).
 
 ---
 

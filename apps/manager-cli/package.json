@@ -36,9 +36,10 @@
   },
   "dependencies": {
     "@bunny-agent/manager": "workspace:*",
+    "@bunny-agent/runner-claude": "workspace:*",
     "@bunny-agent/sandbox-e2b": "workspace:*",
-    "@bunny-agent/sandbox-sandock": "workspace:*",
-    "@bunny-agent/runner-claude": "workspace:*"
+    "@bunny-agent/sandbox-local": "workspace:*",
+    "@bunny-agent/sandbox-sandock": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",

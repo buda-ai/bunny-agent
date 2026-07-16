@@ -2,7 +2,10 @@ import * as fs from "node:fs/promises";
 import { createRequire } from "node:module";
 import * as os from "node:os";
 import * as path from "node:path";
-import { LocalMachine, type LocalMachineOptions } from "./local-machine.js";
+import {
+  LocalMachine,
+  type LocalMachineOptions,
+} from "@bunny-agent/sandbox-local";
 
 const require = createRequire(import.meta.url);
 
@@ -68,7 +71,8 @@ export interface SrtSandboxOptions extends LocalMachineOptions {
  *
  * @example
  * ```typescript
- * import { SrtSandbox, BunnyAgent } from "@bunny-agent/manager";
+ * import { BunnyAgent } from "@bunny-agent/manager";
+ * import { SrtSandbox } from "@bunny-agent/sandbox-srt";
  *
  * const sandbox = new SrtSandbox({
  *   workdir: "/tmp/my-sandbox",

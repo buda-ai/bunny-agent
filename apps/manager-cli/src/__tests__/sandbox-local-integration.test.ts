@@ -1,4 +1,5 @@
-import { BunnyAgent, LocalMachine } from "@bunny-agent/manager";
+import { BunnyAgent } from "@bunny-agent/manager";
+import { LocalMachine } from "@bunny-agent/sandbox-local";
 import { describe, expect, it } from "vitest";
 
 /**

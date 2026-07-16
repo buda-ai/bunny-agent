@@ -291,7 +291,8 @@ Options:
 | `@bunny-agent/sandbox-sandock` | Sandock sandbox adapter |
 | `@bunny-agent/sandbox-e2b` | E2B sandbox adapter |
 | `@bunny-agent/sandbox-daytona` | Daytona sandbox adapter |
-| `@bunny-agent/sandbox-local` | Local sandbox adapter |
+| `@bunny-agent/sandbox-local` | Local machine adapter (no isolation) |
+| `@bunny-agent/sandbox-srt` | Local isolated sandbox adapter (Anthropic sandbox runtime) |
 
 ---
 

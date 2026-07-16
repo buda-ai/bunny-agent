@@ -70,9 +70,11 @@
     }
   },
   "dependencies": {
-    "@bunny-agent/manager": "workspace:*",
     "@ai-sdk/provider": "^3.0.8",
-    "@ai-sdk/react": "^3.0.105"
+    "@ai-sdk/react": "^3.0.105",
+    "@bunny-agent/manager": "workspace:*",
+    "@bunny-agent/sandbox-local": "workspace:*",
+    "@bunny-agent/sandbox-srt": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",

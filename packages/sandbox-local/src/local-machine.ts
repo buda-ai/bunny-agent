@@ -1,8 +1,12 @@
 import { spawn } from "node:child_process";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { buildRunnerEnv } from "./env.js";
-import type { ExecOptions, SandboxAdapter, SandboxHandle } from "./types.js";
+import {
+  buildRunnerEnv,
+  type ExecOptions,
+  type SandboxAdapter,
+  type SandboxHandle,
+} from "@bunny-agent/manager";
 
 /**
  * Options for creating a LocalMachine instance
@@ -39,7 +43,8 @@ export interface LocalMachineOptions {
  *
  * @example
  * ```typescript
- * import { LocalMachine, BunnyAgent } from "@bunny-agent/manager";
+ * import { BunnyAgent } from "@bunny-agent/manager";
+ * import { LocalMachine } from "@bunny-agent/sandbox-local";
  *
  * // Create sandbox with template
  * const sandbox = new LocalMachine({
