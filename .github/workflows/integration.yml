@@ -1,10 +1,10 @@
 name: Integration
 
-# Live integration tests, opt-in via BUNNY_INTEGRATION=1:
-# - local-srt: LocalMachine (host exec) + SrtSandbox (REAL bubblewrap
-#   isolation on the runner) + a full BunnyAgent turn through the real
-#   runner-cli against the deterministic mock-ai-server (OpenAI protocol,
-#   no key, no token cost).
+# Full test suite with the live tiers enabled (BUNNY_INTEGRATION=1), on every PR:
+# - local-srt: ALL packages' tests, including SrtSandbox's REAL bubblewrap
+#   isolation tests and a full BunnyAgent turn through the real runner-cli
+#   in LocalMachine + SrtSandbox, against the deterministic mock-ai-server
+#   (deployed Cloudflare Worker, OpenAI protocol, no key, no token cost).
 # - sandock: real sandboxes on sandock.ai — needs the SANDOCK_API_KEY repo
 #   secret; the tests skip cleanly when it is absent (e.g. fork PRs).
 
@@ -22,7 +22,7 @@ concurrency:
 
 jobs:
   local-srt:
-    name: Local + SRT (real isolation, mock LLM)
+    name: Full suite + local/srt live (mock LLM)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -59,13 +59,15 @@ jobs:
           bwrap --ro-bind / / true
           socat -V > /dev/null
 
-      - name: Sandbox adapter tests (real bwrap isolation)
-        run: pnpm --filter @bunny-agent/sandbox-local --filter @bunny-agent/sandbox-srt test
-
-      - name: Live E2E — LocalMachine + SrtSandbox × mock LLM
+      # Full suite: every package's unit tests PLUS the live tiers unlocked
+      # by BUNNY_INTEGRATION=1 — sandbox-srt's real bwrap isolation tests and
+      # manager-cli's live E2E (LocalMachine + SrtSandbox × mock LLM at
+      # https://mock-ai-server.vika.workers.dev). The sandock live suite
+      # skips here (no SANDOCK_API_KEY) — the dedicated job below runs it.
+      - name: Full test suite (live tiers enabled)
         env:
           BUNNY_INTEGRATION: "1"
-        run: pnpm --filter @bunny-agent/manager-cli test
+        run: pnpm test
 
   sandock:
     name: Sandock live (cloud)
