@@ -1,3 +1,30 @@
+diff --git a/dist/core/agent-session.js b/dist/core/agent-session.js
+index 66b2ab3334ff4318a2f6a02c5946e2b1c9702de8..5b344511e0d7fa42ee99c128d716ba28c7fbb1dd 100644
+--- a/dist/core/agent-session.js
++++ b/dist/core/agent-session.js
+@@ -761,18 +761,11 @@ export class AgentSession {
+                 }
+                 throw new Error(formatNoApiKeyFoundMessage(this.model.provider));
+             }
+-            // Check if we need to compact before sending (catches aborted responses)
++            // Check if we need to compact before sending (catches aborted responses).
++            // The user's new prompt is sent below, so do not call agent.continue() here.
+             const lastAssistant = this._findLastAssistantMessage();
+-            if (lastAssistant && (await this._checkCompaction(lastAssistant, false))) {
+-                try {
+-                    await this.agent.continue();
+-                    while (await this._handlePostAgentRun()) {
+-                        await this.agent.continue();
+-                    }
+-                }
+-                finally {
+-                    this._flushPendingBashMessages();
+-                }
++            if (lastAssistant) {
++                await this._checkCompaction(lastAssistant, false);
+             }
+             // Build messages array (custom message if any, then user message)
+             messages = [];
 diff --git a/dist/core/system-prompt.js b/dist/core/system-prompt.js
 index 4fa08b2a2665ee733849ba27ad144289a9c943e1..b59cbb23ca27bc1508161ef37b85df989b24357a 100644
 --- a/dist/core/system-prompt.js
