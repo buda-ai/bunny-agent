@@ -189,7 +189,9 @@ export class SandockSandbox implements SandboxAdapter {
       }
       return ["bunny-agent", "run"];
     }
-    return [`${this.workdir}/node_modules/.bin/bunny-agent`, "run"];
+    // @bunny-agent/runner-cli publishes its bin as `bunny-agent-runner`
+    // (not `bunny-agent`, which is the pre-built image's global CLI above).
+    return [`${this.workdir}/node_modules/.bin/bunny-agent-runner`, "run"];
   }
 
   /**

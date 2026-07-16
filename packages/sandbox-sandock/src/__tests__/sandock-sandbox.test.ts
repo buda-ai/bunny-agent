@@ -652,3 +652,28 @@ describe("Shell Escaping", () => {
     expect(result).toBe("'cmd' '--' 'arg'");
   });
 });
+
+describe("getRunnerCommand", () => {
+  beforeEach(() => {
+    process.env.SANDOCK_API_KEY = "test-api-key";
+  });
+
+  it("uses the npm-installed bunny-agent-runner bin when bootstrapping", () => {
+    // Regression: @bunny-agent/runner-cli publishes its bin as
+    // `bunny-agent-runner`; pointing at `.bin/bunny-agent` fails with
+    // "not found" on a real sandbox (caught by live integration, 2026-07-16).
+    const sandbox = new SandockSandbox({ workdir: "/workspace" });
+    expect(sandbox.getRunnerCommand()).toEqual([
+      "/workspace/node_modules/.bin/bunny-agent-runner",
+      "run",
+    ]);
+  });
+
+  it("uses the global bunny-agent CLI when skipBootstrap is set", () => {
+    const sandbox = new SandockSandbox({
+      workdir: "/workspace",
+      skipBootstrap: true,
+    });
+    expect(sandbox.getRunnerCommand()).toEqual(["bunny-agent", "run"]);
+  });
+});
