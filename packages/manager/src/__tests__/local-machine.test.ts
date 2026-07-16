@@ -2,14 +2,14 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { LocalSandbox } from "../local-sandbox.js";
+import { LocalMachine, LocalSandbox } from "../local-machine.js";
 
-describe("LocalSandbox", () => {
+describe("LocalMachine", () => {
   let tempDir: string;
 
   beforeEach(async () => {
     // Create a temporary directory for testing
-    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "local-sandbox-test-"));
+    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "local-machine-test-"));
   });
 
   afterEach(async () => {
@@ -23,27 +23,27 @@ describe("LocalSandbox", () => {
 
   describe("constructor", () => {
     it("should create an instance with default options", () => {
-      const sandbox = new LocalSandbox();
-      expect(sandbox).toBeInstanceOf(LocalSandbox);
+      const sandbox = new LocalMachine();
+      expect(sandbox).toBeInstanceOf(LocalMachine);
     });
 
     it("should accept custom options", () => {
-      const sandbox = new LocalSandbox({
+      const sandbox = new LocalMachine({
         workdir: tempDir,
         defaultTimeout: 30000,
       });
-      expect(sandbox).toBeInstanceOf(LocalSandbox);
+      expect(sandbox).toBeInstanceOf(LocalMachine);
     });
 
     it("should use process.cwd() as default workdir", () => {
-      const sandbox = new LocalSandbox();
-      expect(sandbox).toBeInstanceOf(LocalSandbox);
+      const sandbox = new LocalMachine();
+      expect(sandbox).toBeInstanceOf(LocalMachine);
     });
   });
 
   describe("attach", () => {
     it("should use workdir as working directory", async () => {
-      const sandbox = new LocalSandbox({
+      const sandbox = new LocalMachine({
         workdir: tempDir,
       });
 
@@ -55,7 +55,7 @@ describe("LocalSandbox", () => {
     });
 
     it("should return a SandboxHandle", async () => {
-      const sandbox = new LocalSandbox({ workdir: tempDir });
+      const sandbox = new LocalMachine({ workdir: tempDir });
       const handle = await sandbox.attach();
 
       expect(typeof handle.exec).toBe("function");
@@ -68,7 +68,7 @@ describe("LocalSandbox", () => {
 
   describe("SandboxHandle.exec", () => {
     it("should execute a simple command", async () => {
-      const sandbox = new LocalSandbox({ workdir: tempDir });
+      const sandbox = new LocalMachine({ workdir: tempDir });
       const handle = await sandbox.attach();
 
       const chunks: string[] = [];
@@ -83,7 +83,7 @@ describe("LocalSandbox", () => {
     });
 
     it("should execute commands in specified working directory", async () => {
-      const sandbox = new LocalSandbox({ workdir: tempDir });
+      const sandbox = new LocalMachine({ workdir: tempDir });
       const handle = await sandbox.attach();
 
       // Create a subdirectory
@@ -109,7 +109,7 @@ describe("LocalSandbox", () => {
     });
 
     it("should pass environment variables", async () => {
-      const sandbox = new LocalSandbox({ workdir: tempDir });
+      const sandbox = new LocalMachine({ workdir: tempDir });
       const handle = await sandbox.attach();
 
       const chunks: string[] = [];
@@ -126,7 +126,7 @@ describe("LocalSandbox", () => {
     });
 
     it("should throw error for non-existent command", async () => {
-      const sandbox = new LocalSandbox({ workdir: tempDir });
+      const sandbox = new LocalMachine({ workdir: tempDir });
       const handle = await sandbox.attach();
 
       await expect(async () => {
@@ -142,7 +142,7 @@ describe("LocalSandbox", () => {
     });
 
     it("should throw error for empty command", async () => {
-      const sandbox = new LocalSandbox({ workdir: tempDir });
+      const sandbox = new LocalMachine({ workdir: tempDir });
       const handle = await sandbox.attach();
 
       await expect(async () => {
@@ -156,7 +156,7 @@ describe("LocalSandbox", () => {
     });
 
     it("should handle command timeout", async () => {
-      const sandbox = new LocalSandbox({ workdir: tempDir });
+      const sandbox = new LocalMachine({ workdir: tempDir });
       const handle = await sandbox.attach();
 
       await expect(async () => {
@@ -172,7 +172,7 @@ describe("LocalSandbox", () => {
     }, 10000); // Test timeout of 10 seconds
 
     it("should support abort signal", async () => {
-      const sandbox = new LocalSandbox({ workdir: tempDir });
+      const sandbox = new LocalMachine({ workdir: tempDir });
       const handle = await sandbox.attach();
 
       const abortController = new AbortController();
@@ -195,7 +195,7 @@ describe("LocalSandbox", () => {
 
   describe("SandboxHandle.upload", () => {
     it("should upload a single file", async () => {
-      const sandbox = new LocalSandbox({ workdir: tempDir });
+      const sandbox = new LocalMachine({ workdir: tempDir });
       const handle = await sandbox.attach();
 
       await handle.upload(
@@ -212,7 +212,7 @@ describe("LocalSandbox", () => {
     });
 
     it("should upload multiple files", async () => {
-      const sandbox = new LocalSandbox({ workdir: tempDir });
+      const sandbox = new LocalMachine({ workdir: tempDir });
       const handle = await sandbox.attach();
 
       await handle.upload(
@@ -235,7 +235,7 @@ describe("LocalSandbox", () => {
     });
 
     it("should upload binary content", async () => {
-      const sandbox = new LocalSandbox({ workdir: tempDir });
+      const sandbox = new LocalMachine({ workdir: tempDir });
       const handle = await sandbox.attach();
 
       const binaryData = new Uint8Array([0x48, 0x65, 0x6c, 0x6c, 0x6f]); // "Hello"
@@ -251,7 +251,7 @@ describe("LocalSandbox", () => {
     });
 
     it("should create nested directories", async () => {
-      const sandbox = new LocalSandbox({ workdir: tempDir });
+      const sandbox = new LocalMachine({ workdir: tempDir });
       const handle = await sandbox.attach();
 
       await handle.upload(
@@ -268,7 +268,7 @@ describe("LocalSandbox", () => {
     });
 
     it("should upload to custom target directory", async () => {
-      const sandbox = new LocalSandbox({ workdir: tempDir });
+      const sandbox = new LocalMachine({ workdir: tempDir });
       const handle = await sandbox.attach();
 
       await handle.upload(
@@ -287,14 +287,14 @@ describe("LocalSandbox", () => {
 
   describe("SandboxHandle.destroy", () => {
     it("should complete successfully", async () => {
-      const sandbox = new LocalSandbox({ workdir: tempDir });
+      const sandbox = new LocalMachine({ workdir: tempDir });
       const handle = await sandbox.attach();
 
       await expect(handle.destroy()).resolves.toBeUndefined();
     });
 
     it("should not delete the working directory by default", async () => {
-      const sandbox = new LocalSandbox({ workdir: tempDir });
+      const sandbox = new LocalMachine({ workdir: tempDir });
       const handle = await sandbox.attach();
 
       await handle.upload([{ path: "file.txt", content: "Test" }], ".");
@@ -312,7 +312,7 @@ describe("LocalSandbox", () => {
 
   describe("Integration tests", () => {
     it("should support a complete workflow", async () => {
-      const sandbox = new LocalSandbox({ workdir: tempDir });
+      const sandbox = new LocalMachine({ workdir: tempDir });
       const handle = await sandbox.attach();
 
       // Upload a Python script
@@ -340,7 +340,7 @@ describe("LocalSandbox", () => {
     });
 
     it("should handle multiple sequential commands", async () => {
-      const sandbox = new LocalSandbox({ workdir: tempDir });
+      const sandbox = new LocalMachine({ workdir: tempDir });
       const handle = await sandbox.attach();
 
       // Create a file
@@ -362,5 +362,13 @@ describe("LocalSandbox", () => {
 
       await handle.destroy();
     });
+  });
+});
+
+describe("LocalSandbox (deprecated alias)", () => {
+  it("is the same class as LocalMachine", () => {
+    expect(LocalSandbox).toBe(LocalMachine);
+    const sandbox = new LocalSandbox();
+    expect(sandbox).toBeInstanceOf(LocalMachine);
   });
 });

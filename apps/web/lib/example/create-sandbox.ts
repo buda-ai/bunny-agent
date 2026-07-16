@@ -5,7 +5,7 @@ import { E2BSandbox } from "@bunny-agent/sandbox-e2b";
 import { SandockSandbox } from "@bunny-agent/sandbox-sandock";
 import {
   buildRunnerEnv,
-  LocalSandbox,
+  LocalMachine,
   type SandboxAdapter,
 } from "@bunny-agent/sdk";
 import type { RunnerType } from "@/lib/runner";
@@ -265,7 +265,7 @@ async function buildSandbox(
 
   const localWorkdir =
     params.localWorkdir ?? path.join(process.cwd(), "workspace");
-  return new LocalSandbox({
+  return new LocalMachine({
     workdir: localWorkdir,
     templatesPath: path.join(TEMPLATES_PATH, template),
     env: {
