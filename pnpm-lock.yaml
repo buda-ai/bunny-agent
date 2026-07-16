@@ -6,7 +6,7 @@ settings:
 
 patchedDependencies:
   '@earendil-works/pi-coding-agent@0.78.0':
-    hash: cdaee52d9c35ce5e15619f44907bde070dbb119eb9159f41a462b92bf4354b23
+    hash: 91a24e40bd8ff7c9bb04a8f0f1bf13bf86f50cfc60556bed9a1a89149235177a
     path: patches/@earendil-works__pi-coding-agent@0.78.0.patch
   openai@6.26.0:
     hash: f2a3b895e9a04ae6a0990a7d47b896599783845c7f7a3c1cad9a6f35c0010f01
@@ -145,7 +145,7 @@ importers:
         version: 0.78.0(ws@8.19.0)(zod@4.3.6)
       '@earendil-works/pi-coding-agent':
         specifier: 0.78.0
-        version: 0.78.0(patch_hash=cdaee52d9c35ce5e15619f44907bde070dbb119eb9159f41a462b92bf4354b23)(ws@8.19.0)(zod@4.3.6)
+        version: 0.78.0(patch_hash=91a24e40bd8ff7c9bb04a8f0f1bf13bf86f50cfc60556bed9a1a89149235177a)(ws@8.19.0)(zod@4.3.6)
       '@openai/codex-sdk':
         specifier: ^0.110.0
         version: 0.110.0
@@ -595,7 +595,7 @@ importers:
         version: 0.78.0(ws@8.19.0)(zod@4.3.6)
       '@earendil-works/pi-coding-agent':
         specifier: 0.78.0
-        version: 0.78.0(patch_hash=cdaee52d9c35ce5e15619f44907bde070dbb119eb9159f41a462b92bf4354b23)(ws@8.19.0)(zod@4.3.6)
+        version: 0.78.0(patch_hash=91a24e40bd8ff7c9bb04a8f0f1bf13bf86f50cfc60556bed9a1a89149235177a)(ws@8.19.0)(zod@4.3.6)
       '@sinclair/typebox':
         specifier: ^0.34.0
         version: 0.34.48
@@ -8741,7 +8741,7 @@ snapshots:
       - ws
       - zod
 
-  '@earendil-works/pi-coding-agent@0.78.0(patch_hash=cdaee52d9c35ce5e15619f44907bde070dbb119eb9159f41a462b92bf4354b23)(ws@8.19.0)(zod@4.3.6)':
+  '@earendil-works/pi-coding-agent@0.78.0(patch_hash=91a24e40bd8ff7c9bb04a8f0f1bf13bf86f50cfc60556bed9a1a89149235177a)(ws@8.19.0)(zod@4.3.6)':
     dependencies:
       '@earendil-works/pi-agent-core': 0.78.0(ws@8.19.0)(zod@4.3.6)
       '@earendil-works/pi-ai': 0.78.0(ws@8.19.0)(zod@4.3.6)
