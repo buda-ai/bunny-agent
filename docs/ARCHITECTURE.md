@@ -68,7 +68,7 @@
 │   └── @bunny-agent/manager
 │       └── Bunny Agent.stream()
 │           └── spawns runner-cli inside sandbox
-│               └── sandbox: E2B / Sandock / Local / Daytona
+│               └── sandbox: E2B / Sandock / LocalMachine / SrtSandbox / Daytona
 │
 └── createBunnyAgent({ sandbox, daemonUrl })  ← daemon HTTP inside sandbox
     │
@@ -78,6 +78,23 @@
 ```
 
 Both return `LanguageModelV3` — swap transports without changing any other code.
+
+### Transport × Sandbox matrix
+
+The transport (HOW the runner is invoked) and the sandbox (WHERE it runs)
+are orthogonal choices:
+
+|  | CLI transport (default) | Daemon transport (`daemonUrl`) |
+|---|---|---|
+| **What happens** | `handle.exec()` spawns a fresh `runner-cli` process per turn inside the sandbox; AI SDK stream comes back on stdout | `curl -N POST /api/coding/run` runs **inside** the sandbox against a long-lived `bunny-agent-daemon`; the daemon runs runner-core in-process and streams SSE |
+| **LocalMachine / SrtSandbox** | ✅ natural fit — runner spawns on your machine (SrtSandbox wraps it with srt) | possible via the Next.js-embedded daemon (Mode B), mostly used by buda local dev |
+| **Sandock / E2B / Daytona** | ✅ works — adapter npm-installs `@bunny-agent/runner-cli` into the workspace on attach | ✅ preferred with pre-built images (`vikadata/bunny-agent` starts the daemon on :3080; `skipBootstrap: true` skips the npm install) |
+| **Cold start** | node + runner startup per turn | daemon already warm; per-turn cost is one HTTP call |
+| **API surface** | run only | run + `/api/fs/*`, `/api/git/*`, `/api/volumes/*`, `/healthz` |
+| **Credentials** | passed per-exec via `BunnyAgent({ env })` | configured on the daemon / container image env |
+
+Probe with `isBunnyAgentDaemonHealthy` and omit `daemonUrl` to fall back to
+the CLI transport (daemon-first, CLI-fallback — what buda does).
 
 ---
 
@@ -137,6 +154,7 @@ packages/
 ├── runner-codex    → @openai/codex-sdk
 ├── sandbox-e2b     → e2b SDK
 ├── sandbox-sandock → sandock SDK
-├── sandbox-local   → node stdlib only
+├── sandbox-local   → manager (LocalMachine — host exec, NO isolation)
+├── sandbox-srt     → sandbox-local + @anthropic-ai/sandbox-runtime (OS-level local isolation)
 └── sandbox-daytona → @daytonaio/sdk
 ```
