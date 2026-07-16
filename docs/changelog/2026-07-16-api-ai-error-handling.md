@@ -1,0 +1,9 @@
+# Harden error handling in the BunnyAgent chat path
+
+- `apps/web/app/api/ai/route.ts`: pass an `onError` handler to `createUIMessageStream` so failures thrown inside `execute` (e.g. sandbox attach, daemon health check) before `writer.merge` are converted into a readable UI stream error instead of the AI SDK's generic default message, and are logged server-side.
+- `packages/runner-harness/src/runner.ts`: `captureSessionId` no longer silently swallows JSON parse failures; it now logs them for debuggability without changing stream behavior.
+- `packages/sdk/src/provider/bunny-agent-language-model.ts` (the Vercel AI SDK `LanguageModelV3` provider the chat UI calls through):
+  - Track whether a `"finish"` (or terminal `"error"`) NDJSON part was ever received during a stream. If the underlying byte stream from the runner ends — via EOF or a `[DONE]` marker — without one (e.g. the runner process crashes or the connection drops mid-generation), synthesize a terminal `error` + `finish` pair instead of silently closing the AI SDK stream. Previously this case left the chat UI stuck mid-response with no error indication.
+  - `logUnparsedStreamLine` now logs every unparsed stream line (at `debug` for lines that don't look like an error, `error` for ones that do), instead of silently dropping lines whose text didn't match an error-keyword heuristic.
+
+Investigated but left unchanged: the `stream-ai-sdk-ui-message` output path (`packages/runner-claude/src/ai-sdk-stream.ts`) already converts SDK/process errors into `{type: "error"}` + `finish` + `[DONE]` chunks, and AI SDK v6's `UIMessagePart` union has no `"error"` variant — stream-level errors surface as the chat's top-level `status === "error"` / `error`, which `apps/web/app/(example)/example/page.tsx` already renders as an error bubble. No frontend changes were needed.

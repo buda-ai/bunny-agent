@@ -63,9 +63,13 @@ If lint reports a formatting diff, fix it with `pnpm exec biome format --write <
 Bunny Agent supports multiple agent runtimes through a pluggable runner system:
 
 - **runner-claude**: Uses `@anthropic-ai/claude-agent-sdk`
-- **runner-pi**: Uses `@mariozechner/pi-coding-agent` (multi-provider)
-- **runner-codex**: Planned (OpenAI Codex)
+- **runner-pi**: Uses `@earendil-works/pi-coding-agent` (multi-provider)
+- **runner-codex**: Uses `@openai/codex-sdk` (official OpenAI Codex SDK)
+- **runner-gemini / runner-opencode**: Thin ACP subprocess wrappers
 - **runner-copilot**: Planned (GitHub Copilot)
+
+Feature coverage per runner is tracked in `docs/runner-maturity.md` — keep
+that document updated when runner capabilities or SDK versions change.
 
 All runners implement the same interface:
 ```typescript

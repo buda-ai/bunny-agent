@@ -37,16 +37,18 @@ export interface RunnerCoreOptions extends BaseRunnerOptions {
   toolRefs?: PiRunnerOptions["toolRefs"];
   /**
    * Reasoning effort / thinking level (e.g. "low", "medium", "high").
-   * Currently only the `pi` runner consumes this; other runners ignore it.
+   * Consumed by the `pi` runner (thinking level) and the `codex` runner
+   * (modelReasoningEffort); other runners ignore it.
    */
   effort?: string;
   /**
    * Source session ID to fork from before running the current turn. When set,
    * the runner snapshot-clones the source session into a fresh session with a
-   * new id (header.parentSession points at the source) and continues chat on
-   * top of that copied history. Mutually exclusive with `resume`.
+   * new id and continues chat on top of that copied history. Mutually
+   * exclusive with `resume`.
    *
-   * Currently only the `pi` runner consumes this; other runners ignore it.
+   * Consumed by the `pi` runner (session file clone) and the `claude` runner
+   * (SDK `forkSession`); other runners ignore it.
    */
   forkFrom?: string;
 }
@@ -94,11 +96,25 @@ function dispatchRunner(
   const _env = base.env;
   switch (runner) {
     case "claude":
-      return createClaudeRunner(base).run(options.userInput);
+      return createClaudeRunner({
+        ...base,
+        cwd,
+        forkFrom: options.forkFrom,
+      }).run(options.userInput);
     case "codex": {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { outputFormat: _of, ...codexBase } = base;
-      return createCodexRunner({ ...codexBase, cwd }).run(options.userInput);
+      const codexEfforts = ["minimal", "low", "medium", "high", "xhigh"];
+      return createCodexRunner({
+        ...codexBase,
+        cwd,
+        ...(options.effort && codexEfforts.includes(options.effort)
+          ? {
+              modelReasoningEffort:
+                options.effort as import("@bunny-agent/runner-codex").CodexRunnerOptions["modelReasoningEffort"],
+            }
+          : {}),
+      }).run(options.userInput);
     }
     case "gemini":
       return createGeminiRunner({
@@ -154,7 +170,9 @@ async function* captureSessionId(
             writeSessionId(cwd, sessionId);
           }
         }
-      } catch {}
+      } catch (error) {
+        console.debug("[captureSessionId] failed to parse chunk", error);
+      }
     }
     yield chunk;
   }

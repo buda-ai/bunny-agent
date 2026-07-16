@@ -130,20 +130,39 @@ function toToolEndPayload(
   return null;
 }
 
-function toAssistantText(event: ThreadEvent): string | null {
-  if (event.type === "item.completed" && event.item.type === "agent_message") {
-    return event.item.text;
+function sseData(obj: Record<string, unknown>): string {
+  return `data: ${JSON.stringify(obj)}\n\n`;
+}
+
+/**
+ * Tracks incremental text emission for streamed thread items.
+ *
+ * Codex emits `item.started`/`item.updated`/`item.completed` events where each
+ * event carries the full item text so far; this tracker turns them into
+ * AI SDK `text-start`/`text-delta`/`text-end` (or `reasoning`) parts.
+ */
+class ItemTextTracker {
+  private emittedLength = new Map<string, number>();
+  private started = new Set<string>();
+
+  /** Returns the new delta for this item, or empty string if nothing new. */
+  delta(itemId: string, fullText: string): string {
+    const emitted = this.emittedLength.get(itemId) ?? 0;
+    if (fullText.length <= emitted) return "";
+    this.emittedLength.set(itemId, fullText.length);
+    return fullText.slice(emitted);
   }
 
-  if (event.type === "item.completed" && event.item.type === "reasoning") {
-    return `[Reasoning] ${event.item.text}`;
+  /** Returns true the first time an item id is seen (caller emits text-start). */
+  markStarted(itemId: string): boolean {
+    if (this.started.has(itemId)) return false;
+    this.started.add(itemId);
+    return true;
   }
 
-  if (event.type === "item.completed" && event.item.type === "error") {
-    return `[Error] ${event.item.message}`;
+  isStarted(itemId: string): boolean {
+    return this.started.has(itemId);
   }
-
-  return null;
 }
 
 /**
@@ -211,43 +230,197 @@ export function createCodexRunner(options: CodexRunnerOptions): CodexRunner {
         // Fallback to string
       }
 
+      // Emulate systemPrompt on fresh threads: the Codex SDK has no
+      // instructions option, so prepend it to the first user input.
+      if (options.systemPrompt && !options.resume) {
+        if (typeof inputToCodex === "string") {
+          inputToCodex = `${options.systemPrompt}\n\n${inputToCodex}`;
+        } else {
+          inputToCodex = [
+            { type: "text", text: options.systemPrompt },
+            ...inputToCodex,
+          ];
+        }
+      }
+
       const streamedTurn = await thread.runStreamed(inputToCodex, {
         signal: options.abortController?.signal,
       });
 
+      let sessionId: string | undefined = options.resume ?? undefined;
+      let startEmitted = false;
+      let finished = false;
+      const textTracker = new ItemTextTracker();
+      const reasoningTracker = new ItemTextTracker();
+
+      const ensureStart = (): string[] => {
+        if (startEmitted) return [];
+        startEmitted = true;
+        return [
+          sseData({ type: "start" }),
+          sseData({
+            type: "message-metadata",
+            messageMetadata: { sessionId: sessionId ?? thread.id ?? undefined },
+          }),
+        ];
+      };
+
       for await (const event of streamedTurn.events) {
-        const assistantText = toAssistantText(event);
-        if (assistantText) {
-          yield `data: ${JSON.stringify({ type: "text-delta", delta: assistantText })}\n\n`;
+        if (event.type === "thread.started") {
+          sessionId = event.thread_id;
+          yield* ensureStart();
+          continue;
+        }
+        yield* ensureStart();
+
+        // Incremental assistant text: item.started/updated/completed all
+        // carry the full text so far; emit only the new suffix.
+        if (
+          (event.type === "item.started" ||
+            event.type === "item.updated" ||
+            event.type === "item.completed") &&
+          event.item.type === "agent_message"
+        ) {
+          const item = event.item;
+          if (textTracker.markStarted(item.id)) {
+            yield sseData({ type: "text-start", id: item.id });
+          }
+          const delta = textTracker.delta(item.id, item.text);
+          if (delta) {
+            yield sseData({ type: "text-delta", id: item.id, delta });
+          }
+          if (event.type === "item.completed") {
+            yield sseData({ type: "text-end", id: item.id });
+          }
+          continue;
+        }
+
+        // Reasoning: aligned with runner-claude, emitted as "reasoning" parts
+        // (deltas only; the stream protocol has no reasoning start/end).
+        if (
+          (event.type === "item.updated" || event.type === "item.completed") &&
+          event.item.type === "reasoning"
+        ) {
+          const delta = reasoningTracker.delta(event.item.id, event.item.text);
+          if (delta) {
+            yield sseData({ type: "reasoning", text: delta });
+          }
+          continue;
+        }
+
+        // Non-fatal error items surface inline as text.
+        if (event.type === "item.completed" && event.item.type === "error") {
+          const id = `error-item-${event.item.id}`;
+          yield sseData({ type: "text-start", id });
+          yield sseData({
+            type: "text-delta",
+            id,
+            delta: `[Error] ${event.item.message}`,
+          });
+          yield sseData({ type: "text-end", id });
+          continue;
+        }
+
+        // File changes (apply_patch) surface as a completed tool call.
+        if (
+          event.type === "item.completed" &&
+          event.item.type === "file_change"
+        ) {
+          const item = event.item;
+          yield sseData({
+            type: "tool-input-start",
+            toolCallId: item.id,
+            toolName: "apply_patch",
+          });
+          yield sseData({
+            type: "tool-input-available",
+            toolCallId: item.id,
+            toolName: "apply_patch",
+            input: { changes: item.changes },
+          });
+          yield sseData({
+            type: "tool-output-available",
+            toolCallId: item.id,
+            output: { status: item.status, changes: item.changes },
+            isError: item.status === "failed",
+          });
+          continue;
         }
 
         const toolStart = toToolStartPayload(event);
         if (toolStart) {
-          yield `data: ${JSON.stringify({ type: "tool-input-start", toolCallId: toolStart.toolCallId, toolName: toolStart.toolName })}\n\n`;
-          yield `data: ${JSON.stringify({ type: "tool-input-available", toolCallId: toolStart.toolCallId, toolName: toolStart.toolName, input: toolStart.args })}\n\n`;
+          yield sseData({
+            type: "tool-input-start",
+            toolCallId: toolStart.toolCallId,
+            toolName: toolStart.toolName,
+          });
+          yield sseData({
+            type: "tool-input-available",
+            toolCallId: toolStart.toolCallId,
+            toolName: toolStart.toolName,
+            input: toolStart.args,
+          });
         }
 
         const toolEnd = toToolEndPayload(event);
         if (toolEnd) {
-          yield `data: ${JSON.stringify({ type: "tool-output-available", toolCallId: toolEnd.toolCallId, output: toolEnd.result, isError: toolEnd.isError })}\n\n`;
+          yield sseData({
+            type: "tool-output-available",
+            toolCallId: toolEnd.toolCallId,
+            output: toolEnd.result,
+            isError: toolEnd.isError,
+          });
         }
 
         if (event.type === "turn.completed") {
-          yield `data: ${JSON.stringify({ type: "finish", finishReason: "stop", usage: event.usage })}\n\n`;
+          // Usage goes under messageMetadata in snake_case so the SDK
+          // provider's normalizeBunnyAgentUsage picks it up (top-level
+          // `usage` on finish chunks is ignored by the provider).
+          yield sseData({
+            type: "finish",
+            finishReason: "stop",
+            messageMetadata: {
+              sessionId: sessionId ?? thread.id ?? undefined,
+              usage: {
+                input_tokens: event.usage.input_tokens,
+                output_tokens: event.usage.output_tokens,
+                cache_read_input_tokens: event.usage.cached_input_tokens,
+              },
+            },
+          });
           yield `data: [DONE]\n\n`;
+          finished = true;
         }
 
         if (event.type === "turn.failed") {
-          yield `data: ${JSON.stringify({ type: "error", errorText: event.error.message })}\n\n`;
-          yield `data: ${JSON.stringify({ type: "finish", finishReason: "error" })}\n\n`;
+          yield sseData({ type: "error", errorText: event.error.message });
+          yield sseData({ type: "finish", finishReason: "error" });
           yield `data: [DONE]\n\n`;
+          finished = true;
         }
 
         if (event.type === "error") {
-          yield `data: ${JSON.stringify({ type: "error", errorText: stringifyUnknown(event.message) })}\n\n`;
-          yield `data: ${JSON.stringify({ type: "finish", finishReason: "error" })}\n\n`;
+          yield sseData({
+            type: "error",
+            errorText: stringifyUnknown(event.message),
+          });
+          yield sseData({ type: "finish", finishReason: "error" });
           yield `data: [DONE]\n\n`;
+          finished = true;
         }
+      }
+
+      // The event stream ended without a terminal turn event (e.g. the codex
+      // process died mid-turn) — emit an explicit error so the UI does not
+      // stall silently.
+      if (!finished) {
+        yield* ensureStart();
+        yield sseData({
+          type: "error",
+          errorText: "Codex stream ended unexpectedly before completing.",
+        });
+        yield sseData({ type: "finish", finishReason: "error" });
+        yield `data: [DONE]\n\n`;
       }
 
       // Clean up any temp image files written for local_image inputs

@@ -402,6 +402,12 @@ export async function POST(request: Request) {
 
       writer.merge(result.toUIMessageStream({ sendSources: true }));
     },
+    onError: (error) => {
+      console.error("[api/ai] stream execute failed", error);
+      return error instanceof Error
+        ? error.message
+        : "Something went wrong while running the agent. Please try again.";
+    },
   });
 
   return createUIMessageStreamResponse({ stream });

@@ -1,7 +1,8 @@
 import { appendFileSync, existsSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
-import { type Api, getModel, type Model } from "@earendil-works/pi-ai";
+import type { Api, Model } from "@earendil-works/pi-ai";
+import { getBuiltinModel } from "@earendil-works/pi-ai/providers/all";
 import {
   type AgentSessionEvent,
   AuthStorage,
@@ -343,8 +344,8 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
 
   // Build a ModelRegistry, auto-registering unknown models using env-based config
   const modelRegistry = ModelRegistry.inMemory(AuthStorage.create());
-  // biome-ignore lint/suspicious/noExplicitAny: getModel accepts provider string unions.
-  const defaultModel = getModel(provider as any, modelName);
+  // biome-ignore lint/suspicious/noExplicitAny: getBuiltinModel accepts provider/model string unions.
+  const defaultModel = getBuiltinModel(provider as any, modelName as any);
   let model = (defaultModel ??
     modelRegistry.find(provider, modelName)) as Model<Api>;
   if (model == null) {
@@ -452,13 +453,16 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
         })();
         stripLLMThoughtSignaturesFromSessionManager(sessionManager, model);
 
-        const resourceLoader = options.skillPaths
-          ? new BunnyAgentResourceLoader({
-              cwd,
-              skillPaths: options.skillPaths,
-              appendSystemPrompt: options.systemPrompt,
-            })
-          : undefined;
+        // Create the loader whenever either input is present: systemPrompt is
+        // delivered via appendSystemPrompt, so it must not depend on skillPaths.
+        const resourceLoader =
+          options.skillPaths || options.systemPrompt
+            ? new BunnyAgentResourceLoader({
+                cwd,
+                skillPaths: options.skillPaths,
+                appendSystemPrompt: options.systemPrompt,
+              })
+            : undefined;
 
         if (options.skillPaths && options.skillPaths.length > 0) {
           console.error(
