@@ -6,18 +6,18 @@
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { BunnyAgent, LocalSandbox } from "@bunny-agent/manager";
+import { BunnyAgent, LocalMachine } from "@bunny-agent/manager";
 import { describe, expect, it } from "vitest";
 
 describe("manager-cli Integration Tests", () => {
   const TIMEOUT = 30000;
 
   it(
-    "should create BunnyAgent with LocalSandbox",
+    "should create BunnyAgent with LocalMachine",
     async () => {
       const testDir = await mkdtemp(join(tmpdir(), "bunny-agent-test-"));
 
-      const sandbox = new LocalSandbox({
+      const sandbox = new LocalMachine({
         baseDir: testDir,
         isolate: true,
       });
@@ -43,7 +43,7 @@ describe("manager-cli Integration Tests", () => {
     async () => {
       const testDir = await mkdtemp(join(tmpdir(), "bunny-agent-test-"));
 
-      const sandbox = new LocalSandbox({
+      const sandbox = new LocalMachine({
         baseDir: testDir,
         isolate: true,
       });
@@ -69,7 +69,7 @@ describe("manager-cli Integration Tests", () => {
     async () => {
       const testDir = await mkdtemp(join(tmpdir(), "bunny-agent-test-"));
 
-      const sandbox = new LocalSandbox({
+      const sandbox = new LocalMachine({
         baseDir: testDir,
         isolate: true,
       });
