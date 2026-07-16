@@ -254,11 +254,14 @@ vi.mock("@earendil-works/pi-coding-agent", () => {
   };
 });
 
-vi.mock("@earendil-works/pi-ai", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@earendil-works/pi-ai")>();
+vi.mock("@earendil-works/pi-ai/providers/all", async (importOriginal) => {
+  const actual =
+    await importOriginal<
+      typeof import("@earendil-works/pi-ai/providers/all")
+    >();
   return {
     ...actual,
-    getModel: vi
+    getBuiltinModel: vi
       .fn()
       .mockImplementation((provider: string, modelName: string) => ({
         id: modelName,

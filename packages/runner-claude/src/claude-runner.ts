@@ -42,6 +42,18 @@ export interface ClaudeRunnerOptions extends BaseRunnerOptions {
   includePartialMessages?: boolean;
   /** AbortController for cancelling operations */
   abortController?: AbortController;
+  /**
+   * Fork a new session from this session ID instead of continuing it.
+   * The forked session gets a new ID; the source session is left untouched.
+   * Takes precedence over `resume` when both are set.
+   */
+  forkFrom?: string;
+  /**
+   * Skills to enable for the session (SDK `skills` option):
+   * `"all"` enables every discovered skill, a string array enables only the
+   * listed skill names. Omitted = CLI defaults.
+   */
+  skills?: string[] | "all";
 }
 
 /**
@@ -364,7 +376,11 @@ function createSDKOptions(options: ClaudeRunnerOptions): Options {
     ],
     cwd: options.cwd,
     env: options.env,
-    resume: options.resume,
+    // forkFrom snapshot-clones the source session into a new session id;
+    // plain resume continues the same session.
+    resume: options.forkFrom ?? options.resume,
+    forkSession: options.forkFrom != null ? true : undefined,
+    ...(options.skills ? { skills: options.skills } : {}),
     settingSources: ["project", "user"],
     canUseTool: createCanUseToolCallback(options),
     permissionMode: isRoot || options.yolo ? "bypassPermissions" : "default",

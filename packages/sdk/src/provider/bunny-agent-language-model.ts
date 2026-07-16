@@ -218,6 +218,8 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
   private sessionId: string | undefined;
   private toolNameMap: Map<string, string> = new Map();
   private legacyTextPartCounter = 0;
+  private receivedFinish = false;
+  private activeReasoningPartId: string | undefined;
 
   private logUnparsedStreamLine(candidate: string, error: unknown): void {
     const trimmed = candidate.trim();
@@ -225,11 +227,18 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
     const looksLikeError = /\b(error|failed|exception|traceback|fatal)\b/i.test(
       trimmed,
     );
+    const snippet = trimmed.slice(0, 500);
+    const msg = error instanceof Error ? error.message : String(error);
     if (looksLikeError) {
-      const snippet = trimmed.slice(0, 500);
-      const msg = error instanceof Error ? error.message : String(error);
       this.logger.error(
         `[bunny-agent] Unparsed stream line (likely runner error): ${snippet} | parser: ${msg}`,
+      );
+    } else {
+      // Not obviously an error, but still worth surfacing — a silently
+      // dropped line here is exactly how a stream can stall with no
+      // "finish"/"error" part and no visible feedback to the user.
+      this.logger.debug(
+        `[bunny-agent] Unparsed stream line: ${snippet} | parser: ${msg}`,
       );
     }
   }
@@ -258,6 +267,7 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
     let providerMetadata: SharedV3ProviderMetadata | undefined;
 
     const textParts: Map<string, { text: string }> = new Map();
+    const reasoningParts: Map<string, { text: string }> = new Map();
     const toolInputs: Map<string, { toolName: string; input: string }> =
       new Map();
 
@@ -283,6 +293,27 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
             if (part) {
               content.push({
                 type: "text",
+                text: part.text,
+              });
+            }
+            break;
+          }
+          case "reasoning-start": {
+            reasoningParts.set(value.id, { text: "" });
+            break;
+          }
+          case "reasoning-delta": {
+            const part = reasoningParts.get(value.id);
+            if (part) {
+              part.text += value.delta;
+            }
+            break;
+          }
+          case "reasoning-end": {
+            const part = reasoningParts.get(value.id);
+            if (part && part.text.length > 0) {
+              content.push({
+                type: "reasoning",
                 text: part.text,
               });
             }
@@ -446,6 +477,38 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
     this.sessionId = undefined;
     this.toolNameMap = new Map();
     this.legacyTextPartCounter = 0;
+    this.receivedFinish = false;
+    this.activeReasoningPartId = undefined;
+  }
+
+  /** Close the open reasoning part, if any (returns the end part to emit). */
+  private closeReasoningPart(): LanguageModelV3StreamPart[] {
+    if (this.activeReasoningPartId == null) return [];
+    const id = this.activeReasoningPartId;
+    this.activeReasoningPartId = undefined;
+    return [{ type: "reasoning-end", id }];
+  }
+
+  /** Synthesize a terminal error+finish pair for streams that end (EOF or `[DONE]`) without ever emitting a "finish" part, so the UI shows an error instead of silently stalling. */
+  private buildUnexpectedEndParts(): LanguageModelV3StreamPart[] {
+    return [
+      {
+        type: "error",
+        error: new Error(
+          "The agent stream ended unexpectedly before completing.",
+        ),
+      },
+      {
+        type: "finish",
+        finishReason: { unified: "error", raw: "unexpected-stream-end" },
+        usage: createEmptyUsage(),
+        providerMetadata: {
+          "bunny-agent": {
+            sessionId: this.sessionId,
+          } as unknown as SharedV3ProviderMetadata,
+        },
+      },
+    ];
   }
 
   private buildCodingRunBody(
@@ -519,6 +582,11 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
                   controller.enqueue(part);
                 }
               }
+              if (!self.receivedFinish) {
+                for (const part of self.buildUnexpectedEndParts()) {
+                  controller.enqueue(part);
+                }
+              }
               controller.close();
               break;
             }
@@ -568,6 +636,11 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
             }
 
             if (foundDone) {
+              if (!self.receivedFinish) {
+                for (const part of self.buildUnexpectedEndParts()) {
+                  controller.enqueue(part);
+                }
+              }
               controller.close();
               return;
             }
@@ -623,6 +696,7 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
 
     // daemon NDJSON errors may arrive as: {"error":"..."} (without type)
     if (!parsedType && typeof parsed.error === "string") {
+      this.receivedFinish = true;
       return [
         {
           type: "error",
@@ -673,7 +747,35 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
         break;
       }
 
+      // Runners (claude/codex) emit reasoning as untagged deltas:
+      // {type:"reasoning", text}. Wrap them in a synthesized
+      // reasoning-start/delta/end part stream for the AI SDK.
+      case "reasoning": {
+        const text =
+          typeof parsed.text === "string"
+            ? parsed.text
+            : typeof parsed.delta === "string"
+              ? parsed.delta
+              : "";
+        if (text.length > 0) {
+          if (this.activeReasoningPartId == null) {
+            this.activeReasoningPartId = `reasoning-${++this.legacyTextPartCounter}`;
+            parts.push({
+              type: "reasoning-start",
+              id: this.activeReasoningPartId,
+            });
+          }
+          parts.push({
+            type: "reasoning-delta",
+            id: this.activeReasoningPartId,
+            delta: text,
+          });
+        }
+        break;
+      }
+
       case "text-start": {
+        parts.push(...this.closeReasoningPart());
         parts.push({
           type: "text-start",
           id: parsed.id as string,
@@ -704,6 +806,7 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
       }
 
       case "tool-input-start": {
+        parts.push(...this.closeReasoningPart());
         parts.push({
           type: "tool-input-start",
           id: parsed.toolCallId as string,
@@ -763,6 +866,7 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
         break;
       }
       case "error": {
+        this.receivedFinish = true;
         parts.push({
           type: "error",
           error: new Error(
@@ -775,6 +879,8 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
       }
 
       case "finish": {
+        this.receivedFinish = true;
+        parts.push(...this.closeReasoningPart());
         const rawFinishReason = parsed.finishReason;
         let finishReason: LanguageModelV3FinishReason;
 
