@@ -13,17 +13,11 @@ export { isBunnyAgentDaemonHealthy } from "./daemon-health.js";
 export type { RunnerEnvParams, RunnerType } from "./env.js";
 // Env helpers
 export { buildRunnerEnv } from "./env.js";
-export type {
-  LocalMachineOptions,
-  LocalSandboxOptions,
-} from "./local-machine.js";
-// Default local adapter (built-in, NO isolation). `LocalSandbox` is the
-// deprecated pre-rename alias.
-export { LocalMachine, LocalSandbox } from "./local-machine.js";
-export type { SrtIsolationOptions, SrtSandboxOptions } from "./srt-sandbox.js";
-// Locally-isolated sandbox adapter (wraps commands with
-// @anthropic-ai/sandbox-runtime)
-export { SrtSandbox } from "./srt-sandbox.js";
+// Local adapters live in their own packages, mirroring the cloud adapters:
+// @bunny-agent/sandbox-local (LocalMachine — NO isolation) and
+// @bunny-agent/sandbox-srt (SrtSandbox — OS-level isolation via
+// @anthropic-ai/sandbox-runtime). Both are also re-exported from
+// @bunny-agent/sdk for convenience.
 export {
   ConsoleTranscriptWriter,
   JsonlTranscriptWriter,

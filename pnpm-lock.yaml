@@ -118,6 +118,9 @@ importers:
       '@bunny-agent/sandbox-e2b':
         specifier: workspace:*
         version: link:../../packages/sandbox-e2b
+      '@bunny-agent/sandbox-local':
+        specifier: workspace:*
+        version: link:../../packages/sandbox-local
       '@bunny-agent/sandbox-sandock':
         specifier: workspace:*
         version: link:../../packages/sandbox-sandock
@@ -482,10 +485,6 @@ importers:
         version: 5.9.3
 
   packages/manager:
-    dependencies:
-      '@anthropic-ai/sandbox-runtime':
-        specifier: ^0.0.65
-        version: 0.0.65
     devDependencies:
       '@types/node':
         specifier: ^20.10.0
@@ -649,6 +648,22 @@ importers:
         specifier: ^1.6.1
         version: 1.6.1(@types/node@20.19.33)(lightningcss@1.30.2)
 
+  packages/sandbox-local:
+    dependencies:
+      '@bunny-agent/manager':
+        specifier: workspace:*
+        version: link:../manager
+    devDependencies:
+      '@types/node':
+        specifier: ^20.10.0
+        version: 20.19.33
+      typescript:
+        specifier: ^5.3.0
+        version: 5.9.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.33)(lightningcss@1.30.2)
+
   packages/sandbox-sandock:
     dependencies:
       '@bunny-agent/manager':
@@ -657,6 +672,28 @@ importers:
       sandock:
         specifier: ^2.2.6
         version: 2.2.6
+    devDependencies:
+      '@types/node':
+        specifier: ^20.10.0
+        version: 20.19.33
+      typescript:
+        specifier: ^5.3.0
+        version: 5.9.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.33)(lightningcss@1.30.2)
+
+  packages/sandbox-srt:
+    dependencies:
+      '@anthropic-ai/sandbox-runtime':
+        specifier: ^0.0.65
+        version: 0.0.65
+      '@bunny-agent/manager':
+        specifier: workspace:*
+        version: link:../manager
+      '@bunny-agent/sandbox-local':
+        specifier: workspace:*
+        version: link:../sandbox-local
     devDependencies:
       '@types/node':
         specifier: ^20.10.0
@@ -679,6 +716,12 @@ importers:
       '@bunny-agent/manager':
         specifier: workspace:*
         version: link:../manager
+      '@bunny-agent/sandbox-local':
+        specifier: workspace:*
+        version: link:../sandbox-local
+      '@bunny-agent/sandbox-srt':
+        specifier: workspace:*
+        version: link:../sandbox-srt
       ai:
         specifier: ^6.0.0
         version: 6.0.105(zod@4.3.6)

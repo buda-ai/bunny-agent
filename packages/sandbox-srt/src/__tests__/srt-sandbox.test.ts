@@ -2,9 +2,9 @@ import { execFileSync } from "node:child_process";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
+import type { SandboxHandle } from "@bunny-agent/manager";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { SrtSandbox } from "../srt-sandbox.js";
-import type { SandboxHandle } from "../types.js";
 
 /**
  * These are real isolation tests: they execute commands through the actual
