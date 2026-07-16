@@ -20,13 +20,14 @@ const sandboxingAvailable = (() => {
     try {
       // srt needs bwrap (with permission to create user namespaces — on
       // Ubuntu 24.04+ that requires an AppArmor profile or
-      // kernel.apparmor_restrict_unprivileged_userns=0) AND socat for its
-      // network proxy bridge.
+      // kernel.apparmor_restrict_unprivileged_userns=0), socat for its
+      // network proxy bridge, and ripgrep.
       execFileSync("bwrap", ["--ro-bind", "/", "/", "true"], {
         stdio: "ignore",
         timeout: 10000,
       });
       execFileSync("socat", ["-V"], { stdio: "ignore", timeout: 10000 });
+      execFileSync("rg", ["--version"], { stdio: "ignore", timeout: 10000 });
       return true;
     } catch {
       return false;
@@ -62,7 +63,9 @@ describe.skipIf(!sandboxingAvailable)("SrtSandbox (real isolation)", () => {
     // the OS temp dir (which SrtSandbox always allows) — and the repo itself
     // can sit under the temp dir (e.g. a /tmp git worktree), so anchor to
     // the user's home rather than process.cwd(). Removed in afterEach.
-    outsideDir = await fs.mkdtemp(path.join(os.homedir(), ".srt-test-outside-"));
+    outsideDir = await fs.mkdtemp(
+      path.join(os.homedir(), ".srt-test-outside-"),
+    );
   });
 
   afterEach(async () => {

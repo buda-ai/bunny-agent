@@ -46,10 +46,10 @@ jobs:
       - name: Build
         run: pnpm build
 
-      - name: Install srt platform deps (bubblewrap + socat)
+      - name: Install srt platform deps (bubblewrap + socat + ripgrep)
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq bubblewrap socat
+          sudo apt-get install -y -qq bubblewrap socat ripgrep
           # Ubuntu 24.04+ blocks unprivileged user namespaces by default,
           # which bubblewrap needs. The runner VM is ephemeral — relaxing
           # this here affects nothing beyond this job.
@@ -58,6 +58,7 @@ jobs:
           # so fail loudly here instead of green-but-skipped.
           bwrap --ro-bind / / true
           socat -V > /dev/null
+          rg --version > /dev/null
 
       # Full suite: every package's unit tests PLUS the live tiers unlocked
       # by BUNNY_INTEGRATION=1 — sandbox-srt's real bwrap isolation tests and

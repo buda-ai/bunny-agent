@@ -37,7 +37,8 @@ const MOCK_ENV = {
 };
 
 /** Same platform probe as sandbox-srt's own tests: srt needs bwrap with
- *  user-namespace permission plus socat on Linux; Seatbelt ships with macOS. */
+ *  user-namespace permission, socat, and ripgrep on Linux; Seatbelt ships
+ *  with macOS. */
 const srtAvailable = (() => {
   if (process.platform === "darwin") return true;
   if (process.platform !== "linux") return false;
@@ -47,6 +48,7 @@ const srtAvailable = (() => {
       timeout: 10000,
     });
     execFileSync("socat", ["-V"], { stdio: "ignore", timeout: 10000 });
+    execFileSync("rg", ["--version"], { stdio: "ignore", timeout: 10000 });
     return true;
   } catch {
     return false;
