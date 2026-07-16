@@ -347,26 +347,22 @@ vi.mock("@earendil-works/pi-coding-agent", () => {
   };
 });
 
-vi.mock("@earendil-works/pi-ai", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@earendil-works/pi-ai")>();
-  return {
-    ...actual,
-    getModel: vi
-      .fn()
-      .mockImplementation((provider: string, modelName: string) => ({
-        id: modelName,
-        name: modelName,
-        provider,
-        baseUrl: "https://example.com",
-        api: "openai-completions",
-        reasoning: false,
-        input: ["text", "image"],
-        contextWindow: 128000,
-        maxTokens: 8192,
-        cost: { input: 3, output: 30, cacheRead: 1, cacheWrite: 2 },
-      })),
-  };
-});
+vi.mock("@earendil-works/pi-ai/compat", () => ({
+  getModel: vi
+    .fn()
+    .mockImplementation((provider: string, modelName: string) => ({
+      id: modelName,
+      name: modelName,
+      provider,
+      baseUrl: "https://example.com",
+      api: "openai-completions",
+      reasoning: false,
+      input: ["text", "image"],
+      contextWindow: 128000,
+      maxTokens: 8192,
+      cost: { input: 3, output: 30, cacheRead: 1, cacheWrite: 2 },
+    })),
+}));
 
 import { createPiRunner } from "../pi-runner.js";
 import { extractToolResultText } from "../stream-converter.js";

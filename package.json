@@ -33,7 +33,7 @@
   },
   "pnpm": {
     "patchedDependencies": {
-      "@earendil-works/pi-coding-agent@0.78.0": "patches/@earendil-works__pi-coding-agent@0.78.0.patch",
+      "@earendil-works/pi-coding-agent@0.80.7": "patches/@earendil-works__pi-coding-agent@0.80.7.patch",
       "openai@6.26.0": "patches/openai@6.26.0.patch"
     }
   }

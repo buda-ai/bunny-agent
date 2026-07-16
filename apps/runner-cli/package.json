@@ -51,9 +51,9 @@
   ],
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "0.2.70",
-    "@earendil-works/pi-agent-core": "0.78.0",
-    "@earendil-works/pi-ai": "0.78.0",
-    "@earendil-works/pi-coding-agent": "0.78.0",
+    "@earendil-works/pi-agent-core": "0.80.7",
+    "@earendil-works/pi-ai": "0.80.7",
+    "@earendil-works/pi-coding-agent": "0.80.7",
     "@openai/codex-sdk": "^0.110.0",
     "dotenv": "^17.3.1",
     "zod": "^4.0.0"
