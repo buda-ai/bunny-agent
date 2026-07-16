@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { type ChildProcess, execFile, spawn } from "node:child_process";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import {
@@ -7,6 +7,46 @@ import {
   type SandboxAdapter,
   type SandboxHandle,
 } from "@bunny-agent/manager";
+
+/**
+ * Kill an entire process tree, not just the direct child.
+ *
+ * A plain `child.kill(signal)` only signals the direct child PID. If that
+ * child forks/backgrounds its own children (e.g. a shell's `cmd &`, or a
+ * coding-agent CLI spawning a tool subprocess), those grandchildren are NOT
+ * part of a process group we control and survive as orphans — a real
+ * resource leak on abort/timeout that plain `LocalMachine` (no isolation)
+ * has no other protection against. (`SrtSandbox` doesn't need this: srt's
+ * bwrap wrapping passes `--unshare-pid`, so the kernel tears down every
+ * process in that PID namespace the instant its init dies — confirmed by a
+ * live repro that leaves an orphan under `LocalMachine` but reaps it clean
+ * under `SrtSandbox`.)
+ *
+ * Requires the child to have been spawned with `detached: true` on POSIX
+ * (making `child.pid` the process-group leader, so `process.kill(-pid, …)`
+ * signals the whole group). On Windows, `taskkill /T` walks the tree
+ * instead — Node's negative-PID group-signal trick is POSIX-only.
+ */
+function killProcessTree(child: ChildProcess, signal: NodeJS.Signals): void {
+  if (!child.pid) {
+    return;
+  }
+  if (process.platform === "win32") {
+    execFile("taskkill", ["/pid", String(child.pid), "/T", "/F"], () => {
+      // Best-effort: nothing to recover into if taskkill itself is missing
+      // or the tree is already gone.
+    });
+    return;
+  }
+  try {
+    process.kill(-child.pid, signal);
+  } catch {
+    // ESRCH (already exited) or the child wasn't actually a group leader
+    // (e.g. spawn failed before detached took effect) — fall back to
+    // signaling just the direct child so a live process still gets it.
+    child.kill(signal);
+  }
+}
 
 /**
  * Options for creating a LocalMachine instance
@@ -163,6 +203,7 @@ export class LocalMachine implements SandboxAdapter {
       this.env,
       this.label,
       (command) => this.transformCommand(command),
+      () => this.onDestroy(),
     );
 
     // Store the handle
@@ -203,6 +244,13 @@ export class LocalMachine implements SandboxAdapter {
   protected async transformCommand(command: string[]): Promise<string[]> {
     return command;
   }
+
+  /**
+   * Hook for subclasses to release resources they allocated outside the
+   * handle (e.g. a generated policy file) when the handle is destroyed. The
+   * base implementation is a no-op.
+   */
+  protected async onDestroy(): Promise<void> {}
 }
 
 /**
@@ -215,6 +263,7 @@ class LocalMachineHandle implements SandboxHandle {
   private readonly _sandboxId: string;
   private readonly label: string;
   private readonly transformCommand: (command: string[]) => Promise<string[]>;
+  private readonly onDestroyHook: () => Promise<void>;
 
   constructor(
     workDir: string,
@@ -224,12 +273,14 @@ class LocalMachineHandle implements SandboxHandle {
     transformCommand: (command: string[]) => Promise<string[]> = async (
       command,
     ) => command,
+    onDestroyHook: () => Promise<void> = async () => {},
   ) {
     this.workDir = workDir;
     this.defaultTimeout = defaultTimeout;
     this.env = env;
     this.label = label;
     this.transformCommand = transformCommand;
+    this.onDestroyHook = onDestroyHook;
     this._sandboxId = `local-${crypto.randomUUID()}`;
   }
 
@@ -291,7 +342,31 @@ class LocalMachineHandle implements SandboxHandle {
       cwd,
       env,
       shell: false,
+      // Makes `child.pid` the leader of its own process group on POSIX, so
+      // killProcessTree() can signal the whole tree (including backgrounded
+      // grandchildren) instead of just this direct child.
+      detached: process.platform !== "win32",
     });
+
+    // Tracks real process exit — NOT the same as child.killed, which Node
+    // sets true as soon as a kill() signal is successfully *sent*, whether
+    // or not the process actually died. Using child.killed to decide
+    // whether to escalate to SIGKILL (the pre-existing logic here) meant
+    // the escalation almost never fired, because killed flips true right
+    // after the SIGTERM call succeeds — before the process has had any
+    // chance to exit.
+    let hasExited = false;
+    child.once("exit", () => {
+      hasExited = true;
+    });
+
+    const escalateToSigkill = () => {
+      setTimeout(() => {
+        if (!hasExited) {
+          killProcessTree(child, "SIGKILL");
+        }
+      }, 5000);
+    };
 
     let timeoutId: NodeJS.Timeout | undefined;
     let isTimedOut = false;
@@ -301,25 +376,16 @@ class LocalMachineHandle implements SandboxHandle {
     if (timeout > 0) {
       timeoutId = setTimeout(() => {
         isTimedOut = true;
-        child.kill("SIGTERM");
-        // Force kill after 5 seconds if still running
-        setTimeout(() => {
-          if (!child.killed) {
-            child.kill("SIGKILL");
-          }
-        }, 5000);
+        killProcessTree(child, "SIGTERM");
+        escalateToSigkill();
       }, timeout);
     }
 
     // Set up abort signal if provided
     const abortHandler = () => {
       isAborted = true;
-      child.kill("SIGTERM");
-      setTimeout(() => {
-        if (!child.killed) {
-          child.kill("SIGKILL");
-        }
-      }, 5000);
+      killProcessTree(child, "SIGTERM");
+      escalateToSigkill();
     };
 
     if (opts.signal) {
@@ -466,6 +532,9 @@ class LocalMachineHandle implements SandboxHandle {
         cwd: this.workDir,
         env: { ...process.env, ...this.env }, // Use instance env
         stdio: "pipe",
+        // See killProcessTree()'s doc comment (above, in exec()'s spawn):
+        // needed so a timeout can reap backgrounded grandchildren too.
+        detached: process.platform !== "win32",
       });
 
       let stdout = "";
@@ -492,7 +561,8 @@ class LocalMachineHandle implements SandboxHandle {
       // Timeout handling
       const timeout = this.defaultTimeout;
       const timeoutId = setTimeout(() => {
-        child.kill();
+        killProcessTree(child, "SIGTERM");
+        setTimeout(() => killProcessTree(child, "SIGKILL"), 5000);
         reject(new Error(`Command timed out after ${timeout}ms`));
       }, timeout);
 
@@ -503,6 +573,7 @@ class LocalMachineHandle implements SandboxHandle {
   }
 
   async destroy(): Promise<void> {
+    await this.onDestroyHook();
     console.log(`[${this.label}] Cleanup complete for: ${this.workDir}`);
     // Note: We don't delete the directory by default to preserve work
     // Users can manually delete it if needed
