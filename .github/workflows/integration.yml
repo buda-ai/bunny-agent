@@ -1,0 +1,99 @@
+name: Integration
+
+# Live integration tests, opt-in via BUNNY_INTEGRATION=1:
+# - local-srt: LocalMachine (host exec) + SrtSandbox (REAL bubblewrap
+#   isolation on the runner) + a full BunnyAgent turn through the real
+#   runner-cli against the deterministic mock-ai-server (OpenAI protocol,
+#   no key, no token cost).
+# - sandock: real sandboxes on sandock.ai — needs the SANDOCK_API_KEY repo
+#   secret; the tests skip cleanly when it is absent (e.g. fork PRs).
+
+on:
+  pull_request:
+    branches:
+      - main
+      - develop
+      - "release/**"
+  workflow_dispatch:
+
+concurrency:
+  group: integration-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  local-srt:
+    name: Local + SRT (real isolation, mock LLM)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          # Node >= 24: the SrtSandbox live E2E needs NODE_USE_ENV_PROXY so
+          # the runner's fetch goes through srt's network proxy.
+          node-version: "24"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build
+        run: pnpm build
+
+      - name: Install srt platform deps (bubblewrap + socat)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq bubblewrap socat
+          # Ubuntu 24.04+ blocks unprivileged user namespaces by default,
+          # which bubblewrap needs. The runner VM is ephemeral — relaxing
+          # this here affects nothing beyond this job.
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          # Sanity: the srt test suites skip silently when this probe fails,
+          # so fail loudly here instead of green-but-skipped.
+          bwrap --ro-bind / / true
+          socat -V > /dev/null
+
+      - name: Sandbox adapter tests (real bwrap isolation)
+        run: pnpm --filter @bunny-agent/sandbox-local --filter @bunny-agent/sandbox-srt test
+
+      - name: Live E2E — LocalMachine + SrtSandbox × mock LLM
+        env:
+          BUNNY_INTEGRATION: "1"
+        run: pnpm --filter @bunny-agent/manager-cli test
+
+  sandock:
+    name: Sandock live (cloud)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build
+        run: pnpm build
+
+      - name: Live Sandock integration (skips without SANDOCK_API_KEY secret)
+        env:
+          BUNNY_INTEGRATION: "1"
+          SANDOCK_API_KEY: ${{ secrets.SANDOCK_API_KEY }}
+          # Optional: point at a non-production Sandock deployment
+          # SANDOCK_BASE_URL: ${{ vars.SANDOCK_BASE_URL }}
+        run: pnpm --filter @bunny-agent/sandbox-sandock test

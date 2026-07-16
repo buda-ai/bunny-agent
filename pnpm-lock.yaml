@@ -124,6 +124,9 @@ importers:
       '@bunny-agent/sandbox-sandock':
         specifier: workspace:*
         version: link:../../packages/sandbox-sandock
+      '@bunny-agent/sandbox-srt':
+        specifier: workspace:*
+        version: link:../../packages/sandbox-srt
     devDependencies:
       '@types/node':
         specifier: ^20.10.0
