@@ -516,7 +516,11 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
         });
 
         const eventQueue: AgentSessionEvent[] = [];
-        let isComplete = false;
+        let promptSettled = false;
+        let promptError: unknown;
+        let finalAgentEnd:
+          | Extract<AgentSessionEvent, { type: "agent_end" }>
+          | undefined;
         let aborted = false;
         let wakeConsumer: (() => void) | null = null;
 
@@ -527,16 +531,12 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
 
         const unsubscribe = session.subscribe((e) => {
           eventQueue.push(e);
-          if (e.type === "agent_end") {
-            isComplete = true;
-          }
           notify();
         });
 
         const abortSignal = options.abortController?.signal;
         const abortHandler = () => {
           aborted = true;
-          isComplete = true;
           void session.abort();
           notify();
         };
@@ -553,6 +553,17 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
 
           const promptText = userInput;
           const promptPromise = session.prompt(promptText);
+          void promptPromise.then(
+            () => {
+              promptSettled = true;
+              notify();
+            },
+            (error: unknown) => {
+              promptError = error;
+              promptSettled = true;
+              notify();
+            },
+          );
 
           const streamConverter = new PiAISDKStreamConverter({
             sessionId: session.sessionId,
@@ -562,10 +573,14 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
             getErrorFromAgentEndMessages,
           });
 
-          while (!isComplete || eventQueue.length > 0) {
+          while ((!promptSettled && !aborted) || eventQueue.length > 0) {
             while (eventQueue.length > 0) {
               const event = eventQueue.shift()!;
               traceRawMessage(cwd, event, false, options.env);
+              if (event.type === "agent_end") {
+                finalAgentEnd = event;
+                continue;
+              }
               const chunks = streamConverter.handleEvent(event, aborted);
               for (const chunk of chunks) {
                 yield chunk;
@@ -581,33 +596,42 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
               break;
             }
 
-            if (!isComplete && eventQueue.length === 0) {
+            if (!promptSettled && !aborted && eventQueue.length === 0) {
               await new Promise<void>((resolve) => {
                 wakeConsumer = resolve;
               });
             }
           }
 
-          if (streamConverter.finished) {
+          if (aborted) {
             return;
           }
 
-          try {
-            await promptPromise;
-          } catch (error) {
-            if (!streamConverter.finished) {
-              const message =
-                error instanceof Error ? error.message : "Pi agent run failed.";
-              for (const chunk of streamConverter.forceError(message)) {
-                yield chunk;
-              }
+          if (promptError !== undefined) {
+            const message =
+              promptError instanceof Error
+                ? promptError.message
+                : "Pi agent run failed.";
+            for (const chunk of streamConverter.forceError(message)) {
+              yield chunk;
             }
             return;
           }
 
-          if (!streamConverter.finished && session.agent.state.errorMessage) {
+          if (finalAgentEnd) {
+            const chunks = streamConverter.handleEvent(finalAgentEnd, false);
+            for (const chunk of chunks) {
+              yield chunk;
+            }
+          } else if (session.agent.state.errorMessage) {
             for (const chunk of streamConverter.forceError(
               session.agent.state.errorMessage,
+            )) {
+              yield chunk;
+            }
+          } else {
+            for (const chunk of streamConverter.forceError(
+              "Pi agent run completed without an agent_end event.",
             )) {
               yield chunk;
             }

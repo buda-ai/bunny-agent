@@ -1,7 +1,7 @@
 {
-  "name": "@bunny-agent/manager",
+  "name": "@bunny-agent/sandbox-srt",
   "version": "0.9.51-release.1",
-  "description": "BunnyAgent Manager - Manages sandbox and runner lifecycle, defines core interfaces",
+  "description": "Locally-isolated sandbox adapter for BunnyAgent — wraps commands with Anthropic's sandbox runtime (srt)",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -26,26 +26,32 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/vikadata/bunny-agent.git",
-    "directory": "packages/manager"
+    "directory": "packages/sandbox-srt"
   },
-  "keywords": [
-    "sandbox",
-    "agent",
-    "bunny-agent",
-    "runner",
-    "manager"
-  ],
   "license": "Apache-2.0",
   "publishConfig": {
     "access": "public"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=20.11.0"
+  },
+  "keywords": [
+    "sandbox",
+    "srt",
+    "isolation",
+    "bubblewrap",
+    "seatbelt",
+    "bunny-agent",
+    "adapter"
+  ],
+  "dependencies": {
+    "@anthropic-ai/sandbox-runtime": "^0.0.65",
+    "@bunny-agent/manager": "workspace:*",
+    "@bunny-agent/sandbox-local": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
     "typescript": "^5.3.0",
     "vitest": "^1.6.1"
-  },
-  "dependencies": {}
+  }
 }

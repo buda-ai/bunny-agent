@@ -39,7 +39,7 @@ Your App  →  @bunny-agent/sdk  →  Coding Agent (Claude / Codex / …)
 |---------|-------------|
 | 🔌 **AI SDK Provider** | `createBunnyAgent()` returns a model you pass to `streamText` / `generateText` |
 | ⚛️ **React Hooks** | `useBunnyAgentChat`, `useArtifacts`, `useWriteTool`, `useAskUserQuestion` |
-| 🖥️ **Local Mode** | Built-in `LocalSandbox` — run on your machine for Desktop apps & debugging |
+| 🖥️ **Local Mode** | Built-in `LocalMachine` (no isolation) and `SrtSandbox` (OS-level isolation) — run on your machine for Desktop apps & debugging |
 | ☁️ **Cloud Sandboxes** | Plug in [Sandock](https://sandock.ai), E2B, or Daytona for isolated cloud execution |
 | 🎨 **Agent Templates** | Markdown-based templates turn a generic agent into a domain expert |
 | 🔄 **Multi-turn Sessions** | Resume conversations with full filesystem continuity |
@@ -58,7 +58,7 @@ npm install @bunny-agent/sdk ai
 
 ```typescript
 // app/api/ai/route.ts
-import { createBunnyAgent, LocalSandbox } from "@bunny-agent/sdk";
+import { createBunnyAgent, LocalMachine } from "@bunny-agent/sdk";
 import {
   convertToModelMessages,
   createUIMessageStream,
@@ -69,7 +69,7 @@ import {
 export async function POST(request: Request) {
   const { messages } = await request.json();
 
-  const sandbox = new LocalSandbox({
+  const sandbox = new LocalMachine({
     workdir: process.cwd(),
     templatesPath: process.cwd(),
     runnerCommand: ["npx", "-y", "@bunny-agent/runner-cli@latest", "run"],
@@ -138,12 +138,27 @@ That's it — you now have a full Coding Agent streaming into your app.
 
 ### Local Mode (Desktop apps & debugging)
 
-`LocalSandbox` is built-in — no extra packages needed. The agent runs directly on your machine's filesystem.
+`LocalMachine` is built-in — no extra packages needed. The agent runs directly on your machine's filesystem, with your user's permissions and **no isolation** (it was previously named `LocalSandbox`; that alias still works but is deprecated). When you want actual OS-level isolation on the local machine, use `SrtSandbox` instead — same API, but every command is wrapped with [Anthropic's sandbox runtime](https://www.npmjs.com/package/@anthropic-ai/sandbox-runtime) (bubblewrap on Linux, Seatbelt on macOS): writes are restricted to the workdir, network access is blocked unless you allowlist domains.
 
 ```typescript
-import { createBunnyAgent, LocalSandbox } from "@bunny-agent/sdk";
+import { createBunnyAgent, SrtSandbox } from "@bunny-agent/sdk";
 
-const sandbox = new LocalSandbox({
+const sandbox = new SrtSandbox({
+  workdir: "/path/to/project",
+  isolation: {
+    allowedDomains: ["api.anthropic.com", "*.npmjs.org"],
+    denyRead: ["~/.ssh", "~/.aws"],
+    allowWrite: ["~/.npm"], // runners that write to the home dir need this
+  },
+});
+```
+
+Linux needs `bubblewrap` + `socat` installed (and on Ubuntu 24.04+, an AppArmor profile that grants `userns` to bwrap). macOS works out of the box.
+
+```typescript
+import { createBunnyAgent, LocalMachine } from "@bunny-agent/sdk";
+
+const sandbox = new LocalMachine({
   workdir: "/path/to/project",
   templatesPath: "./my-agent-template",
   env: { ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY! },
@@ -224,7 +239,7 @@ my-agent/
 ```
 
 ```typescript
-const sandbox = new LocalSandbox({
+const sandbox = new LocalMachine({
   workdir: process.cwd(),
   templatesPath: "./templates/analyst",  // Point to your template
 });
@@ -256,10 +271,10 @@ import {
 #### `createBunnyAgent` — sandbox transport (cloud / local filesystem)
 
 ```typescript
-import { createBunnyAgent, LocalSandbox } from "@bunny-agent/sdk";
+import { createBunnyAgent, LocalMachine } from "@bunny-agent/sdk";
 
 const bunnyAgent = createBunnyAgent({
-  sandbox: SandboxAdapter,       // LocalSandbox, SandockSandbox, E2BSandbox, etc.
+  sandbox: SandboxAdapter,       // LocalMachine, SrtSandbox, SandockSandbox, E2BSandbox, etc.
   cwd?: string,                  // Working directory inside sandbox
   env?: Record<string, string>,  // Environment variables
   template?: string,             // Template name
@@ -272,7 +287,7 @@ const model = bunnyAgent("claude-sonnet-4-20250514");
 
 #### Daemon HTTP transport (same provider)
 
-**With any sandbox adapter** (E2B, Sandock, `LocalSandbox`, etc.): pass **`sandbox` + `daemonUrl`**. The URL is resolved **inside** the sandbox (the `vikadata/bunny-agent` image starts `bunny-agent-daemon` on port 3080). The SDK streams via `streamCodingRunFromSandbox` (`curl -N` in the sandbox, including `LocalSandbox`), not `fetch` from your server. It does **not** call `/healthz` for you — use `isBunnyAgentDaemonHealthy` from `@bunny-agent/sdk` when you want a probe before setting `daemonUrl` (e.g. to fall back to the CLI runner).
+**With any sandbox adapter** (E2B, Sandock, `LocalMachine`, etc.): pass **`sandbox` + `daemonUrl`**. The URL is resolved **inside** the sandbox (the `vikadata/bunny-agent` image starts `bunny-agent-daemon` on port 3080). The SDK streams via `streamCodingRunFromSandbox` (`curl -N` in the sandbox, including `LocalMachine`), not `fetch` from your server. It does **not** call `/healthz` for you — use `isBunnyAgentDaemonHealthy` from `@bunny-agent/sdk` when you want a probe before setting `daemonUrl` (e.g. to fall back to the CLI runner).
 
 ```typescript
 import { createBunnyAgent, DEFAULT_BUNNY_AGENT_DAEMON_URL } from "@bunny-agent/sdk";
@@ -291,7 +306,7 @@ Omit `daemonUrl` to use the **CLI runner** in the same sandbox. `createBunnyAgen
 
 | Entry Point | Exports |
 |-------------|---------|
-| `@bunny-agent/sdk` | `createBunnyAgent`, `LocalSandbox`, `BunnyAgentLanguageModel`, `submitAnswer`, `DEFAULT_BUNNY_AGENT_DAEMON_URL` (re-exported from `@bunny-agent/manager`) |
+| `@bunny-agent/sdk` | `createBunnyAgent`, `BunnyAgentLanguageModel`, `submitAnswer`, `DEFAULT_BUNNY_AGENT_DAEMON_URL`; re-exports `LocalMachine` (from `@bunny-agent/sandbox-local`) and `SrtSandbox` (from `@bunny-agent/sandbox-srt`) |
 | `@bunny-agent/sdk/react` | `useBunnyAgentChat`, `useArtifacts`, `useWriteTool`, `useAskUserQuestion`, `DEFAULT_BUNNY_AGENT_DAEMON_URL` (re-exported from `@bunny-agent/manager`) |
 
 ---

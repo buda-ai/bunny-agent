@@ -1,16 +1,17 @@
-import { BunnyAgent, LocalSandbox } from "@bunny-agent/manager";
+import { BunnyAgent } from "@bunny-agent/manager";
+import { LocalMachine } from "@bunny-agent/sandbox-local";
 import { describe, expect, it } from "vitest";
 
 /**
- * Integration tests for BunnyAgent with LocalSandbox
+ * Integration tests for BunnyAgent with LocalMachine
  *
- * These tests verify the actual integration between BunnyAgent and LocalSandbox,
+ * These tests verify the actual integration between BunnyAgent and LocalMachine,
  * ensuring that commands execute correctly in the local environment.
  */
-describe("BunnyAgent + LocalSandbox Integration", () => {
+describe("BunnyAgent + LocalMachine Integration", () => {
   describe("Real Command Execution Tests", () => {
     it("should execute echo command and return output", async () => {
-      const sandbox = new LocalSandbox();
+      const sandbox = new LocalMachine();
       const _agent = new BunnyAgent({
         sandbox,
         runner: {
@@ -19,14 +20,14 @@ describe("BunnyAgent + LocalSandbox Integration", () => {
       });
 
       const handle = await sandbox.attach();
-      const result = await handle.runCommand("echo 'Hello from LocalSandbox'");
+      const result = await handle.runCommand("echo 'Hello from LocalMachine'");
 
       expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain("Hello from LocalSandbox");
+      expect(result.stdout).toContain("Hello from LocalMachine");
     });
 
     it("should execute ls command in workspace", async () => {
-      const sandbox = new LocalSandbox();
+      const sandbox = new LocalMachine();
       const handle = await sandbox.attach();
 
       // Create a test file
@@ -43,7 +44,7 @@ describe("BunnyAgent + LocalSandbox Integration", () => {
     });
 
     it("should handle process execution with node", async () => {
-      const sandbox = new LocalSandbox();
+      const sandbox = new LocalMachine();
       const handle = await sandbox.attach();
 
       // Create a simple Node.js script
@@ -69,7 +70,7 @@ describe("BunnyAgent + LocalSandbox Integration", () => {
     });
 
     it("should handle command with error exit code", async () => {
-      const sandbox = new LocalSandbox();
+      const sandbox = new LocalMachine();
       const handle = await sandbox.attach();
 
       const result = await handle.runCommand("exit 42");
@@ -78,7 +79,7 @@ describe("BunnyAgent + LocalSandbox Integration", () => {
     });
 
     it("should handle multi-line commands", async () => {
-      const sandbox = new LocalSandbox();
+      const sandbox = new LocalMachine();
       const handle = await sandbox.attach();
 
       const result = await handle.runCommand(
@@ -92,7 +93,7 @@ describe("BunnyAgent + LocalSandbox Integration", () => {
     });
 
     it("should handle file operations", async () => {
-      const sandbox = new LocalSandbox();
+      const sandbox = new LocalMachine();
       const handle = await sandbox.attach();
 
       // Create directory and files
@@ -111,7 +112,7 @@ describe("BunnyAgent + LocalSandbox Integration", () => {
     });
 
     it("should execute Python script", async () => {
-      const sandbox = new LocalSandbox();
+      const sandbox = new LocalMachine();
       const handle = await sandbox.attach();
 
       // Create Python script
@@ -139,7 +140,7 @@ describe("BunnyAgent + LocalSandbox Integration", () => {
     });
 
     it("should handle environment variables", async () => {
-      const sandbox = new LocalSandbox({
+      const sandbox = new LocalMachine({
         env: {
           TEST_VAR: "test_value",
           CUSTOM_VAR: "custom_value",

@@ -1,13 +1,17 @@
 import { spawn } from "node:child_process";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { buildRunnerEnv } from "./env.js";
-import type { ExecOptions, SandboxAdapter, SandboxHandle } from "./types.js";
+import {
+  buildRunnerEnv,
+  type ExecOptions,
+  type SandboxAdapter,
+  type SandboxHandle,
+} from "@bunny-agent/manager";
 
 /**
- * Options for creating a LocalSandbox instance
+ * Options for creating a LocalMachine instance
  */
-export interface LocalSandboxOptions {
+export interface LocalMachineOptions {
   /** Working directory for all operations (defaults to process.cwd()) */
   workdir?: string;
   /** Path to the agent template directory to copy into the sandbox workdir */
@@ -21,22 +25,29 @@ export interface LocalSandboxOptions {
 }
 
 /**
- * Local sandbox implementation that runs commands on the local machine.
+ * Runs commands directly on the local machine — with NO isolation.
  *
  * This adapter is useful for:
  * - Development and testing
  * - Running agents locally without cloud dependencies
  * - Quick prototyping
  *
- * Warning: This runs commands directly on your local machine with your user's
- * permissions. Use with caution and only with trusted code.
+ * Warning: commands run directly on your local machine with your user's
+ * permissions — there is no sandbox here. Use with caution and only with
+ * trusted code. For actual OS-level isolation on the local machine, use
+ * `SrtSandbox` (same API, wraps every command with
+ * `@anthropic-ai/sandbox-runtime`).
+ *
+ * Note: this class was previously (mis)named `LocalSandbox`; that name is
+ * still exported as a deprecated alias.
  *
  * @example
  * ```typescript
- * import { LocalSandbox, BunnyAgent } from "@bunny-agent/manager";
+ * import { BunnyAgent } from "@bunny-agent/manager";
+ * import { LocalMachine } from "@bunny-agent/sandbox-local";
  *
  * // Create sandbox with template
- * const sandbox = new LocalSandbox({
+ * const sandbox = new LocalMachine({
  *   workdir: "/tmp/my-sandbox",
  *   templatesPath: "/path/to/agent-template",
  * });
@@ -54,7 +65,10 @@ export interface LocalSandboxOptions {
  * console.log(result.stdout);
  * ```
  */
-export class LocalSandbox implements SandboxAdapter {
+export class LocalMachine implements SandboxAdapter {
+  /** Log prefix; subclasses override so their logs are attributable. */
+  protected readonly label: string = "LocalMachine";
+
   private readonly workdir: string;
   private readonly templatesPath: string | undefined;
   private readonly defaultTimeout: number;
@@ -62,9 +76,9 @@ export class LocalSandbox implements SandboxAdapter {
   private readonly runnerCommand: string[];
 
   /** Current handle for the sandbox instance */
-  private currentHandle: LocalSandboxHandle | null = null;
+  private currentHandle: LocalMachineHandle | null = null;
 
-  constructor(options: LocalSandboxOptions = {}) {
+  constructor(options: LocalMachineOptions = {}) {
     this.workdir = options.workdir ?? process.cwd();
     this.templatesPath = options.templatesPath;
     this.defaultTimeout = options.defaultTimeout ?? 300000; // 5 min for agent runs
@@ -114,12 +128,12 @@ export class LocalSandbox implements SandboxAdapter {
       await fs.rm(claudeDir, { recursive: true, force: true }).catch(() => {});
       await fs.rm(claudeMd, { force: true }).catch(() => {});
 
-      console.log(`[LocalSandbox] Cleared template files: .claude, CLAUDE.md`);
+      console.log(`[${this.label}] Cleared template files: .claude, CLAUDE.md`);
     }
 
     // Create the directory if it doesn't exist
     await fs.mkdir(workdir, { recursive: true });
-    console.log(`[LocalSandbox] Using directory: ${workdir}`);
+    console.log(`[${this.label}] Using directory: ${workdir}`);
 
     // Copy all files from templatesPath to workdir if specified
     if (this.templatesPath) {
@@ -128,25 +142,27 @@ export class LocalSandbox implements SandboxAdapter {
         if (stat.isDirectory()) {
           await this.copyDir(this.templatesPath, workdir);
           console.log(
-            `[LocalSandbox] Copied template directory: ${this.templatesPath} -> ${workdir}`,
+            `[${this.label}] Copied template directory: ${this.templatesPath} -> ${workdir}`,
           );
         } else {
           console.warn(
-            `[LocalSandbox] templatesPath is not a directory: ${this.templatesPath}`,
+            `[${this.label}] templatesPath is not a directory: ${this.templatesPath}`,
           );
         }
       } catch (err) {
         console.warn(
-          `[LocalSandbox] Failed to copy template directory: ${this.templatesPath}`,
+          `[${this.label}] Failed to copy template directory: ${this.templatesPath}`,
           err,
         );
       }
     }
 
-    const handle = new LocalSandboxHandle(
+    const handle = new LocalMachineHandle(
       workdir,
       this.defaultTimeout,
       this.env,
+      this.label,
+      (command) => this.transformCommand(command),
     );
 
     // Store the handle
@@ -178,25 +194,42 @@ export class LocalSandbox implements SandboxAdapter {
   reset(): void {
     this.currentHandle = null;
   }
+
+  /**
+   * Hook for subclasses to rewrite a command before it is spawned (e.g.
+   * prefixing it with a sandboxing wrapper). The base implementation is the
+   * identity — commands run as-is on the host.
+   */
+  protected async transformCommand(command: string[]): Promise<string[]> {
+    return command;
+  }
 }
 
 /**
  * Handle for a local sandbox instance
  */
-class LocalSandboxHandle implements SandboxHandle {
+class LocalMachineHandle implements SandboxHandle {
   private readonly workDir: string;
   private readonly defaultTimeout: number;
   private readonly env: Record<string, string>;
   private readonly _sandboxId: string;
+  private readonly label: string;
+  private readonly transformCommand: (command: string[]) => Promise<string[]>;
 
   constructor(
     workDir: string,
     defaultTimeout: number,
     env: Record<string, string>,
+    label = "LocalMachine",
+    transformCommand: (command: string[]) => Promise<string[]> = async (
+      command,
+    ) => command,
   ) {
     this.workDir = workDir;
     this.defaultTimeout = defaultTimeout;
     this.env = env;
+    this.label = label;
+    this.transformCommand = transformCommand;
     this._sandboxId = `local-${crypto.randomUUID()}`;
   }
 
@@ -236,22 +269,24 @@ class LocalSandboxHandle implements SandboxHandle {
       inherit: baseInherit,
     });
 
-    console.log(`[LocalSandbox] Executing command: ${command.join(" ")}`);
-    console.log(`[LocalSandbox] Working directory: ${cwd}`);
+    const finalCommand = await this.transformCommand(command);
+
+    console.log(`[${this.label}] Executing command: ${finalCommand.join(" ")}`);
+    console.log(`[${this.label}] Working directory: ${cwd}`);
     console.log(
-      `[LocalSandbox] ENV AWS_BEARER_TOKEN_BEDROCK: ${env.AWS_BEARER_TOKEN_BEDROCK ? "SET" : "NOT SET"}`,
+      `[${this.label}] ENV AWS_BEARER_TOKEN_BEDROCK: ${env.AWS_BEARER_TOKEN_BEDROCK ? "SET" : "NOT SET"}`,
     );
     console.log(
-      `[LocalSandbox] ENV CLAUDE_CODE_USE_BEDROCK: ${env.CLAUDE_CODE_USE_BEDROCK || "NOT SET"}`,
+      `[${this.label}] ENV CLAUDE_CODE_USE_BEDROCK: ${env.CLAUDE_CODE_USE_BEDROCK || "NOT SET"}`,
     );
     console.log(
-      `[LocalSandbox] ENV ANTHROPIC_API_KEY: ${env.ANTHROPIC_API_KEY ? "SET" : "NOT SET"}`,
+      `[${this.label}] ENV ANTHROPIC_API_KEY: ${env.ANTHROPIC_API_KEY ? "SET" : "NOT SET"}`,
     );
 
     // Ensure the working directory exists
     await fs.mkdir(cwd, { recursive: true });
 
-    const [cmd, ...args] = command;
+    const [cmd, ...args] = finalCommand;
     const child = spawn(cmd, args, {
       cwd,
       env,
@@ -346,11 +381,11 @@ class LocalSandboxHandle implements SandboxHandle {
           : "";
         if (stderr) {
           console.error(
-            `[LocalSandbox] Command failed (exit ${exitCode}) stderr:\n${stderr}`,
+            `[${this.label}] Command failed (exit ${exitCode}) stderr:\n${stderr}`,
           );
         } else {
           console.error(
-            `[LocalSandbox] Command failed with exit ${exitCode} (no stderr). Run manually to see output: ${command.join(" ")}`,
+            `[${this.label}] Command failed with exit ${exitCode} (no stderr). Run manually to see output: ${finalCommand.join(" ")}`,
           );
         }
         // User-facing message: show the actual error from stderr (where it failed)
@@ -383,7 +418,7 @@ class LocalSandboxHandle implements SandboxHandle {
   ): Promise<void> {
     const resolvedTargetDir = path.resolve(this.workDir, targetDir);
     console.log(
-      `[LocalSandbox] Uploading ${files.length} file(s) to ${resolvedTargetDir}`,
+      `[${this.label}] Uploading ${files.length} file(s) to ${resolvedTargetDir}`,
     );
 
     // Create target directory
@@ -404,7 +439,7 @@ class LocalSandboxHandle implements SandboxHandle {
           : file.content;
 
       await fs.writeFile(filePath, content);
-      console.log(`[LocalSandbox] Wrote file: ${filePath}`);
+      console.log(`[${this.label}] Wrote file: ${filePath}`);
     }
   }
 
@@ -420,11 +455,14 @@ class LocalSandboxHandle implements SandboxHandle {
   async runCommand(
     command: string,
   ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-    console.log(`[LocalSandbox] Running command: ${command}`);
+    console.log(`[${this.label}] Running command: ${command}`);
+
+    // Route through the same transform hook as exec() so subclasses that
+    // wrap commands (e.g. with a sandboxing wrapper) cover this path too.
+    const [cmd, ...args] = await this.transformCommand(["sh", "-c", command]);
 
     return new Promise((resolve, reject) => {
-      // Use sh -c to execute the command
-      const child = spawn("sh", ["-c", command], {
+      const child = spawn(cmd, args, {
         cwd: this.workDir,
         env: { ...process.env, ...this.env }, // Use instance env
         stdio: "pipe",
@@ -465,8 +503,20 @@ class LocalSandboxHandle implements SandboxHandle {
   }
 
   async destroy(): Promise<void> {
-    console.log(`[LocalSandbox] Cleanup complete for: ${this.workDir}`);
+    console.log(`[${this.label}] Cleanup complete for: ${this.workDir}`);
     // Note: We don't delete the directory by default to preserve work
     // Users can manually delete it if needed
   }
 }
+
+/**
+ * @deprecated Renamed to {@link LocalMachine} — this adapter provides NO
+ * isolation (commands run directly on the host with your user's permissions),
+ * so the "sandbox" name was misleading. For actual OS-level local isolation,
+ * use `SrtSandbox`. This alias will be removed in the next major version.
+ */
+export const LocalSandbox = LocalMachine;
+/** @deprecated Renamed to {@link LocalMachine}. */
+export type LocalSandbox = LocalMachine;
+/** @deprecated Renamed to {@link LocalMachineOptions}. */
+export type LocalSandboxOptions = LocalMachineOptions;

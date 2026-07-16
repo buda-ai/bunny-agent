@@ -21,18 +21,27 @@
 
 export type {
   IsBunnyAgentDaemonHealthyOptions,
-  LocalSandboxOptions,
   RunnerEnvParams,
   RunnerType,
 } from "@bunny-agent/manager";
-// Re-export LocalSandbox for convenience
 // Re-export env helpers
 export {
   buildRunnerEnv,
   DEFAULT_BUNNY_AGENT_DAEMON_URL,
   isBunnyAgentDaemonHealthy,
-  LocalSandbox,
 } from "@bunny-agent/manager";
+export type {
+  LocalMachineOptions,
+  LocalSandboxOptions,
+} from "@bunny-agent/sandbox-local";
+// Re-export the local adapters for convenience (LocalSandbox is the
+// deprecated pre-rename alias of LocalMachine)
+export { LocalMachine, LocalSandbox } from "@bunny-agent/sandbox-local";
+export type {
+  SrtIsolationOptions,
+  SrtSandboxOptions,
+} from "@bunny-agent/sandbox-srt";
+export { SrtSandbox } from "@bunny-agent/sandbox-srt";
 export type {
   ArtifactProcessor,
   ArtifactResult,

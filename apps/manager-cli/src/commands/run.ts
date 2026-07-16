@@ -108,8 +108,8 @@ export async function runCommand(args: string[]): Promise<void> {
     const { SandockSandbox } = await import("@bunny-agent/sandbox-sandock");
     sandboxAdapter = new SandockSandbox();
   } else if (values.sandbox === "local") {
-    const { LocalSandbox } = await import("@bunny-agent/manager");
-    sandboxAdapter = new LocalSandbox({
+    const { LocalMachine } = await import("@bunny-agent/sandbox-local");
+    sandboxAdapter = new LocalMachine({
       workdir: values.workspace,
     });
     console.log(
