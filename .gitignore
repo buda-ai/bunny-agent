@@ -160,3 +160,4 @@ output
 .codex/
 *.tgz
 apps/daemon/.bunny-agent-daemon/
+.env.integration
