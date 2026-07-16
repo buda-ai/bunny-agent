@@ -1,5 +1,70 @@
 # Bunny Agent Architecture
 
+## At a Glance
+
+```mermaid
+flowchart TB
+    subgraph callers["External callers"]
+        buda["buda.im (Next.js)<br/>@bunny-agent/sdk<br/>createBunnyAgent()"]
+        dev["Developer / CI<br/>runner-cli<br/>bunny-agent run"]
+    end
+
+    subgraph transports["Transport (HOW the runner is invoked)"]
+        cli["CLI transport<br/>handle.exec() spawns runner-cli<br/>per turn, streams stdout"]
+        daemon["Daemon transport<br/>curl -N POST :3080/api/coding/run<br/>long-lived bunny-agent-daemon"]
+    end
+
+    subgraph sandboxes["Sandbox (WHERE it runs)"]
+        local["LocalMachine<br/>host, NO isolation"]
+        srt["SrtSandbox<br/>bwrap / Seatbelt<br/>(Anthropic srt)"]
+        sandock["SandockSandbox<br/>Docker @ sandock.ai"]
+        e2b["E2BSandbox<br/>Firecracker microVM"]
+        daytona["DaytonaSandbox"]
+    end
+
+    subgraph runners["runner-core (pure dispatch)"]
+        rc["runner-claude"]
+        rp["runner-pi"]
+        rg["runner-gemini"]
+        rx["runner-codex"]
+    end
+
+    buda --> cli
+    buda --> daemon
+    dev --> cli
+    cli --> sandboxes
+    daemon --> sandboxes
+    sandboxes --> runners
+    runners --> llm["LLM APIs<br/>(Anthropic / proxy / Bedrock / ...)"]
+```
+
+Any transport works with any sandbox — see the
+[Transport × Sandbox matrix](#transport--sandbox-matrix) below.
+
+### One turn, both transports
+
+```mermaid
+sequenceDiagram
+    participant App as Your app (useChat)
+    participant BA as BunnyAgent (manager)
+    participant SB as Sandbox
+    participant R as runner-cli / daemon
+    participant LLM as LLM API
+
+    App->>BA: stream({ messages })
+    BA->>SB: attach() (create / reuse, copy templates)
+    alt CLI transport (default)
+        BA->>SB: exec([runner-cli, run, --runner claude, --resume id, -- prompt])
+        SB->>R: spawn fresh runner process
+    else Daemon transport (daemonUrl)
+        BA->>SB: exec([curl -N POST :3080/api/coding/run])
+        SB->>R: HTTP to long-lived daemon
+    end
+    R->>LLM: agent loop (tools, files, bash)
+    LLM-->>R: completions
+    R-->>App: AI SDK UI stream, passed through untouched
+```
+
 ## Full System Overview
 
 ```
