@@ -1,6 +1,6 @@
 {
   "name": "@bunny-agent/sandbox-local",
-  "version": "0.9.51-release.1",
+  "version": "0.9.52",
   "description": "Local machine adapter for BunnyAgent — runs commands directly on the host (NO isolation)",
   "type": "module",
   "main": "./dist/index.js",
