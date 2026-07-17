@@ -6,7 +6,7 @@ settings:
 
 patchedDependencies:
   '@earendil-works/pi-coding-agent@0.80.7':
-    hash: 67083dcca33ff3fe58ddeb71f272bad365235dc2ba5c85584d7c2073f938bc64
+    hash: de065b50ac485abd12bbc7942e7f1d29e00f8b80d1cd5b730650e64ceedcf0c9
     path: patches/@earendil-works__pi-coding-agent@0.80.7.patch
   openai@6.26.0:
     hash: f2a3b895e9a04ae6a0990a7d47b896599783845c7f7a3c1cad9a6f35c0010f01
@@ -154,7 +154,7 @@ importers:
         version: 0.80.7(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@earendil-works/pi-coding-agent':
         specifier: 0.80.7
-        version: 0.80.7(patch_hash=67083dcca33ff3fe58ddeb71f272bad365235dc2ba5c85584d7c2073f938bc64)(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
+        version: 0.80.7(patch_hash=de065b50ac485abd12bbc7942e7f1d29e00f8b80d1cd5b730650e64ceedcf0c9)(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@openai/codex-sdk':
         specifier: ^0.144.5
         version: 0.144.5
@@ -607,7 +607,7 @@ importers:
         version: 0.80.7(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@earendil-works/pi-coding-agent':
         specifier: 0.80.7
-        version: 0.80.7(patch_hash=67083dcca33ff3fe58ddeb71f272bad365235dc2ba5c85584d7c2073f938bc64)(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
+        version: 0.80.7(patch_hash=de065b50ac485abd12bbc7942e7f1d29e00f8b80d1cd5b730650e64ceedcf0c9)(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@sinclair/typebox':
         specifier: ^0.34.0
         version: 0.34.48
@@ -8415,7 +8415,7 @@ snapshots:
       - ws
       - zod
 
-  '@earendil-works/pi-coding-agent@0.80.7(patch_hash=67083dcca33ff3fe58ddeb71f272bad365235dc2ba5c85584d7c2073f938bc64)(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)':
+  '@earendil-works/pi-coding-agent@0.80.7(patch_hash=de065b50ac485abd12bbc7942e7f1d29e00f8b80d1cd5b730650e64ceedcf0c9)(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)':
     dependencies:
       '@earendil-works/pi-agent-core': 0.80.7(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@earendil-works/pi-ai': 0.80.7(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)

@@ -20,6 +20,21 @@ index 3298c0bf0695661165f5dfb7a4ec1f2aeeee8f45..5d9075f22e3ed4a2902d9c5ad20b1704
          prompt += appendSection;
      }
      // Append project context files
+diff --git a/dist/core/agent-session.js b/dist/core/agent-session.js
+--- a/dist/core/agent-session.js
++++ b/dist/core/agent-session.js
+@@ -758,7 +758,10 @@
+             this._retryAttempt = 0;
+         }
+         if (await this._checkCompaction(msg)) {
+-            return true;
++            // Threshold compaction after a completed assistant turn does not
++            // create work that Agent.continue() can consume. Only continue
++            // when an agent_end handler queued a steering or follow-up message.
++            return this.agent.hasQueuedMessages();
+         }
+         // The agent loop drains both queues before emitting agent_end. Any messages
+         // here were queued by agent_end extension handlers and need a continuation.
 diff --git a/package.json b/package.json
 index aed830a99f3fdec6a3ce92b20c857a6b60dc02ba..61025c1bb498e685c1e4607df4798c7b8c8daaee 100644
 --- a/package.json
