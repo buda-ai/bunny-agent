@@ -1,39 +1,45 @@
-# Fix post-run compaction continuation
+# Guard post-run continuation from assistant-tailed sessions
 
 ## Summary
 
-BunnyAgent's patched `@earendil-works/pi-coding-agent@0.80.7` no longer calls `agent.continue()` after threshold auto-compaction finishes a normal assistant turn with no queued work.
+BunnyAgent's patched `@earendil-works/pi-coding-agent@0.80.7` now guards every continuation requested by Pi's post-run retry/compaction handler. It does not call `agent.continue()` when the rebuilt transcript ends with an assistant message and no steering or follow-up messages remain.
 
 ## Root cause
 
-Pi's post-run handler treated every successful compaction as a reason to continue the agent:
+Pi's post-run loop asks `_handlePostAgentRun()` whether more work should run, then calls `agent.continue()`:
 
 ```ts
-if (await this._checkCompaction(msg)) {
-  return true;
+while (await this._handlePostAgentRun()) {
+  await this.agent.continue();
 }
 ```
 
-Threshold compaction can complete after a final assistant response without adding a user, steering, or follow-up message. The subsequent `agent.continue()` therefore received an assistant-tailed transcript with empty queues and failed deterministically:
+Compaction and retry rebuild or trim the in-memory transcript. In affected sessions that transcript can still end with an assistant message while both queues are empty. Calling `continue()` from that state fails deterministically:
 
 ```text
 Cannot continue from message role: assistant
 ```
 
-This is distinct from the pre-prompt compaction path fixed previously. It occurs after the response has completed, most often in long sessions crossing the automatic compaction threshold.
+Because the failed continuation may be persisted as another assistant error, later prompts can encounter the same stale assistant-tailed state and repeat the failure.
 
 ## Fix
 
-After a successful post-run compaction, continue only when an `agent_end` handler queued steering or follow-up work:
+All post-run continuations now go through a guarded helper:
 
 ```ts
-if (await this._checkCompaction(msg)) {
-  return this.agent.hasQueuedMessages();
+async _continueAgentIfPossible() {
+  const lastMessage = this.agent.state.messages.at(-1);
+  if (!lastMessage ||
+      (lastMessage.role === "assistant" && !this.agent.hasQueuedMessages())) {
+    return false;
+  }
+  await this.agent.continue();
+  return true;
 }
 ```
 
-Overflow recovery remains unchanged: Pi removes the overflow error message before retrying and returns through its existing retry path.
+The loop stops if there is nothing valid to continue. Valid overflow retries still continue from a non-assistant tail, and queued steering/follow-up messages are still consumed from an assistant tail.
 
 ## Upstream status
 
-As of `@earendil-works/pi-coding-agent@0.80.10` and upstream `earendil-works/pi` main on 2026-07-17, this exact unconditional continuation is still present. The issue is tracked upstream in [#5463](https://github.com/earendil-works/pi/issues/5463) and the broader lifecycle discussion in [#5886](https://github.com/earendil-works/pi/issues/5886).
+As of `@earendil-works/pi-coding-agent@0.80.10` and upstream `earendil-works/pi` main on 2026-07-17, post-run continuation is still unguarded. The issue is tracked upstream in [#5463](https://github.com/earendil-works/pi/issues/5463), with related retry and queue-race variants described in [#5445](https://github.com/earendil-works/pi/issues/5445), [#5212](https://github.com/earendil-works/pi/issues/5212), and the broader lifecycle discussion in [#5886](https://github.com/earendil-works/pi/issues/5886).
