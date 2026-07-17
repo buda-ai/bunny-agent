@@ -1,6 +1,6 @@
 {
   "name": "@bunny-agent/sandbox-srt",
-  "version": "0.9.51-release.1",
+  "version": "0.9.52",
   "description": "Locally-isolated sandbox adapter for BunnyAgent — wraps commands with Anthropic's sandbox runtime (srt)",
   "type": "module",
   "main": "./dist/index.js",

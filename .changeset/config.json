@@ -8,7 +8,9 @@
       "@bunny-agent/manager",
       "@bunny-agent/runner-cli",
       "@bunny-agent/sandbox-e2b",
+      "@bunny-agent/sandbox-local",
       "@bunny-agent/sandbox-sandock",
+      "@bunny-agent/sandbox-srt",
       "@bunny-agent/sandbox-daytona",
       "@bunny-agent/sdk"
     ]
