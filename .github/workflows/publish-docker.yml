@@ -79,7 +79,18 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Stage pi-coding-agent patch into docker context
-        run: cp patches/@earendil-works__pi-coding-agent@0.78.0.patch docker/bunny-agent-claude/pi-coding-agent.patch
+        run: |
+          # Keep Docker's runtime patch aligned with pnpm's patched dependency.
+          # The Docker context intentionally excludes patches/, so copy the configured
+          # patch into the context under the filename consumed by the Dockerfile.
+          PATCH=$(node -e "
+            const workspace = require('fs').readFileSync('pnpm-workspace.yaml', 'utf8');
+            const match = workspace.match(/^\\s*['\\\"]?@earendil-works\\/pi-coding-agent@[^:'\\\"]+['\\\"]?\\s*:\\s*(\\S+)\\s*$/m);
+            if (!match) throw new Error('No patched dependency configured for @earendil-works/pi-coding-agent');
+            console.log(match[1]);
+          ")
+          test -f "$PATCH"
+          cp "$PATCH" docker/bunny-agent-claude/pi-coding-agent.patch
 
       - name: Build and push Docker image
         id: build

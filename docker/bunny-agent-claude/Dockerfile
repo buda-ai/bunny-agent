@@ -60,7 +60,8 @@ RUN mkdir -p /opt/bunny-agent && \
 
 # Apply pi-coding-agent patch so the harness uses the caller-provided system
 # prompt (appendSystemPrompt) as the opening identity instead of the default
-# "operating inside pi" wording. Mirrors patches/@earendil-works__pi-coding-agent@0.78.0.patch.
+# "operating inside pi" wording. The release workflow stages the patch configured
+# for @earendil-works/pi-coding-agent in pnpm-workspace.yaml.
 COPY pi-coding-agent.patch /tmp/pi-coding-agent.patch
 RUN cd /opt/bunny-agent/node_modules/@earendil-works/pi-coding-agent && \
     patch -p1 < /tmp/pi-coding-agent.patch && \
