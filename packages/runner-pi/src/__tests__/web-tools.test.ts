@@ -1,5 +1,6 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  buildWebFetchTool,
   buildWebSearchTool,
   resolveSearchProvider,
   resolveSearchProviders,
@@ -106,6 +107,7 @@ describe("buildWebSearchTool", () => {
   afterEach(() => {
     process.env = { ...originalEnv };
     globalThis.fetch = originalFetch;
+    vi.restoreAllMocks();
   });
 
   it("returns Brave usage details in tool result", async () => {
@@ -159,5 +161,110 @@ describe("buildWebSearchTool", () => {
         },
       },
     });
+  });
+
+  it("reports the provider and nested fetch cause", async () => {
+    const cause = Object.assign(
+      new Error("connect ETIMEDOUT 203.0.113.1:443"),
+      {
+        code: "ETIMEDOUT",
+        errno: -60,
+        syscall: "connect",
+        hostname: "api.tavily.com",
+        address: "203.0.113.1",
+        port: 443,
+      },
+    );
+    const fetchError = Object.assign(new TypeError("fetch failed"), { cause });
+    globalThis.fetch = (async () => {
+      throw fetchError;
+    }) as typeof fetch;
+    const errorLog = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+
+    const tool = buildWebSearchTool({ TAVILY_API_KEY: "tvly-test" });
+    const result = await (
+      tool.execute as (...args: unknown[]) => Promise<{
+        content: Array<{ type: string; text?: string }>;
+      }>
+    )("call_2", { query: "NVDA historical data" }, undefined, undefined, {});
+
+    expect(result.content[0]?.text).toContain(
+      "Web search error (Tavily): TypeError: fetch failed (cause: code=ETIMEDOUT",
+    );
+    expect(result.content[0]?.text).toContain("hostname=api.tavily.com");
+    expect(result.content[0]?.text).toContain("port=443");
+    expect(errorLog).toHaveBeenCalledWith(
+      expect.stringContaining(
+        "[bunny-agent:pi] Tavily web_search failed: TypeError: fetch failed (cause: code=ETIMEDOUT",
+      ),
+    );
+  });
+
+  it("preserves HTTP provider error details", async () => {
+    globalThis.fetch = (async () =>
+      ({
+        ok: false,
+        status: 432,
+        statusText: "Request Failed",
+        text: async () => '{"detail":"usage limit exceeded"}',
+      }) as unknown as Response) as typeof fetch;
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const tool = buildWebSearchTool({ TAVILY_API_KEY: "tvly-test" });
+    const result = await (
+      tool.execute as (...args: unknown[]) => Promise<{
+        content: Array<{ type: string; text?: string }>;
+      }>
+    )("call_3", { query: "NVDA historical data" }, undefined, undefined, {});
+
+    expect(result.content[0]?.text).toContain(
+      "Web search error (Tavily): Tavily API 432: Request Failed",
+    );
+    expect(result.content[0]?.text).toContain("usage limit exceeded");
+  });
+});
+
+describe("buildWebFetchTool", () => {
+  const originalFetch = globalThis.fetch;
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    vi.restoreAllMocks();
+  });
+
+  it("reports nested fetch cause and logs only the target origin", async () => {
+    const cause = Object.assign(new Error("socket disconnected"), {
+      code: "UND_ERR_SOCKET",
+    });
+    globalThis.fetch = (async () => {
+      throw Object.assign(new TypeError("fetch failed"), { cause });
+    }) as typeof fetch;
+    const errorLog = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+
+    const tool = buildWebFetchTool();
+    const result = await (
+      tool.execute as (...args: unknown[]) => Promise<{
+        content: Array<{ type: string; text?: string }>;
+      }>
+    )(
+      "call_4",
+      { url: "https://example.com/article" },
+      undefined,
+      undefined,
+      {},
+    );
+
+    expect(result.content[0]?.text).toContain(
+      "TypeError: fetch failed (cause: code=UND_ERR_SOCKET, message=socket disconnected)",
+    );
+    expect(errorLog).toHaveBeenCalledWith(
+      expect.stringContaining(
+        "web_fetch failed target=https://example.com: TypeError: fetch failed",
+      ),
+    );
   });
 });
