@@ -224,6 +224,61 @@ function isRateLimitError(err: unknown): boolean {
   );
 }
 
+function getErrorField(error: object, key: string): string | undefined {
+  if (!(key in error)) return undefined;
+  const value = (error as Record<string, unknown>)[key];
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value);
+  }
+  return undefined;
+}
+
+function formatErrorCause(cause: unknown): string {
+  if (cause === null || cause === undefined) return "unknown";
+  if (typeof cause !== "object") return String(cause);
+
+  const details = [
+    ["code", getErrorField(cause, "code")],
+    [
+      "message",
+      cause instanceof Error ? cause.message : getErrorField(cause, "message"),
+    ],
+    ["errno", getErrorField(cause, "errno")],
+    ["syscall", getErrorField(cause, "syscall")],
+    ["hostname", getErrorField(cause, "hostname")],
+    ["address", getErrorField(cause, "address")],
+    ["port", getErrorField(cause, "port")],
+  ]
+    .filter((entry): entry is [string, string] => Boolean(entry[1]))
+    .map(([key, value]) => `${key}=${value}`);
+
+  const nestedErrors =
+    "errors" in cause && Array.isArray(cause.errors) ? cause.errors : [];
+  if (nestedErrors.length > 0) {
+    const nested = nestedErrors.slice(0, 3).map(formatErrorCause).join("; ");
+    details.push(`errors=[${nested}]`);
+  }
+
+  return details.length > 0 ? details.join(", ") : String(cause);
+}
+
+function formatWebToolError(error: unknown): string {
+  if (!(error instanceof Error)) return String(error);
+  const cause =
+    "cause" in error ? (error as Error & { cause?: unknown }).cause : undefined;
+  return cause === undefined
+    ? error.message
+    : `${error.name}: ${error.message} (cause: ${formatErrorCause(cause)})`;
+}
+
+function getSafeTarget(url: string): string {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return "invalid-url";
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Shared helpers
 // ---------------------------------------------------------------------------
@@ -280,7 +335,10 @@ async function fetchPageContent(
       ? `${text.slice(0, 50_000)}\n\n[Truncated]`
       : text;
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e);
+    const msg = formatWebToolError(e);
+    console.error(
+      `[bunny-agent:pi] web_fetch failed target=${getSafeTarget(url)}: ${msg}`,
+    );
     return `(Error fetching ${url}: ${msg})`;
   } finally {
     clearTimeout(timeout);
@@ -401,7 +459,9 @@ export function buildWebSearchTool(
 
       // Try each provider in order; fallback on rate-limit errors
       let lastError: unknown;
+      let lastProviderLabel = "unknown provider";
       for (const { provider, apiKey } of providers) {
+        lastProviderLabel = provider.label;
         try {
           const { results } = await provider.search({
             apiKey,
@@ -442,6 +502,10 @@ export function buildWebSearchTool(
           };
         } catch (e: unknown) {
           lastError = e;
+          const diagnostic = formatWebToolError(e);
+          console.error(
+            `[bunny-agent:pi] ${provider.label} web_search failed: ${diagnostic}`,
+          );
           if (isRateLimitError(e) && providers.length > 1) {
             console.error(
               `[bunny-agent:pi] ${provider.label} rate-limited, trying next provider...`,
@@ -453,13 +517,12 @@ export function buildWebSearchTool(
         }
       }
 
-      const msg =
-        lastError instanceof Error ? lastError.message : String(lastError);
+      const msg = formatWebToolError(lastError);
       return {
         content: [
           {
             type: "text" as const,
-            text: `Web search error: ${msg}`,
+            text: `Web search error (${lastProviderLabel}): ${msg}`,
           },
         ],
         details: undefined,
@@ -496,7 +559,7 @@ export function buildWebFetchTool(): ToolDefinition {
           details: undefined,
         };
       } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : String(e);
+        const msg = formatWebToolError(e);
         return {
           content: [
             { type: "text" as const, text: `Error fetching URL: ${msg}` },
