@@ -224,6 +224,89 @@ describe("buildWebSearchTool", () => {
     );
     expect(result.content[0]?.text).toContain("usage limit exceeded");
   });
+
+  it.each([
+    "EAI_AGAIN",
+    "UND_ERR_CONNECT_TIMEOUT",
+    "ETIMEDOUT",
+    "ENETUNREACH",
+  ])("falls back from Brave to Tavily on %s", async (code) => {
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      if (String(input).startsWith("https://api.search.brave.com/")) {
+        const cause = Object.assign(new Error(`network failure: ${code}`), {
+          code,
+        });
+        throw Object.assign(new TypeError("fetch failed"), { cause });
+      }
+      return {
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        json: async () => ({
+          results: [
+            {
+              title: "Fallback result",
+              url: "https://example.com/fallback",
+              content: "Tavily completed the search.",
+            },
+          ],
+        }),
+      } as Response;
+    });
+    globalThis.fetch = fetchMock as typeof fetch;
+    const errorLog = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+
+    const tool = buildWebSearchTool({
+      BRAVE_API_KEY: "bsk-test",
+      TAVILY_API_KEY: "tvly-test",
+    });
+    const result = await (
+      tool.execute as (...args: unknown[]) => Promise<{
+        content: Array<{ type: string; text?: string }>;
+        details?: unknown;
+      }>
+    )("call_fallback", { query: "fallback query" }, undefined, undefined, {});
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(result.content[0]?.text).toContain("[Tavily] 1 result(s)");
+    expect(result.details).toMatchObject({
+      usage: { raw: { tavily: { requests: 1, fetchedPages: 0 } } },
+    });
+    expect(errorLog).toHaveBeenCalledWith(
+      expect.stringContaining("Brave Search network error, trying Tavily"),
+    );
+  });
+
+  it("does not fall back on provider authentication errors", async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        ({
+          ok: false,
+          status: 401,
+          statusText: "Unauthorized",
+          text: async () => '{"error":"invalid key"}',
+        }) as Response,
+    );
+    globalThis.fetch = fetchMock as typeof fetch;
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const tool = buildWebSearchTool({
+      BRAVE_API_KEY: "bsk-test",
+      TAVILY_API_KEY: "tvly-test",
+    });
+    const result = await (
+      tool.execute as (...args: unknown[]) => Promise<{
+        content: Array<{ type: string; text?: string }>;
+      }>
+    )("call_auth", { query: "auth query" }, undefined, undefined, {});
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result.content[0]?.text).toContain(
+      "Web search error (Brave Search): Brave API 401: Unauthorized",
+    );
+  });
 });
 
 describe("buildWebFetchTool", () => {

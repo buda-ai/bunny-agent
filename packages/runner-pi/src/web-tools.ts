@@ -224,6 +224,52 @@ function isRateLimitError(err: unknown): boolean {
   );
 }
 
+const RETRYABLE_NETWORK_ERROR_CODES = new Set([
+  "EAI_AGAIN",
+  "ECONNREFUSED",
+  "ECONNRESET",
+  "EHOSTUNREACH",
+  "ENETUNREACH",
+  "ENOTFOUND",
+  "ETIMEDOUT",
+  "UND_ERR_BODY_TIMEOUT",
+  "UND_ERR_CONNECT_TIMEOUT",
+  "UND_ERR_HEADERS_TIMEOUT",
+  "UND_ERR_SOCKET",
+]);
+
+function hasRetryableNetworkCode(
+  error: unknown,
+  seen = new Set<object>(),
+): boolean {
+  if (error === null || typeof error !== "object" || seen.has(error))
+    return false;
+  seen.add(error);
+
+  const code = getErrorField(error, "code");
+  if (code && RETRYABLE_NETWORK_ERROR_CODES.has(code)) return true;
+
+  const nestedErrors: unknown[] = [];
+  if ("cause" in error) nestedErrors.push(error.cause);
+  if ("errors" in error && Array.isArray(error.errors)) {
+    nestedErrors.push(...error.errors);
+  }
+  return nestedErrors.some((nested) => hasRetryableNetworkCode(nested, seen));
+}
+
+function isRetryableNetworkError(err: unknown): boolean {
+  if (hasRetryableNetworkCode(err)) return true;
+  return err instanceof TypeError && err.message === "fetch failed";
+}
+
+function getFallbackReason(
+  err: unknown,
+): "rate limit" | "network error" | null {
+  if (isRateLimitError(err)) return "rate limit";
+  if (isRetryableNetworkError(err)) return "network error";
+  return null;
+}
+
 function getErrorField(error: object, key: string): string | undefined {
   if (!(key in error)) return undefined;
   const value = (error as Record<string, unknown>)[key];
@@ -457,10 +503,10 @@ export function buildWebSearchTool(
       const freshness = p.freshness as string | undefined;
       const shouldFetchContent = (p.fetch_content as boolean) ?? false;
 
-      // Try each provider in order; fallback on rate-limit errors
+      // Try each provider in order; fallback on rate-limit and network errors.
       let lastError: unknown;
       let lastProviderLabel = "unknown provider";
-      for (const { provider, apiKey } of providers) {
+      for (const [providerIndex, { provider, apiKey }] of providers.entries()) {
         lastProviderLabel = provider.label;
         try {
           const { results } = await provider.search({
@@ -506,13 +552,15 @@ export function buildWebSearchTool(
           console.error(
             `[bunny-agent:pi] ${provider.label} web_search failed: ${diagnostic}`,
           );
-          if (isRateLimitError(e) && providers.length > 1) {
+          const fallbackReason = getFallbackReason(e);
+          const nextProvider = providers[providerIndex + 1];
+          if (fallbackReason && nextProvider) {
             console.error(
-              `[bunny-agent:pi] ${provider.label} rate-limited, trying next provider...`,
+              `[bunny-agent:pi] ${provider.label} ${fallbackReason}, trying ${nextProvider.provider.label}...`,
             );
             continue;
           }
-          // Non-rate-limit error: don't fallback
+          // Authentication and request errors should be surfaced as-is.
           break;
         }
       }
