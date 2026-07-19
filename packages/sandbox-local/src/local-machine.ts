@@ -315,8 +315,11 @@ class LocalMachineHandle implements SandboxHandle {
 
     const cwd = opts.cwd ? path.resolve(this.workDir, opts.cwd) : this.workDir;
     const timeout = opts.timeout ?? this.defaultTimeout;
-    const baseInherit = { ...process.env, ...this.env, ...opts.env };
+    const explicitEnv = { ...this.env, ...opts.env };
+    const baseInherit = { ...process.env, ...explicitEnv };
     const env = buildRunnerEnv({
+      BRAVE_API_KEY: explicitEnv.BRAVE_API_KEY,
+      TAVILY_API_KEY: explicitEnv.TAVILY_API_KEY,
       inherit: baseInherit,
     });
 

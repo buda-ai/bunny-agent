@@ -147,7 +147,7 @@ interface ResolvedProvider {
 }
 
 function getEnv(env: Record<string, string>, key: string): string | undefined {
-  const v = env[key] ?? process.env[key];
+  const v = env[key];
   return v && v.length > 0 ? v : undefined;
 }
 
