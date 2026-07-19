@@ -10,6 +10,12 @@ export interface GeminiRunnerOptions {
   cwd?: string;
   env?: Record<string, string>;
   abortController?: AbortController;
+  /**
+   * ACP session id to resume. Only honored when the agent advertises the
+   * `loadSession` capability in its initialize response; otherwise a new
+   * session is created.
+   */
+  resume?: string;
 }
 
 export interface GeminiRunner {
@@ -73,10 +79,24 @@ export function createGeminiRunner(
       );
 
       let sessionId: string | null = null;
+      let resuming = false;
+      let promptSent = false;
       const messageId = `msg_${Date.now()}_${Math.random().toString(36).slice(2)}`;
       const textId = `text_${Date.now()}_${Math.random().toString(36).slice(2)}`;
       let hasStarted = false;
       let hasTextStarted = false;
+
+      const sendPrompt = () => {
+        promptSent = true;
+        send(
+          "session/prompt",
+          {
+            sessionId,
+            prompt: [{ type: "text", text: userInput }],
+          },
+          msgId++,
+        );
+      };
 
       try {
         let buffer = "";
@@ -105,23 +125,39 @@ export function createGeminiRunner(
               continue;
             }
 
-            // Handle initialize response → create session
+            // Handle initialize response → load or create session
             if (msg.id === 1 && msg.result) {
-              send("session/new", { cwd, mcpServers: [] }, msgId++);
+              const initResult = msg.result as {
+                agentCapabilities?: { loadSession?: boolean };
+              };
+              if (options.resume && initResult.agentCapabilities?.loadSession) {
+                resuming = true;
+                send(
+                  "session/load",
+                  { sessionId: options.resume, cwd, mcpServers: [] },
+                  msgId++,
+                );
+              } else {
+                send("session/new", { cwd, mcpServers: [] }, msgId++);
+              }
             }
 
-            // Handle session/new response → send prompt
-            if (msg.id === 2 && msg.result) {
-              const result = msg.result as { sessionId: string };
-              sessionId = result.sessionId;
-              send(
-                "session/prompt",
-                {
-                  sessionId,
-                  prompt: [{ type: "text", text: userInput }],
-                },
-                msgId++,
-              );
+            // Handle session/new or session/load response → send prompt.
+            // Note: session/load responds with a null result, so check for
+            // the presence of the result key rather than truthiness.
+            if (msg.id === 2 && "result" in msg) {
+              if (resuming) {
+                sessionId = options.resume as string;
+              } else {
+                const result = msg.result as { sessionId: string };
+                sessionId = result.sessionId;
+              }
+              if (!hasStarted) {
+                yield `data: ${JSON.stringify({ type: "start", messageId })}\n\n`;
+                hasStarted = true;
+              }
+              yield `data: ${JSON.stringify({ type: "message-metadata", messageMetadata: { sessionId } })}\n\n`;
+              sendPrompt();
             }
 
             // Handle session/prompt response → stream is done
@@ -135,8 +171,14 @@ export function createGeminiRunner(
               return;
             }
 
-            // Handle session/update notifications
-            if (msg.method === "session/update" && msg.params?.update) {
+            // Handle session/update notifications. Updates that arrive before
+            // the prompt was sent are history replayed by session/load; skip
+            // them so resumed runs only stream new output.
+            if (
+              msg.method === "session/update" &&
+              msg.params?.update &&
+              promptSent
+            ) {
               const update = msg.params.update;
 
               if (!hasStarted) {

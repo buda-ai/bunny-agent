@@ -5,6 +5,16 @@ export {
   type PiRunner,
   type PiRunnerOptions,
 } from "./pi-runner.js";
+export {
+  type ApprovalDecision,
+  type ApprovalGateOptions,
+  ASK_USER_QUESTION_TOOL_NAME,
+  buildAskUserQuestionTool,
+  gateToolsForApproval,
+  type WaitForApprovalOptions,
+  waitForApproval,
+  wrapToolWithApproval,
+} from "./tool-approval.js";
 export type { ToolDetailsWithUsage, ToolUsageDetails } from "./tool-details.js";
 export {
   buildToolDefinitionsFromRefs,

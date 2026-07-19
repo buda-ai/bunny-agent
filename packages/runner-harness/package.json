@@ -37,6 +37,7 @@
   "peerDependencies": {
     "@bunny-agent/runner-claude": "workspace:*",
     "@bunny-agent/runner-codex": "workspace:*",
+    "@bunny-agent/runner-copilot": "workspace:*",
     "@bunny-agent/runner-gemini": "workspace:*",
     "@bunny-agent/runner-opencode": "workspace:*",
     "@bunny-agent/runner-pi": "workspace:*"

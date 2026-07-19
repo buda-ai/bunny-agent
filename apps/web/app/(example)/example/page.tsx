@@ -26,6 +26,11 @@ import {
   PromptInputAttachments,
 } from "kui/ai-elements/prompt-input";
 import {
+  Reasoning,
+  ReasoningContent,
+  ReasoningTrigger,
+} from "kui/ai-elements/reasoning";
+import {
   Tool,
   ToolContent,
   ToolHeader,
@@ -119,6 +124,20 @@ function ChatMessage({
                 : `part-${index}`;
             if (part.type === "text") {
               return <MessageResponse key={key}>{part.text}</MessageResponse>;
+            }
+            if (part.type === "reasoning") {
+              const reasoningPart = part as import("ai").ReasoningUIPart;
+              if (!reasoningPart.text) return null;
+              return (
+                <Reasoning
+                  key={key}
+                  defaultOpen={false}
+                  isStreaming={reasoningPart.state === "streaming"}
+                >
+                  <ReasoningTrigger />
+                  <ReasoningContent>{reasoningPart.text}</ReasoningContent>
+                </Reasoning>
+              );
             }
             if (part.type === "file") {
               const filePart = part as import("ai").FileUIPart;
