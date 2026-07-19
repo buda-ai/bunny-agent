@@ -216,11 +216,19 @@ function HomeContent() {
     setConfigReady(allRequiredSet);
   }, [clientConfig]);
 
-  const { messages, status, error, isLoading, hasError, handleSubmit, stop } =
-    useBunnyAgentChat({
-      apiEndpoint: "/api/ai",
-      body: { template: selectedTemplate, ...clientConfig },
-    });
+  const {
+    messages,
+    compaction,
+    status,
+    error,
+    isLoading,
+    hasError,
+    handleSubmit,
+    stop,
+  } = useBunnyAgentChat({
+    apiEndpoint: "/api/ai",
+    body: { template: selectedTemplate, ...clientConfig },
+  });
 
   // Handle template change and update URL
   const handleTemplateChange = (newTemplate: string) => {
@@ -309,7 +317,23 @@ function HomeContent() {
               />
             ))
           )}
-          {isLoading && (
+          {compaction && (
+            <Message from="assistant">
+              <MessageContent>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader size={16} />
+                  <span>
+                    Compacting conversation
+                    {compaction.preTokens
+                      ? ` (${Math.round(compaction.preTokens / 1000)}k tokens)`
+                      : ""}
+                    …
+                  </span>
+                </div>
+              </MessageContent>
+            </Message>
+          )}
+          {isLoading && !compaction && (
             <Message from="assistant">
               <MessageContent>
                 <Loader size={20} />

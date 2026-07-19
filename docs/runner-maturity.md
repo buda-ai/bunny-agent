@@ -102,6 +102,36 @@ Stream chunk vocabulary and the SDK provider normalizes them into
 - Tool call rendering is uniform (`dynamic-tool` parts); only tool *names*
   differ (`shell` vs `bash`, `server:tool` for MCP).
 
+## Context compaction
+
+Every agent SDK except codex compacts the conversation automatically when the
+context window fills — we do not implement compaction ourselves.
+
+| Runner | auto-compaction | observable? | surfaced to UI |
+|---|---|---|---|
+| claude | ✅ built-in (`autoCompactEnabled` setting) | ✅ `system/status` (`status: "compacting"`) starts it; `system/compact_boundary` ends it with `pre_tokens`/`post_tokens`/`trigger` | ✅ |
+| copilot | ✅ built-in | ✅ `session.compaction_start` / `session.compaction_complete` (pre/post tokens, tokens+messages removed) | ✅ |
+| pi | ✅ built-in (`CompactionSettings`, `shouldCompact` in the agent loop) | ⚠️ only via the **extension** API (`session_before_compact` / `session_compact`) — not on the event stream we subscribe to | ❌ not yet |
+| codex | ❓ not exposed by the SDK | ❌ no event | ❌ |
+
+Runners that can observe it emit a unified chunk:
+`{"type":"compaction","phase":"start"|"end",success?,trigger?,preTokens?,postTokens?,error?}`.
+
+The AI SDK stream protocol has no part type for this and it must not become
+assistant content, so the SDK provider delivers it out-of-band through the
+`onCompaction` provider setting. `apps/web` forwards it as a **transient**
+`data-compaction` part (transient = not persisted into message history), and
+`useBunnyAgentChat` exposes it as `compaction`, which the example UI renders as
+a "Compacting conversation…" indicator.
+
+**Not done yet:** pi compaction visibility (needs a pi extension registered on
+the session), and context-usage percentage. On usage: claude exposes
+`query.getContextUsage()` (returns `percentage`/`totalTokens`/`maxTokens`),
+copilot has `session.usage_info` (`currentTokens`/`tokenLimit`), pi can compute
+it from `Model.contextWindow` — but note `pi-runner.ts` currently hardcodes
+`contextWindow: 128000` for auto-registered models, which must be fixed before
+any pi percentage would be trustworthy. Codex exposes no context window at all.
+
 ## Tool approval (human-in-the-loop) note
 
 `claude` and `pi` both gate tool execution through a file-based approval bridge

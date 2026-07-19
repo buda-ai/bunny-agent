@@ -205,6 +205,35 @@ describe("createCopilotRunner", () => {
     );
   });
 
+  it("emits compaction start/end when the context is compacted", async () => {
+    const session = new FakeSession();
+    createSessionMock.mockResolvedValue(session);
+
+    const runner = createCopilotRunner({ model: "gpt-5" });
+    const chunks = await collect(runner, () => {
+      session.emit({
+        type: "session.compaction_start",
+        data: { conversationTokens: 120_000 },
+      });
+      session.emit({
+        type: "session.compaction_complete",
+        data: {
+          success: true,
+          preCompactionTokens: 120_000,
+          postCompactionTokens: 30_000,
+        },
+      });
+      session.emit({ type: "session.idle", data: {} });
+      session.finishSend();
+    });
+
+    const joined = chunks.join("");
+    expect(joined).toContain('"type":"compaction","phase":"start"');
+    expect(joined).toContain('"preTokens":120000');
+    expect(joined).toContain('"phase":"end"');
+    expect(joined).toContain('"postTokens":30000');
+  });
+
   it("synthesizes an error when the stream ends without a terminal event", async () => {
     const session = new FakeSession();
     createSessionMock.mockResolvedValue(session);

@@ -210,6 +210,46 @@ export function createCopilotRunner(
             usage.cache_read_input_tokens += d.cacheReadTokens ?? 0;
             break;
           }
+          // Context compaction runs automatically when the context fills;
+          // surface it so the UI can show a "Compacting…" state.
+          case "session.compaction_start": {
+            const d = event.data as { conversationTokens?: number } | undefined;
+            queue.push(
+              sseData({
+                type: "compaction",
+                phase: "start",
+                ...(d?.conversationTokens != null
+                  ? { preTokens: d.conversationTokens }
+                  : {}),
+              }),
+            );
+            break;
+          }
+          case "session.compaction_complete": {
+            const d = event.data as
+              | {
+                  success?: boolean;
+                  preCompactionTokens?: number;
+                  postCompactionTokens?: number;
+                  error?: string;
+                }
+              | undefined;
+            queue.push(
+              sseData({
+                type: "compaction",
+                phase: "end",
+                success: d?.success !== false,
+                ...(d?.preCompactionTokens != null
+                  ? { preTokens: d.preCompactionTokens }
+                  : {}),
+                ...(d?.postCompactionTokens != null
+                  ? { postTokens: d.postCompactionTokens }
+                  : {}),
+                ...(d?.error ? { error: d.error } : {}),
+              }),
+            );
+            break;
+          }
           case "tool.execution_start": {
             const { toolCallId, toolName, arguments: args } = event.data;
             queue.push(
