@@ -40,7 +40,8 @@ export interface RunnerEnvParams {
    * Base env to merge in (lowest priority).
    * Typically `process.env` for local sandbox, or extra vars from the request.
    * Null/undefined values and parent Claude Code keys (CLAUDE_CODE_SSE_PORT
-   * etc.) are automatically stripped.
+   * etc.) are automatically stripped. Web search keys must use their dedicated
+   * parameters and are ignored here.
    */
   inherit?: Record<string, string | undefined | null>;
   /**
@@ -59,6 +60,8 @@ export interface RunnerEnvParams {
 const STRIP_FROM_CHILD = new Set([
   "CLAUDE_CODE_SSE_PORT",
   "CLAUDE_CODE_SSE_SESSION_ID",
+  "BRAVE_API_KEY",
+  "TAVILY_API_KEY",
 ]);
 
 function applyInherit(
@@ -174,9 +177,9 @@ export function buildRunnerEnv(
       break;
   }
 
-  // Web search keys (all runners) — params override process.env
-  const braveKey = params.BRAVE_API_KEY || process.env.BRAVE_API_KEY;
-  const tavilyKey = params.TAVILY_API_KEY || process.env.TAVILY_API_KEY;
+  // Web search keys are request-scoped and must be passed explicitly.
+  const braveKey = params.BRAVE_API_KEY;
+  const tavilyKey = params.TAVILY_API_KEY;
   if (braveKey) env.BRAVE_API_KEY = braveKey;
   if (tavilyKey) env.TAVILY_API_KEY = tavilyKey;
 

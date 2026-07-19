@@ -43,23 +43,19 @@ describe("resolveSearchProviders", () => {
     expect(result[1].provider.id).toBe("tavily");
   });
 
-  it("falls back to process.env for BRAVE_API_KEY", () => {
+  it("ignores BRAVE_API_KEY from process.env", () => {
     process.env.BRAVE_API_KEY = "env-brave";
     const result = resolveSearchProviders({});
-    expect(result).toHaveLength(1);
-    expect(result[0].provider.id).toBe("brave");
-    expect(result[0].apiKey).toBe("env-brave");
+    expect(result).toEqual([]);
   });
 
-  it("falls back to process.env for TAVILY_API_KEY", () => {
+  it("ignores TAVILY_API_KEY from process.env", () => {
     process.env.TAVILY_API_KEY = "env-tavily";
     const result = resolveSearchProviders({});
-    expect(result).toHaveLength(1);
-    expect(result[0].provider.id).toBe("tavily");
-    expect(result[0].apiKey).toBe("env-tavily");
+    expect(result).toEqual([]);
   });
 
-  it("env map overrides process.env", () => {
+  it("uses the explicitly provided env map instead of process.env", () => {
     process.env.BRAVE_API_KEY = "env-brave";
     const result = resolveSearchProviders({ BRAVE_API_KEY: "param-brave" });
     expect(result[0].apiKey).toBe("param-brave");

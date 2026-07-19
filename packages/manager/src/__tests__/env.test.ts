@@ -18,28 +18,31 @@ describe("buildRunnerEnv", () => {
     expect(env.TAVILY_API_KEY).toBe("tvly-456");
   });
 
-  it("falls back to process.env for BRAVE_API_KEY", () => {
+  it("ignores BRAVE_API_KEY from process.env", () => {
     process.env.BRAVE_API_KEY = "env-brave";
     const env = buildRunnerEnv({});
-    expect(env.BRAVE_API_KEY).toBe("env-brave");
+    expect(env.BRAVE_API_KEY).toBeUndefined();
   });
 
-  it("falls back to process.env for TAVILY_API_KEY", () => {
+  it("ignores TAVILY_API_KEY from process.env", () => {
     process.env.TAVILY_API_KEY = "env-tavily";
     const env = buildRunnerEnv({});
-    expect(env.TAVILY_API_KEY).toBe("env-tavily");
+    expect(env.TAVILY_API_KEY).toBeUndefined();
   });
 
-  it("params override process.env for web search keys", () => {
+  it("uses explicit web search params instead of process.env", () => {
     process.env.BRAVE_API_KEY = "env-brave";
     const env = buildRunnerEnv({ BRAVE_API_KEY: "param-brave" });
     expect(env.BRAVE_API_KEY).toBe("param-brave");
   });
 
-  it("omits web search keys when neither params nor process.env has them", () => {
-    delete process.env.BRAVE_API_KEY;
-    delete process.env.TAVILY_API_KEY;
-    const env = buildRunnerEnv({});
+  it("strips web search keys from the inherited environment", () => {
+    const env = buildRunnerEnv({
+      inherit: {
+        BRAVE_API_KEY: "inherited-brave",
+        TAVILY_API_KEY: "inherited-tavily",
+      },
+    });
     expect(env.BRAVE_API_KEY).toBeUndefined();
     expect(env.TAVILY_API_KEY).toBeUndefined();
   });

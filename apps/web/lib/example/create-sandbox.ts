@@ -93,6 +93,8 @@ export interface CreateSandboxParams {
   OPENAI_BASE_URL?: string;
   GEMINI_API_KEY?: string;
   GEMINI_BASE_URL?: string;
+  BRAVE_API_KEY?: string;
+  TAVILY_API_KEY?: string;
   AWS_REGION?: string;
   template?: string;
   SANDBOX_IMAGE?: string;
@@ -124,6 +126,8 @@ function sandboxCacheKey(params: CreateSandboxParams): string {
     // Only include variables that can influence skill execution.
     AGENT_KEY: env.AGENT_KEY ?? "",
     BUDA_API_URL: env.BUDA_API_URL ?? "",
+    BRAVE_API_KEY: params.BRAVE_API_KEY ?? "",
+    TAVILY_API_KEY: params.TAVILY_API_KEY ?? "",
   };
   const fingerprint = createHash("sha256")
     .update(JSON.stringify(fingerprintSource))
@@ -188,6 +192,8 @@ async function buildSandbox(
     OPENAI_BASE_URL,
     GEMINI_API_KEY,
     GEMINI_BASE_URL,
+    BRAVE_API_KEY,
+    TAVILY_API_KEY,
     template = "default",
     env: extraEnv = {},
   } = params;
@@ -207,6 +213,8 @@ async function buildSandbox(
     OPENAI_BASE_URL,
     GEMINI_API_KEY,
     GEMINI_BASE_URL,
+    BRAVE_API_KEY,
+    TAVILY_API_KEY,
     inherit: extraEnv,
   });
   if (SANDBOX_PROVIDER === "daytona" && DAYTONA_API_KEY) {

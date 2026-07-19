@@ -254,13 +254,13 @@ export async function POST(request: Request) {
     OPENAI_BASE_URL,
     GEMINI_API_KEY,
     GEMINI_BASE_URL,
+    BRAVE_API_KEY,
+    TAVILY_API_KEY,
     template,
     useBunnyAgentDaemon,
     env: {
       AGENT_KEY: process.env.AGENT_KEY ?? "",
       BUDA_API_URL: process.env.BUDA_API_URL ?? "",
-      ...(BRAVE_API_KEY ? { BRAVE_API_KEY } : {}),
-      ...(TAVILY_API_KEY ? { TAVILY_API_KEY } : {}),
     },
   };
 
