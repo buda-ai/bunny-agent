@@ -49,6 +49,7 @@
   },
   "devDependencies": {
     "@bunny-agent/runner-harness": "workspace:*",
+    "@bunny-agent/runner-pi": "workspace:*",
     "@types/node": "^20.10.0",
     "esbuild": "^0.27.2",
     "fast-check": "^3.22.0",

@@ -91,6 +91,9 @@ importers:
       '@bunny-agent/runner-harness':
         specifier: workspace:*
         version: link:../../packages/runner-harness
+      '@bunny-agent/runner-pi':
+        specifier: workspace:*
+        version: link:../../packages/runner-pi
       '@types/node':
         specifier: ^20.10.0
         version: 20.19.33

@@ -34,3 +34,11 @@ await esbuild.build({
   entryPoints: ["src/cli.ts"],
   outfile: "dist/bundle.mjs",
 });
+
+// Standalone apply_patch shell command, exec'd by runner-pi's PATH shim.
+await esbuild.build({
+  ...shared,
+  entryPoints: ["src/apply-patch-bin.ts"],
+  outfile: "dist/apply-patch-bin.js",
+  allowOverwrite: true,
+});

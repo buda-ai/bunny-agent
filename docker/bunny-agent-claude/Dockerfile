@@ -102,6 +102,19 @@ RUN echo '#!/usr/bin/env node' > /usr/local/bin/bunny-agent-daemon && \
     echo 'import("/opt/bunny-agent/node_modules/@bunny-agent/daemon/dist/bundle.mjs")' >> /usr/local/bin/bunny-agent-daemon && \
     chmod +x /usr/local/bin/bunny-agent-daemon
 
+# apply_patch: real shell command for OpenAI's V4A patch format. GPT-5.x
+# models shell out `apply_patch <<'PATCH'` (often chained after cd/mkdir)
+# by Codex-harness habit; without this binary the call fails and the model
+# wastes turns falling back to the write tool. Exit 127 (command-not-found)
+# when the installed runner-cli version predates dist/apply-patch-bin.js.
+RUN printf '%s\n' \
+    '#!/usr/bin/env node' \
+    'import("/opt/bunny-agent/node_modules/@bunny-agent/runner-cli/dist/apply-patch-bin.js").catch(() => {' \
+    '  console.error("apply_patch: not available in this image build");' \
+    '  process.exit(127);' \
+    '});' > /usr/local/bin/apply_patch && \
+    chmod +x /usr/local/bin/apply_patch
+
 # Entrypoint: run init hooks, copy /skills, start daemon + optional CDP, then exec CMD
 RUN printf '%s\n' \
     '#!/bin/bash' \

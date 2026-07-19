@@ -10,6 +10,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./apply-patch-bin": {
+      "types": "./dist/apply-patch-bin.d.ts",
+      "import": "./dist/apply-patch-bin.js"
     }
   },
   "files": [

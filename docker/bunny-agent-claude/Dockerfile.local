@@ -62,6 +62,7 @@ RUN apt-get update && \
 RUN mkdir -p /opt/sandagent/node_modules/@sandagent/runner-cli/dist \
     /opt/sandagent/node_modules/@sandagent/daemon/dist
 COPY --from=builder /build/apps/runner-cli/dist/bundle.mjs /opt/sandagent/node_modules/@sandagent/runner-cli/dist/bundle.mjs
+COPY --from=builder /build/apps/runner-cli/dist/apply-patch-bin.js /opt/sandagent/node_modules/@sandagent/runner-cli/dist/apply-patch-bin.js
 COPY --from=builder /build/apps/daemon/dist/bundle.mjs /opt/sandagent/node_modules/@sandagent/daemon/dist/bundle.mjs
 
 # Init script (copy deps to workspace when needed)
@@ -80,6 +81,12 @@ RUN echo '#!/usr/bin/env node' > /usr/local/bin/sandagent && \
 RUN echo '#!/usr/bin/env node' > /usr/local/bin/sandagent-daemon && \
     echo 'import("/opt/sandagent/node_modules/@sandagent/daemon/dist/bundle.mjs")' >> /usr/local/bin/sandagent-daemon && \
     chmod +x /usr/local/bin/sandagent-daemon
+
+# apply_patch: real shell command for OpenAI's V4A patch format (GPT-5.x
+# Codex-harness habit).
+RUN echo '#!/usr/bin/env node' > /usr/local/bin/apply_patch && \
+    echo 'import("/opt/sandagent/node_modules/@sandagent/runner-cli/dist/apply-patch-bin.js")' >> /usr/local/bin/apply_patch && \
+    chmod +x /usr/local/bin/apply_patch
 
 # Install global CLI tools for agent use
 RUN npm install -g brave-search-cli
