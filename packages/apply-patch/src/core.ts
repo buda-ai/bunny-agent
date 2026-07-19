@@ -1,5 +1,5 @@
 /**
- * V4A patch engine ("apply_patch" format) — pure Node, no pi dependencies.
+ * V4A patch engine ("apply_patch" format) — pure Node, no framework dependencies.
  *
  * Parses and applies OpenAI's context-addressed diff format, delimited by
  * `*** Begin Patch` / `*** Update File: ...` / `*** End Patch`. Hunks are
@@ -7,17 +7,13 @@
  * a tolerant (exact -> rstrip -> full trim) fallback for the minor
  * whitespace drift models sometimes introduce in generated context.
  *
- * Consumed by two front-ends:
- * - `apply-patch-tool.ts`: the native `apply_patch` ToolDefinition exposed
- *   to OpenAI-provider models through the pi tool registry.
- * - `apply-patch-bin.ts`: a standalone CLI so `apply_patch <<'PATCH'` works
- *   as a real shell command — GPT-5.x also emits it chained inside bash
- *   commands (`cd x && apply_patch <<'PATCH'`), which no tool registration
- *   can intercept.
- *
- * This module must stay importable as a self-contained pair with
- * `apply-patch-bin.ts` (node builtins only) so the bin can be bundled or
- * executed straight from `dist/` without the rest of the runner.
+ * This is a standalone package (not runner-pi-specific) because both the
+ * engine and `bin.ts` have zero pi dependencies, while their consumers span
+ * multiple apps: `@bunny-agent/runner-pi` wraps this as a native
+ * `apply_patch` tool and a bash-PATH shim (GPT-5.x/Codex-family models
+ * expect `apply_patch` as both a tool call and a real shell command), and
+ * `apps/runner-cli` / `apps/daemon` each bundle `bin.ts` as a standalone
+ * `apply_patch` CLI for their own dist output and Docker images.
  */
 
 import {

@@ -1,0 +1,40 @@
+{
+  "name": "@bunny-agent/apply-patch",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Standalone engine + CLI for OpenAI's apply_patch (V4A) diff format",
+  "type": "module",
+  "main": "./dist/core.js",
+  "types": "./dist/core.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/core.d.ts",
+      "import": "./dist/core.js"
+    },
+    "./bin": {
+      "types": "./dist/bin.d.ts",
+      "import": "./dist/bin.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3",
+    "vitest": "^1.6.1"
+  },
+  "keywords": [
+    "bunny-agent",
+    "apply_patch",
+    "diff"
+  ],
+  "author": "BunnyAgent",
+  "license": "Apache-2.0"
+}

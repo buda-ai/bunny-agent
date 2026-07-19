@@ -60,6 +60,7 @@
     "zod": "^4.0.0"
   },
   "devDependencies": {
+    "@bunny-agent/apply-patch": "workspace:*",
     "@bunny-agent/runner-claude": "workspace:*",
     "@bunny-agent/runner-codex": "workspace:*",
     "@bunny-agent/runner-gemini": "workspace:*",

@@ -71,7 +71,11 @@ Legend: ✅ supported · ⚠️ partial/caveat · ❌ not supported
   standalone `apply-patch-bin.js`, and sandbox images install it globally at
   `/usr/local/bin/apply_patch` — this covers heredoc invocations chained
   after other commands (`cd x && apply_patch <<'PATCH'`), which no tool
-  registration can intercept.
+  registration can intercept. The V4A parsing/applying engine and CLI live in
+  `packages/apply-patch` (`@bunny-agent/apply-patch`), a standalone package
+  with no pi dependency — runner-pi wraps it as the native tool and the PATH
+  shim, while `apps/runner-cli`/`apps/daemon` each bundle its CLI entry
+  directly for their own sandbox binaries, without depending on runner-pi.
 - **codex**: no `maxTurns`/`allowedTools` (SDK limitation); `systemPrompt` is
   emulation (prepended text), so it is not re-applied on `resume`; `file_change`
   items surface as an `apply_patch` tool call; `todo_list` items are dropped.

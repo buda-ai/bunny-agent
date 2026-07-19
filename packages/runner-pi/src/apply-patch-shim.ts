@@ -9,10 +9,11 @@
  * executable on PATH lets the shell handle all of that natively.
  *
  * The shim is a two-line `sh` wrapper that execs the current Node binary on
- * the standalone `apply-patch-bin.js`. That file exists as a dist sibling of
+ * the standalone `apply-patch-bin.js` (the CLI entry from
+ * `@bunny-agent/apply-patch/bin`). That file exists as a dist sibling of
  * this module in every deployment context, by construction:
  * - tsc builds (workspace dev, unbundled dist): `packages/runner-pi/dist/`
- *   contains both this module and apply-patch-bin.js.
+ *   contains both this module and a thin apply-patch-bin.js re-export.
  * - esbuild bundles (runner-cli, daemon): their build scripts emit a
  *   self-contained `dist/apply-patch-bin.js` next to the main bundle that
  *   this module is inlined into, so the same relative lookup works.

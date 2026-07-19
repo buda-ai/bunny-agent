@@ -16,21 +16,20 @@
  *
  * The bash-heredoc habit (including chained forms like
  * `cd x && apply_patch <<'PATCH'`) is covered separately by the real
- * `apply_patch` shell command — see `apply-patch-bin.ts` and
- * `apply-patch-shim.ts`. The V4A engine shared by both lives in
- * `apply-patch-core.ts`.
+ * `apply_patch` shell command — see `apply-patch-shim.ts`. The V4A parsing
+ * engine lives in `@bunny-agent/apply-patch`, a standalone package (no pi
+ * dependencies) shared with the CLI entry that apps/runner-cli and
+ * apps/daemon bundle for their own sandbox binaries.
  */
 
+import { applyPatch, formatPatchResult } from "@bunny-agent/apply-patch";
 import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
-import { applyPatch, formatPatchResult } from "./apply-patch-core.js";
 
-// Historical import site: the engine used to live in this file. Keep the
-// re-export so existing importers and tests stay valid.
 export {
   type ApplyPatchResult,
   applyPatch,
   PatchParseError,
-} from "./apply-patch-core.js";
+} from "@bunny-agent/apply-patch";
 
 const applyPatchSchema = {
   type: "object",
