@@ -72,6 +72,9 @@ and surface reasoning in the UI.
 
 - Merged the latest `origin/main` and resolved the lockfile by retaining the
   Copilot SDK entries while adopting main's current Pi patch hash.
+- Merged main's standalone `apply_patch` package and Pi/OpenAI tool support,
+  preserving both the approval gate and environment-injected bash tool; the
+  runner CLI now bundles both Copilot support and the `apply_patch` binary.
 - Revalidated all 22 workspace test projects and typechecks, the repository
   lint, the runner CLI build/help output, and a mock Claude stream through
   `[DONE]`.

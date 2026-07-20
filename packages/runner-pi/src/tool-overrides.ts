@@ -97,6 +97,11 @@ export interface BashToolOptions {
    * reach bash belongs in the runner's `env` map instead.
    */
   systemEnv?: Record<string, string>;
+  /**
+   * Directory to prepend to the bash child's PATH. Used to expose harness
+   * shims (currently the `apply_patch` command) to shell commands.
+   */
+  pathPrepend?: string;
 }
 
 /**
@@ -117,11 +122,19 @@ export function buildEnvInjectedBashTool(
   opts: BashToolOptions = {},
 ): ToolDefinition {
   const safeEnv = opts.systemEnv ?? {};
+  const pathPrepend = opts.pathPrepend;
   const bashAgentTool = createBashTool(cwd, {
-    spawnHook: (ctx) => ({
-      ...ctx,
-      env: { ...ctx.env, ...safeEnv },
-    }),
+    spawnHook: (ctx) => {
+      const env: Record<string, string | undefined> = {
+        ...ctx.env,
+        ...safeEnv,
+      };
+      if (pathPrepend) {
+        const basePath = env.PATH ?? process.env.PATH;
+        env.PATH = basePath ? `${pathPrepend}:${basePath}` : pathPrepend;
+      }
+      return { ...ctx, env };
+    },
   });
 
   return {

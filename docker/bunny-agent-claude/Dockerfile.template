@@ -79,6 +79,17 @@ RUN echo '#!/usr/bin/env node' > /usr/local/bin/sandagent-daemon && \
     echo 'import("/opt/sandagent/node_modules/@sandagent/daemon/dist/bundle.mjs")' >> /usr/local/bin/sandagent-daemon && \
     chmod +x /usr/local/bin/sandagent-daemon
 
+# apply_patch: real shell command for OpenAI's V4A patch format (GPT-5.x
+# Codex-harness habit). Exit 127 when the installed runner-cli predates
+# dist/apply-patch-bin.js.
+RUN printf '%s\n' \
+    '#!/usr/bin/env node' \
+    'import("/opt/sandagent/node_modules/@sandagent/runner-cli/dist/apply-patch-bin.js").catch(() => {' \
+    '  console.error("apply_patch: not available in this image build");' \
+    '  process.exit(127);' \
+    '});' > /usr/local/bin/apply_patch && \
+    chmod +x /usr/local/bin/apply_patch
+
 # Install global CLI tools for agent use
 RUN npm install -g brave-search-cli
 
