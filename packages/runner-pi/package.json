@@ -24,9 +24,9 @@
   },
   "dependencies": {
     "@bunny-agent/apply-patch": "workspace:*",
-    "@earendil-works/pi-agent-core": "0.80.7",
-    "@earendil-works/pi-ai": "0.80.7",
-    "@earendil-works/pi-coding-agent": "0.80.7",
+    "@earendil-works/pi-agent-core": "0.80.10",
+    "@earendil-works/pi-ai": "0.80.10",
+    "@earendil-works/pi-coding-agent": "0.80.10",
     "@sinclair/typebox": "^0.34.0"
   },
   "devDependencies": {

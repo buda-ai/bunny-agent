@@ -1,6 +1,7 @@
 import type { BaseRunnerOptions } from "@bunny-agent/runner-claude";
 import { createClaudeRunner } from "@bunny-agent/runner-claude";
 import { createCodexRunner } from "@bunny-agent/runner-codex";
+import { createCopilotRunner } from "@bunny-agent/runner-copilot";
 import { createGeminiRunner } from "@bunny-agent/runner-gemini";
 import { createOpenCodeRunner } from "@bunny-agent/runner-opencode";
 import { createPiRunner, type PiRunnerOptions } from "@bunny-agent/runner-pi";
@@ -122,6 +123,8 @@ function dispatchRunner(
         cwd,
         env: base.env,
         abortController: base.abortController,
+        systemPrompt: base.systemPrompt,
+        yolo: base.yolo,
       }).run(options.userInput);
     case "pi": {
       return createPiRunner({
@@ -141,9 +144,28 @@ function dispatchRunner(
         cwd,
         env: base.env,
         abortController: base.abortController,
+        systemPrompt: base.systemPrompt,
+        yolo: base.yolo,
       }).run(options.userInput);
-    case "copilot":
-      throw new Error("Copilot runner not yet implemented");
+    case "copilot": {
+      const reasoningEfforts = ["low", "medium", "high", "xhigh"];
+      return createCopilotRunner({
+        model: options.model,
+        systemPrompt: base.systemPrompt,
+        allowedTools: base.allowedTools,
+        resume: base.resume,
+        yolo: base.yolo,
+        cwd,
+        env: base.env,
+        abortController: base.abortController,
+        ...(options.effort && reasoningEfforts.includes(options.effort)
+          ? {
+              reasoningEffort:
+                options.effort as import("@bunny-agent/runner-copilot").CopilotReasoningEffort,
+            }
+          : {}),
+      }).run(options.userInput);
+    }
     default:
       throw new Error(`Unknown runner: ${runner}`);
   }

@@ -221,6 +221,8 @@ Options:
   -s, --system-prompt <prompt> Custom system prompt
   -t, --max-turns <n>          Max conversation turns
   -a, --allowed-tools <tools>  Comma-separated allowed tools
+      --yolo                   Automatically approve tool permission requests
+      --effort <level>         Reasoning effort (runner-dependent)
       --skill-path <path>      Additional skill path (can be repeated, for pi runner)
       --resume <session-id>    Resume a previous session
       --fork-from <session-id> Snapshot-clone the given source session into a
@@ -233,6 +235,8 @@ Environment:
   OPENAI_API_KEY               OpenAI API key (for codex runner)
   CODEX_API_KEY                OpenAI API key alias (for codex runner)
   GEMINI_API_KEY               Gemini API key (for gemini runner)
+  GITHUB_TOKEN or GH_TOKEN     GitHub token (optional for copilot runner;
+                               otherwise uses the logged-in Copilot user)
   BUNNY_AGENT_WORKSPACE        Default workspace path
 `);
 }

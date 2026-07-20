@@ -22,7 +22,7 @@
   "scripts": {
     "build": "tsc && pnpm bundle",
     "build:bundle": "tsc && pnpm bundle",
-    "bundle": "esbuild src/cli.ts --bundle --platform=node --format=esm --external:dotenv --external:@anthropic-ai/claude-agent-sdk --external:@openai/codex-sdk --external:@earendil-works/pi-agent-core --external:@earendil-works/pi-ai --external:@earendil-works/pi-coding-agent --outfile=dist/bundle.mjs && esbuild src/apply-patch-bin.ts --bundle --platform=node --format=esm --outfile=dist/apply-patch-bin.js --allow-overwrite",
+    "bundle": "esbuild src/cli.ts --bundle --platform=node --format=esm --external:dotenv --external:@anthropic-ai/claude-agent-sdk --external:@github/copilot-sdk --external:@openai/codex-sdk --external:@earendil-works/pi-agent-core --external:@earendil-works/pi-ai --external:@earendil-works/pi-coding-agent --outfile=dist/bundle.mjs && esbuild src/apply-patch-bin.ts --bundle --platform=node --format=esm --outfile=dist/apply-patch-bin.js --allow-overwrite",
     "dev": "tsc --watch",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit",
@@ -39,7 +39,7 @@
     "access": "public"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=20.19.0"
   },
   "keywords": [
     "cli",
@@ -50,12 +50,13 @@
     "anthropic"
   ],
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "0.3.211",
-    "@anthropic-ai/sdk": "0.111.0",
-    "@earendil-works/pi-agent-core": "0.80.7",
-    "@earendil-works/pi-ai": "0.80.7",
-    "@earendil-works/pi-coding-agent": "0.80.7",
-    "@openai/codex-sdk": "^0.144.5",
+    "@anthropic-ai/claude-agent-sdk": "0.3.215",
+    "@anthropic-ai/sdk": "0.112.3",
+    "@earendil-works/pi-agent-core": "0.80.10",
+    "@earendil-works/pi-ai": "0.80.10",
+    "@earendil-works/pi-coding-agent": "0.80.10",
+    "@github/copilot-sdk": "1.0.7",
+    "@openai/codex-sdk": "^0.144.6",
     "dotenv": "^17.3.1",
     "zod": "^4.0.0"
   },
@@ -63,6 +64,7 @@
     "@bunny-agent/apply-patch": "workspace:*",
     "@bunny-agent/runner-claude": "workspace:*",
     "@bunny-agent/runner-codex": "workspace:*",
+    "@bunny-agent/runner-copilot": "workspace:*",
     "@bunny-agent/runner-gemini": "workspace:*",
     "@bunny-agent/runner-harness": "workspace:*",
     "@bunny-agent/runner-opencode": "workspace:*",

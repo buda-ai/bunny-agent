@@ -271,6 +271,7 @@ Options:
 | `ANTHROPIC_API_KEY` | Claude / Anthropic models |
 | `GEMINI_API_KEY` | Google Gemini models |
 | `OPENAI_API_KEY` | OpenAI models |
+| `GITHUB_TOKEN` or `GH_TOKEN` | GitHub Copilot runner (optional when already logged in) |
 | `SANDOCK_API_KEY` | Sandock remote sandbox |
 | `E2B_API_KEY` | E2B cloud sandbox |
 | `BRAVE_API_KEY` | Brave web search |
@@ -287,7 +288,9 @@ Options:
 | `@bunny-agent/runner-pi` | Pi coding agent runner (multi-model) |
 | `@bunny-agent/runner-claude` | Claude Agent SDK runner |
 | `@bunny-agent/runner-codex` | OpenAI Codex runner |
+| `@bunny-agent/runner-copilot` | GitHub Copilot SDK runner |
 | `@bunny-agent/runner-gemini` | Gemini CLI runner |
+| `@bunny-agent/runner-opencode` | OpenCode CLI runner |
 | `@bunny-agent/sandbox-sandock` | Sandock sandbox adapter |
 | `@bunny-agent/sandbox-e2b` | E2B sandbox adapter |
 | `@bunny-agent/sandbox-daytona` | Daytona sandbox adapter |

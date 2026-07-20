@@ -1,0 +1,67 @@
+diff --git a/dist/core/agent-session.js b/dist/core/agent-session.js
+index 7cdf28aa34c8a8f948d1cc586eae774a93489fe4..8eef46d56d52db4c0d350b4d32027209d53fccf8 100644
+--- a/dist/core/agent-session.js
++++ b/dist/core/agent-session.js
+@@ -752,7 +752,9 @@ export class AgentSession {
+         try {
+             await this.agent.prompt(messages);
+             while (await this._handlePostAgentRun()) {
+-                await this.agent.continue();
++                if (!(await this._continueAgentIfPossible())) {
++                    break;
++                }
+             }
+         }
+         finally {
+@@ -761,6 +763,15 @@ export class AgentSession {
+             await this._emitAgentSettled();
+         }
+     }
++    async _continueAgentIfPossible() {
++        const messages = this.agent.state.messages;
++        const lastMessage = messages[messages.length - 1];
++        if (!lastMessage || (lastMessage.role === "assistant" && !this.agent.hasQueuedMessages())) {
++            return false;
++        }
++        await this.agent.continue();
++        return true;
++    }
+     async _handlePostAgentRun() {
+         const msg = this._lastAssistantMessage;
+         this._lastAssistantMessage = undefined;
+diff --git a/dist/core/system-prompt.js b/dist/core/system-prompt.js
+index 3298c0bf0695661165f5dfb7a4ec1f2aeeee8f45..b60f6e9b461612d73fc125a031fd4022a46c181f 100644
+--- a/dist/core/system-prompt.js
++++ b/dist/core/system-prompt.js
+@@ -70,7 +70,7 @@ export function buildSystemPrompt(options) {
+     addGuideline("Be concise in your responses");
+     addGuideline("Show file paths clearly when working with files");
+     const guidelines = guidelinesList.map((g) => `- ${g}`).join("\n");
+-    let prompt = `You are an expert coding assistant operating inside pi, a coding agent harness. You help users by reading files, executing commands, editing code, and writing new files.
++    let prompt = `${appendSystemPrompt || "You are an expert coding assistant operating inside pi, a coding agent harness. You help users by reading files, executing commands, editing code, and writing new files."}
+ 
+ Available tools:
+ ${toolsList}
+@@ -88,7 +88,7 @@ Pi documentation (read only when the user asks about pi itself, its SDK, extensi
+ - When asked about: extensions (docs/extensions.md, examples/extensions/), themes (docs/themes.md), skills (docs/skills.md), prompt templates (docs/prompt-templates.md), TUI components (docs/tui.md), keybindings (docs/keybindings.md), SDK integrations (docs/sdk.md), custom providers (docs/custom-provider.md), adding models (docs/models.md), pi packages (docs/packages.md)
+ - When working on pi topics, read the docs and examples, and follow .md cross-references before implementing
+ - Always read pi .md files completely and follow links to related docs (e.g., tui.md for TUI API details)`;
+-    if (appendSection) {
++    if (!appendSystemPrompt && appendSection) {
+         prompt += appendSection;
+     }
+     // Append project context files
+diff --git a/package.json b/package.json
+index 26e8513f50ae3439d9cfbb24e7b45c5544a938e1..d20a0eab93a7070c2acb1b83948acf80b658effd 100644
+--- a/package.json
++++ b/package.json
+@@ -4,7 +4,8 @@
+ 	"description": "Coding agent CLI with read, bash, edit, write tools and session management",
+ 	"type": "module",
+ 	"piConfig": {
+-		"configDir": ".pi"
++		"name": "bunny",
++		"configDir": ".bunny"
+ 	},
+ 	"bin": {
+ 		"pi": "dist/cli.js"
