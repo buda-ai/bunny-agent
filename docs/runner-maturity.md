@@ -1,7 +1,7 @@
 # Runner Integration Maturity
 
 > Living document — update this whenever a runner gains/loses a capability,
-> an SDK is upgraded, or a new runner lands. Last updated: 2026-07-16.
+> an SDK is upgraded, or a new runner lands. Last updated: 2026-07-17.
 
 Architecture recap:
 
@@ -62,6 +62,20 @@ Legend: ✅ supported · ⚠️ partial/caveat · ❌ not supported
   `skills` (names/`"all"`) is exposed on `ClaudeRunnerOptions` but not plumbed
   through the harness yet.
 - **pi**: no reasoning stream; no approval flow (`yolo` dead); no `maxTurns`.
+  For `openai`-provider models, a native `apply_patch` tool (V4A context-diff
+  format) is registered alongside the built-in read/write/edit/bash tools,
+  since GPT-5.1/Codex-family models are trained to reach for `apply_patch`
+  by default and otherwise fall back to invoking a nonexistent CLI via bash.
+  `apply_patch` additionally exists as a real shell command in bash children:
+  the runner prepends a PATH shim (`apply-patch-shim.ts`) execing the
+  standalone `apply-patch-bin.js`, and sandbox images install it globally at
+  `/usr/local/bin/apply_patch` — this covers heredoc invocations chained
+  after other commands (`cd x && apply_patch <<'PATCH'`), which no tool
+  registration can intercept. The V4A parsing/applying engine and CLI live in
+  `packages/apply-patch` (`@bunny-agent/apply-patch`), a standalone package
+  with no pi dependency — runner-pi wraps it as the native tool and the PATH
+  shim, while `apps/runner-cli`/`apps/daemon` each bundle its CLI entry
+  directly for their own sandbox binaries, without depending on runner-pi.
 - **codex**: no `maxTurns`/`allowedTools` (SDK limitation); `systemPrompt` is
   emulation (prepended text), so it is not re-applied on `resume`; `file_change`
   items surface as an `apply_patch` tool call; `todo_list` items are dropped.

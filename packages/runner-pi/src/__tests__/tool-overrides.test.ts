@@ -129,10 +129,14 @@ describe("buildEnvInjectedBashTool spawnHook", () => {
   async function build(
     extraEnv: Record<string, string>,
     systemEnv?: Record<string, string>,
+    pathPrepend?: string,
   ): Promise<SpawnHook> {
     capturedSpawnHook = null;
     const { buildEnvInjectedBashTool } = await import("../tool-overrides.js");
-    buildEnvInjectedBashTool("/tmp", extraEnv, systemEnv ? { systemEnv } : {});
+    buildEnvInjectedBashTool("/tmp", extraEnv, {
+      ...(systemEnv ? { systemEnv } : {}),
+      ...(pathPrepend ? { pathPrepend } : {}),
+    });
     const hook = capturedSpawnHook as SpawnHook | null;
     if (hook == null) throw new Error("spawnHook was not registered");
     return hook;
@@ -193,5 +197,23 @@ describe("buildEnvInjectedBashTool spawnHook", () => {
     const hook = await build({}, { PATH: "/custom/bin" });
     const { env } = hook({ env: { PATH: "/usr/bin" } });
     expect(env.PATH).toBe("/custom/bin");
+  });
+
+  it("pathPrepend goes in front of the ctx.env PATH", async () => {
+    const hook = await build({}, undefined, "/shim/bin");
+    const { env } = hook({ env: { PATH: "/usr/bin:/bin" } });
+    expect(env.PATH).toBe("/shim/bin:/usr/bin:/bin");
+  });
+
+  it("pathPrepend falls back to process.env.PATH when ctx has none", async () => {
+    const hook = await build({}, undefined, "/shim/bin");
+    const { env } = hook({ env: {} });
+    expect(env.PATH).toBe(`/shim/bin:${process.env.PATH}`);
+  });
+
+  it("pathPrepend applies on top of a systemEnv-provided PATH", async () => {
+    const hook = await build({}, { PATH: "/custom/bin" }, "/shim/bin");
+    const { env } = hook({ env: { PATH: "/usr/bin" } });
+    expect(env.PATH).toBe("/shim/bin:/custom/bin");
   });
 });

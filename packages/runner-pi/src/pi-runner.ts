@@ -11,6 +11,8 @@ import {
   SessionManager,
   type ToolDefinition,
 } from "@earendil-works/pi-coding-agent";
+import { ensureApplyPatchShim } from "./apply-patch-shim.js";
+import { buildApplyPatchTool } from "./apply-patch-tool.js";
 import { BunnyAgentResourceLoader } from "./bunny-agent-resource-loader.js";
 import { buildImageEditTool, buildImageGenerateTool } from "./image-tools.js";
 import {
@@ -22,7 +24,10 @@ import {
   extractToolResultText,
   PiAISDKStreamConverter,
 } from "./stream-converter.js";
-import { buildSecretAwareTools } from "./tool-overrides.js";
+import {
+  buildEnvInjectedBashTool,
+  buildSecretAwareTools,
+} from "./tool-overrides.js";
 import { buildToolDefinitionsFromRefs, type PiToolRef } from "./tool-refs.js";
 import { getUsageFromAgentEndMessages } from "./usage-metadata.js";
 
@@ -478,12 +483,38 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           await resourceLoader.reload();
         }
 
+        // Make `apply_patch` resolvable as a real shell command in bash
+        // children. GPT-5.x chains it after other commands
+        // (`cd x && apply_patch <<'PATCH'`), which the native tool below
+        // cannot intercept — only a PATH entry can.
+        const applyPatchShimDir = ensureApplyPatchShim();
+
         const customTools: ToolDefinition[] =
           options.env && Object.keys(options.env).length > 0
             ? buildSecretAwareTools(cwd, options.env, {
                 systemEnv: options.systemEnv,
+                pathPrepend: applyPatchShimDir,
               })
-            : [];
+            : applyPatchShimDir
+              ? [
+                  buildEnvInjectedBashTool(
+                    cwd,
+                    {},
+                    { pathPrepend: applyPatchShimDir },
+                  ),
+                ]
+              : [];
+
+        // GPT-5.1 and the Codex model family are trained against OpenAI's
+        // apply_patch tool and reach for it by habit even when it isn't
+        // exposed — either as an unrecognized bare tool call, or by piping
+        // an `apply_patch <<'PATCH'` heredoc through bash, which fails in
+        // any sandbox without that binary installed. Registering it
+        // natively (only for openai-provider models, since that's the
+        // family with this training prior) lets that habit work for us.
+        if (provider === "openai") {
+          customTools.push(buildApplyPatchTool(cwd));
+        }
 
         if (imageModelName) {
           const apiKey =
