@@ -1,14 +1,14 @@
 # Runner Integration Maturity
 
 > Living document — update this whenever a runner gains/loses a capability,
-> an SDK is upgraded, or a new runner lands. Last updated: 2026-07-17.
+> an SDK is upgraded, or a new runner lands. Last updated: 2026-07-20.
 
 Architecture recap:
 
 ```
 UI (useBunnyAgentChat) → /api/ai → SDK provider (packages/sdk, LanguageModelV3)
   → daemon (/api/coding/run) or CLI (bunny-agent run)
-    → runner-harness (dispatchRunner) → runner-claude | runner-pi | runner-codex | runner-gemini | runner-opencode
+    → runner-harness (dispatchRunner) → runner-claude | runner-pi | runner-codex | runner-gemini | runner-opencode | runner-copilot
 ```
 
 All runners speak the same wire protocol: SSE lines of AI SDK UI Data Stream
@@ -22,38 +22,38 @@ different protocols.
 
 | Runner | Underlying SDK | Version |
 |---|---|---|
-| runner-claude | `@anthropic-ai/claude-agent-sdk` (in-process) | 0.3.211 |
-| runner-pi | `@earendil-works/pi-coding-agent` / `pi-agent-core` / `pi-ai` | 0.80.7 |
-| runner-codex | `@openai/codex-sdk` (official, in-process) | 0.144.5 |
-| runner-gemini | ACP subprocess wrapper | — |
-| runner-opencode | ACP subprocess wrapper | — |
-| runner-copilot | not implemented (throws) | — |
+| runner-claude | `@anthropic-ai/claude-agent-sdk` (in-process) | 0.3.215 |
+| runner-pi | `@earendil-works/pi-coding-agent` / `pi-agent-core` / `pi-ai` | 0.80.10 |
+| runner-codex | `@openai/codex-sdk` (official, in-process) | 0.144.6 |
+| runner-gemini | `@agentclientprotocol/sdk` (Gemini CLI subprocess) | 1.2.1 |
+| runner-opencode | `@agentclientprotocol/sdk` (OpenCode CLI subprocess) | 1.2.1 |
+| runner-copilot | `@github/copilot-sdk` (Copilot CLI subprocess) | 1.0.7 |
 
 ## Capability matrix
 
 Legend: ✅ supported · ⚠️ partial/caveat · ❌ not supported
 
-| Capability | claude | pi | codex | gemini/opencode |
-|---|---|---|---|---|
-| systemPrompt | ✅ SDK option | ✅ via resource loader (`appendSystemPrompt`) | ⚠️ emulated: prepended to first input on fresh threads | ❌ |
-| maxTurns | ✅ | ❌ no such concept | ❌ SDK has no option | ❌ |
-| allowedTools | ✅ (+ forced Skill/WebSearch/WebFetch) | ✅ filters built-in + custom + toolRefs | ❌ SDK has no option | ❌ |
-| resume | ✅ | ✅ (with >10MB session OOM guard + compaction fallback) | ✅ `resumeThread` | ❌ |
-| forkFrom | ✅ SDK `forkSession` | ✅ session file snapshot-clone | ❌ | ❌ |
-| sessionId emission | ✅ from `system/init` | ✅ `message-metadata` | ✅ from `thread.started` (`thread_id`) | ❌ |
-| skills | ⚠️ SDK `skills` option exposed on ClaudeRunnerOptions; `skillPaths` dirs not mapped (skills come from settings/plugins) | ✅ `skillPaths` + resource loader | ❌ | ❌ |
-| custom tools (toolRefs) | ❌ (SDK MCP servers not wired) | ✅ http/module runtimes | ❌ (passes through agent-side MCP tool events) | ❌ |
-| reasoning stream | ✅ `reasoning` parts (thinking deltas) | ❌ not converted | ✅ `reasoning` parts (diffed from item updates) | ❌ |
-| incremental text streaming | ✅ partial messages | ✅ `text_delta` | ✅ diffed `item.updated` deltas | ❌ |
-| usage in finish metadata | ✅ | ✅ (+ per-tool usage tally) | ✅ snake_case under `messageMetadata.usage` | ❌ |
-| effort / thinking level | ❌ | ✅ `thinkingLevel` | ✅ `modelReasoningEffort` (minimal/low/medium/high/xhigh) | ❌ |
-| tool approval (AskUserQuestion) | ✅ file-based approval bridge (`.bunny-agent/approvals/`) | ❌ (`yolo` option exists but unused) | ⚠️ SDK `approvalPolicy` passthrough only | ❌ |
-| abort handling | ✅ `query.interrupt()` | ✅ `session.abort()` + forced error finish | ✅ signal passthrough + unexpected-end guard | ⚠️ |
-| stream-end error guard | ✅ error dedup + `[DONE]` always | ✅ triple error source + double-finish guard | ✅ synthesizes error+finish when stream ends without terminal event | ❌ |
-| multimodal input (images) | ✅ JSON multi-part content | ✅ | ✅ base64 → temp file `local_image` | ❌ |
-| auth | API key, `ANTHROPIC_AUTH_TOKEN`, Bedrock proxy, LiteLLM (no Vertex) | any `<PROVIDER>_API_KEY`; unknown providers auto-register as OpenAI-compatible via `<PROVIDER>_BASE_URL` | `CODEX_API_KEY`/`OPENAI_API_KEY` + `OPENAI_BASE_URL` | env keys |
-| mock fallback (no auth) | ✅ | ❌ | ❌ | ❌ |
-| env/systemEnv isolation | ❌ | ✅ (secrets never reach bash; output redaction) | ❌ | ❌ |
+| Capability | claude | pi | codex | gemini/opencode | copilot |
+|---|---|---|---|---|---|
+| systemPrompt | ✅ SDK option | ✅ via resource loader (`appendSystemPrompt`) | ⚠️ prepended on fresh threads | ⚠️ prepended to each new ACP session | ✅ SDK system message |
+| maxTurns | ✅ | ❌ no such concept | ❌ SDK has no option | ❌ | ❌ SDK has no option |
+| allowedTools | ✅ (+ forced Skill/WebSearch/WebFetch) | ✅ filters built-in + custom + toolRefs | ❌ SDK has no option | ❌ ACP has no standard allowlist | ✅ SDK filter |
+| resume | ✅ | ✅ (>10MB OOM guard + compaction fallback) | ✅ `resumeThread` | ❌ session ID is emitted but load/resume is not wired | ✅ `resumeSession` |
+| forkFrom | ✅ SDK `forkSession` | ✅ session snapshot-clone | ❌ | ❌ | ❌ |
+| sessionId emission | ✅ from `system/init` | ✅ | ✅ from `thread.started` | ✅ from `session/new` | ✅ from SDK session |
+| skills | ⚠️ SDK names/`"all"`; harness paths not mapped | ✅ `skillPaths` + resource loader | ❌ | ⚠️ agent CLI discovery only | ✅ Copilot config discovery |
+| custom tools (toolRefs) | ❌ | ✅ http/module runtimes | ❌ (passes through MCP events) | ❌ | ❌ SDK supports tools, but Bunny `toolRefs` are not mapped |
+| reasoning stream | ✅ | ❌ not converted | ✅ | ✅ ACP thought chunks | ✅ SDK reasoning deltas |
+| incremental text streaming | ✅ | ✅ | ✅ | ✅ ACP message chunks | ✅ SDK message deltas |
+| usage in finish metadata | ✅ | ✅ (+ per-tool usage) | ✅ | ✅ ACP prompt usage | ✅ accumulated SDK usage |
+| effort / thinking level | ❌ | ✅ | ✅ minimal/low/medium/high/xhigh | ❌ | ✅ low/medium/high/xhigh |
+| tool approval | ✅ file bridge | ❌ (`yolo` remains unused) | ⚠️ SDK policy passthrough | ✅ file bridge / `yolo` | ✅ file bridge / `yolo` |
+| abort handling | ✅ | ✅ | ✅ | ✅ process termination | ✅ `session.abort()` |
+| stream-end error guard | ✅ | ✅ | ✅ | ✅ | ✅ |
+| multimodal input (images) | ✅ | ✅ | ✅ base64 to temp file | ❌ | ❌ |
+| auth | Anthropic key/token, Bedrock proxy, LiteLLM | provider environment and custom endpoints | OpenAI/Codex key and base URL | agent CLI environment | logged-in Copilot user or GitHub token |
+| mock fallback (no auth) | ✅ | ❌ | ❌ | ❌ | ❌ |
+| env/systemEnv isolation | ❌ | ✅ | ❌ | ❌ | ❌ |
 
 ## Known gaps / next steps
 
@@ -79,8 +79,12 @@ Legend: ✅ supported · ⚠️ partial/caveat · ❌ not supported
 - **codex**: no `maxTurns`/`allowedTools` (SDK limitation); `systemPrompt` is
   emulation (prepended text), so it is not re-applied on `resume`; `file_change`
   items surface as an `apply_patch` tool call; `todo_list` items are dropped.
-- **gemini/opencode**: thin wrappers — no session, no systemPrompt, no tools
-  config. **copilot**: not implemented.
+- **gemini/opencode**: ACP 1.x now provides typed streaming, session metadata,
+  usage, reasoning, tool events, permissions, and complete error streams. ACP
+  load/resume and standard tool filtering are not wired.
+- **copilot**: `toolRefs`, image inputs, `forkFrom`, and `maxTurns` are not
+  wired. The SDK's stdio transport is used; its experimental in-process FFI
+  transport is intentionally not enabled.
 
 ## UI-layer compatibility
 
@@ -88,11 +92,11 @@ No per-runner UI work is needed: every runner emits the same AI SDK UI Data
 Stream chunk vocabulary and the SDK provider normalizes them into
 `LanguageModelV3StreamPart`s. Differences that do show up in the UI:
 
-- `reasoning` parts from claude/codex are converted by the SDK provider into
+- `reasoning` parts from claude/codex/ACP/copilot are converted by the SDK provider into
   `reasoning-start/delta/end` V3 parts, so the AI SDK surfaces them as
   `reasoning` UI message parts. The example UI does not render reasoning parts
   yet (they fall through to `return null` in `ChatMessage`).
-- Runners without sessionId emission (gemini/opencode) silently lose
-  auto-resume; the chat works but every turn starts fresh.
+- Gemini and OpenCode emit session IDs, but their ACP load/resume path is not
+  wired yet, so every process invocation still starts a fresh session.
 - Tool call rendering is uniform (`dynamic-tool` parts); only tool *names*
   differ (`shell` vs `bash`, `server:tool` for MCP).

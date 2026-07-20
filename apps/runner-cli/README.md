@@ -18,12 +18,13 @@ runner-cli → runner-* (direct, NO dependencies on manager or sandbox)
              ├─ runner-claude ✅
              ├─ runner-codex ✅
              ├─ runner-gemini ✅
-             └─ runner-copilot 🚧
+             └─ runner-copilot ✅
 
 Dependencies:
 ✅ @bunny-agent/runner-claude (runtime)
 ✅ @bunny-agent/runner-codex (runtime)
 ✅ @bunny-agent/runner-gemini (runtime)
+✅ @bunny-agent/runner-copilot (runtime)
 ❌ NO @bunny-agent/manager
 ❌ NO @bunny-agent/sandbox-*
 ```
@@ -69,7 +70,7 @@ bunny-agent run --runner codex -- "Build a REST API with Express"
 # Using Gemini
 bunny-agent run --runner gemini -- "Build a REST API with Express"
 
-# Using GitHub Copilot (when implemented)
+# Using GitHub Copilot
 bunny-agent run --runner copilot -- "Refactor this code"
 
 # With custom system prompt
@@ -86,7 +87,9 @@ bunny-agent run --runner claude --system-prompt "You are a coding assistant" -- 
 | `--system-prompt <prompt>` | `-s` | Custom system prompt | - |
 | `--max-turns <n>` | `-t` | Maximum conversation turns | - |
 | `--allowed-tools <tools>` | `-a` | Comma-separated list of allowed tools | - |
-| `--resume <session-id>` | `-r` | Resume a previous session | - |
+| `--yolo` | - | Automatically approve tool permission requests | `false` |
+| `--effort <level>` | - | Reasoning effort or thinking level, depending on runner | - |
+| `--resume <session-id>` | - | Resume a previous session | - |
 | `--help` | `-h` | Show help message | - |
 
 `--allowed-tools` limits built-in runner tools. Custom tools are provided
@@ -114,6 +117,7 @@ data: [DONE]
 | `ANTHROPIC_API_KEY` | Anthropic API key (Claude runner) | No |
 | `OPENAI_API_KEY` or `CODEX_API_KEY` | OpenAI API key (Codex runner) | No |
 | `GEMINI_API_KEY` | Gemini API key (Gemini runner) | No |
+| `GITHUB_TOKEN` or `GH_TOKEN` | GitHub token (Copilot runner); falls back to the logged-in Copilot user | No |
 | `BUNNY_AGENT_WORKSPACE` | Default workspace path | No |
 | `BUNNY_AGENT_LOG_LEVEL` | Logging level (debug, info, warn, error) | No |
 
