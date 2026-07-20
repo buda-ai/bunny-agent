@@ -104,6 +104,8 @@ jobs:
           }
           publish "@bunny-agent/sdk" "packages/sdk"
           publish "@bunny-agent/manager" "packages/manager"
+          publish "@bunny-agent/sandbox-local" "packages/sandbox-local"
+          publish "@bunny-agent/sandbox-srt" "packages/sandbox-srt"
           publish "@bunny-agent/sandbox-sandock" "packages/sandbox-sandock"
           publish "@bunny-agent/runner-cli" "apps/runner-cli"
           publish "@bunny-agent/daemon" "apps/daemon"

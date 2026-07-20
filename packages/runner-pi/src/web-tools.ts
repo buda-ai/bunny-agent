@@ -173,7 +173,7 @@ const tavilyProvider: WebSearchProvider = {
 const AUTO_DETECT_ORDER: WebSearchProvider[] = [braveProvider, tavilyProvider];
 
 function getEnv(env: Record<string, string>, key: string): string | undefined {
-  const v = env[key] ?? process.env[key];
+  const v = env[key];
   return v && v.length > 0 ? v : undefined;
 }
 
@@ -222,6 +222,107 @@ function isRateLimitError(err: unknown): boolean {
     msg.includes("quota") ||
     msg.includes("limit")
   );
+}
+
+const RETRYABLE_NETWORK_ERROR_CODES = new Set([
+  "EAI_AGAIN",
+  "ECONNREFUSED",
+  "ECONNRESET",
+  "EHOSTUNREACH",
+  "ENETUNREACH",
+  "ENOTFOUND",
+  "ETIMEDOUT",
+  "UND_ERR_BODY_TIMEOUT",
+  "UND_ERR_CONNECT_TIMEOUT",
+  "UND_ERR_HEADERS_TIMEOUT",
+  "UND_ERR_SOCKET",
+]);
+
+function hasRetryableNetworkCode(
+  error: unknown,
+  seen = new Set<object>(),
+): boolean {
+  if (error === null || typeof error !== "object" || seen.has(error))
+    return false;
+  seen.add(error);
+
+  const code = getErrorField(error, "code");
+  if (code && RETRYABLE_NETWORK_ERROR_CODES.has(code)) return true;
+
+  const nestedErrors: unknown[] = [];
+  if ("cause" in error) nestedErrors.push(error.cause);
+  if ("errors" in error && Array.isArray(error.errors)) {
+    nestedErrors.push(...error.errors);
+  }
+  return nestedErrors.some((nested) => hasRetryableNetworkCode(nested, seen));
+}
+
+function isRetryableNetworkError(err: unknown): boolean {
+  if (hasRetryableNetworkCode(err)) return true;
+  return err instanceof TypeError && err.message === "fetch failed";
+}
+
+function getFallbackReason(
+  err: unknown,
+): "rate limit" | "network error" | null {
+  if (isRateLimitError(err)) return "rate limit";
+  if (isRetryableNetworkError(err)) return "network error";
+  return null;
+}
+
+function getErrorField(error: object, key: string): string | undefined {
+  if (!(key in error)) return undefined;
+  const value = (error as Record<string, unknown>)[key];
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value);
+  }
+  return undefined;
+}
+
+function formatErrorCause(cause: unknown): string {
+  if (cause === null || cause === undefined) return "unknown";
+  if (typeof cause !== "object") return String(cause);
+
+  const details = [
+    ["code", getErrorField(cause, "code")],
+    [
+      "message",
+      cause instanceof Error ? cause.message : getErrorField(cause, "message"),
+    ],
+    ["errno", getErrorField(cause, "errno")],
+    ["syscall", getErrorField(cause, "syscall")],
+    ["hostname", getErrorField(cause, "hostname")],
+    ["address", getErrorField(cause, "address")],
+    ["port", getErrorField(cause, "port")],
+  ]
+    .filter((entry): entry is [string, string] => Boolean(entry[1]))
+    .map(([key, value]) => `${key}=${value}`);
+
+  const nestedErrors =
+    "errors" in cause && Array.isArray(cause.errors) ? cause.errors : [];
+  if (nestedErrors.length > 0) {
+    const nested = nestedErrors.slice(0, 3).map(formatErrorCause).join("; ");
+    details.push(`errors=[${nested}]`);
+  }
+
+  return details.length > 0 ? details.join(", ") : String(cause);
+}
+
+function formatWebToolError(error: unknown): string {
+  if (!(error instanceof Error)) return String(error);
+  const cause =
+    "cause" in error ? (error as Error & { cause?: unknown }).cause : undefined;
+  return cause === undefined
+    ? error.message
+    : `${error.name}: ${error.message} (cause: ${formatErrorCause(cause)})`;
+}
+
+function getSafeTarget(url: string): string {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return "invalid-url";
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -280,7 +381,10 @@ async function fetchPageContent(
       ? `${text.slice(0, 50_000)}\n\n[Truncated]`
       : text;
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e);
+    const msg = formatWebToolError(e);
+    console.error(
+      `[bunny-agent:pi] web_fetch failed target=${getSafeTarget(url)}: ${msg}`,
+    );
     return `(Error fetching ${url}: ${msg})`;
   } finally {
     clearTimeout(timeout);
@@ -399,9 +503,11 @@ export function buildWebSearchTool(
       const freshness = p.freshness as string | undefined;
       const shouldFetchContent = (p.fetch_content as boolean) ?? false;
 
-      // Try each provider in order; fallback on rate-limit errors
+      // Try each provider in order; fallback on rate-limit and network errors.
       let lastError: unknown;
-      for (const { provider, apiKey } of providers) {
+      let lastProviderLabel = "unknown provider";
+      for (const [providerIndex, { provider, apiKey }] of providers.entries()) {
+        lastProviderLabel = provider.label;
         try {
           const { results } = await provider.search({
             apiKey,
@@ -442,24 +548,29 @@ export function buildWebSearchTool(
           };
         } catch (e: unknown) {
           lastError = e;
-          if (isRateLimitError(e) && providers.length > 1) {
+          const diagnostic = formatWebToolError(e);
+          console.error(
+            `[bunny-agent:pi] ${provider.label} web_search failed: ${diagnostic}`,
+          );
+          const fallbackReason = getFallbackReason(e);
+          const nextProvider = providers[providerIndex + 1];
+          if (fallbackReason && nextProvider) {
             console.error(
-              `[bunny-agent:pi] ${provider.label} rate-limited, trying next provider...`,
+              `[bunny-agent:pi] ${provider.label} ${fallbackReason}, trying ${nextProvider.provider.label}...`,
             );
             continue;
           }
-          // Non-rate-limit error: don't fallback
+          // Authentication and request errors should be surfaced as-is.
           break;
         }
       }
 
-      const msg =
-        lastError instanceof Error ? lastError.message : String(lastError);
+      const msg = formatWebToolError(lastError);
       return {
         content: [
           {
             type: "text" as const,
-            text: `Web search error: ${msg}`,
+            text: `Web search error (${lastProviderLabel}): ${msg}`,
           },
         ],
         details: undefined,
@@ -496,7 +607,7 @@ export function buildWebFetchTool(): ToolDefinition {
           details: undefined,
         };
       } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : String(e);
+        const msg = formatWebToolError(e);
         return {
           content: [
             { type: "text" as const, text: `Error fetching URL: ${msg}` },

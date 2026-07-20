@@ -67,3 +67,11 @@ and surface reasoning in the UI.
 - `runner-harness` dispatches `copilot` instead of throwing "not yet
   implemented"; added as a peer dependency, and to runner-cli's deps + esbuild
   externals. The CLI already accepted `--runner copilot`.
+
+## Main branch integration
+
+- Merged the latest `origin/main` and resolved the lockfile by retaining the
+  Copilot SDK entries while adopting main's current Pi patch hash.
+- Revalidated all 22 workspace test projects and typechecks, the repository
+  lint, the runner CLI build/help output, and a mock Claude stream through
+  `[DONE]`.

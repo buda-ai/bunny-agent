@@ -8,6 +8,8 @@ function isValidEnvKey(key: string): boolean {
   return /^[A-Za-z_][A-Za-z0-9_]*$/.test(key);
 }
 
+const REQUEST_ONLY_ENV_KEYS = new Set(["BRAVE_API_KEY", "TAVILY_API_KEY"]);
+
 /**
  * Normalize `body.env` from JSON (string keys and string values only).
  */
@@ -42,7 +44,7 @@ export interface CodingRunBodyWithEnv {
 }
 
 export interface PreparedCodingRunEnv {
-  /** Full env passed to the runner (daemon env + inline body.env). */
+  /** Full runner env; web search keys are accepted only from inline body.env. */
   env: Record<string, string>;
   /** Sanitized subset of env keys safe to expose to the bash tool. */
   systemEnv: Record<string, string> | undefined;
@@ -50,15 +52,21 @@ export interface PreparedCodingRunEnv {
 
 /**
  * Sanitize and merge env-related fields from a `/api/coding/run` body.
- * Returns the runner env (daemon env + inline `body.env`) and the
- * sanitized `systemEnv` subset, with no body mutation.
+ * Returns the runner env (filtered daemon env + inline `body.env`) and the
+ * sanitized `systemEnv` subset, with no body mutation. Web search credentials
+ * are request-scoped and never inherited from the daemon process.
  */
 export function prepareCodingRunEnv(
   daemonEnv: Record<string, string>,
   body: CodingRunBodyWithEnv,
 ): PreparedCodingRunEnv {
   const inline = sanitizeCodingRunBodyEnv(body.env);
-  const env = inline ? { ...daemonEnv, ...inline } : { ...daemonEnv };
+  const inheritedEnv = Object.fromEntries(
+    Object.entries(daemonEnv).filter(
+      ([key]) => !REQUEST_ONLY_ENV_KEYS.has(key),
+    ),
+  );
+  const env = inline ? { ...inheritedEnv, ...inline } : inheritedEnv;
   const systemEnv = sanitizeCodingRunBodySystemEnv(body.systemEnv);
   return { env, systemEnv };
 }

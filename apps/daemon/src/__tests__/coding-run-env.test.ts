@@ -68,6 +68,33 @@ describe("prepareCodingRunEnv", () => {
     expect(systemEnv).toBeUndefined();
   });
 
+  it("accepts web search keys only from the request body", () => {
+    const { env } = prepareCodingRunEnv(
+      {
+        PATH: "/usr/bin",
+        BRAVE_API_KEY: "local-brave",
+        TAVILY_API_KEY: "local-tavily",
+      },
+      { env: { TAVILY_API_KEY: "request-tavily" } },
+    );
+    expect(env).toEqual({
+      PATH: "/usr/bin",
+      TAVILY_API_KEY: "request-tavily",
+    });
+  });
+
+  it("omits ambient web search keys when the request does not provide them", () => {
+    const { env } = prepareCodingRunEnv(
+      {
+        PATH: "/usr/bin",
+        BRAVE_API_KEY: "local-brave",
+        TAVILY_API_KEY: "local-tavily",
+      },
+      {},
+    );
+    expect(env).toEqual({ PATH: "/usr/bin" });
+  });
+
   it("sanitizes systemEnv from body", () => {
     const { systemEnv } = prepareCodingRunEnv(
       { PATH: "/usr/bin" },

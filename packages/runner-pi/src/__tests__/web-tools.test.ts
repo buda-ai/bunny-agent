@@ -1,5 +1,6 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  buildWebFetchTool,
   buildWebSearchTool,
   resolveSearchProvider,
   resolveSearchProviders,
@@ -42,23 +43,19 @@ describe("resolveSearchProviders", () => {
     expect(result[1].provider.id).toBe("tavily");
   });
 
-  it("falls back to process.env for BRAVE_API_KEY", () => {
+  it("ignores BRAVE_API_KEY from process.env", () => {
     process.env.BRAVE_API_KEY = "env-brave";
     const result = resolveSearchProviders({});
-    expect(result).toHaveLength(1);
-    expect(result[0].provider.id).toBe("brave");
-    expect(result[0].apiKey).toBe("env-brave");
+    expect(result).toEqual([]);
   });
 
-  it("falls back to process.env for TAVILY_API_KEY", () => {
+  it("ignores TAVILY_API_KEY from process.env", () => {
     process.env.TAVILY_API_KEY = "env-tavily";
     const result = resolveSearchProviders({});
-    expect(result).toHaveLength(1);
-    expect(result[0].provider.id).toBe("tavily");
-    expect(result[0].apiKey).toBe("env-tavily");
+    expect(result).toEqual([]);
   });
 
-  it("env map overrides process.env", () => {
+  it("uses the explicitly provided env map instead of process.env", () => {
     process.env.BRAVE_API_KEY = "env-brave";
     const result = resolveSearchProviders({ BRAVE_API_KEY: "param-brave" });
     expect(result[0].apiKey).toBe("param-brave");
@@ -106,6 +103,7 @@ describe("buildWebSearchTool", () => {
   afterEach(() => {
     process.env = { ...originalEnv };
     globalThis.fetch = originalFetch;
+    vi.restoreAllMocks();
   });
 
   it("returns Brave usage details in tool result", async () => {
@@ -159,5 +157,193 @@ describe("buildWebSearchTool", () => {
         },
       },
     });
+  });
+
+  it("reports the provider and nested fetch cause", async () => {
+    const cause = Object.assign(
+      new Error("connect ETIMEDOUT 203.0.113.1:443"),
+      {
+        code: "ETIMEDOUT",
+        errno: -60,
+        syscall: "connect",
+        hostname: "api.tavily.com",
+        address: "203.0.113.1",
+        port: 443,
+      },
+    );
+    const fetchError = Object.assign(new TypeError("fetch failed"), { cause });
+    globalThis.fetch = (async () => {
+      throw fetchError;
+    }) as typeof fetch;
+    const errorLog = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+
+    const tool = buildWebSearchTool({ TAVILY_API_KEY: "tvly-test" });
+    const result = await (
+      tool.execute as (...args: unknown[]) => Promise<{
+        content: Array<{ type: string; text?: string }>;
+      }>
+    )("call_2", { query: "NVDA historical data" }, undefined, undefined, {});
+
+    expect(result.content[0]?.text).toContain(
+      "Web search error (Tavily): TypeError: fetch failed (cause: code=ETIMEDOUT",
+    );
+    expect(result.content[0]?.text).toContain("hostname=api.tavily.com");
+    expect(result.content[0]?.text).toContain("port=443");
+    expect(errorLog).toHaveBeenCalledWith(
+      expect.stringContaining(
+        "[bunny-agent:pi] Tavily web_search failed: TypeError: fetch failed (cause: code=ETIMEDOUT",
+      ),
+    );
+  });
+
+  it("preserves HTTP provider error details", async () => {
+    globalThis.fetch = (async () =>
+      ({
+        ok: false,
+        status: 432,
+        statusText: "Request Failed",
+        text: async () => '{"detail":"usage limit exceeded"}',
+      }) as unknown as Response) as typeof fetch;
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const tool = buildWebSearchTool({ TAVILY_API_KEY: "tvly-test" });
+    const result = await (
+      tool.execute as (...args: unknown[]) => Promise<{
+        content: Array<{ type: string; text?: string }>;
+      }>
+    )("call_3", { query: "NVDA historical data" }, undefined, undefined, {});
+
+    expect(result.content[0]?.text).toContain(
+      "Web search error (Tavily): Tavily API 432: Request Failed",
+    );
+    expect(result.content[0]?.text).toContain("usage limit exceeded");
+  });
+
+  it.each([
+    "EAI_AGAIN",
+    "UND_ERR_CONNECT_TIMEOUT",
+    "ETIMEDOUT",
+    "ENETUNREACH",
+  ])("falls back from Brave to Tavily on %s", async (code) => {
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      if (String(input).startsWith("https://api.search.brave.com/")) {
+        const cause = Object.assign(new Error(`network failure: ${code}`), {
+          code,
+        });
+        throw Object.assign(new TypeError("fetch failed"), { cause });
+      }
+      return {
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        json: async () => ({
+          results: [
+            {
+              title: "Fallback result",
+              url: "https://example.com/fallback",
+              content: "Tavily completed the search.",
+            },
+          ],
+        }),
+      } as Response;
+    });
+    globalThis.fetch = fetchMock as typeof fetch;
+    const errorLog = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+
+    const tool = buildWebSearchTool({
+      BRAVE_API_KEY: "bsk-test",
+      TAVILY_API_KEY: "tvly-test",
+    });
+    const result = await (
+      tool.execute as (...args: unknown[]) => Promise<{
+        content: Array<{ type: string; text?: string }>;
+        details?: unknown;
+      }>
+    )("call_fallback", { query: "fallback query" }, undefined, undefined, {});
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(result.content[0]?.text).toContain("[Tavily] 1 result(s)");
+    expect(result.details).toMatchObject({
+      usage: { raw: { tavily: { requests: 1, fetchedPages: 0 } } },
+    });
+    expect(errorLog).toHaveBeenCalledWith(
+      expect.stringContaining("Brave Search network error, trying Tavily"),
+    );
+  });
+
+  it("does not fall back on provider authentication errors", async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        ({
+          ok: false,
+          status: 401,
+          statusText: "Unauthorized",
+          text: async () => '{"error":"invalid key"}',
+        }) as Response,
+    );
+    globalThis.fetch = fetchMock as typeof fetch;
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const tool = buildWebSearchTool({
+      BRAVE_API_KEY: "bsk-test",
+      TAVILY_API_KEY: "tvly-test",
+    });
+    const result = await (
+      tool.execute as (...args: unknown[]) => Promise<{
+        content: Array<{ type: string; text?: string }>;
+      }>
+    )("call_auth", { query: "auth query" }, undefined, undefined, {});
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result.content[0]?.text).toContain(
+      "Web search error (Brave Search): Brave API 401: Unauthorized",
+    );
+  });
+});
+
+describe("buildWebFetchTool", () => {
+  const originalFetch = globalThis.fetch;
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    vi.restoreAllMocks();
+  });
+
+  it("reports nested fetch cause and logs only the target origin", async () => {
+    const cause = Object.assign(new Error("socket disconnected"), {
+      code: "UND_ERR_SOCKET",
+    });
+    globalThis.fetch = (async () => {
+      throw Object.assign(new TypeError("fetch failed"), { cause });
+    }) as typeof fetch;
+    const errorLog = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+
+    const tool = buildWebFetchTool();
+    const result = await (
+      tool.execute as (...args: unknown[]) => Promise<{
+        content: Array<{ type: string; text?: string }>;
+      }>
+    )(
+      "call_4",
+      { url: "https://example.com/article" },
+      undefined,
+      undefined,
+      {},
+    );
+
+    expect(result.content[0]?.text).toContain(
+      "TypeError: fetch failed (cause: code=UND_ERR_SOCKET, message=socket disconnected)",
+    );
+    expect(errorLog).toHaveBeenCalledWith(
+      expect.stringContaining(
+        "web_fetch failed target=https://example.com: TypeError: fetch failed",
+      ),
+    );
   });
 });
