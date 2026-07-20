@@ -1,0 +1,40 @@
+{
+  "name": "@bunny-agent/runner-copilot",
+  "version": "0.1.0",
+  "private": true,
+  "description": "GitHub Copilot SDK runtime for BunnyAgent",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit",
+    "lint": "echo 'no lint configured'",
+    "test": "vitest run --passWithNoTests"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vikadata/bunny-agent.git",
+    "directory": "packages/runner-copilot"
+  },
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@github/copilot-sdk": "^1.0.7"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.0",
+    "vitest": "^1.6.1"
+  }
+}

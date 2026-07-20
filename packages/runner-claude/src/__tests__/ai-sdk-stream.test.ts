@@ -190,6 +190,54 @@ describe("AISDKStreamConverter", () => {
     });
   });
 
+  describe("context compaction", () => {
+    it("emits compaction start from a compacting status message", async () => {
+      const compactingStatus = {
+        type: "system",
+        subtype: "status",
+        status: "compacting",
+        session_id: "test-session-123",
+      } as unknown as SDKMessage;
+
+      const converter = new AISDKStreamConverter();
+      const events = await collectEvents(
+        converter.stream(
+          toAsyncIterable([systemInit, compactingStatus, successResult]),
+        ),
+      );
+      const compaction = events.find((e) => e.type === "compaction");
+      expect(compaction).toBeDefined();
+      expect(compaction!.phase).toBe("start");
+    });
+
+    it("emits compaction end with token counts from a compact boundary", async () => {
+      const boundary = {
+        type: "system",
+        subtype: "compact_boundary",
+        session_id: "test-session-123",
+        compact_metadata: {
+          trigger: "auto",
+          pre_tokens: 150000,
+          post_tokens: 40000,
+        },
+      } as unknown as SDKMessage;
+
+      const converter = new AISDKStreamConverter();
+      const events = await collectEvents(
+        converter.stream(
+          toAsyncIterable([systemInit, boundary, successResult]),
+        ),
+      );
+      const compaction = events.find((e) => e.type === "compaction");
+      expect(compaction).toBeDefined();
+      expect(compaction!.phase).toBe("end");
+      expect(compaction!.success).toBe(true);
+      expect(compaction!.trigger).toBe("auto");
+      expect(compaction!.preTokens).toBe(150000);
+      expect(compaction!.postTokens).toBe(40000);
+    });
+  });
+
   describe("result message - success", () => {
     it("emits finish with stop reason", async () => {
       const converter = new AISDKStreamConverter();

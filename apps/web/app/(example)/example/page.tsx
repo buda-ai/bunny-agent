@@ -26,6 +26,11 @@ import {
   PromptInputAttachments,
 } from "kui/ai-elements/prompt-input";
 import {
+  Reasoning,
+  ReasoningContent,
+  ReasoningTrigger,
+} from "kui/ai-elements/reasoning";
+import {
   Tool,
   ToolContent,
   ToolHeader,
@@ -120,6 +125,20 @@ function ChatMessage({
             if (part.type === "text") {
               return <MessageResponse key={key}>{part.text}</MessageResponse>;
             }
+            if (part.type === "reasoning") {
+              const reasoningPart = part as import("ai").ReasoningUIPart;
+              if (!reasoningPart.text) return null;
+              return (
+                <Reasoning
+                  key={key}
+                  defaultOpen={false}
+                  isStreaming={reasoningPart.state === "streaming"}
+                >
+                  <ReasoningTrigger />
+                  <ReasoningContent>{reasoningPart.text}</ReasoningContent>
+                </Reasoning>
+              );
+            }
             if (part.type === "file") {
               const filePart = part as import("ai").FileUIPart;
               if (filePart.mediaType?.startsWith("image/")) {
@@ -197,11 +216,19 @@ function HomeContent() {
     setConfigReady(allRequiredSet);
   }, [clientConfig]);
 
-  const { messages, status, error, isLoading, hasError, handleSubmit, stop } =
-    useBunnyAgentChat({
-      apiEndpoint: "/api/ai",
-      body: { template: selectedTemplate, ...clientConfig },
-    });
+  const {
+    messages,
+    compaction,
+    status,
+    error,
+    isLoading,
+    hasError,
+    handleSubmit,
+    stop,
+  } = useBunnyAgentChat({
+    apiEndpoint: "/api/ai",
+    body: { template: selectedTemplate, ...clientConfig },
+  });
 
   // Handle template change and update URL
   const handleTemplateChange = (newTemplate: string) => {
@@ -290,7 +317,23 @@ function HomeContent() {
               />
             ))
           )}
-          {isLoading && (
+          {compaction && (
+            <Message from="assistant">
+              <MessageContent>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader size={16} />
+                  <span>
+                    Compacting conversation
+                    {compaction.preTokens
+                      ? ` (${Math.round(compaction.preTokens / 1000)}k tokens)`
+                      : ""}
+                    …
+                  </span>
+                </div>
+              </MessageContent>
+            </Message>
+          )}
+          {isLoading && !compaction && (
             <Message from="assistant">
               <MessageContent>
                 <Loader size={20} />

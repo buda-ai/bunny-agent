@@ -7,6 +7,7 @@ import {
   type AgentSessionEvent,
   AuthStorage,
   createAgentSession,
+  createCodingTools,
   ModelRegistry,
   SessionManager,
   type ToolDefinition,
@@ -24,6 +25,11 @@ import {
   extractToolResultText,
   PiAISDKStreamConverter,
 } from "./stream-converter.js";
+import {
+  type ApprovalGateOptions,
+  buildAskUserQuestionTool,
+  gateToolsForApproval,
+} from "./tool-approval.js";
 import {
   buildEnvInjectedBashTool,
   buildSecretAwareTools,
@@ -530,6 +536,40 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
             ? buildToolDefinitionsFromRefs(options.toolRefs)
             : [];
 
+        // Human-in-the-loop approval gate (parity with runner-claude's
+        // createCanUseToolCallback + its permissionMode handling): when
+        // approval is NOT bypassed, every tool execution waits for an approval
+        // file written by the web layer; when bypassed, only AskUserQuestion is
+        // gated. Approval is bypassed under `yolo` or when running as root —
+        // mirroring claude, which switches to `bypassPermissions` under root
+        // (the sandbox CLI rejects interactive approval as root anyway).
+        const isRoot =
+          typeof process.getuid === "function" && process.getuid() === 0;
+        const bypassApproval = Boolean(options.yolo) || isRoot;
+        const approvalGate: ApprovalGateOptions = {
+          cwd,
+          fallbackSignal: options.abortController?.signal,
+        };
+        let regularTools: ToolDefinition[] = [
+          ...applyAllowedTools(customTools, options.allowedTools),
+          ...toolRefDefinitions,
+        ];
+        if (!bypassApproval) {
+          // Also override the built-in coding tools not already overridden by
+          // customTools so they go through the same approval gate.
+          const overriddenNames = new Set(regularTools.map((t) => t.name));
+          const builtinTools = applyAllowedTools(
+            createCodingTools(cwd) as unknown as ToolDefinition[],
+            options.allowedTools,
+          ).filter((t) => !overriddenNames.has(t.name));
+          regularTools = [...regularTools, ...builtinTools];
+        }
+        const gatedTools = gateToolsForApproval(
+          regularTools,
+          bypassApproval,
+          approvalGate,
+        );
+
         const { session } = await createAgentSession({
           cwd,
           model,
@@ -541,8 +581,11 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
             : undefined,
           tools: options.allowedTools,
           customTools: [
-            ...applyAllowedTools(customTools, options.allowedTools),
-            ...toolRefDefinitions,
+            ...gatedTools,
+            // AskUserQuestion is always available and always gated,
+            // regardless of yolo mode or allowedTools (mirrors claude,
+            // which always intercepts it in canUseTool).
+            buildAskUserQuestionTool(approvalGate),
           ],
         });
 

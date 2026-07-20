@@ -1,12 +1,27 @@
 import type { BaseRunnerOptions } from "@bunny-agent/runner-claude";
 import { createClaudeRunner } from "@bunny-agent/runner-claude";
 import { createCodexRunner } from "@bunny-agent/runner-codex";
+import { createCopilotRunner } from "@bunny-agent/runner-copilot";
 import { createGeminiRunner } from "@bunny-agent/runner-gemini";
 import { createOpenCodeRunner } from "@bunny-agent/runner-opencode";
-import { createPiRunner, type PiRunnerOptions } from "@bunny-agent/runner-pi";
+import { createPiRunner } from "@bunny-agent/runner-pi";
 import { loadSystemPrompt } from "./prompt.js";
 import { readSessionId, writeSessionId } from "./session.js";
 import { discoverSkillPaths } from "./skills.js";
+
+/**
+ * Serializable custom tool ref, structurally compatible with both pi's
+ * `PiToolRef` and claude's `ClaudeToolRef` (declared here so the harness type
+ * does not depend on either runner's nominal type).
+ */
+export interface RunnerToolRef {
+  name: string;
+  description: string;
+  inputSchema: Record<string, unknown>;
+  runtime:
+    | { type: "http"; url: string; headers?: Record<string, string> }
+    | { type: "module"; module: string; exportName?: string };
+}
 
 export interface RunnerCoreOptions extends BaseRunnerOptions {
   runner: string;
@@ -31,10 +46,11 @@ export interface RunnerCoreOptions extends BaseRunnerOptions {
    */
   autoInject?: boolean;
   /**
-   * Tool refs to expose to the LLM as native runner tools. Currently only
-   * the `pi` runner consumes these; other runners ignore the field.
+   * Tool refs to expose to the LLM as native runner tools. Consumed by the
+   * `pi` runner (native ToolDefinitions) and the `claude` runner (in-process
+   * MCP server); other runners ignore the field.
    */
-  toolRefs?: PiRunnerOptions["toolRefs"];
+  toolRefs?: RunnerToolRef[];
   /**
    * Reasoning effort / thinking level (e.g. "low", "medium", "high").
    * Consumed by the `pi` runner (thinking level) and the `codex` runner
@@ -100,6 +116,8 @@ function dispatchRunner(
         ...base,
         cwd,
         forkFrom: options.forkFrom,
+        skillPaths: options.skillPaths ?? discoverSkillPaths(cwd),
+        toolRefs: options.toolRefs,
       }).run(options.userInput);
     case "codex": {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -122,6 +140,7 @@ function dispatchRunner(
         cwd,
         env: base.env,
         abortController: base.abortController,
+        resume: base.resume,
       }).run(options.userInput);
     case "pi": {
       return createPiRunner({
@@ -141,9 +160,17 @@ function dispatchRunner(
         cwd,
         env: base.env,
         abortController: base.abortController,
+        resume: base.resume,
       }).run(options.userInput);
     case "copilot":
-      throw new Error("Copilot runner not yet implemented");
+      return createCopilotRunner({
+        model: options.model,
+        systemPrompt: base.systemPrompt,
+        cwd,
+        env: base.env,
+        abortController: base.abortController,
+        resume: base.resume,
+      }).run(options.userInput);
     default:
       throw new Error(`Unknown runner: ${runner}`);
   }

@@ -28,6 +28,7 @@ export type {
   ArtifactResult,
   BunnyAgentModelId,
   BunnyAgentProviderSettings,
+  CompactionEvent,
   Logger,
   Question,
   StreamWriter,

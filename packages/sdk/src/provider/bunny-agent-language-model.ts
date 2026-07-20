@@ -747,6 +747,30 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
         break;
       }
 
+      // Context compaction progress. Delivered out-of-band via the
+      // `onCompaction` callback: the AI SDK stream protocol has no part type
+      // for it, and it must not become assistant content.
+      case "compaction": {
+        const phase = parsed.phase === "start" ? "start" : "end";
+        this.options.onCompaction?.({
+          phase,
+          ...(typeof parsed.success === "boolean"
+            ? { success: parsed.success }
+            : {}),
+          ...(typeof parsed.trigger === "string"
+            ? { trigger: parsed.trigger }
+            : {}),
+          ...(typeof parsed.preTokens === "number"
+            ? { preTokens: parsed.preTokens }
+            : {}),
+          ...(typeof parsed.postTokens === "number"
+            ? { postTokens: parsed.postTokens }
+            : {}),
+          ...(typeof parsed.error === "string" ? { error: parsed.error } : {}),
+        });
+        break;
+      }
+
       // Runners (claude/codex) emit reasoning as untagged deltas:
       // {type:"reasoning", text}. Wrap them in a synthesized
       // reasoning-start/delta/end part stream for the AI SDK.
