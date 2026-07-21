@@ -70,7 +70,7 @@ function buildOne(spec: PiToolRef): ToolDefinition {
       try {
         response = await executeToolRef(spec, params, signal);
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
+        const message = formatTransportError(error);
         throw new PiToolRefError(
           `Tool "${spec.name}" transport error: ${message}`,
           { toolName: spec.name },
@@ -86,6 +86,35 @@ function buildOne(spec: PiToolRef): ToolDefinition {
       return okResult(response.body);
     },
   };
+}
+
+function formatTransportError(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  if (typeof error !== "object" || error === null || !("cause" in error)) {
+    return message;
+  }
+
+  const cause = error.cause;
+  if (cause === undefined || cause === null) return message;
+
+  const causeMessage = cause instanceof Error ? cause.message : String(cause);
+  const causeCode =
+    typeof cause === "object" &&
+    cause !== null &&
+    "code" in cause &&
+    typeof cause.code === "string"
+      ? cause.code
+      : undefined;
+  const details = [causeCode, causeMessage]
+    .filter(
+      (part, index, parts): part is string =>
+        !!part && parts.indexOf(part) === index,
+    )
+    .join(": ");
+
+  return details && details !== message
+    ? `${message} (cause: ${details})`
+    : message;
 }
 
 function formatToolRuntimeErrorMessage(response: RuntimeResponse): string {
