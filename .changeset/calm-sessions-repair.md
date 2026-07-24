@@ -1,5 +1,5 @@
 ---
-"@bunny-agent/sdk": patch
+"@bunny-agent/daemon": patch
 ---
 
-Repair unsafe tool history in persisted Pi sessions and structured fallback transcripts, then rebuild missing resumed sessions from the caller-provided recent history.
+Repair unsafe tool call/result history when Pi builds context from a persisted session.

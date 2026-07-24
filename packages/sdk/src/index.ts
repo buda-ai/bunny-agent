@@ -62,7 +62,6 @@ export type {
   SubmitAnswerParams,
   ToolRuntime,
   TranscriptEntry,
-  TranscriptMessage,
 } from "./provider";
 // Provider exports
 export {
@@ -72,7 +71,6 @@ export {
   createBunnyAgent,
   getBunnyAgentMetadata,
   getBunnyAgentUsage,
-  serializeTranscriptToUserInput,
   submitAnswer,
 } from "./provider";
 

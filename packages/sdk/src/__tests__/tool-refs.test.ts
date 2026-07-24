@@ -357,35 +357,6 @@ describe("Bunny provider tool refs", () => {
     });
   });
 
-  it("sends current input plus a text-only transcript fallback when resuming", async () => {
-    const capturedBodies: BunnyAgentCodingRunBody[] = [];
-    const sandbox = createCodingRunSandbox(capturedBodies);
-    const bunnyAgent = createBunnyAgent({
-      sandbox,
-      daemonUrl: "http://127.0.0.1:3080",
-      resume: "session-123",
-      resumeFallbackMessages: [
-        { role: "user", content: "inspect the repository" },
-        { role: "assistant", content: "I inspected it." },
-        { role: "user", content: "continue" },
-      ],
-    });
-
-    const result = streamText({
-      model: bunnyAgent("google:gemini-2.5-pro", { runnerType: "pi" }),
-      messages: [{ role: "user", content: "continue" }],
-    });
-
-    await result.consumeStream();
-
-    expect(capturedBodies[0]).toMatchObject({
-      resume: "session-123",
-      userInput: "continue",
-      resumeFallbackUserInput:
-        "Previous conversation:\n\nUser: inspect the repository\n\nAssistant: I inspected it.\n\nCurrent message:\n\ncontinue",
-    });
-  });
-
   it("forwards forkFrom into the daemon coding-run body", async () => {
     const capturedBodies: BunnyAgentCodingRunBody[] = [];
     const sandbox = createCodingRunSandbox(capturedBodies);

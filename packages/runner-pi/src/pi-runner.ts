@@ -61,8 +61,6 @@ export interface PiRunnerOptions {
    * Sessions use Bunny's patched pi config directory (~/.bunny/agent/sessions/...) so workspace is not used.
    */
   sessionId?: string;
-  /** Full transcript used only when `sessionId` cannot be resolved. */
-  resumeFallbackUserInput?: string;
   /**
    * Source session ID to fork from. When set, the runner locates the source
    * session file, snapshot-clones it via SessionManager.forkFrom into a brand
@@ -411,7 +409,6 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
 
         const forkFrom = options.forkFrom?.trim();
         const resume = options.sessionId?.trim();
-        let resumeSessionMissing = false;
         const sessionManager = await (async (): Promise<
           ReturnType<typeof SessionManager.create>
         > => {
@@ -457,10 +454,6 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
               }
               return SessionManager.open(sessionPath);
             }
-            resumeSessionMissing = true;
-            console.error(
-              `${LOG_PREFIX} resume session missing; starting fresh with transcript fallback`,
-            );
             return SessionManager.create(cwd);
           }
           return SessionManager.create(cwd);
@@ -599,10 +592,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
         try {
           traceRawMessage(cwd, null, true, options.env);
 
-          const promptText =
-            resumeSessionMissing && options.resumeFallbackUserInput?.trim()
-              ? options.resumeFallbackUserInput
-              : userInput;
+          const promptText = userInput;
           const promptPromise = session.prompt(promptText);
           void promptPromise.then(
             () => {

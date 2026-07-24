@@ -14,8 +14,6 @@ export interface RunRequest {
   maxTurns?: number;
   allowedTools?: string[];
   resume?: string;
-  /** Full transcript used only when the requested Pi session is missing. */
-  resumeFallbackUserInput?: string;
   /**
    * Source pi session id to fork from before running the current turn. When
    * set, the pi runner snapshot-clones the source session into a fresh one
@@ -92,7 +90,6 @@ export async function bunnyAgentRun(
       maxTurns: req.maxTurns,
       allowedTools: req.allowedTools,
       resume: req.resume,
-      resumeFallbackUserInput: req.resumeFallbackUserInput,
       forkFrom: req.forkFrom,
       skillPaths: req.skillPaths,
       cwd: req.cwd ?? process.env.BUNNY_AGENT_ROOT ?? "/workspace",
@@ -157,7 +154,6 @@ export function codingRunStream(
           maxTurns: req.maxTurns,
           allowedTools: req.allowedTools,
           resume: req.resume,
-          resumeFallbackUserInput: req.resumeFallbackUserInput,
           forkFrom: req.forkFrom,
           skillPaths: req.skillPaths,
           cwd: req.cwd ?? process.env.BUNNY_AGENT_ROOT ?? "/workspace",

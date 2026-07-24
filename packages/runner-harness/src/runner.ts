@@ -12,8 +12,6 @@ import { discoverSkillPaths } from "./skills.js";
 export interface RunnerCoreOptions extends BaseRunnerOptions {
   runner: string;
   userInput: string;
-  /** Full transcript used only when the requested Pi session is missing. */
-  resumeFallbackUserInput?: string;
   skillPaths?: string[];
   cwd?: string;
   env?: Record<string, string>;
@@ -133,7 +131,6 @@ function dispatchRunner(
         ...base,
         cwd,
         sessionId: base.resume,
-        resumeFallbackUserInput: options.resumeFallbackUserInput,
         forkFrom: options.forkFrom,
         skillPaths: options.skillPaths ?? discoverSkillPaths(cwd),
         toolRefs: options.toolRefs,
