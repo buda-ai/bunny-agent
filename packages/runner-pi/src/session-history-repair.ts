@@ -199,7 +199,6 @@ export function repairPiSessionToolHistory(
 
 export function stripInvalidToolHistoryFromSessionManager(
   sessionManager: unknown,
-  onRepair?: (stats: PiSessionToolHistoryRepairStats) => void,
 ): void {
   const manager = sessionManager as {
     buildSessionContext?: () => UnknownRecord;
@@ -211,11 +210,6 @@ export function stripInvalidToolHistoryFromSessionManager(
     const context = buildSessionContext();
     if (!Array.isArray(context.messages)) return context;
     const repaired = repairPiSessionToolHistory(context.messages);
-    const changed =
-      repaired.stats.removedToolCalls > 0 ||
-      repaired.stats.removedToolResults > 0 ||
-      repaired.stats.removedEmptyAssistantMessages > 0;
-    if (changed) onRepair?.(repaired.stats);
     return { ...context, messages: repaired.messages };
   };
 }

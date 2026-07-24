@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   repairPiSessionToolHistory,
   stripInvalidToolHistoryFromSessionManager,
@@ -102,9 +102,7 @@ describe("repairPiSessionToolHistory", () => {
         thinkingLevel: "off",
       }),
     };
-    const onRepair = vi.fn();
-
-    stripInvalidToolHistoryFromSessionManager(manager, onRepair);
+    stripInvalidToolHistoryFromSessionManager(manager);
     const context = manager.buildSessionContext();
 
     expect(context.messages).toEqual([
@@ -116,10 +114,5 @@ describe("repairPiSessionToolHistory", () => {
         { type: "toolCall", id: "unfinished", name: "read", arguments: {} },
       ]),
     );
-    expect(onRepair).toHaveBeenCalledWith({
-      removedToolCalls: 1,
-      removedToolResults: 0,
-      removedEmptyAssistantMessages: 0,
-    });
   });
 });

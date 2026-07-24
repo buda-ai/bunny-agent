@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   parseModelSpec,
+  repairToolHistoryFromSessionManager,
   resolveImageModelName,
   stripLLMThoughtSignaturesFromSessionManager,
 } from "../pi-runner.js";
@@ -84,6 +85,64 @@ describe("resolveImageModelName", () => {
         IMAGE_GENERATION_MODEL: "openai:gemini-3-pro-image",
       }),
     ).toBe("gemini-3-pro-image");
+  });
+});
+
+describe("repairToolHistoryFromSessionManager", () => {
+  it("applies both tool history repairs", () => {
+    const assistantMessage = {
+      role: "assistant",
+      content: [
+        { type: "text", text: "Keep this." },
+        {
+          type: "toolCall",
+          id: "call_abc__thought__signature",
+          name: "read",
+          arguments: {},
+        },
+        {
+          type: "toolCall",
+          id: "incomplete",
+          name: "bash",
+          arguments: {},
+        },
+      ],
+    };
+    const toolResultMessage = {
+      role: "toolResult",
+      toolCallId: "call_abc__thought__signature",
+      toolName: "read",
+      content: [{ type: "text", text: "ok" }],
+    };
+    const messages = [assistantMessage, toolResultMessage];
+    const sessionManager = {
+      getEntries: () =>
+        messages.map((message) => ({ type: "message", message })),
+      buildSessionContext: () => ({ messages }),
+    };
+
+    repairToolHistoryFromSessionManager(sessionManager, { id: "gpt-5.1" });
+
+    expect(sessionManager.buildSessionContext().messages).toEqual([
+      {
+        role: "assistant",
+        content: [
+          { type: "text", text: "Keep this." },
+          {
+            type: "toolCall",
+            id: "call_abc",
+            name: "read",
+            arguments: {},
+          },
+        ],
+      },
+      {
+        role: "toolResult",
+        toolCallId: "call_abc",
+        toolName: "read",
+        content: [{ type: "text", text: "ok" }],
+      },
+    ]);
   });
 });
 

@@ -157,6 +157,14 @@ export function stripLLMThoughtSignaturesFromSessionManager(
   }
 }
 
+export function repairToolHistoryFromSessionManager(
+  sessionManager: unknown,
+  model: { id?: string },
+): void {
+  stripLLMThoughtSignaturesFromSessionManager(sessionManager, model);
+  stripInvalidToolHistoryFromSessionManager(sessionManager);
+}
+
 function stripLLMThoughtSignaturesFromMessage(message: unknown): void {
   if (message == null || typeof message !== "object") return;
   const msg = message as {
@@ -458,12 +466,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           }
           return SessionManager.create(cwd);
         })();
-        stripLLMThoughtSignaturesFromSessionManager(sessionManager, model);
-        stripInvalidToolHistoryFromSessionManager(sessionManager, (stats) => {
-          console.error(
-            `${LOG_PREFIX} repaired unsafe tool history: calls=${stats.removedToolCalls} results=${stats.removedToolResults} emptyAssistants=${stats.removedEmptyAssistantMessages}`,
-          );
-        });
+        repairToolHistoryFromSessionManager(sessionManager, model);
 
         // Create the loader whenever either input is present: systemPrompt is
         // delivered via appendSystemPrompt, so it must not depend on skillPaths.
