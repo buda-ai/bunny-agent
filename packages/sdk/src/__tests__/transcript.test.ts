@@ -1,5 +1,67 @@
 import { describe, expect, it } from "vitest";
-import { serializeTranscriptToUserInput } from "../provider/transcript";
+import {
+  sanitizeTranscriptToolHistory,
+  serializeTranscriptToUserInput,
+} from "../provider/transcript";
+
+describe("sanitizeTranscriptToolHistory", () => {
+  it("migrates Buda tool-history cleanup to the Bunny SDK boundary", () => {
+    const messages = [
+      {
+        role: "assistant",
+        content: [
+          { type: "text", text: "Keep this text." },
+          {
+            type: "tool-read",
+            toolCallId: "",
+            state: "output-available",
+          },
+          {
+            type: "dynamic-tool",
+            toolName: "",
+            toolCallId: "blank-name",
+            state: "output-available",
+          },
+          {
+            type: "tool-read",
+            toolCallId: "duplicate",
+            state: "output-available",
+          },
+          {
+            type: "tool-read",
+            toolCallId: "duplicate",
+            state: "output-available",
+          },
+          {
+            type: "tool-read",
+            toolCallId: "incomplete",
+            state: "input-available",
+          },
+          {
+            type: "tool-read",
+            toolCallId: "complete",
+            state: "output-available",
+          },
+        ],
+      },
+    ];
+
+    expect(sanitizeTranscriptToolHistory(messages)).toEqual([
+      {
+        role: "assistant",
+        content: [
+          { type: "text", text: "Keep this text." },
+          {
+            type: "tool-read",
+            toolCallId: "complete",
+            state: "output-available",
+          },
+        ],
+      },
+    ]);
+    expect(messages[0]?.content).toHaveLength(7);
+  });
+});
 
 describe("serializeTranscriptToUserInput", () => {
   it("keeps text while excluding tool history from a fresh-session transcript", () => {

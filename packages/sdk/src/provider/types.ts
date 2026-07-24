@@ -116,8 +116,9 @@ export interface BunnyAgentProviderSettings
    */
   resumeFallbackUserInput?: string;
   /**
-   * Structured text transcript used to derive `resumeFallbackUserInput` when
-   * the active AI SDK prompt contains only the current incremental turn.
+   * Structured transcript used to derive `resumeFallbackUserInput` when the
+   * active AI SDK prompt contains only the current incremental turn. Bunny
+   * sanitizes unsafe tool parts before serializing the text transcript.
    */
   resumeFallbackMessages?: readonly TranscriptMessage[];
   /**

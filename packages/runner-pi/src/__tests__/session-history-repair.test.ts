@@ -47,6 +47,7 @@ describe("repairPiSessionToolHistory", () => {
       assistant([
         { type: "text", text: "Text survives." },
         { type: "toolCall", id: "", name: "read", arguments: {} },
+        { type: "toolCall", id: "blank-name", name: "", arguments: {} },
         { type: "toolCall", id: "duplicate", name: "read", arguments: {} },
         { type: "toolCall", id: "incomplete", name: "read", arguments: {} },
         { type: "toolCall", id: "mismatch", name: "read", arguments: {} },
@@ -68,7 +69,7 @@ describe("repairPiSessionToolHistory", () => {
       assistant([{ type: "text", text: "Text survives." }]),
     ]);
     expect(repaired.stats).toEqual({
-      removedToolCalls: 5,
+      removedToolCalls: 6,
       removedToolResults: 5,
       removedEmptyAssistantMessages: 1,
     });
