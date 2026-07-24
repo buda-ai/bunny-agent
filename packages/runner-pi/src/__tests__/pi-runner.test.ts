@@ -7,6 +7,7 @@ type Listener = (event: unknown) => void;
 class MockSession {
   agent = { state: {}, setSystemPrompt: vi.fn() };
   sessionId = "mock-session-id";
+  lastPrompt: string | undefined;
   private listeners: Listener[] = [];
   private behavior:
     | "normal"
@@ -35,7 +36,8 @@ class MockSession {
     this.behavior = behavior;
   }
 
-  async prompt(_userInput: string): Promise<void> {
+  async prompt(userInput: string): Promise<void> {
+    this.lastPrompt = userInput;
     if (this.behavior === "pending") {
       return new Promise(() => {
         // Keep pending forever so the abort test can fire.
@@ -468,6 +470,37 @@ describe("createPiRunner", () => {
     ).toBe(true);
     expect(chunks.some((c) => c.includes('"type":"finish"'))).toBe(true);
     expect(chunks.some((c) => c.includes("[DONE]"))).toBe(true);
+  });
+
+  it("uses the transcript fallback only when a resume session is missing", async () => {
+    const runner = createPiRunner({
+      model: "google:gemini-2.5-pro",
+      sessionId: "missing-session-id",
+      resumeFallbackUserInput:
+        "Previous conversation:\n\nUser: earlier\n\nCurrent message:\n\ncontinue",
+    });
+
+    for await (const _ of runner.run("continue")) {
+      // consume stream
+    }
+
+    expect(createdSessions[0]?.lastPrompt).toBe(
+      "Previous conversation:\n\nUser: earlier\n\nCurrent message:\n\ncontinue",
+    );
+  });
+
+  it("keeps the incremental input when the resume session resolves", async () => {
+    const runner = createPiRunner({
+      model: "google:gemini-2.5-pro",
+      sessionId: "/tmp/existing-session.jsonl",
+      resumeFallbackUserInput: "full history fallback",
+    });
+
+    for await (const _ of runner.run("continue only")) {
+      // consume stream
+    }
+
+    expect(createdSessions[0]?.lastPrompt).toBe("continue only");
   });
 
   it("emits web_search billing metadata on tool output and finish", async () => {

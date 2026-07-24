@@ -70,6 +70,8 @@ export interface BunnyAgentCodingRunBody {
   maxTurns?: number;
   allowedTools?: string[];
   resume?: string;
+  /** Full transcript used only when the requested resume session is missing. */
+  resumeFallbackUserInput?: string;
   /**
    * Source pi session id to fork from before running the current turn. When
    * set, the runner snapshot-clones the source session into a fresh session

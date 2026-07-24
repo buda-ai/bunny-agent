@@ -14,6 +14,7 @@ import { ensureApplyPatchShim } from "./apply-patch-shim.js";
 import { buildApplyPatchTool } from "./apply-patch-tool.js";
 import { BunnyAgentResourceLoader } from "./bunny-agent-resource-loader.js";
 import { buildImageEditTool, buildImageGenerateTool } from "./image-tools.js";
+import { installPiSessionToolHistoryRepair } from "./session-history-repair.js";
 import {
   extractSessionContext,
   isSessionFileTooLarge,
@@ -60,6 +61,8 @@ export interface PiRunnerOptions {
    * Sessions use Bunny's patched pi config directory (~/.bunny/agent/sessions/...) so workspace is not used.
    */
   sessionId?: string;
+  /** Full transcript used only when `sessionId` cannot be resolved. */
+  resumeFallbackUserInput?: string;
   /**
    * Source session ID to fork from. When set, the runner locates the source
    * session file, snapshot-clones it via SessionManager.forkFrom into a brand
@@ -408,6 +411,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
 
         const forkFrom = options.forkFrom?.trim();
         const resume = options.sessionId?.trim();
+        let resumeSessionMissing = false;
         const sessionManager = await (async (): Promise<
           ReturnType<typeof SessionManager.create>
         > => {
@@ -453,11 +457,20 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
               }
               return SessionManager.open(sessionPath);
             }
+            resumeSessionMissing = true;
+            console.error(
+              `${LOG_PREFIX} resume session missing; starting fresh with transcript fallback`,
+            );
             return SessionManager.create(cwd);
           }
           return SessionManager.create(cwd);
         })();
         stripLLMThoughtSignaturesFromSessionManager(sessionManager, model);
+        installPiSessionToolHistoryRepair(sessionManager, (stats) => {
+          console.error(
+            `${LOG_PREFIX} repaired unsafe tool history: calls=${stats.removedToolCalls} results=${stats.removedToolResults} emptyAssistants=${stats.removedEmptyAssistantMessages}`,
+          );
+        });
 
         // Create the loader whenever either input is present: systemPrompt is
         // delivered via appendSystemPrompt, so it must not depend on skillPaths.
@@ -586,7 +599,10 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
         try {
           traceRawMessage(cwd, null, true, options.env);
 
-          const promptText = userInput;
+          const promptText =
+            resumeSessionMissing && options.resumeFallbackUserInput?.trim()
+              ? options.resumeFallbackUserInput
+              : userInput;
           const promptPromise = session.prompt(promptText);
           void promptPromise.then(
             () => {

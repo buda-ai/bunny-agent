@@ -4,6 +4,7 @@ import type {
   SandboxAdapter,
   ToolRef,
 } from "@bunny-agent/manager";
+import type { TranscriptMessage } from "./transcript";
 
 export type { ToolRuntime } from "@bunny-agent/manager";
 
@@ -109,6 +110,16 @@ export interface BunnyAgentProviderSettings
   cwd?: string;
   /** Resume session ID for multi-turn conversation. */
   resume?: string;
+  /**
+   * Full transcript serialized for a fresh session. Used only when `resume`
+   * is provided but the runner confirms that the referenced session is gone.
+   */
+  resumeFallbackUserInput?: string;
+  /**
+   * Structured text transcript used to derive `resumeFallbackUserInput` when
+   * the active AI SDK prompt contains only the current incremental turn.
+   */
+  resumeFallbackMessages?: readonly TranscriptMessage[];
   /**
    * Source pi session id to fork from before running the current turn. When
    * set, the runner snapshot-clones the source session into a fresh session

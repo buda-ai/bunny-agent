@@ -23,6 +23,8 @@ export {
   bunnyHttpTool,
   bunnySandboxTool,
 } from "./tool-refs";
+export type { TranscriptMessage } from "./transcript";
+export { serializeTranscriptToUserInput } from "./transcript";
 export type {
   ArtifactProcessor,
   ArtifactResult,

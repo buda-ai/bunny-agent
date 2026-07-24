@@ -22,6 +22,7 @@ import {
 } from "@bunny-agent/manager";
 import { getProviderLogger } from "./logging";
 import { compileToolRefsFromLanguageModelTools } from "./tool-refs";
+import { serializeTranscriptToUserInput } from "./transcript";
 import type {
   BunnyAgentModelId,
   BunnyAgentProviderSettings,
@@ -136,47 +137,6 @@ function getLastUserTextFromMessages(messages: Message[]): string {
  * Format: prior turns labeled by role, then the current user message under
  * a "Current message" header so the runner treats it as the actual prompt.
  */
-function serializeMessagesToUserInput(messages: Message[]): string {
-  // Split trailing consecutive user messages (the "current" turn) from history.
-  let currentStart = messages.length;
-  for (let i = messages.length - 1; i >= 0; i--) {
-    if (messages[i].role === "user") {
-      currentStart = i;
-    } else {
-      break;
-    }
-  }
-
-  const history = messages.slice(0, currentStart);
-  const current = messages.slice(currentStart);
-
-  const currentText = current
-    .map((msg) => extractTextContent(msg.content))
-    .filter((t) => t.length > 0)
-    .join("\n\n");
-
-  if (history.length === 0) return currentText;
-
-  const historyLines: string[] = [];
-  for (const msg of history) {
-    const text = extractTextContent(msg.content);
-    if (text.length === 0) continue;
-    const label =
-      msg.role === "user"
-        ? "User"
-        : msg.role === "assistant"
-          ? "Assistant"
-          : "System";
-    historyLines.push(`${label}: ${text}`);
-  }
-
-  if (historyLines.length === 0) return currentText;
-
-  const historyBlock = `Previous conversation:\n\n${historyLines.join("\n\n")}`;
-  if (currentText.length === 0) return historyBlock;
-  return `${historyBlock}\n\nCurrent message:\n\n${currentText}`;
-}
-
 function createEmptyUsage(): LanguageModelV3Usage {
   return {
     inputTokens: {
@@ -529,7 +489,14 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
     );
     const userInput = hasRuntimeHistory
       ? getLastUserTextFromMessages(messages)
-      : serializeMessagesToUserInput(messages);
+      : serializeTranscriptToUserInput(messages);
+    const resumeFallbackUserInput =
+      this.options.resume && !this.options.forkFrom
+        ? (this.options.resumeFallbackUserInput ??
+          serializeTranscriptToUserInput(
+            this.options.resumeFallbackMessages ?? messages,
+          ))
+        : undefined;
 
     return {
       runner: runner.runnerType ?? "claude",
@@ -537,6 +504,7 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
       userInput,
       cwd,
       resume: this.options.resume,
+      resumeFallbackUserInput,
       forkFrom: this.options.forkFrom,
       systemPrompt: this.options.systemPrompt ?? runner.systemPrompt,
       maxTurns: this.options.maxTurns ?? runner.maxTurns,

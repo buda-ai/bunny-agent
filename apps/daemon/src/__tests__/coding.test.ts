@@ -124,6 +124,25 @@ describe("codingRunStream (Web Response)", () => {
     expect(JSON.parse(payloads[1]).type).toBe("finish");
     expect(payloads[payloads.length - 1]).toBe("[DONE]");
   });
+
+  it("forwards the missing-session transcript fallback", async () => {
+    const res = codingRunStream(
+      {
+        userInput: "continue",
+        resume: "session-123",
+        resumeFallbackUserInput: "full transcript",
+      },
+      {},
+    );
+
+    await res.text();
+
+    expect(createRunnerCalls.at(-1)).toMatchObject({
+      userInput: "continue",
+      resume: "session-123",
+      resumeFallbackUserInput: "full transcript",
+    });
+  });
 });
 
 describe("createNextHandler", () => {
