@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  installPiSessionToolHistoryRepair,
   repairPiSessionToolHistory,
+  stripInvalidToolHistoryFromSessionManager,
 } from "../session-history-repair.js";
 
 function assistant(content: unknown[]): Record<string, unknown> {
@@ -104,7 +104,7 @@ describe("repairPiSessionToolHistory", () => {
     };
     const onRepair = vi.fn();
 
-    installPiSessionToolHistoryRepair(manager, onRepair);
+    stripInvalidToolHistoryFromSessionManager(manager, onRepair);
     const context = manager.buildSessionContext();
 
     expect(context.messages).toEqual([

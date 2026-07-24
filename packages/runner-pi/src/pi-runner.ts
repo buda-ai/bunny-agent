@@ -14,7 +14,7 @@ import { ensureApplyPatchShim } from "./apply-patch-shim.js";
 import { buildApplyPatchTool } from "./apply-patch-tool.js";
 import { BunnyAgentResourceLoader } from "./bunny-agent-resource-loader.js";
 import { buildImageEditTool, buildImageGenerateTool } from "./image-tools.js";
-import { installPiSessionToolHistoryRepair } from "./session-history-repair.js";
+import { stripInvalidToolHistoryFromSessionManager } from "./session-history-repair.js";
 import {
   extractSessionContext,
   isSessionFileTooLarge,
@@ -459,7 +459,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           return SessionManager.create(cwd);
         })();
         stripLLMThoughtSignaturesFromSessionManager(sessionManager, model);
-        installPiSessionToolHistoryRepair(sessionManager, (stats) => {
+        stripInvalidToolHistoryFromSessionManager(sessionManager, (stats) => {
           console.error(
             `${LOG_PREFIX} repaired unsafe tool history: calls=${stats.removedToolCalls} results=${stats.removedToolResults} emptyAssistants=${stats.removedEmptyAssistantMessages}`,
           );

@@ -197,7 +197,7 @@ export function repairPiSessionToolHistory(
   };
 }
 
-export function installPiSessionToolHistoryRepair(
+export function stripInvalidToolHistoryFromSessionManager(
   sessionManager: unknown,
   onRepair?: (stats: PiSessionToolHistoryRepairStats) => void,
 ): void {
