@@ -1,14 +1,14 @@
 # Runner Integration Maturity
 
 > Living document — update this whenever a runner gains/loses a capability,
-> an SDK is upgraded, or a new runner lands. Last updated: 2026-07-20.
+> an SDK is upgraded, or a new runner lands. Last updated: 2026-07-27.
 
 Architecture recap:
 
 ```
 UI (useBunnyAgentChat) → /api/ai → SDK provider (packages/sdk, LanguageModelV3)
   → daemon (/api/coding/run) or CLI (bunny-agent run)
-    → runner-harness (dispatchRunner) → runner-claude | runner-pi | runner-codex | runner-copilot | runner-gemini | runner-opencode
+    → runner-harness (dispatchRunner) → runner-claude | runner-pi | runner-codex | runner-gemini | runner-opencode | runner-copilot
 ```
 
 All runners speak the same wire protocol: SSE lines of AI SDK UI Data Stream
@@ -22,66 +22,44 @@ different protocols.
 
 | Runner | Underlying SDK | Version |
 |---|---|---|
-| runner-claude | `@anthropic-ai/claude-agent-sdk` (in-process) | 0.3.211 |
-| runner-pi | `@earendil-works/pi-coding-agent` / `pi-agent-core` / `pi-ai` | 0.80.7 |
-| runner-codex | `@openai/codex-sdk` (official, in-process) | 0.144.5 |
-| runner-copilot | `@github/copilot-sdk` (JSON-RPC to Copilot CLI) | 1.0.7 |
-| runner-gemini | ACP subprocess wrapper | — |
-| runner-opencode | ACP subprocess wrapper | — |
+| runner-claude | `@anthropic-ai/claude-agent-sdk` (in-process) | 0.3.215 |
+| runner-pi | `@earendil-works/pi-coding-agent` / `pi-agent-core` / `pi-ai` | 0.80.10 |
+| runner-codex | `@openai/codex-sdk` (official, in-process) | 0.144.6 |
+| runner-gemini | `@agentclientprotocol/sdk` (Gemini CLI subprocess) | 1.2.1 |
+| runner-opencode | `@agentclientprotocol/sdk` (OpenCode CLI subprocess) | 1.2.1 |
+| runner-copilot | `@github/copilot-sdk` (Copilot CLI subprocess) | 1.0.7 |
 
 ## Capability matrix
 
 Legend: ✅ supported · ⚠️ partial/caveat · ❌ not supported
 
-| Capability | claude | pi | codex | gemini/opencode |
-|---|---|---|---|---|
-| systemPrompt | ✅ SDK option | ✅ via resource loader (`appendSystemPrompt`) | ⚠️ emulated: prepended to first input on fresh threads | ❌ |
-| maxTurns | ✅ | ❌ no such concept | ❌ SDK has no option | ❌ |
-| allowedTools | ✅ (+ forced Skill/WebSearch/WebFetch) | ✅ filters built-in + custom + toolRefs | ❌ SDK has no option | ❌ |
-| resume | ✅ | ✅ (with >10MB session OOM guard + compaction fallback) | ✅ `resumeThread` | ❌ |
-| forkFrom | ✅ SDK `forkSession` | ✅ session file snapshot-clone | ❌ | ❌ |
-| sessionId emission | ✅ from `system/init` | ✅ `message-metadata` | ✅ from `thread.started` (`thread_id`) | ❌ |
-| skills | ✅ `skillPaths` mapped to a temp local plugin; `skills` names/`"all"` also exposed | ✅ `skillPaths` + resource loader | ❌ | ❌ |
-| custom tools (toolRefs) | ✅ http/module runtimes via in-process SDK MCP server | ✅ http/module runtimes | ❌ (passes through agent-side MCP tool events) | ❌ |
-| reasoning stream | ✅ `reasoning` parts (thinking deltas) | ❌ not converted | ✅ `reasoning` parts (diffed from item updates) | ❌ |
-| incremental text streaming | ✅ partial messages | ✅ `text_delta` | ✅ diffed `item.updated` deltas | ❌ |
-| usage in finish metadata | ✅ | ✅ (+ per-tool usage tally) | ✅ snake_case under `messageMetadata.usage` | ❌ |
-| effort / thinking level | ❌ | ✅ `thinkingLevel` | ✅ `modelReasoningEffort` (minimal/low/medium/high/xhigh) | ❌ |
-| tool approval (AskUserQuestion) | ✅ file-based approval bridge (`.bunny-agent/approvals/`), infinite wait until answered/aborted | ✅ file-based bridge with parity (all tools gated unless `yolo`/root; AskUserQuestion always gated) | ⚠️ SDK `approvalPolicy` passthrough only | ❌ |
-| abort handling | ✅ `query.interrupt()` | ✅ `session.abort()` + forced error finish | ✅ signal passthrough + unexpected-end guard | ⚠️ |
-| stream-end error guard | ✅ error dedup + `[DONE]` always | ✅ triple error source + double-finish guard | ✅ synthesizes error+finish when stream ends without terminal event | ❌ |
-| multimodal input (images) | ✅ JSON multi-part content | ✅ | ✅ base64 → temp file `local_image` | ❌ |
-| auth | API key, `ANTHROPIC_AUTH_TOKEN`, Bedrock proxy, LiteLLM, Vertex (`CLAUDE_CODE_USE_VERTEX`) | any `<PROVIDER>_API_KEY`; unknown providers auto-register as OpenAI-compatible via `<PROVIDER>_BASE_URL` | `CODEX_API_KEY`/`OPENAI_API_KEY` + `OPENAI_BASE_URL` | env keys |
-| mock fallback (no auth) | ✅ | ❌ | ❌ | ❌ |
-| env/systemEnv isolation | ❌ | ✅ (secrets never reach bash; output redaction) | ❌ | ❌ |
-
-`gemini`/`opencode` now emit `message-metadata.sessionId` from the ACP
-`session/new` (or `session/load`) response and accept a `resume` option, so the
-harness auto-resume works for them (resume applies when the ACP agent advertises
-`loadSession`, e.g. Gemini CLI).
-
-### runner-copilot
-
-Backed by the official `@github/copilot-sdk` (JSON-RPC to the GitHub Copilot
-CLI), modelled on runner-codex:
-
-- ✅ sessionId (`CopilotSession.sessionId`), `resume` (`resumeSession`),
-  `systemPrompt` (`systemMessage: { mode: "append" }`), model selection
-- ✅ incremental text (`assistant.message_delta`), reasoning
-  (`assistant.reasoning_delta`), tool calls (`tool.execution_start/complete`
-  with `isError`), usage in `finish` metadata, abort (`session.abort()`),
-  unexpected-end guard
-- ⚠️ permissions use the SDK's `approveAll` helper (effectively yolo); there is
-  no approval bridge like claude/pi yet
-- ❌ `maxTurns`, `allowedTools`, `toolRefs`, `skills`, image/attachment input
-- Auth: `COPILOT_GITHUB_TOKEN` / `GITHUB_TOKEN`; requires the Copilot CLI to be
-  installed in the environment
+| Capability | claude | pi | codex | gemini/opencode | copilot |
+|---|---|---|---|---|---|
+| systemPrompt | ✅ SDK option | ✅ via resource loader (`appendSystemPrompt`) | ⚠️ prepended on fresh threads | ⚠️ prepended to each ACP prompt | ✅ SDK system message |
+| maxTurns | ✅ | ❌ no such concept | ❌ SDK has no option | ❌ | ❌ SDK has no option |
+| allowedTools | ✅ (+ forced Skill/WebSearch/WebFetch) | ✅ filters built-in + custom + toolRefs | ❌ SDK has no option | ❌ ACP has no standard allowlist | ✅ SDK filter |
+| resume | ✅ | ✅ (>10MB OOM guard + compaction fallback) | ✅ `resumeThread` | ⚠️ `session/load` when advertised, otherwise a new session | ✅ `resumeSession` |
+| forkFrom | ✅ SDK `forkSession` | ✅ session snapshot-clone | ❌ | ❌ | ❌ |
+| sessionId emission | ✅ from `system/init` | ✅ | ✅ from `thread.started` | ✅ from `session/new` or `session/load` | ✅ from SDK session |
+| skills | ✅ harness paths mapped to a temporary plugin | ✅ `skillPaths` + resource loader | ❌ | ⚠️ agent CLI discovery only | ✅ Copilot config discovery |
+| custom tools (toolRefs) | ✅ http/module runtimes through in-process MCP | ✅ http/module runtimes | ❌ (passes through MCP events) | ❌ | ❌ SDK supports tools, but Bunny `toolRefs` are not mapped |
+| reasoning stream | ✅ | ❌ not converted | ✅ | ✅ ACP thought chunks | ✅ SDK reasoning deltas |
+| incremental text streaming | ✅ | ✅ | ✅ | ✅ ACP message chunks | ✅ SDK message deltas |
+| usage in finish metadata | ✅ | ✅ (+ per-tool usage) | ✅ | ✅ ACP prompt usage | ✅ accumulated SDK usage |
+| effort / thinking level | ❌ | ✅ | ✅ minimal/low/medium/high/xhigh | ❌ | ✅ low/medium/high/xhigh |
+| tool approval | ✅ file bridge | ✅ file bridge; bypass under `yolo`/root | ⚠️ SDK policy passthrough | ✅ file bridge / `yolo` | ✅ file bridge / `yolo` |
+| abort handling | ✅ | ✅ | ✅ | ✅ process termination | ✅ `session.abort()` |
+| stream-end error guard | ✅ | ✅ | ✅ | ✅ | ✅ |
+| multimodal input (images) | ✅ | ✅ | ✅ base64 to temp file | ❌ | ❌ |
+| auth | Anthropic key/token, Bedrock proxy, LiteLLM, Vertex | provider environment and custom endpoints | OpenAI/Codex key and base URL | agent CLI environment | logged-in Copilot user or GitHub token |
+| mock fallback (no auth) | ✅ | ❌ | ❌ | ❌ | ❌ |
+| env/systemEnv isolation | ❌ | ✅ | ❌ | ❌ | ❌ |
 
 ## Known gaps / next steps
 
-- **claude**: `hooks` are not wired; in-process MCP tool refs execute but the
-  SDK's richer MCP transports (stdio/websocket servers) are not exposed.
-- **pi**: no reasoning stream; no `maxTurns`.
+- **claude**: `hooks` and the SDK's richer MCP server transports are not wired;
+  Bunny tool refs use the in-process MCP transport.
+- **pi**: no reasoning stream and no `maxTurns`.
   For `openai`-provider models, a native `apply_patch` tool (V4A context-diff
   format) is registered alongside the built-in read/write/edit/bash tools,
   since GPT-5.1/Codex-family models are trained to reach for `apply_patch`
@@ -99,8 +77,13 @@ CLI), modelled on runner-codex:
 - **codex**: no `maxTurns`/`allowedTools` (SDK limitation); `systemPrompt` is
   emulation (prepended text), so it is not re-applied on `resume`; `file_change`
   items surface as an `apply_patch` tool call; `todo_list` items are dropped.
-- **gemini/opencode**: thin wrappers — no systemPrompt, no tools config; resume
-  depends on the ACP agent advertising `loadSession`.
+- **gemini/opencode**: ACP 1.x now provides typed streaming, session metadata,
+  usage, reasoning, tool events, permissions, and complete error streams.
+  Resume depends on the agent advertising `loadSession`; standard tool
+  filtering is not available in ACP.
+- **copilot**: `toolRefs`, image inputs, `forkFrom`, and `maxTurns` are not
+  wired. The SDK's stdio transport is used; its experimental in-process FFI
+  transport is intentionally not enabled.
 
 ## UI-layer compatibility
 
@@ -108,56 +91,40 @@ No per-runner UI work is needed: every runner emits the same AI SDK UI Data
 Stream chunk vocabulary and the SDK provider normalizes them into
 `LanguageModelV3StreamPart`s. Differences that do show up in the UI:
 
-- `reasoning` parts from claude/codex are converted by the SDK provider into
-  `reasoning-start/delta/end` V3 parts, and the example UI now renders them as a
-  collapsible "Thinking…" block (`Reasoning` element in `ChatMessage`).
-- Auto-resume works for every runner that emits a sessionId (all except when the
-  ACP agent lacks `loadSession`).
+- `reasoning` parts from claude/codex/ACP/copilot are converted by the SDK
+  provider into `reasoning-start/delta/end` V3 parts. The example UI renders
+  them as a collapsible reasoning block.
+- Gemini and OpenCode auto-resume when the ACP agent advertises `loadSession`.
+  History replayed during `session/load` is not emitted as current-turn output.
 - Tool call rendering is uniform (`dynamic-tool` parts); only tool *names*
   differ (`shell` vs `bash`, `server:tool` for MCP).
 
 ## Context compaction
 
-Every agent SDK except codex compacts the conversation automatically when the
-context window fills — we do not implement compaction ourselves.
+The underlying agent SDKs compact automatically when their context windows
+fill. Runners emit a shared compaction chunk when the SDK exposes lifecycle
+events.
 
 | Runner | auto-compaction | observable? | surfaced to UI |
 |---|---|---|---|
-| claude | ✅ built-in (`autoCompactEnabled` setting) | ✅ `system/status` (`status: "compacting"`) starts it; `system/compact_boundary` ends it with `pre_tokens`/`post_tokens`/`trigger` | ✅ |
-| copilot | ✅ built-in | ✅ `session.compaction_start` / `session.compaction_complete` (pre/post tokens, tokens+messages removed) | ✅ |
-| pi | ✅ built-in (`CompactionSettings`, `shouldCompact` in the agent loop) | ⚠️ only via the **extension** API (`session_before_compact` / `session_compact`) — not on the event stream we subscribe to | ❌ not yet |
-| codex | ❓ not exposed by the SDK | ❌ no event | ❌ |
+| claude | ✅ SDK setting | ✅ status and compact-boundary events | ✅ |
+| copilot | ✅ built-in | ✅ `session.compaction_start` / `session.compaction_complete` | ✅ |
+| pi | ✅ built-in | ⚠️ extension API only | ❌ not yet |
+| codex | ❓ not exposed by the SDK | ❌ | ❌ |
 
-Runners that can observe it emit a unified chunk:
+Observable runners emit
 `{"type":"compaction","phase":"start"|"end",success?,trigger?,preTokens?,postTokens?,error?}`.
+The SDK provider forwards this out of band through `onCompaction`; the web app
+uses a transient `data-compaction` part so the event is not persisted as
+assistant content.
 
-The AI SDK stream protocol has no part type for this and it must not become
-assistant content, so the SDK provider delivers it out-of-band through the
-`onCompaction` provider setting. `apps/web` forwards it as a **transient**
-`data-compaction` part (transient = not persisted into message history), and
-`useBunnyAgentChat` exposes it as `compaction`, which the example UI renders as
-a "Compacting conversation…" indicator.
+## Tool approval semantics
 
-**Not done yet:** pi compaction visibility (needs a pi extension registered on
-the session), and context-usage percentage. On usage: claude exposes
-`query.getContextUsage()` (returns `percentage`/`totalTokens`/`maxTokens`),
-copilot has `session.usage_info` (`currentTokens`/`tokenLimit`), pi can compute
-it from `Model.contextWindow` — but note `pi-runner.ts` currently hardcodes
-`contextWindow: 128000` for auto-registered models, which must be fixed before
-any pi percentage would be trustworthy. Codex exposes no context window at all.
+Claude and Pi share a file-based approval bridge at
+`.bunny-agent/approvals/<toolCallId>.json`.
 
-## Tool approval (human-in-the-loop) note
-
-`claude` and `pi` both gate tool execution through a file-based approval bridge
-(`.bunny-agent/approvals/<toolCallId>.json`) that the web layer answers via
-`submitAnswer`. Semantics are aligned:
-
-- `AskUserQuestion` is **always** gated (even under `yolo`).
-- Other tools are gated only when approval is **not** bypassed. Approval is
-  bypassed under `yolo` or when running as **root** (mirroring claude's switch
-  to `bypassPermissions`; sandboxes typically run as a non-root `agent` user, so
-  approval IS active there).
-- The wait is **infinite** — it blocks until the user answers or the run is
-  aborted; there is no timeout. The web frontend currently only ships an
-  approval UI for `AskUserQuestion`; a generic per-tool approval UI is still
-  needed for non-root, non-yolo runs to avoid indefinitely pending tool calls.
+- `AskUserQuestion` is always gated, including under `yolo`.
+- Other Pi tools are gated unless `yolo` is enabled or the process runs as
+  root, matching Claude's permission bypass behavior.
+- Claude and Pi wait until the user answers or the run aborts. The web app
+  still needs a generic approval UI for tools other than `AskUserQuestion`.

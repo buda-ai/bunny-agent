@@ -4,7 +4,7 @@ import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildToolDefinitionsFromRefs, type PiToolRef } from "../tool-refs.js";
 
 interface CapturedCall {
@@ -84,6 +84,7 @@ describe("buildToolDefinitionsFromRefs", () => {
   });
 
   afterEach(async () => {
+    vi.restoreAllMocks();
     await server.close();
   });
 
@@ -173,6 +174,33 @@ describe("buildToolDefinitionsFromRefs", () => {
     ).rejects.toMatchObject({
       name: "PiToolRefError",
       message: expect.stringMatching(/transport error.*abort/i),
+    });
+  });
+
+  it("includes the underlying fetch cause in transport errors", async () => {
+    const socketError = Object.assign(new Error("other side closed"), {
+      code: "UND_ERR_SOCKET",
+    });
+    vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(
+      Object.assign(new TypeError("fetch failed"), { cause: socketError }),
+    );
+
+    const [tool] = buildToolDefinitionsFromRefs([
+      { ...sampleSpec, runtime: { type: "http", url: server.url } },
+    ]);
+
+    await expect(
+      tool.execute(
+        "tc_transport",
+        {},
+        undefined,
+        undefined,
+        undefined as never,
+      ),
+    ).rejects.toMatchObject({
+      name: "PiToolRefError",
+      message:
+        'Tool "get_current_time" transport error: fetch failed (cause: UND_ERR_SOCKET: other side closed)',
     });
   });
 

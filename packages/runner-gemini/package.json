@@ -14,14 +14,16 @@
   },
   "scripts": {
     "build": "tsc",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@agentclientprotocol/sdk": "^0.13.0"
+    "@bunny-agent/runner-acp": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
-    "typescript": "^5.3.0"
+    "typescript": "^5.3.0",
+    "vitest": "^1.6.1"
   },
   "keywords": [
     "gemini",

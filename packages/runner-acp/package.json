@@ -1,9 +1,9 @@
 {
-  "name": "@bunny-agent/runner-opencode",
-  "version": "0.6.2",
+  "name": "@bunny-agent/runner-acp",
+  "version": "0.1.0",
   "private": true,
+  "description": "Shared ACP subprocess runtime for BunnyAgent runners",
   "type": "module",
-  "description": "OpenCode runner for BunnyAgent using ACP protocol",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -12,24 +12,20 @@
       "default": "./dist/index.js"
     }
   },
+  "files": ["dist"],
   "scripts": {
     "build": "tsc",
+    "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@bunny-agent/runner-acp": "workspace:*"
+    "@agentclientprotocol/sdk": "^1.2.1"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
     "typescript": "^5.3.0",
     "vitest": "^1.6.1"
   },
-  "keywords": [
-    "opencode",
-    "acp",
-    "agent",
-    "runner"
-  ],
   "license": "Apache-2.0"
 }

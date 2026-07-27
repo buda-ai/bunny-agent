@@ -1,372 +1,459 @@
 import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
+import { join } from "node:path";
+import {
   approveAll,
   CopilotClient,
-  type CopilotClientOptions,
   type CopilotSession,
-  type SessionConfig,
+  type PermissionHandler,
+  type PermissionRequest,
   type SessionEvent,
 } from "@github/copilot-sdk";
 import type { BaseRunnerOptions } from "./types.js";
 
+export type CopilotReasoningEffort = "low" | "medium" | "high" | "xhigh";
+
 export interface CopilotRunnerOptions extends BaseRunnerOptions {
+  yolo?: boolean;
   cwd?: string;
   env?: Record<string, string>;
   abortController?: AbortController;
+  reasoningEffort?: CopilotReasoningEffort;
 }
 
 export interface CopilotRunner {
   run(userInput: string): AsyncIterable<string>;
+  abort(): void;
 }
 
-function sseData(obj: Record<string, unknown>): string {
-  return `data: ${JSON.stringify(obj)}\n\n`;
-}
+class AsyncEventQueue<T> implements AsyncIterable<T> {
+  private values: T[] = [];
+  private waiters: Array<{
+    resolve: (result: IteratorResult<T>) => void;
+    reject: (error: unknown) => void;
+  }> = [];
+  private ended = false;
+  private error: unknown;
 
-function normalizeCopilotModel(model: string): string {
-  const trimmed = model.trim();
-  return trimmed.startsWith("copilot:")
-    ? trimmed.slice("copilot:".length)
-    : trimmed;
-}
-
-/**
- * A tiny promise-based queue that bridges the Copilot SDK's callback-style
- * `session.on(handler)` delivery into an async generator. Producers `push`
- * SSE chunks (or signal completion via `close`) while the consumer awaits
- * `next()` values.
- */
-class ChunkQueue {
-  private buffer: string[] = [];
-  private closed = false;
-  private waiter: (() => void) | null = null;
-
-  push(chunk: string): void {
-    this.buffer.push(chunk);
-    this.wake();
+  push(value: T): void {
+    if (this.ended) return;
+    const waiter = this.waiters.shift();
+    if (waiter) waiter.resolve({ value, done: false });
+    else this.values.push(value);
   }
 
   close(): void {
-    this.closed = true;
-    this.wake();
-  }
-
-  private wake(): void {
-    const waiter = this.waiter;
-    this.waiter = null;
-    waiter?.();
-  }
-
-  async *drain(): AsyncGenerator<string> {
-    while (true) {
-      while (this.buffer.length > 0) {
-        yield this.buffer.shift() as string;
-      }
-      if (this.closed) return;
-      await new Promise<void>((resolve) => {
-        this.waiter = resolve;
-      });
+    if (this.ended) return;
+    this.ended = true;
+    for (const waiter of this.waiters.splice(0)) {
+      waiter.resolve({ value: undefined, done: true });
     }
+  }
+
+  fail(error: unknown): void {
+    if (this.ended) return;
+    this.ended = true;
+    this.error = error;
+    for (const waiter of this.waiters.splice(0)) {
+      waiter.reject(error);
+    }
+  }
+
+  [Symbol.asyncIterator](): AsyncIterator<T> {
+    return {
+      next: async () => {
+        const value = this.values.shift();
+        if (value !== undefined) return { value, done: false };
+        if (this.error !== undefined) throw this.error;
+        if (this.ended) return { value: undefined, done: true };
+        return new Promise<IteratorResult<T>>((resolve, reject) => {
+          this.waiters.push({ resolve, reject });
+        });
+      },
+    };
   }
 }
 
-/**
- * Create a GitHub Copilot runner that outputs AI SDK UI message chunks.
- *
- * The Copilot SDK speaks JSON-RPC to the Copilot CLI runtime and delivers
- * session events via `session.on(handler)`. This runner registers a handler,
- * pumps events into a promise-based queue, and re-emits them as the same SSE
- * chunk vocabulary produced by the other BunnyAgent runners.
- */
+function sseData(value: Record<string, unknown>): string {
+  return `data: ${JSON.stringify(value)}\n\n`;
+}
+
+function stringifyError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function normalizeModel(model: string): string {
+  const trimmed = model.trim();
+  for (const prefix of ["copilot:", "github-copilot:"]) {
+    if (trimmed.startsWith(prefix)) return trimmed.slice(prefix.length);
+  }
+  return trimmed;
+}
+
+function permissionToolName(request: PermissionRequest): string {
+  switch (request.kind) {
+    case "shell":
+      return "shell";
+    case "write":
+      return "write";
+    case "read":
+      return "read";
+    case "mcp":
+    case "custom-tool":
+    case "hook":
+      return request.toolName;
+    case "url":
+      return "fetch";
+    case "memory":
+      return "memory";
+    case "extension-management":
+      return "extension-management";
+    case "extension-permission-access":
+      return "extension-permission-access";
+  }
+}
+
+function createFilePermissionHandler(cwd: string): PermissionHandler {
+  return async (request) => {
+    const rawId = request.toolCallId ?? `copilot-${Date.now()}`;
+    const approvalId = rawId.replace(/[^a-zA-Z0-9_.-]/g, "_");
+    const approvalDir = join(cwd, ".bunny-agent", "approvals");
+    const approvalFile = join(approvalDir, `${approvalId}.json`);
+    mkdirSync(approvalDir, { recursive: true });
+    if (!existsSync(approvalFile)) {
+      writeFileSync(
+        approvalFile,
+        JSON.stringify({
+          status: "pending",
+          toolName: permissionToolName(request),
+          input: request,
+          answers: {},
+        }),
+      );
+    }
+
+    const deadline = Date.now() + 60_000;
+    try {
+      while (Date.now() < deadline) {
+        try {
+          const approval = JSON.parse(readFileSync(approvalFile, "utf8")) as {
+            status?: string;
+          };
+          if (approval.status === "completed") return { kind: "approved" };
+          if (approval.status === "rejected") {
+            return { kind: "reject", feedback: "Rejected by the user." };
+          }
+        } catch {
+          // Keep polling while the UI writes or replaces the approval file.
+        }
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+      return { kind: "reject", feedback: "Approval timed out." };
+    } finally {
+      try {
+        unlinkSync(approvalFile);
+      } catch {
+        // Ignore cleanup failures.
+      }
+    }
+  };
+}
+
+interface UsageTotals {
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheWrite: number;
+  reasoning: number;
+}
+
 export function createCopilotRunner(
   options: CopilotRunnerOptions,
 ): CopilotRunner {
+  const cwd = options.cwd ?? process.cwd();
+  let activeClient: CopilotClient | null = null;
+  let activeSession: CopilotSession | null = null;
+
   return {
     async *run(userInput: string): AsyncIterable<string> {
-      const clientOptions: CopilotClientOptions = {
-        workingDirectory: options.cwd || process.cwd(),
-        env: options.env,
-      };
-      // Explicit token wins over ambient auth when provided.
-      const gitHubToken =
-        process.env.COPILOT_GITHUB_TOKEN || process.env.GITHUB_TOKEN;
-      if (gitHubToken) {
-        clientOptions.gitHubToken = gitHubToken;
-      }
-
-      const client = new CopilotClient(clientOptions);
-
-      const sessionConfig: SessionConfig = {
-        model: normalizeCopilotModel(options.model),
-        workingDirectory: options.cwd || process.cwd(),
-        // Stream assistant.message_delta / assistant.reasoning_delta events so
-        // we can forward incremental text instead of waiting for the final
-        // assistant.message.
-        streaming: true,
-        // `approveAll` auto-approves every permission request (shell, file
-        // write, MCP, ...). This is effectively "yolo" mode: tools never block
-        // on a prompt. Acceptable for headless agent runs; a host that needs
-        // gated execution should supply its own PermissionHandler.
-        onPermissionRequest: approveAll,
-      };
-      if (options.systemPrompt) {
-        // Append mode keeps the SDK's foundational guardrails and adds the
-        // caller's instructions after the SDK-managed sections.
-        sessionConfig.systemMessage = {
-          mode: "append",
-          content: options.systemPrompt,
-        };
-      }
-
-      const session: CopilotSession = options.resume
-        ? await client.resumeSession(options.resume, sessionConfig)
-        : await client.createSession(sessionConfig);
-
-      const sessionId = session.sessionId;
-
-      const queue = new ChunkQueue();
-
-      // Incremental text bookkeeping keyed by messageId.
-      const startedText = new Set<string>();
-      const deltaSeen = new Set<string>();
-
-      // Accumulated token usage across all model calls in this turn.
-      const usage = {
-        input_tokens: 0,
-        output_tokens: 0,
-        cache_read_input_tokens: 0,
-      };
-
-      let terminalEmitted = false;
-      const emitFinish = (finishReason: "stop" | "error"): void => {
-        if (terminalEmitted) return;
-        terminalEmitted = true;
-        queue.push(
-          sseData({
-            type: "finish",
-            finishReason,
-            // Usage lives under messageMetadata in snake_case so the SDK
-            // provider's normalizeBunnyAgentUsage picks it up.
-            messageMetadata: { sessionId, usage },
-          }),
-        );
-        queue.push(`data: [DONE]\n\n`);
-      };
-
-      const emitError = (message: string): void => {
-        queue.push(sseData({ type: "error", errorText: message }));
-      };
-
-      const ensureTextStart = (messageId: string): void => {
-        if (startedText.has(messageId)) return;
-        startedText.add(messageId);
-        queue.push(sseData({ type: "text-start", id: messageId }));
-      };
-
-      const handleEvent = (event: SessionEvent): void => {
-        switch (event.type) {
-          case "assistant.message_start": {
-            ensureTextStart(event.data.messageId);
-            break;
-          }
-          case "assistant.message_delta": {
-            const { messageId, deltaContent } = event.data;
-            ensureTextStart(messageId);
-            deltaSeen.add(messageId);
-            if (deltaContent) {
-              queue.push(
-                sseData({
-                  type: "text-delta",
-                  id: messageId,
-                  delta: deltaContent,
-                }),
-              );
-            }
-            break;
-          }
-          case "assistant.message": {
-            const { messageId, content } = event.data;
-            ensureTextStart(messageId);
-            // When streaming produced no deltas (e.g. streaming disabled by the
-            // host), emit the full cumulative content as a single delta.
-            if (!deltaSeen.has(messageId) && content) {
-              queue.push(
-                sseData({ type: "text-delta", id: messageId, delta: content }),
-              );
-            }
-            queue.push(sseData({ type: "text-end", id: messageId }));
-            break;
-          }
-          case "assistant.reasoning_delta": {
-            const { deltaContent } = event.data;
-            if (deltaContent) {
-              queue.push(sseData({ type: "reasoning", text: deltaContent }));
-            }
-            break;
-          }
-          case "assistant.usage": {
-            const d = event.data;
-            usage.input_tokens += d.inputTokens ?? 0;
-            usage.output_tokens += d.outputTokens ?? 0;
-            usage.cache_read_input_tokens += d.cacheReadTokens ?? 0;
-            break;
-          }
-          // Context compaction runs automatically when the context fills;
-          // surface it so the UI can show a "Compacting…" state.
-          case "session.compaction_start": {
-            const d = event.data as { conversationTokens?: number } | undefined;
-            queue.push(
-              sseData({
-                type: "compaction",
-                phase: "start",
-                ...(d?.conversationTokens != null
-                  ? { preTokens: d.conversationTokens }
-                  : {}),
-              }),
-            );
-            break;
-          }
-          case "session.compaction_complete": {
-            const d = event.data as
-              | {
-                  success?: boolean;
-                  preCompactionTokens?: number;
-                  postCompactionTokens?: number;
-                  error?: string;
-                }
-              | undefined;
-            queue.push(
-              sseData({
-                type: "compaction",
-                phase: "end",
-                success: d?.success !== false,
-                ...(d?.preCompactionTokens != null
-                  ? { preTokens: d.preCompactionTokens }
-                  : {}),
-                ...(d?.postCompactionTokens != null
-                  ? { postTokens: d.postCompactionTokens }
-                  : {}),
-                ...(d?.error ? { error: d.error } : {}),
-              }),
-            );
-            break;
-          }
-          case "tool.execution_start": {
-            const { toolCallId, toolName, arguments: args } = event.data;
-            queue.push(
-              sseData({ type: "tool-input-start", toolCallId, toolName }),
-            );
-            queue.push(
-              sseData({
-                type: "tool-input-available",
-                toolCallId,
-                toolName,
-                input: args ?? {},
-              }),
-            );
-            break;
-          }
-          case "tool.execution_complete": {
-            const { toolCallId, success, result, error } = event.data;
-            const output = success
-              ? (result?.content ?? result ?? { success })
-              : (error?.message ?? "Tool execution failed");
-            queue.push(
-              sseData({
-                type: "tool-output-available",
-                toolCallId,
-                output,
-                isError: !success,
-              }),
-            );
-            break;
-          }
-          case "session.error": {
-            emitError(event.data.message);
-            emitFinish("error");
-            queue.close();
-            break;
-          }
-          case "model.call_failure": {
-            emitError(event.data.errorMessage ?? "Copilot model call failed.");
-            emitFinish("error");
-            queue.close();
-            break;
-          }
-          case "session.idle": {
-            // session.idle is the reliable terminal signal: the whole session
-            // (including background agents / attached shells) has gone quiet.
-            emitFinish("stop");
-            queue.close();
-            break;
-          }
-          default:
-            break;
-        }
-      };
-
-      const unsubscribe = session.on(handleEvent);
-
-      // Wire abort → session.abort().
-      const signal = options.abortController?.signal;
-      const onAbort = (): void => {
-        void session.abort().catch(() => {
-          // Ignore abort failures; the queue is closed below regardless.
+      if (options.abortController?.signal.aborted) {
+        yield sseData({
+          type: "error",
+          errorText: "Copilot run aborted before start.",
         });
-      };
-      if (signal) {
-        if (signal.aborted) {
-          onAbort();
-        } else {
-          signal.addEventListener("abort", onAbort);
-        }
+        yield sseData({ type: "finish", finishReason: "error" });
+        yield "data: [DONE]\n\n";
+        return;
       }
 
-      // Emit the opening chunks before any events flow.
-      queue.push(sseData({ type: "start" }));
-      queue.push(
-        sseData({ type: "message-metadata", messageMetadata: { sessionId } }),
-      );
-
-      // Drive the turn. sendAndWait resolves once the session becomes idle,
-      // giving us a definite completion signal for the queue loop.
-      void session
-        .sendAndWait(userInput)
-        .then(() => {
-          queue.close();
-        })
-        .catch((err: unknown) => {
-          const message = err instanceof Error ? err.message : String(err);
-          emitError(message);
-          emitFinish("error");
-          queue.close();
-        });
+      const env = { ...process.env, ...options.env };
+      const githubToken =
+        env.COPILOT_GITHUB_TOKEN ?? env.GITHUB_TOKEN ?? env.GH_TOKEN;
+      const client = new CopilotClient({
+        workingDirectory: cwd,
+        env,
+        gitHubToken: githubToken,
+        useLoggedInUser: !githubToken,
+      });
+      activeClient = client;
+      let session: CopilotSession | null = null;
+      let unsubscribe: (() => void) | undefined;
+      let aborted = false;
 
       try {
-        for await (const chunk of queue.drain()) {
-          yield chunk;
-        }
+        await client.start();
+        const sessionConfig = {
+          clientName: "bunny-agent",
+          model: normalizeModel(options.model),
+          reasoningEffort: options.reasoningEffort,
+          workingDirectory: cwd,
+          enableConfigDiscovery: true,
+          availableTools: options.allowedTools,
+          systemMessage: options.systemPrompt
+            ? { mode: "append" as const, content: options.systemPrompt }
+            : undefined,
+          onPermissionRequest: options.yolo
+            ? approveAll
+            : createFilePermissionHandler(cwd),
+        };
+        session = options.resume
+          ? await client.resumeSession(options.resume, sessionConfig)
+          : await client.createSession(sessionConfig);
+        activeSession = session;
 
-        // Unexpected-end guard: the queue closed without a terminal event
-        // (e.g. the runtime went idle without emitting session.idle, or the
-        // process died mid-turn). Synthesize an explicit error so the UI does
-        // not stall silently.
-        if (!terminalEmitted) {
-          yield sseData({
-            type: "error",
-            errorText: "Copilot stream ended unexpectedly before completing.",
-          });
-          yield sseData({ type: "finish", finishReason: "error" });
-          yield `data: [DONE]\n\n`;
-        }
-      } finally {
-        unsubscribe();
-        if (signal) {
-          signal.removeEventListener("abort", onAbort);
-        }
-        await client.stop().catch(() => {
-          // Ignore cleanup errors.
+        const events = new AsyncEventQueue<SessionEvent>();
+        unsubscribe = session.on((event) => events.push(event));
+        const abortSignal = options.abortController?.signal;
+        const abortHandler = () => {
+          aborted = true;
+          void session?.abort().catch(() => undefined);
+        };
+        abortSignal?.addEventListener("abort", abortHandler, { once: true });
+        if (abortSignal?.aborted) abortHandler();
+
+        const textLengths = new Map<string, number>();
+        const openText = new Set<string>();
+        const usage: UsageTotals = {
+          input: 0,
+          output: 0,
+          cacheRead: 0,
+          cacheWrite: 0,
+          reasoning: 0,
+        };
+        let failed = false;
+        let finished = false;
+
+        yield sseData({ type: "start" });
+        yield sseData({
+          type: "message-metadata",
+          messageMetadata: { sessionId: session.sessionId },
         });
+        const turn = session
+          .sendAndWait(userInput)
+          .then(() => events.close())
+          .catch((error) => events.fail(error));
+
+        try {
+          for await (const event of events) {
+            if (event.type === "assistant.message_delta") {
+              const { messageId, deltaContent } = event.data;
+              if (!openText.has(messageId)) {
+                openText.add(messageId);
+                yield sseData({ type: "text-start", id: messageId });
+              }
+              textLengths.set(
+                messageId,
+                (textLengths.get(messageId) ?? 0) + deltaContent.length,
+              );
+              yield sseData({
+                type: "text-delta",
+                id: messageId,
+                delta: deltaContent,
+              });
+              continue;
+            }
+
+            if (event.type === "assistant.message") {
+              const { messageId, content } = event.data;
+              if (!openText.has(messageId)) {
+                openText.add(messageId);
+                yield sseData({ type: "text-start", id: messageId });
+              }
+              const emitted = textLengths.get(messageId) ?? 0;
+              const remaining = content.slice(emitted);
+              if (remaining) {
+                yield sseData({
+                  type: "text-delta",
+                  id: messageId,
+                  delta: remaining,
+                });
+              }
+              yield sseData({ type: "text-end", id: messageId });
+              openText.delete(messageId);
+              textLengths.delete(messageId);
+              continue;
+            }
+
+            if (event.type === "assistant.reasoning_delta") {
+              yield sseData({
+                type: "reasoning",
+                text: event.data.deltaContent,
+              });
+              continue;
+            }
+
+            if (event.type === "tool.execution_start") {
+              yield sseData({
+                type: "tool-input-start",
+                toolCallId: event.data.toolCallId,
+                toolName: event.data.toolName,
+              });
+              yield sseData({
+                type: "tool-input-available",
+                toolCallId: event.data.toolCallId,
+                toolName: event.data.toolName,
+                input: event.data.arguments ?? {},
+              });
+              continue;
+            }
+
+            if (event.type === "tool.execution_complete") {
+              yield sseData({
+                type: "tool-output-available",
+                toolCallId: event.data.toolCallId,
+                output: event.data.result ?? event.data.error ?? null,
+                isError: !event.data.success,
+              });
+              continue;
+            }
+
+            if (event.type === "assistant.usage") {
+              usage.input += event.data.inputTokens ?? 0;
+              usage.output += event.data.outputTokens ?? 0;
+              usage.cacheRead += event.data.cacheReadTokens ?? 0;
+              usage.cacheWrite += event.data.cacheWriteTokens ?? 0;
+              usage.reasoning += event.data.reasoningTokens ?? 0;
+              continue;
+            }
+
+            if (event.type === "session.compaction_start") {
+              yield sseData({
+                type: "compaction",
+                phase: "start",
+                ...(event.data.conversationTokens != null
+                  ? { preTokens: event.data.conversationTokens }
+                  : {}),
+              });
+              continue;
+            }
+
+            if (event.type === "session.compaction_complete") {
+              yield sseData({
+                type: "compaction",
+                phase: "end",
+                success: event.data.success,
+                ...(event.data.preCompactionTokens != null
+                  ? { preTokens: event.data.preCompactionTokens }
+                  : {}),
+                ...(event.data.postCompactionTokens != null
+                  ? { postTokens: event.data.postCompactionTokens }
+                  : {}),
+                ...(event.data.error ? { error: event.data.error } : {}),
+              });
+              continue;
+            }
+
+            if (event.type === "session.error") {
+              failed = true;
+              yield sseData({ type: "error", errorText: event.data.message });
+              continue;
+            }
+
+            if (event.type === "model.call_failure") {
+              failed = true;
+              yield sseData({
+                type: "error",
+                errorText:
+                  event.data.errorMessage ?? "Copilot model call failed.",
+              });
+              continue;
+            }
+
+            if (event.type === "session.idle") {
+              finished = true;
+              for (const id of openText) {
+                yield sseData({ type: "text-end", id });
+              }
+              yield sseData({
+                type: "finish",
+                finishReason:
+                  failed || aborted || event.data.aborted ? "error" : "stop",
+                messageMetadata: {
+                  sessionId: session.sessionId,
+                  usage: {
+                    input_tokens: usage.input,
+                    output_tokens: usage.output,
+                    cache_read_input_tokens: usage.cacheRead,
+                    cache_creation_input_tokens: usage.cacheWrite,
+                    reasoning_tokens: usage.reasoning,
+                  },
+                },
+              });
+              yield "data: [DONE]\n\n";
+              await turn;
+              return;
+            }
+          }
+
+          if (!finished) {
+            yield sseData({
+              type: "error",
+              errorText: "Copilot stream ended unexpectedly before completing.",
+            });
+            yield sseData({ type: "finish", finishReason: "error" });
+            yield "data: [DONE]\n\n";
+          }
+        } finally {
+          abortSignal?.removeEventListener("abort", abortHandler);
+        }
+      } catch (error) {
+        yield sseData({
+          type: "error",
+          errorText: aborted
+            ? "Copilot run aborted by signal."
+            : `Copilot runner failed: ${stringifyError(error)}`,
+        });
+        yield sseData({ type: "finish", finishReason: "error" });
+        yield "data: [DONE]\n\n";
+      } finally {
+        unsubscribe?.();
+        if (session) {
+          try {
+            await session.disconnect();
+          } catch {
+            // Continue with client cleanup.
+          }
+        }
+        try {
+          await client.stop();
+        } catch {
+          await client.forceStop().catch(() => undefined);
+        }
+        activeSession = null;
+        activeClient = null;
       }
+    },
+
+    abort() {
+      void activeSession?.abort().catch(() => undefined);
+      void activeClient?.forceStop().catch(() => undefined);
+      activeSession = null;
+      activeClient = null;
     },
   };
 }
