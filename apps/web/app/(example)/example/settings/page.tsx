@@ -12,7 +12,16 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import {
+  MCP_CONFIG_UPDATED_EVENT,
+  MCP_STORAGE_KEY,
+  parseStoredWebMcpServers,
+  serializeStoredWebMcpServers,
+  validateWebMcpServers,
+  type WebMcpServer,
+} from "@/lib/mcp-config";
 import { DEFAULT_RUNNER, RUNNER_OPTIONS } from "@/lib/runner";
+import { McpServerSettings } from "./McpServerSettings";
 
 /**
  * Environment variable configuration (client-side)
@@ -288,6 +297,7 @@ export const STORAGE_KEY = "bunny-agent-config";
 
 export default function SettingsPage() {
   const [config, setConfig] = useState<Record<string, string>>({});
+  const [mcpServers, setMcpServers] = useState<WebMcpServer[]>([]);
   const [saved, setSaved] = useState(false);
 
   // Load config from localStorage on mount
@@ -297,6 +307,9 @@ export default function SettingsPage() {
       if (savedConfig) {
         setConfig(JSON.parse(savedConfig));
       }
+      setMcpServers(
+        parseStoredWebMcpServers(localStorage.getItem(MCP_STORAGE_KEY)),
+      );
     } catch {
       // Ignore localStorage errors
     }
@@ -313,22 +326,33 @@ export default function SettingsPage() {
 
   const handleSave = () => {
     try {
+      validateWebMcpServers(mcpServers);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+      localStorage.setItem(
+        MCP_STORAGE_KEY,
+        serializeStoredWebMcpServers(mcpServers),
+      );
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
       // Dispatch custom event to notify other components
       window.dispatchEvent(new CustomEvent("bunny-agent-config-updated"));
-    } catch {
-      alert("Failed to save configuration");
+      window.dispatchEvent(new CustomEvent(MCP_CONFIG_UPDATED_EVENT));
+    } catch (error) {
+      alert(
+        error instanceof Error ? error.message : "Failed to save configuration",
+      );
     }
   };
 
   const handleClear = () => {
     if (confirm("Clear all configuration? This cannot be undone.")) {
       setConfig({});
+      setMcpServers([]);
       localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(MCP_STORAGE_KEY);
       // Dispatch custom event to notify other components
       window.dispatchEvent(new CustomEvent("bunny-agent-config-updated"));
+      window.dispatchEvent(new CustomEvent(MCP_CONFIG_UPDATED_EVENT));
     }
   };
 
@@ -518,6 +542,14 @@ export default function SettingsPage() {
             </div>
           ),
         )}
+
+        <McpServerSettings
+          servers={mcpServers}
+          onChange={(servers) => {
+            setMcpServers(servers);
+            setSaved(false);
+          }}
+        />
 
         {/* Spacer for floating button (avoid content hidden behind it) */}
         <div className="h-20" aria-hidden="true" />

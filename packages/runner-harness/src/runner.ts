@@ -37,6 +37,11 @@ export interface RunnerCoreOptions extends BaseRunnerOptions {
    */
   toolRefs?: PiRunnerOptions["toolRefs"];
   /**
+   * Request-scoped MCP servers. Currently only the `pi` runner consumes this;
+   * other runners ignore it.
+   */
+  mcpConfig?: PiRunnerOptions["mcpConfig"];
+  /**
    * Reasoning effort / thinking level (e.g. "low", "medium", "high").
    * Consumed by the `pi` runner (thinking level) and the `codex` runner
    * (modelReasoningEffort); other runners ignore it.
@@ -134,6 +139,7 @@ function dispatchRunner(
         forkFrom: options.forkFrom,
         skillPaths: options.skillPaths ?? discoverSkillPaths(cwd),
         toolRefs: options.toolRefs,
+        mcpConfig: options.mcpConfig,
         effort: options.effort,
         systemEnv: options.systemEnv,
       }).run(options.userInput);

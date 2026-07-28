@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
 import type {
+  InlineExtension,
   LoadExtensionsResult,
   PromptTemplate,
   ResourceDiagnostic,
@@ -57,6 +58,8 @@ export interface BunnyAgentResourceLoaderOptions {
   skillPaths?: string[];
   /** Extra system prompt to append (e.g. from --system-prompt CLI flag) */
   appendSystemPrompt?: string;
+  /** Request-scoped inline extensions to load with the session. */
+  extensionFactories?: InlineExtension[];
 }
 
 /**
@@ -82,6 +85,7 @@ export class BunnyAgentResourceLoader implements ResourceLoader {
       cwd: this.cwd,
       agentDir: this.agentDir,
       settingsManager: options.settingsManager,
+      extensionFactories: options.extensionFactories,
     });
   }
 

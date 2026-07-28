@@ -59,6 +59,58 @@ export interface ToolRef {
   runtime: ToolRuntime;
 }
 
+export type McpLifecycle = "lazy" | "eager" | "keep-alive";
+
+export interface McpServerOptions {
+  lifecycle?: McpLifecycle;
+  requestTimeoutMs?: number;
+  directTools?: boolean | string[];
+  includeTools?: string[];
+  excludeTools?: string[];
+  exposeResources?: boolean;
+  disabled?: boolean;
+}
+
+export interface McpHttpServerConfig extends McpServerOptions {
+  url: string;
+  headers?: Record<string, string>;
+  auth?: "bearer" | false;
+  bearerToken?: string;
+}
+
+export interface McpStdioServerConfig extends McpServerOptions {
+  command: string;
+  args?: string[];
+  env?: Record<string, string>;
+  cwd?: string;
+}
+
+export type McpServerConfig = McpHttpServerConfig | McpStdioServerConfig;
+
+export interface McpSettings {
+  toolPrefix?: "server" | "none" | "short" | "mcp";
+  hostConfigDiscovery?: "off" | "prompt" | "on";
+  idleTimeout?: number;
+  requestTimeoutMs?: number;
+  directTools?: boolean;
+  disableProxyTool?: boolean;
+  autoAuth?: boolean;
+  sampling?: boolean;
+  samplingAutoApprove?: boolean;
+  elicitation?: boolean;
+  outputGuard?: boolean;
+}
+
+/**
+ * Request-scoped Pi MCP configuration. Trusted SDK callers may use HTTP(S) or
+ * stdio servers inside their selected sandbox. Browser-facing APIs should
+ * validate a narrower remote-only input before constructing this shape.
+ */
+export interface McpConfig {
+  mcpServers: Record<string, McpServerConfig>;
+  settings?: McpSettings;
+}
+
 /**
  * JSON body for bunny-agent-daemon `POST /api/coding/run` (same shape as apps/daemon).
  */
@@ -101,6 +153,8 @@ export interface BunnyAgentCodingRunBody {
    * the model calls it.
    */
   toolRefs?: ToolRef[];
+  /** Request-scoped MCP servers consumed by the Pi runner. */
+  mcpConfig?: McpConfig;
   /**
    * Reasoning effort / thinking level for the model (e.g. "low", "medium", "high").
    * Passed through to the runner; pi maps it to its native ThinkingLevel enum.
@@ -315,6 +369,8 @@ export interface StreamInput {
    * that wire {@link ToolRef} into their tool registry (currently `pi`).
    */
   toolRefs?: ToolRef[];
+  /** Request-scoped MCP servers consumed by the Pi runner. */
+  mcpConfig?: McpConfig;
 }
 
 /**

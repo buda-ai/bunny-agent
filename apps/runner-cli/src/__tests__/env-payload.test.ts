@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { takeToolRefsFromEnv } from "../env-payload.js";
+import { takeMcpConfigFromEnv, takeToolRefsFromEnv } from "../env-payload.js";
 
 describe("takeToolRefsFromEnv", () => {
   beforeEach(() => {
@@ -59,5 +59,66 @@ describe("takeToolRefsFromEnv", () => {
 
     expect(takeToolRefsFromEnv(env)).toEqual({ tools: [] });
     expect(takeToolRefsFromEnv(env)).toBeNull();
+  });
+});
+
+describe("takeMcpConfigFromEnv", () => {
+  beforeEach(() => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("parses and removes a request-scoped MCP config", () => {
+    const env = {
+      BUNNY_AGENT_MCP_CONFIG_JSON: JSON.stringify({
+        config: {
+          mcpServers: {
+            remote: {
+              url: "https://mcp.example.com",
+              auth: "bearer",
+              bearerToken: "secret",
+            },
+          },
+        },
+      }),
+    } as NodeJS.ProcessEnv;
+
+    expect(takeMcpConfigFromEnv(env)?.config).toMatchObject({
+      mcpServers: {
+        remote: { bearerToken: "secret" },
+      },
+    });
+    expect(env.BUNNY_AGENT_MCP_CONFIG_JSON).toBeUndefined();
+  });
+
+  it("removes malformed payloads before returning", () => {
+    const env = {
+      BUNNY_AGENT_MCP_CONFIG_JSON: "{not-json",
+    } as NodeJS.ProcessEnv;
+
+    expect(takeMcpConfigFromEnv(env)).toBeNull();
+    expect(env.BUNNY_AGENT_MCP_CONFIG_JSON).toBeUndefined();
+  });
+
+  it("removes an empty payload before returning", () => {
+    const env = {
+      BUNNY_AGENT_MCP_CONFIG_JSON: "",
+    } as NodeJS.ProcessEnv;
+
+    expect(takeMcpConfigFromEnv(env)).toBeNull();
+    expect(env.BUNNY_AGENT_MCP_CONFIG_JSON).toBeUndefined();
+  });
+
+  it("is one-shot", () => {
+    const env = {
+      BUNNY_AGENT_MCP_CONFIG_JSON: JSON.stringify({
+        config: { mcpServers: {} },
+      }),
+    } as NodeJS.ProcessEnv;
+
+    expect(takeMcpConfigFromEnv(env)).not.toBeNull();
+    expect(takeMcpConfigFromEnv(env)).toBeNull();
   });
 });

@@ -1,0 +1,72 @@
+---
+title: Pi MCP Servers
+description: Connect request-scoped MCP servers to the Pi runner
+---
+
+## SDK Configuration
+
+Pass `mcpConfig` to `createBunnyAgent` when `runnerType` is `pi`:
+
+```ts
+const bunnyAgent = createBunnyAgent({
+  sandbox,
+  runnerType: "pi",
+  allowedTools: ["read", "bash", "mcp"],
+  mcpConfig: {
+    mcpServers: {
+      github: {
+        url: "https://mcp.example.com/rpc",
+        auth: "bearer",
+        bearerToken: process.env.MCP_TOKEN,
+        lifecycle: "lazy",
+        directTools: false,
+      },
+    },
+    settings: {
+      hostConfigDiscovery: "off",
+      outputGuard: true,
+    },
+  },
+});
+```
+
+Trusted SDK callers may configure stdio servers with `command`, `args`, `env`,
+and `cwd`. Stdio processes run inside the selected sandbox. When
+`allowedTools` is explicit, it must include `mcp`.
+
+Configuration is request-scoped and does not write `mcp.json`. Changes take
+effect on the next message, including resumed conversations. An active turn
+keeps the configuration it started with.
+
+## Example Web Input
+
+The example chat stores MCP servers under a separate versioned browser key and
+sends this public shape only when Pi is selected:
+
+```json
+{
+  "mcpServers": [
+    {
+      "id": "github",
+      "enabled": true,
+      "name": "github",
+      "url": "https://mcp.example.com/rpc",
+      "auth": "bearer",
+      "bearerToken": "secret",
+      "headers": []
+    }
+  ]
+}
+```
+
+The route converts this list into trusted `McpConfig` before sandbox creation.
+It accepts at most 10 uniquely named HTTPS servers, rejects embedded URL
+credentials, localhost and private IP literals, bounds all fields, and blocks
+hop-by-hop headers such as `Host`, `Connection`, `Content-Length`, and
+`Transfer-Encoding`. Disabled servers and their credentials are not forwarded
+to the sandbox.
+
+The web boundary supports static bearer tokens or custom headers. It does not
+accept stdio commands or OAuth configuration. Literal-host validation reduces
+accidental SSRF exposure but cannot prevent DNS rebinding; production
+deployments must enforce outbound network policy in the sandbox.
