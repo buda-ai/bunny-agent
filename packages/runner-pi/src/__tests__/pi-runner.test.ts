@@ -243,30 +243,19 @@ const mockCreateCodingToolsState = vi.hoisted(() => ({
 }));
 
 vi.mock("@earendil-works/pi-coding-agent", () => {
-  const mockAuthStorage = {
+  const mockModelRuntime = {
     setRuntimeApiKey: vi.fn(),
     removeRuntimeApiKey: vi.fn(),
-    getApiKey: vi.fn().mockResolvedValue("test-api-key"),
-  };
-  const mockModelRegistry = {
-    authStorage: mockAuthStorage,
-    find: vi.fn().mockReturnValue(undefined),
+    getAuth: vi.fn().mockResolvedValue({
+      auth: { apiKey: "test-api-key" },
+    }),
+    getModel: vi.fn().mockReturnValue(undefined),
     registerProvider: vi.fn(),
   };
   return {
-    AuthStorage: {
-      create: vi.fn().mockReturnValue(mockAuthStorage),
-      inMemory: vi.fn().mockReturnValue(mockAuthStorage),
+    ModelRuntime: {
+      create: vi.fn().mockResolvedValue(mockModelRuntime),
     },
-    ModelRegistry: Object.assign(
-      vi.fn().mockImplementation(function (this: unknown) {
-        return mockModelRegistry;
-      }),
-      {
-        create: vi.fn().mockReturnValue(mockModelRegistry),
-        inMemory: vi.fn().mockReturnValue(mockModelRegistry),
-      },
-    ),
     DefaultResourceLoader: vi.fn().mockImplementation(() => ({
       reload: vi.fn().mockResolvedValue(undefined),
       getSkills: vi.fn().mockReturnValue({ skills: [], diagnostics: [] }),

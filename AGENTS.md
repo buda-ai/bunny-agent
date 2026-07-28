@@ -50,8 +50,9 @@ Bunny Agent supports multiple agent runtimes through a pluggable runner system:
 
 - **runner-claude**: Uses `@anthropic-ai/claude-agent-sdk`
 - **runner-pi**: Uses `@mariozechner/pi-coding-agent` (multi-provider)
-- **runner-codex**: Planned (OpenAI Codex)
-- **runner-copilot**: Planned (GitHub Copilot)
+- **runner-codex**: Uses `@openai/codex-sdk`
+- **runner-gemini / runner-opencode**: Use the ACP TypeScript SDK with CLI subprocesses
+- **runner-copilot**: Uses `@github/copilot-sdk`
 
 All runners implement the same interface:
 ```typescript

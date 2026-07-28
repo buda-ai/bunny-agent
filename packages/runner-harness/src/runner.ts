@@ -10,9 +10,8 @@ import { readSessionId, writeSessionId } from "./session.js";
 import { discoverSkillPaths } from "./skills.js";
 
 /**
- * Serializable custom tool ref, structurally compatible with both pi's
- * `PiToolRef` and claude's `ClaudeToolRef` (declared here so the harness type
- * does not depend on either runner's nominal type).
+ * Serializable custom tool ref shared by runners without coupling the harness
+ * to either runner's nominal tool-ref type.
  */
 export interface RunnerToolRef {
   name: string;
@@ -46,15 +45,14 @@ export interface RunnerCoreOptions extends BaseRunnerOptions {
    */
   autoInject?: boolean;
   /**
-   * Tool refs to expose to the LLM as native runner tools. Consumed by the
-   * `pi` runner (native ToolDefinitions) and the `claude` runner (in-process
-   * MCP server); other runners ignore the field.
+   * Tool refs to expose to the LLM as native runner tools. Claude consumes
+   * them through an in-process MCP server and Pi uses native tool definitions.
    */
   toolRefs?: RunnerToolRef[];
   /**
    * Reasoning effort / thinking level (e.g. "low", "medium", "high").
-   * Consumed by the `pi` runner (thinking level) and the `codex` runner
-   * (modelReasoningEffort); other runners ignore it.
+   * Consumed by Pi (thinking level), Codex (modelReasoningEffort), and Copilot
+   * (reasoningEffort); other runners ignore it.
    */
   effort?: string;
   /**
@@ -140,7 +138,9 @@ function dispatchRunner(
         cwd,
         env: base.env,
         abortController: base.abortController,
+        systemPrompt: base.systemPrompt,
         resume: base.resume,
+        yolo: base.yolo,
       }).run(options.userInput);
     case "pi": {
       return createPiRunner({
@@ -160,17 +160,29 @@ function dispatchRunner(
         cwd,
         env: base.env,
         abortController: base.abortController,
+        systemPrompt: base.systemPrompt,
         resume: base.resume,
+        yolo: base.yolo,
       }).run(options.userInput);
-    case "copilot":
+    case "copilot": {
+      const reasoningEfforts = ["low", "medium", "high", "xhigh"];
       return createCopilotRunner({
         model: options.model,
         systemPrompt: base.systemPrompt,
+        allowedTools: base.allowedTools,
+        resume: base.resume,
+        yolo: base.yolo,
         cwd,
         env: base.env,
         abortController: base.abortController,
-        resume: base.resume,
+        ...(options.effort && reasoningEfforts.includes(options.effort)
+          ? {
+              reasoningEffort:
+                options.effort as import("@bunny-agent/runner-copilot").CopilotReasoningEffort,
+            }
+          : {}),
       }).run(options.userInput);
+    }
     default:
       throw new Error(`Unknown runner: ${runner}`);
   }

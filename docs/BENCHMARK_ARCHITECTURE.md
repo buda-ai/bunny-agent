@@ -255,7 +255,7 @@ packages/
 ## Future Enhancements
 
 - [ ] Add more native CLI runners (aider, cursor, etc.)
-- [ ] Add more bunny-agent runners (codex, copilot)
+- [ ] Add dedicated benchmark presets for the Codex and Copilot runners
 - [ ] Cross-package comparison tool
 - [ ] Performance regression tracking
 - [ ] CI/CD integration for both benchmarks

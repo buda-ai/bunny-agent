@@ -5,10 +5,9 @@ import type { Api, Model } from "@earendil-works/pi-ai";
 import { getBuiltinModel } from "@earendil-works/pi-ai/providers/all";
 import {
   type AgentSessionEvent,
-  AuthStorage,
   createAgentSession,
   createCodingTools,
-  ModelRegistry,
+  ModelRuntime,
   SessionManager,
   type ToolDefinition,
 } from "@earendil-works/pi-coding-agent";
@@ -353,64 +352,66 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
       ? options.env[apiKeyEnvKey]
       : undefined;
 
-  // Build a ModelRegistry, auto-registering unknown models using env-based config
-  const modelRegistry = ModelRegistry.inMemory(AuthStorage.create());
-  // biome-ignore lint/suspicious/noExplicitAny: getBuiltinModel accepts provider/model string unions.
-  const defaultModel = getBuiltinModel(provider as any, modelName as any);
-  let model = (defaultModel ??
-    modelRegistry.find(provider, modelName)) as Model<Api>;
-  if (model == null) {
-    // Auto-register: use <PROVIDER>_BASE_URL or fallback to OPENAI_BASE_URL
-    const baseUrlEnvKey = `${provider.toUpperCase().replace(/-/g, "_")}_BASE_URL`;
-    const baseUrl =
-      getEnvValue(options.env, baseUrlEnvKey) ??
-      getEnvValue(options.env, "OPENAI_BASE_URL");
-    if (!baseUrl) {
-      throw new Error(
-        `Pi runner: model "${modelSpec}" not found in built-in catalog. ` +
-          `Set ${baseUrlEnvKey} (or OPENAI_BASE_URL) to auto-register it.`,
-      );
-    }
-    // Pi resolves `apiKey` via resolveConfigValue: env var name → process.env, else literal.
-    modelRegistry.registerProvider(provider, {
-      baseUrl,
-      apiKey: inlineApiKey ?? apiKeyEnvKey,
-      api: "openai-completions",
-      models: [
-        {
-          id: modelName,
-          name: modelName,
-          reasoning: !!options.effort && options.effort !== "off",
-          thinkingLevelMap: { off: null, xhigh: "xhigh" } as Record<
-            string,
-            string | null
-          >,
-          input: ["text", "image"],
-          cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-          contextWindow: 128000,
-          maxTokens: 8192,
-        },
-      ],
-    });
-    const registered = modelRegistry.find(provider, modelName);
-    if (!registered) {
-      throw new Error(
-        `Pi runner: failed to resolve model "${modelSpec}" after registration.`,
-      );
-    }
-    model = registered;
-  }
-  applyModelOverrides(model, provider, options.env);
-
   // Unified image model for both generate_image and edit_image.
   const imageModelName = resolveImageModelName(provider, options.env);
 
   return {
     async *run(userInput: string): AsyncIterable<string> {
+      const modelRuntime = await ModelRuntime.create({
+        modelsPath: null,
+        allowModelNetwork: false,
+      });
       if (inlineApiKey !== undefined) {
-        modelRegistry.authStorage.setRuntimeApiKey(provider, inlineApiKey);
+        await modelRuntime.setRuntimeApiKey(provider, inlineApiKey);
       }
       try {
+        // biome-ignore lint/suspicious/noExplicitAny: getBuiltinModel accepts provider/model string unions.
+        const defaultModel = getBuiltinModel(provider as any, modelName as any);
+        let model = (defaultModel ??
+          modelRuntime.getModel(provider, modelName)) as Model<Api>;
+        if (model == null) {
+          // Auto-register: use <PROVIDER>_BASE_URL or fallback to OPENAI_BASE_URL
+          const baseUrlEnvKey = `${provider.toUpperCase().replace(/-/g, "_")}_BASE_URL`;
+          const baseUrl =
+            getEnvValue(options.env, baseUrlEnvKey) ??
+            getEnvValue(options.env, "OPENAI_BASE_URL");
+          if (!baseUrl) {
+            throw new Error(
+              `Pi runner: model "${modelSpec}" not found in built-in catalog. ` +
+                `Set ${baseUrlEnvKey} (or OPENAI_BASE_URL) to auto-register it.`,
+            );
+          }
+          // Pi resolves `apiKey` via resolveConfigValue: env var name -> process.env, else literal.
+          modelRuntime.registerProvider(provider, {
+            baseUrl,
+            apiKey: inlineApiKey ?? apiKeyEnvKey,
+            api: "openai-completions",
+            models: [
+              {
+                id: modelName,
+                name: modelName,
+                reasoning: !!options.effort && options.effort !== "off",
+                thinkingLevelMap: { off: null, xhigh: "xhigh" } as Record<
+                  string,
+                  string | null
+                >,
+                input: ["text", "image"],
+                cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+                contextWindow: 128000,
+                maxTokens: 8192,
+              },
+            ],
+          });
+          const registered = modelRuntime.getModel(provider, modelName);
+          if (!registered) {
+            throw new Error(
+              `Pi runner: failed to resolve model "${modelSpec}" after registration.`,
+            );
+          }
+          model = registered;
+        }
+        applyModelOverrides(model, provider, options.env);
+
         const forkFrom = options.forkFrom?.trim();
         const resume = options.sessionId?.trim();
         const sessionManager = await (async (): Promise<
@@ -523,8 +524,11 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
         }
 
         if (imageModelName) {
-          const apiKey =
-            (await modelRegistry.authStorage.getApiKey(provider)) ?? "";
+          const auth = await modelRuntime.getAuth(provider, {
+            apiKey: inlineApiKey,
+            env: options.env,
+          });
+          const apiKey = auth?.auth.apiKey ?? "";
           customTools.push(
             buildImageGenerateTool(cwd, imageModelName, model.baseUrl, apiKey),
             buildImageEditTool(cwd, imageModelName, model.baseUrl, apiKey),
@@ -536,13 +540,9 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
             ? buildToolDefinitionsFromRefs(options.toolRefs)
             : [];
 
-        // Human-in-the-loop approval gate (parity with runner-claude's
-        // createCanUseToolCallback + its permissionMode handling): when
-        // approval is NOT bypassed, every tool execution waits for an approval
-        // file written by the web layer; when bypassed, only AskUserQuestion is
-        // gated. Approval is bypassed under `yolo` or when running as root —
-        // mirroring claude, which switches to `bypassPermissions` under root
-        // (the sandbox CLI rejects interactive approval as root anyway).
+        // Keep Pi's tool execution semantics aligned with Claude: non-yolo,
+        // non-root runs gate tools through the file approval bridge, while
+        // AskUserQuestion is always gated.
         const isRoot =
           typeof process.getuid === "function" && process.getuid() === 0;
         const bypassApproval = Boolean(options.yolo) || isRoot;
@@ -555,13 +555,13 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           ...toolRefDefinitions,
         ];
         if (!bypassApproval) {
-          // Also override the built-in coding tools not already overridden by
-          // customTools so they go through the same approval gate.
-          const overriddenNames = new Set(regularTools.map((t) => t.name));
+          const overriddenNames = new Set(
+            regularTools.map((tool) => tool.name),
+          );
           const builtinTools = applyAllowedTools(
             createCodingTools(cwd) as unknown as ToolDefinition[],
             options.allowedTools,
-          ).filter((t) => !overriddenNames.has(t.name));
+          ).filter((tool) => !overriddenNames.has(tool.name));
           regularTools = [...regularTools, ...builtinTools];
         }
         const gatedTools = gateToolsForApproval(
@@ -574,19 +574,13 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           cwd,
           model,
           sessionManager,
-          modelRegistry,
+          modelRuntime,
           resourceLoader,
           thinkingLevel: options.effort
             ? (options.effort as ThinkingLevel)
             : undefined,
           tools: options.allowedTools,
-          customTools: [
-            ...gatedTools,
-            // AskUserQuestion is always available and always gated,
-            // regardless of yolo mode or allowedTools (mirrors claude,
-            // which always intercepts it in canUseTool).
-            buildAskUserQuestionTool(approvalGate),
-          ],
+          customTools: [...gatedTools, buildAskUserQuestionTool(approvalGate)],
         });
 
         const eventQueue: AgentSessionEvent[] = [];
@@ -719,7 +713,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
         }
       } finally {
         if (inlineApiKey !== undefined) {
-          modelRegistry.authStorage.removeRuntimeApiKey(provider);
+          await modelRuntime.removeRuntimeApiKey(provider);
         }
       }
     },

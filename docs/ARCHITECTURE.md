@@ -27,6 +27,8 @@ flowchart TB
         rp["runner-pi"]
         rg["runner-gemini"]
         rx["runner-codex"]
+        ro["runner-opencode"]
+        rcp["runner-copilot"]
     end
 
     buda --> cli
@@ -210,13 +212,16 @@ apps/
 └── manager-cli     → manager + runner-* + sandbox-*
 
 packages/
-├── runner-core     → runner-claude, runner-pi, runner-gemini, runner-codex, runner-opencode
+├── runner-core     → runner-claude, runner-pi, runner-gemini, runner-codex, runner-opencode, runner-copilot
 ├── sdk             → manager  (createBunnyAgent; daemon path uses fetch only)
 ├── manager         → (no deps, defines Runner + SandboxAdapter interfaces)
 ├── runner-claude   → @anthropic-ai/claude-agent-sdk
-├── runner-pi       → @mariozechner/pi-coding-agent
-├── runner-gemini   → gemini CLI (headless)
+├── runner-pi       → @earendil-works/pi-coding-agent
+├── runner-acp      → @agentclientprotocol/sdk
+├── runner-gemini   → runner-acp + gemini CLI
+├── runner-opencode → runner-acp + opencode CLI
 ├── runner-codex    → @openai/codex-sdk
+├── runner-copilot  → @github/copilot-sdk
 ├── sandbox-e2b     → e2b SDK
 ├── sandbox-sandock → sandock SDK
 ├── sandbox-local   → manager (LocalMachine — host exec, NO isolation)
