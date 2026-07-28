@@ -27,9 +27,15 @@
     "@earendil-works/pi-agent-core": "0.80.10",
     "@earendil-works/pi-ai": "0.80.10",
     "@earendil-works/pi-coding-agent": "0.80.10",
-    "@sinclair/typebox": "^0.34.0"
+    "@earendil-works/pi-tui": "0.80.10",
+    "@sinclair/typebox": "^0.34.0",
+    "jiti": "2.7.0",
+    "pi-mcp-adapter": "2.15.0",
+    "typebox": "1.1.38",
+    "zod": "4.3.6"
   },
   "devDependencies": {
+    "@modelcontextprotocol/sdk": "1.29.0",
     "typescript": "^5.7.3",
     "vitest": "^1.6.1"
   },

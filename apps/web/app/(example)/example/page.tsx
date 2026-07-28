@@ -44,6 +44,13 @@ import {
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
+import {
+  getWebMcpRequestFields,
+  MCP_CONFIG_UPDATED_EVENT,
+  MCP_STORAGE_KEY,
+  parseStoredWebMcpServers,
+  type WebMcpServer,
+} from "@/lib/mcp-config";
 import { AskUserQuestionUI } from "./claude-tools/AskUserQuestionUI";
 import { STORAGE_KEY } from "./settings/page";
 
@@ -182,25 +189,73 @@ function HomeContent() {
   const [selectedTemplate, setSelectedTemplate] = useState(() => {
     return searchParams.get("template") || "default";
   });
-  const [clientConfig] = useState<Record<string, string>>(() => {
-    if (typeof window === "undefined") return {};
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      return saved ? JSON.parse(saved) : {};
-    } catch {
-      return {};
-    }
+  const [clientConfig, setClientConfig] = useState<Record<string, string>>(
+    () => {
+      if (typeof window === "undefined") return {};
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        return saved ? JSON.parse(saved) : {};
+      } catch {
+        return {};
+      }
+    },
+  );
+  const [mcpServers, setMcpServers] = useState<WebMcpServer[]>(() => {
+    if (typeof window === "undefined") return [];
+    return parseStoredWebMcpServers(localStorage.getItem(MCP_STORAGE_KEY));
   });
+
+  useEffect(() => {
+    const refreshClientConfiguration = () => {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        setClientConfig(saved ? JSON.parse(saved) : {});
+        setMcpServers(
+          parseStoredWebMcpServers(localStorage.getItem(MCP_STORAGE_KEY)),
+        );
+      } catch {
+        setClientConfig({});
+        setMcpServers([]);
+      }
+    };
+
+    window.addEventListener("storage", refreshClientConfiguration);
+    window.addEventListener(
+      "bunny-agent-config-updated",
+      refreshClientConfiguration,
+    );
+    window.addEventListener(
+      MCP_CONFIG_UPDATED_EVENT,
+      refreshClientConfiguration,
+    );
+    return () => {
+      window.removeEventListener("storage", refreshClientConfiguration);
+      window.removeEventListener(
+        "bunny-agent-config-updated",
+        refreshClientConfiguration,
+      );
+      window.removeEventListener(
+        MCP_CONFIG_UPDATED_EVENT,
+        refreshClientConfiguration,
+      );
+    };
+  }, []);
 
   useEffect(() => {
     const allRequiredSet = REQUIRED_KEYS.every((key) => !!clientConfig[key]);
     setConfigReady(allRequiredSet);
   }, [clientConfig]);
 
+  const chatBody = {
+    template: selectedTemplate,
+    ...clientConfig,
+    ...getWebMcpRequestFields(clientConfig.RUNNER, mcpServers),
+  };
+
   const { messages, status, error, isLoading, hasError, handleSubmit, stop } =
     useBunnyAgentChat({
       apiEndpoint: "/api/ai",
-      body: { template: selectedTemplate, ...clientConfig },
+      body: chatBody,
     });
 
   // Handle template change and update URL
@@ -286,7 +341,7 @@ function HomeContent() {
               <ChatMessage
                 key={message.id}
                 message={message}
-                chatBody={{ template: selectedTemplate, ...clientConfig }}
+                chatBody={chatBody}
               />
             ))
           )}

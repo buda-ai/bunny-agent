@@ -5,17 +5,19 @@
  * processes (notably the pi runner's bash tool) cannot inherit it via
  * `process.env`.
  *
- * Currently only `BUNNY_AGENT_TOOL_REFS_JSON` lives here — toolRefs may
- * carry Bearer tokens / HTTP headers that must never reach bash. Plain
- * `env` / `systemEnv` go through normal `sandbox.exec({env})` because in
- * CLI mode each runner-cli invocation is single-request, and pi's default
- * `ctx.env` (= the runner's `process.env`) is the expected bash environment.
+ * Tool refs and MCP configuration may carry bearer tokens or HTTP headers
+ * that must never reach bash. Plain `env` / `systemEnv` go through normal
+ * `sandbox.exec({env})` because in CLI mode each runner-cli invocation is
+ * single-request, and pi's default `ctx.env` (= the runner's `process.env`)
+ * is the expected bash environment.
  */
 
 import type { PiRunnerOptions } from "@bunny-agent/runner-pi";
 
 type RunnerToolRefs = NonNullable<PiRunnerOptions["toolRefs"]>;
 export type RunnerToolRefsPayload = { tools: RunnerToolRefs };
+type RunnerMcpConfig = NonNullable<PiRunnerOptions["mcpConfig"]>;
+export type RunnerMcpConfigPayload = { config: RunnerMcpConfig };
 
 /**
  * Take `BUNNY_AGENT_TOOL_REFS_JSON`. Returns null when the var is absent or
@@ -41,6 +43,40 @@ export function takeToolRefsFromEnv(
     const message = err instanceof Error ? err.message : String(err);
     console.error(
       `[bunny-agent] Failed to parse BUNNY_AGENT_TOOL_REFS_JSON: ${message}`,
+    );
+    return null;
+  }
+}
+
+/**
+ * Take `BUNNY_AGENT_MCP_CONFIG_JSON`. The variable is deleted before parsing
+ * so malformed or secret-bearing payloads cannot reach runner child processes.
+ */
+export function takeMcpConfigFromEnv(
+  env: NodeJS.ProcessEnv = process.env,
+): RunnerMcpConfigPayload | null {
+  const raw = env.BUNNY_AGENT_MCP_CONFIG_JSON;
+  if (raw === undefined) return null;
+  delete env.BUNNY_AGENT_MCP_CONFIG_JSON;
+  if (raw.length === 0) return null;
+
+  try {
+    const parsed = JSON.parse(raw) as { config?: unknown };
+    if (
+      parsed.config == null ||
+      typeof parsed.config !== "object" ||
+      Array.isArray(parsed.config)
+    ) {
+      console.error(
+        "[bunny-agent] BUNNY_AGENT_MCP_CONFIG_JSON missing config object; ignoring.",
+      );
+      return null;
+    }
+    return { config: parsed.config as RunnerMcpConfig };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(
+      `[bunny-agent] Failed to parse BUNNY_AGENT_MCP_CONFIG_JSON: ${message}`,
     );
     return null;
   }

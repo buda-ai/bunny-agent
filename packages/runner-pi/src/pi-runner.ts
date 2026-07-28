@@ -4,6 +4,7 @@ import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
 import type { Api, Model } from "@earendil-works/pi-ai";
 import { getBuiltinModel } from "@earendil-works/pi-ai/providers/all";
 import {
+  type AgentSession,
   type AgentSessionEvent,
   createAgentSession,
   ModelRuntime,
@@ -14,6 +15,11 @@ import { ensureApplyPatchShim } from "./apply-patch-shim.js";
 import { buildApplyPatchTool } from "./apply-patch-tool.js";
 import { BunnyAgentResourceLoader } from "./bunny-agent-resource-loader.js";
 import { buildImageEditTool, buildImageGenerateTool } from "./image-tools.js";
+import {
+  createMcpExtension,
+  type McpConfig,
+  shouldEnableMcp,
+} from "./mcp-config.js";
 import {
   extractSessionContext,
   isSessionFileTooLarge,
@@ -89,6 +95,11 @@ export interface PiRunnerOptions {
    */
   toolRefs?: PiToolRef[];
   /**
+   * Request-scoped MCP servers. An explicit tool allowlist must include `mcp`
+   * for the adapter extension to be loaded.
+   */
+  mcpConfig?: McpConfig;
+  /**
    * Reasoning effort / thinking level for the model (e.g. "low", "medium", "high").
    * Mapped to pi-mono's ThinkingLevel and passed to createAgentSession.
    */
@@ -97,6 +108,24 @@ export interface PiRunnerOptions {
 
 export interface PiRunner {
   run(userInput: string): AsyncIterable<string>;
+}
+
+export async function disposePiSession(
+  session: Pick<
+    AgentSession,
+    "dispose" | "extensionRunner" | "hasExtensionHandlers"
+  >,
+): Promise<void> {
+  try {
+    if (session.hasExtensionHandlers("session_shutdown")) {
+      await session.extensionRunner.emit({
+        type: "session_shutdown",
+        reason: "quit",
+      });
+    }
+  } finally {
+    session.dispose();
+  }
 }
 
 function applyAllowedTools(
@@ -348,6 +377,9 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
 
   // Unified image model for both generate_image and edit_image.
   const imageModelName = resolveImageModelName(provider, options.env);
+  const mcpExtension = shouldEnableMcp(options.mcpConfig, options.allowedTools)
+    ? createMcpExtension(options.mcpConfig!)
+    : undefined;
 
   return {
     async *run(userInput: string): AsyncIterable<string> {
@@ -462,11 +494,12 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
         // Create the loader whenever either input is present: systemPrompt is
         // delivered via appendSystemPrompt, so it must not depend on skillPaths.
         const resourceLoader =
-          options.skillPaths || options.systemPrompt
+          options.skillPaths || options.systemPrompt || mcpExtension
             ? new BunnyAgentResourceLoader({
                 cwd,
                 skillPaths: options.skillPaths,
                 appendSystemPrompt: options.systemPrompt,
+                extensionFactories: mcpExtension ? [mcpExtension] : undefined,
               })
             : undefined;
 
@@ -549,6 +582,13 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
             ...toolRefDefinitions,
           ],
         });
+
+        try {
+          await session.bindExtensions({ mode: "print" });
+        } catch (error) {
+          await disposePiSession(session);
+          throw error;
+        }
 
         const eventQueue: AgentSessionEvent[] = [];
         let promptSettled = false;
@@ -676,7 +716,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
             abortSignal.removeEventListener("abort", abortHandler);
           }
           unsubscribe();
-          session.dispose();
+          await disposePiSession(session);
         }
       } finally {
         if (inlineApiKey !== undefined) {

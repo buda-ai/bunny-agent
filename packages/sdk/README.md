@@ -249,6 +249,52 @@ Built-in templates: `default`, `coder`, `analyst`, `researcher`, `seo-agent`.
 
 ---
 
+## Request-Scoped MCP Servers
+
+The Pi runner accepts MCP configuration per model request. The configuration
+travels through daemon JSON or a one-shot runner CLI payload and is never
+written to the workspace:
+
+```typescript
+const bunnyAgent = createBunnyAgent({
+  sandbox,
+  runnerType: "pi",
+  allowedTools: ["read", "bash", "mcp"],
+  mcpConfig: {
+    mcpServers: {
+      analytics: {
+        url: "https://mcp.example.com/rpc",
+        headers: {
+          "X-API-Key": process.env.ANALYTICS_MCP_KEY!,
+        },
+        auth: false,
+        lifecycle: "lazy",
+        directTools: false,
+      },
+    },
+    settings: {
+      hostConfigDiscovery: "off",
+      outputGuard: true,
+    },
+  },
+});
+```
+
+Trusted SDK callers may also configure stdio servers with `command`, `args`,
+`env`, and `cwd`; those commands execute inside the selected sandbox. An
+explicit `allowedTools` list must include `mcp`.
+
+Configuration is request-scoped. A new configuration applies to the next
+message, including a resumed conversation, while an active turn keeps the
+configuration it started with. OAuth and active-turn hot replacement are not
+provided by this API.
+
+Public web routes should not accept this trusted shape directly. Convert a
+strict HTTPS-only input into `McpConfig`, reject localhost/private targets and
+unsafe headers, and enforce network egress policy at the sandbox boundary.
+
+---
+
 ## React Hooks
 
 All hooks are available from `@bunny-agent/sdk/react`:

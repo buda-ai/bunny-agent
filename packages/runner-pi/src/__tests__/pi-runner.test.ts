@@ -7,6 +7,8 @@ type Listener = (event: unknown) => void;
 class MockSession {
   agent = { state: {}, setSystemPrompt: vi.fn() };
   sessionId = "mock-session-id";
+  extensionRunner = { emit: vi.fn().mockResolvedValue(undefined) };
+  hasExtensionHandlers = vi.fn().mockReturnValue(false);
   private listeners: Listener[] = [];
   private behavior:
     | "normal"
@@ -216,6 +218,8 @@ class MockSession {
     this.emit({ type: "agent_end", messages: [] });
   }
 
+  async bindExtensions(): Promise<void> {}
+
   dispose(): void {}
 
   private emit(event: unknown): void {
@@ -360,7 +364,7 @@ vi.mock("@earendil-works/pi-ai/providers/all", async (importOriginal) => {
   };
 });
 
-import { createPiRunner } from "../pi-runner.js";
+import { createPiRunner, disposePiSession } from "../pi-runner.js";
 import { extractToolResultText } from "../stream-converter.js";
 import { redactSecrets } from "../tool-overrides.js";
 
@@ -1211,6 +1215,51 @@ describe("createPiRunner", () => {
     expect(data.messageMetadata?.usage?.output_tokens).toBe(20);
     expect(data.messageMetadata).not.toHaveProperty("cost");
     expect(data.messageMetadata).not.toHaveProperty("imageCost");
+  });
+});
+
+describe("disposePiSession", () => {
+  it("awaits extension shutdown before disposing the session", async () => {
+    const calls: string[] = [];
+    const session = {
+      hasExtensionHandlers: () => true,
+      extensionRunner: {
+        emit: vi.fn().mockImplementation(async () => {
+          await Promise.resolve();
+          calls.push("shutdown");
+        }),
+      },
+      dispose: vi.fn().mockImplementation(() => {
+        calls.push("dispose");
+      }),
+    };
+
+    await disposePiSession(
+      session as unknown as Parameters<typeof disposePiSession>[0],
+    );
+
+    expect(session.extensionRunner.emit).toHaveBeenCalledWith({
+      type: "session_shutdown",
+      reason: "quit",
+    });
+    expect(calls).toEqual(["shutdown", "dispose"]);
+  });
+
+  it("still disposes when an extension shutdown handler fails", async () => {
+    const session = {
+      hasExtensionHandlers: () => true,
+      extensionRunner: {
+        emit: vi.fn().mockRejectedValue(new Error("shutdown failed")),
+      },
+      dispose: vi.fn(),
+    };
+
+    await expect(
+      disposePiSession(
+        session as unknown as Parameters<typeof disposePiSession>[0],
+      ),
+    ).rejects.toThrow("shutdown failed");
+    expect(session.dispose).toHaveBeenCalledOnce();
   });
 });
 

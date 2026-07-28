@@ -23,6 +23,7 @@ import {
   evictSandbox,
   getOrCreateSandbox,
 } from "@/lib/example/create-sandbox";
+import { WebMcpConfigError, webMcpServersToConfig } from "@/lib/mcp-config";
 
 import { DEFAULT_RUNNER, type RunnerType } from "@/lib/runner";
 
@@ -54,6 +55,8 @@ interface AiChatRequestBody {
   TAVILY_API_KEY?: string;
   USE_BUNNY_AGENT_DAEMON?: string | number | boolean;
   REASONING_EFFORT?: string;
+  /** Public-web MCP server list. The route converts this to trusted config. */
+  mcpServers?: unknown;
   /** Stripped after merge; only nested keys are lifted into the top level. */
   env?: Record<string, unknown>;
 }
@@ -101,6 +104,7 @@ export async function POST(request: Request) {
     /** When true, provider may pass `daemonUrl` after an in-sandbox `/healthz` probe; otherwise CLI runner. */
     USE_BUNNY_AGENT_DAEMON,
     REASONING_EFFORT,
+    mcpServers,
   } = body;
 
   const useBunnyAgentDaemon =
@@ -123,6 +127,7 @@ export async function POST(request: Request) {
     DEFAULT_RUNNER) as RunnerType;
   // Pi supports multiple providers: OpenAI, Gemini, or Anthropic (same as Claude)
   const hasPiAuth = !!OPENAI_API_KEY || !!GEMINI_API_KEY || hasClaudeAuth;
+  let mcpConfig: ReturnType<typeof webMcpServersToConfig>;
 
   // --- Validation -----------------------------------------------------------
   if (runnerType === "pi") {
@@ -131,6 +136,17 @@ export async function POST(request: Request) {
         "Pi runner requires at least one provider key: OPENAI_API_KEY, GEMINI_API_KEY, or Claude/Bedrock auth. Configure in Settings.",
         { status: 400, headers: { "Content-Type": "text/plain" } },
       );
+    }
+    try {
+      mcpConfig = webMcpServersToConfig(mcpServers ?? []);
+    } catch (error) {
+      if (error instanceof WebMcpConfigError) {
+        return new Response(error.message, {
+          status: 400,
+          headers: { "Content-Type": "text/plain" },
+        });
+      }
+      throw error;
     }
   } else if (!hasClaudeAuth) {
     return new Response(
@@ -360,7 +376,15 @@ export async function POST(request: Request) {
         ...(daemonUrl ? { daemonUrl } : {}),
         cwd: sandbox.getWorkdir?.() || "/bunny-agent",
         runnerType,
-        allowedTools: ["read", "bash", "edit", "write", "get_current_time"],
+        allowedTools: [
+          "read",
+          "bash",
+          "edit",
+          "write",
+          "get_current_time",
+          ...(mcpConfig ? ["mcp"] : []),
+        ],
+        ...(mcpConfig ? { mcpConfig } : {}),
         verbose: true,
         artifactProcessors: [artifactProcessor],
         resume,

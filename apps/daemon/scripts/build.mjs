@@ -19,6 +19,7 @@ const shared = {
   platform: "node",
   format: "esm",
   banner,
+  external: ["jiti"],
 };
 
 // Library exports

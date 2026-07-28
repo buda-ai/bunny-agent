@@ -124,6 +124,30 @@ describe("codingRunStream (Web Response)", () => {
     expect(JSON.parse(payloads[1]).type).toBe("finish");
     expect(payloads[payloads.length - 1]).toBe("[DONE]");
   });
+
+  it("forwards request-scoped MCP config to the runner harness", async () => {
+    const mcpConfig = {
+      mcpServers: {
+        remote: { url: "https://mcp.example.com" },
+      },
+    };
+    const res = codingRunStream(
+      {
+        userInput: "use mcp",
+        runner: "pi",
+        model: "openai:gpt-5",
+        mcpConfig,
+      },
+      {},
+    );
+
+    await res.text();
+
+    expect(createRunnerCalls.at(-1)).toMatchObject({
+      runner: "pi",
+      mcpConfig,
+    });
+  });
 });
 
 describe("createNextHandler", () => {

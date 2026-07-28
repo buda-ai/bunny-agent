@@ -57,9 +57,14 @@
     "vitest": "^1.6.1"
   },
   "dependencies": {
+    "@earendil-works/pi-ai": "0.80.10",
+    "@earendil-works/pi-tui": "0.80.10",
     "cloudflare": "^6.3.0",
     "isomorphic-git": "^1.37.6",
+    "jiti": "2.7.0",
+    "pi-mcp-adapter": "2.15.0",
     "ps-list": "^9.0.0",
-    "simple-git": "^3.36.0"
+    "simple-git": "^3.36.0",
+    "typebox": "1.1.38"
   }
 }
