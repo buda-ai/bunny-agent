@@ -17,6 +17,7 @@ describe("createGeminiRunner", () => {
       env: { GEMINI_API_KEY: "test" },
       abortController,
       systemPrompt: "Follow instructions",
+      resume: "gemini-session",
       yolo: true,
     });
 
@@ -28,6 +29,7 @@ describe("createGeminiRunner", () => {
       env: { GEMINI_API_KEY: "test" },
       abortController,
       systemPrompt: "Follow instructions",
+      resume: "gemini-session",
       yolo: true,
     });
   });

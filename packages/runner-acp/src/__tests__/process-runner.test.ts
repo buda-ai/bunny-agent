@@ -5,9 +5,13 @@ const mocks = vi.hoisted(() => ({
   spawn: vi.fn(),
   client: vi.fn(),
   ndJsonStream: vi.fn().mockReturnValue({}),
-  initialize: vi.fn().mockResolvedValue({ protocolVersion: 1 }),
+  request: vi.fn(),
   prompt: vi.fn().mockResolvedValue({ stopReason: "end_turn" }),
   updates: [] as unknown[],
+  loadSession: false,
+  notificationHandler: undefined as
+    | ((value: { params: Record<string, unknown> }) => void)
+    | undefined,
 }));
 
 vi.mock("node:child_process", async (importOriginal) => ({
@@ -18,7 +22,10 @@ vi.mock("node:child_process", async (importOriginal) => ({
 vi.mock("@agentclientprotocol/sdk", () => ({
   PROTOCOL_VERSION: 1,
   methods: {
-    agent: { initialize: "initialize" },
+    agent: {
+      initialize: "initialize",
+      session: { load: "session/load", prompt: "session/prompt" },
+    },
     client: { session: { requestPermission: "session/request_permission" } },
   },
   ndJsonStream: mocks.ndJsonStream,
@@ -47,6 +54,8 @@ describe("createAcpProcessRunner", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.updates = [];
+    mocks.loadSession = false;
+    mocks.notificationHandler = undefined;
     mockChildProcess();
 
     const session = {
@@ -55,7 +64,7 @@ describe("createAcpProcessRunner", () => {
       nextUpdate: vi.fn().mockImplementation(async () => mocks.updates.shift()),
     };
     const context = {
-      request: mocks.initialize,
+      request: mocks.request,
       buildSession: vi.fn().mockReturnValue({
         withSession: async (operation: (value: typeof session) => unknown) =>
           operation(session),
@@ -63,6 +72,7 @@ describe("createAcpProcessRunner", () => {
     };
     const app = {
       onRequest: vi.fn().mockReturnThis(),
+      onNotification: vi.fn(),
       connectWith: vi
         .fn()
         .mockImplementation(
@@ -72,7 +82,53 @@ describe("createAcpProcessRunner", () => {
           ) => operation(context),
         ),
     };
+    app.onNotification.mockImplementation(
+      (
+        _method: string,
+        handler: (value: { params: Record<string, unknown> }) => void,
+      ) => {
+        mocks.notificationHandler = handler;
+        return app;
+      },
+    );
     mocks.client.mockReturnValue(app);
+    mocks.request.mockImplementation(
+      async (method: string, params: Record<string, unknown>) => {
+        if (method === "initialize") {
+          return {
+            protocolVersion: 1,
+            agentCapabilities: { loadSession: mocks.loadSession },
+          };
+        }
+        if (method === "session/load") {
+          mocks.notificationHandler?.({
+            params: {
+              sessionId: params.sessionId,
+              update: {
+                sessionUpdate: "agent_message_chunk",
+                messageId: "history",
+                content: { type: "text", text: "old history" },
+              },
+            },
+          });
+          return {};
+        }
+        if (method === "session/prompt") {
+          mocks.notificationHandler?.({
+            params: {
+              sessionId: params.sessionId,
+              update: {
+                sessionUpdate: "agent_message_chunk",
+                messageId: "resumed-message",
+                content: { type: "text", text: "new response" },
+              },
+            },
+          });
+          return { stopReason: "end_turn" };
+        }
+        throw new Error(`Unexpected ACP method: ${method}`);
+      },
+    );
   });
 
   it("streams ACP text, reasoning, tools, usage, and session metadata", async () => {
@@ -142,7 +198,7 @@ describe("createAcpProcessRunner", () => {
       ["acp"],
       expect.objectContaining({ cwd: "/tmp/project" }),
     );
-    expect(mocks.initialize).toHaveBeenCalledWith("initialize", {
+    expect(mocks.request).toHaveBeenCalledWith("initialize", {
       protocolVersion: 1,
       clientCapabilities: {},
     });
@@ -176,5 +232,32 @@ describe("createAcpProcessRunner", () => {
     expect(output).toContain("aborted before start");
     expect(output).toContain('"finishReason":"error"');
     expect(output).toContain("data: [DONE]");
+  });
+
+  it("loads a supported session and skips replayed history", async () => {
+    mocks.loadSession = true;
+    const runner = createAcpProcessRunner({
+      displayName: "Test Agent",
+      command: "test-agent",
+      cwd: "/tmp/project",
+      resume: "session-existing",
+    });
+
+    const chunks: string[] = [];
+    for await (const chunk of runner.run("Continue")) chunks.push(chunk);
+
+    expect(mocks.request).toHaveBeenCalledWith("session/load", {
+      sessionId: "session-existing",
+      cwd: "/tmp/project",
+      mcpServers: [],
+    });
+    expect(mocks.request).toHaveBeenCalledWith(
+      "session/prompt",
+      expect.objectContaining({ sessionId: "session-existing" }),
+    );
+    const output = chunks.join("");
+    expect(output).toContain('"sessionId":"session-existing"');
+    expect(output).toContain("new response");
+    expect(output).not.toContain("old history");
   });
 });

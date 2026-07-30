@@ -7,6 +7,7 @@ import {
   type AgentSession,
   type AgentSessionEvent,
   createAgentSession,
+  createCodingTools,
   ModelRuntime,
   SessionManager,
   type ToolDefinition,
@@ -29,6 +30,11 @@ import {
   extractToolResultText,
   PiAISDKStreamConverter,
 } from "./stream-converter.js";
+import {
+  type ApprovalGateOptions,
+  buildAskUserQuestionTool,
+  gateToolsForApproval,
+} from "./tool-approval.js";
 import {
   buildEnvInjectedBashTool,
   buildSecretAwareTools,
@@ -567,6 +573,36 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
             ? buildToolDefinitionsFromRefs(options.toolRefs)
             : [];
 
+        // Keep Pi's tool execution semantics aligned with Claude: non-yolo,
+        // non-root runs gate tools through the file approval bridge, while
+        // AskUserQuestion is always gated.
+        const isRoot =
+          typeof process.getuid === "function" && process.getuid() === 0;
+        const bypassApproval = Boolean(options.yolo) || isRoot;
+        const approvalGate: ApprovalGateOptions = {
+          cwd,
+          fallbackSignal: options.abortController?.signal,
+        };
+        let regularTools: ToolDefinition[] = [
+          ...applyAllowedTools(customTools, options.allowedTools),
+          ...toolRefDefinitions,
+        ];
+        if (!bypassApproval) {
+          const overriddenNames = new Set(
+            regularTools.map((tool) => tool.name),
+          );
+          const builtinTools = applyAllowedTools(
+            createCodingTools(cwd) as unknown as ToolDefinition[],
+            options.allowedTools,
+          ).filter((tool) => !overriddenNames.has(tool.name));
+          regularTools = [...regularTools, ...builtinTools];
+        }
+        const gatedTools = gateToolsForApproval(
+          regularTools,
+          bypassApproval,
+          approvalGate,
+        );
+
         const { session } = await createAgentSession({
           cwd,
           model,
@@ -577,10 +613,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
             ? (options.effort as ThinkingLevel)
             : undefined,
           tools: options.allowedTools,
-          customTools: [
-            ...applyAllowedTools(customTools, options.allowedTools),
-            ...toolRefDefinitions,
-          ],
+          customTools: [...gatedTools, buildAskUserQuestionTool(approvalGate)],
         });
 
         try {

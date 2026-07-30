@@ -9,6 +9,19 @@ import { loadSystemPrompt } from "./prompt.js";
 import { readSessionId, writeSessionId } from "./session.js";
 import { discoverSkillPaths } from "./skills.js";
 
+/**
+ * Serializable custom tool ref shared by runners without coupling the harness
+ * to either runner's nominal tool-ref type.
+ */
+export interface RunnerToolRef {
+  name: string;
+  description: string;
+  inputSchema: Record<string, unknown>;
+  runtime:
+    | { type: "http"; url: string; headers?: Record<string, string> }
+    | { type: "module"; module: string; exportName?: string };
+}
+
 export interface RunnerCoreOptions extends BaseRunnerOptions {
   runner: string;
   userInput: string;
@@ -32,10 +45,10 @@ export interface RunnerCoreOptions extends BaseRunnerOptions {
    */
   autoInject?: boolean;
   /**
-   * Tool refs to expose to the LLM as native runner tools. Currently only
-   * the `pi` runner consumes these; other runners ignore the field.
+   * Tool refs to expose to the LLM as native runner tools. Claude consumes
+   * them through an in-process MCP server and Pi uses native tool definitions.
    */
-  toolRefs?: PiRunnerOptions["toolRefs"];
+  toolRefs?: RunnerToolRef[];
   /**
    * Request-scoped MCP servers. Currently only the `pi` runner consumes this;
    * other runners ignore it.
@@ -43,8 +56,8 @@ export interface RunnerCoreOptions extends BaseRunnerOptions {
   mcpConfig?: PiRunnerOptions["mcpConfig"];
   /**
    * Reasoning effort / thinking level (e.g. "low", "medium", "high").
-   * Consumed by the `pi` runner (thinking level) and the `codex` runner
-   * (modelReasoningEffort); other runners ignore it.
+   * Consumed by Pi (thinking level), Codex (modelReasoningEffort), and Copilot
+   * (reasoningEffort); other runners ignore it.
    */
   effort?: string;
   /**
@@ -106,6 +119,8 @@ function dispatchRunner(
         ...base,
         cwd,
         forkFrom: options.forkFrom,
+        skillPaths: options.skillPaths ?? discoverSkillPaths(cwd),
+        toolRefs: options.toolRefs,
       }).run(options.userInput);
     case "codex": {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -129,6 +144,7 @@ function dispatchRunner(
         env: base.env,
         abortController: base.abortController,
         systemPrompt: base.systemPrompt,
+        resume: base.resume,
         yolo: base.yolo,
       }).run(options.userInput);
     case "pi": {
@@ -151,6 +167,7 @@ function dispatchRunner(
         env: base.env,
         abortController: base.abortController,
         systemPrompt: base.systemPrompt,
+        resume: base.resume,
         yolo: base.yolo,
       }).run(options.userInput);
     case "copilot": {
