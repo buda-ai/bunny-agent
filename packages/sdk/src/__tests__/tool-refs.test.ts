@@ -377,6 +377,129 @@ describe("Bunny provider tool refs", () => {
       forkFrom: "sess_source_abc",
     });
   });
+
+  it("forwards request-scoped MCP config into the daemon body", async () => {
+    const capturedBodies: BunnyAgentCodingRunBody[] = [];
+    const sandbox = createCodingRunSandbox(capturedBodies);
+    const mcpConfig = {
+      mcpServers: {
+        remote: {
+          url: "https://mcp.example.com",
+          auth: "bearer" as const,
+          bearerToken: "secret",
+        },
+      },
+    };
+    const bunnyAgent = createBunnyAgent({
+      sandbox,
+      daemonUrl: "http://127.0.0.1:3080",
+      runnerType: "pi",
+      mcpConfig,
+    });
+
+    const result = streamText({
+      model: bunnyAgent("openai:gpt-5"),
+      messages: [{ role: "user", content: "use mcp" }],
+    });
+
+    await result.consumeStream();
+
+    expect(capturedBodies[0]).toMatchObject({ mcpConfig });
+  });
+
+  it("forwards request-scoped MCP config through the CLI one-shot payload", async () => {
+    const capturedExecs: Array<{
+      command: string[];
+      options?: ExecOptions;
+    }> = [];
+    const sandbox = createExecSandbox(capturedExecs);
+    const bunnyAgent = createBunnyAgent({
+      sandbox,
+      runnerType: "pi",
+      mcpConfig: {
+        mcpServers: {
+          remote: {
+            url: "https://mcp.example.com",
+            auth: "bearer",
+            bearerToken: "cli-secret",
+          },
+        },
+      },
+    });
+
+    const result = streamText({
+      model: bunnyAgent("openai:gpt-5"),
+      messages: [{ role: "user", content: "use mcp" }],
+    });
+
+    await result.consumeStream();
+
+    const payload = JSON.parse(
+      capturedExecs[0].options?.env?.BUNNY_AGENT_MCP_CONFIG_JSON ?? "{}",
+    );
+    expect(payload).toMatchObject({
+      config: {
+        mcpServers: {
+          remote: { bearerToken: "cli-secret" },
+        },
+      },
+    });
+    expect(capturedExecs[0].command.join(" ")).not.toContain("cli-secret");
+  });
+
+  it("applies changed MCP config to the next fresh or resumed turn", async () => {
+    const capturedBodies: BunnyAgentCodingRunBody[] = [];
+    const sandbox = createCodingRunSandbox(capturedBodies);
+    const bunnyAgent = createBunnyAgent({
+      sandbox,
+      daemonUrl: "http://127.0.0.1:3080",
+      runnerType: "pi",
+    });
+
+    const first = streamText({
+      model: bunnyAgent("openai:gpt-5", {
+        mcpConfig: {
+          mcpServers: {
+            first: { url: "https://first.example.com" },
+          },
+        },
+      }),
+      messages: [{ role: "user", content: "fresh turn" }],
+    });
+    await first.consumeStream();
+
+    const second = streamText({
+      model: bunnyAgent("openai:gpt-5", {
+        resume: "sess_previous",
+        mcpConfig: {
+          mcpServers: {
+            second: { url: "https://second.example.com" },
+          },
+        },
+      }),
+      messages: [{ role: "user", content: "resumed turn" }],
+    });
+    await second.consumeStream();
+
+    expect(capturedBodies).toHaveLength(2);
+    expect(capturedBodies[0]).toMatchObject({
+      mcpConfig: {
+        mcpServers: {
+          first: { url: "https://first.example.com" },
+        },
+      },
+    });
+    expect(capturedBodies[0].resume).toBeUndefined();
+    expect(capturedBodies[1]).toMatchObject({
+      resume: "sess_previous",
+      mcpConfig: {
+        mcpServers: {
+          second: { url: "https://second.example.com" },
+        },
+      },
+    });
+    expect(capturedBodies[1].mcpConfig?.mcpServers).not.toHaveProperty("first");
+  });
 });
 
 function createCodingRunSandbox(
@@ -400,6 +523,32 @@ function createCodingRunSandbox(
       );
       yield new TextEncoder().encode("data: [DONE]\n\n");
     },
+  };
+
+  return {
+    attach: async () => handle,
+    getHandle: () => handle,
+    getWorkdir: () => "/workspace",
+  };
+}
+
+function createExecSandbox(
+  capturedExecs: Array<{ command: string[]; options?: ExecOptions }>,
+): SandboxAdapter {
+  const handle: SandboxHandle = {
+    getSandboxId: () => null,
+    getVolumes: () => null,
+    getWorkdir: () => "/workspace",
+    exec: async function* (command: string[], options?: ExecOptions) {
+      capturedExecs.push({ command, options });
+      yield new TextEncoder().encode(
+        'data: {"type":"finish","finishReason":{"unified":"stop","raw":"stop"},"usage":{"inputTokens":{"total":0,"noCache":0,"cacheRead":0,"cacheWrite":0},"outputTokens":{"total":0}}}\n\n',
+      );
+      yield new TextEncoder().encode("data: [DONE]\n\n");
+    },
+    upload: async () => {},
+    readFile: async () => "",
+    destroy: async () => {},
   };
 
   return {

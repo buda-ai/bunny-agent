@@ -5,6 +5,7 @@ import {
 } from "@bunny-agent/runner-harness";
 
 type RunToolRefs = RunnerCoreOptions["toolRefs"];
+type RunMcpConfig = RunnerCoreOptions["mcpConfig"];
 
 export interface RunRequest {
   runner?: string;
@@ -37,6 +38,8 @@ export interface RunRequest {
   systemEnv?: Record<string, string>;
   /** Tool refs the runner should expose to the LLM. */
   toolRefs?: RunToolRefs;
+  /** Request-scoped MCP servers consumed by the Pi runner. */
+  mcpConfig?: RunMcpConfig;
   /** Reasoning effort / thinking level (e.g. "low", "medium", "high"). */
   effort?: string;
 }
@@ -98,6 +101,7 @@ export async function bunnyAgentRun(
       systemEnv: req.systemEnv,
       abortController,
       toolRefs: req.toolRefs,
+      mcpConfig: req.mcpConfig,
       effort: req.effort,
       // API: caller owns resume/session; do not read/write cwd/.bunny-agent or auto-load CLAUDE.md.
       autoInject: false,
@@ -162,6 +166,7 @@ export function codingRunStream(
           systemEnv: req.systemEnv,
           abortController,
           toolRefs: req.toolRefs,
+          mcpConfig: req.mcpConfig,
           effort: req.effort,
           autoInject: false,
         });

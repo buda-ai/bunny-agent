@@ -19,7 +19,7 @@ config({ path: resolve(process.cwd(), "../../.env") });
 
 import { parseArgs } from "node:util";
 import { buildImage } from "./build-image.js";
-import { takeToolRefsFromEnv } from "./env-payload.js";
+import { takeMcpConfigFromEnv, takeToolRefsFromEnv } from "./env-payload.js";
 import { runAgent } from "./runner.js";
 
 // ---------------------------------------------------------------------------
@@ -315,6 +315,7 @@ async function main(): Promise<void> {
       const args = parseRunArgs();
       process.chdir(args.cwd);
       const toolRefs = takeToolRefsFromEnv();
+      const mcpConfig = takeMcpConfigFromEnv();
       await runAgent({
         runner: args.runner,
         model: args.model,
@@ -328,6 +329,7 @@ async function main(): Promise<void> {
         yolo: args.yolo,
         effort: args.effort,
         ...(toolRefs ? { toolRefs: toolRefs.tools } : {}),
+        ...(mcpConfig ? { mcpConfig: mcpConfig.config } : {}),
       });
       break;
     }

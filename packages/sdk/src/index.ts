@@ -53,6 +53,13 @@ export type {
   // Re-exports from @ai-sdk/provider
   LanguageModelV3StreamPart,
   Logger,
+  McpConfig,
+  McpHttpServerConfig,
+  McpLifecycle,
+  McpServerConfig,
+  McpServerOptions,
+  McpSettings,
+  McpStdioServerConfig,
   Message,
   Question,
   // Re-exports from @bunny-agent/manager

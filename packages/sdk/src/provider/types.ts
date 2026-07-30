@@ -1,11 +1,21 @@
 import type { LanguageModelV3StreamPart } from "@ai-sdk/provider";
 import type {
   BunnyAgentOptions,
+  McpConfig,
   SandboxAdapter,
   ToolRef,
 } from "@bunny-agent/manager";
 
-export type { ToolRuntime } from "@bunny-agent/manager";
+export type {
+  McpConfig,
+  McpHttpServerConfig,
+  McpLifecycle,
+  McpServerConfig,
+  McpServerOptions,
+  McpSettings,
+  McpStdioServerConfig,
+  ToolRuntime,
+} from "@bunny-agent/manager";
 
 /**
  * Artifact Processor result
@@ -164,6 +174,11 @@ export interface BunnyAgentProviderSettings
   yolo?: boolean;
   /** Advanced static tool refs to expose directly to the runner. */
   toolRefs?: ToolRef[];
+  /**
+   * Request-scoped MCP servers for the Pi runner. Trusted SDK callers may use
+   * HTTP(S) or stdio servers inside the selected sandbox.
+   */
+  mcpConfig?: McpConfig;
   /** Reasoning effort / thinking level (e.g. "low", "medium", "high"). */
   effort?: string;
   /**

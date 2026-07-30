@@ -8,6 +8,7 @@
     "dev": "next dev",
     "start": "next start",
     "types:check": "fumadocs-mdx && next typegen && tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
     "postinstall": "fumadocs-mdx",
     "lint": "biome check",
     "format": "biome format --write"
@@ -40,6 +41,7 @@
     "@types/react-dom": "^19.2.3",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.18",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^1.6.1"
   }
 }

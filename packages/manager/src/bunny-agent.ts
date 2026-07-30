@@ -171,21 +171,26 @@ export class BunnyAgent {
       });
     }
 
-    // Plumb tool refs to the in-sandbox runner via env. The
-    // runner-cli reads BUNNY_AGENT_TOOL_REFS_JSON on startup and unsets it
-    // before spawning any child process so tokens/headers do not leak to bash
-    // tools.
-    const toolRefsEnv: Record<string, string> = {};
+    // One-shot payloads are consumed and deleted by runner-cli before runner
+    // startup so tokens and headers cannot leak into bash child processes.
+    const runnerPayloadEnv: Record<string, string> = {};
     if (input.toolRefs && input.toolRefs.length > 0) {
-      toolRefsEnv.BUNNY_AGENT_TOOL_REFS_JSON = JSON.stringify({
+      runnerPayloadEnv.BUNNY_AGENT_TOOL_REFS_JSON = JSON.stringify({
         tools: input.toolRefs,
       });
+    }
+    if (input.mcpConfig) {
+      const payload = JSON.stringify({ config: input.mcpConfig });
+      if (Buffer.byteLength(payload, "utf8") > 262_144) {
+        throw new Error("MCP config payload exceeds the 256 KiB limit");
+      }
+      runnerPayloadEnv.BUNNY_AGENT_MCP_CONFIG_JSON = payload;
     }
 
     // Execute the command and get stdout as an async iterable
     const stdout = handle.exec(command, {
       cwd: workspacePath,
-      env: { ...this.env, ...toolRefsEnv },
+      env: { ...this.env, ...runnerPayloadEnv },
       signal,
     });
 

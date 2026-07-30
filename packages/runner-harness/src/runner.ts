@@ -4,7 +4,7 @@ import { createCodexRunner } from "@bunny-agent/runner-codex";
 import { createCopilotRunner } from "@bunny-agent/runner-copilot";
 import { createGeminiRunner } from "@bunny-agent/runner-gemini";
 import { createOpenCodeRunner } from "@bunny-agent/runner-opencode";
-import { createPiRunner } from "@bunny-agent/runner-pi";
+import { createPiRunner, type PiRunnerOptions } from "@bunny-agent/runner-pi";
 import { loadSystemPrompt } from "./prompt.js";
 import { readSessionId, writeSessionId } from "./session.js";
 import { discoverSkillPaths } from "./skills.js";
@@ -49,6 +49,11 @@ export interface RunnerCoreOptions extends BaseRunnerOptions {
    * them through an in-process MCP server and Pi uses native tool definitions.
    */
   toolRefs?: RunnerToolRef[];
+  /**
+   * Request-scoped MCP servers. Currently only the `pi` runner consumes this;
+   * other runners ignore it.
+   */
+  mcpConfig?: PiRunnerOptions["mcpConfig"];
   /**
    * Reasoning effort / thinking level (e.g. "low", "medium", "high").
    * Consumed by Pi (thinking level), Codex (modelReasoningEffort), and Copilot
@@ -150,6 +155,7 @@ function dispatchRunner(
         forkFrom: options.forkFrom,
         skillPaths: options.skillPaths ?? discoverSkillPaths(cwd),
         toolRefs: options.toolRefs,
+        mcpConfig: options.mcpConfig,
         effort: options.effort,
         systemEnv: options.systemEnv,
       }).run(options.userInput);

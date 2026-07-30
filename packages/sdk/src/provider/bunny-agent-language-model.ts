@@ -465,6 +465,9 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
         forkFrom: this.options.forkFrom,
         signal: abortSignal,
         ...(toolRefs && toolRefs.length > 0 ? { toolRefs } : {}),
+        ...(this.options.mcpConfig
+          ? { mcpConfig: this.options.mcpConfig }
+          : {}),
       });
       return this.buildStreamResult(bytesStream, messages);
     } catch (error) {
@@ -544,6 +547,7 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
       skillPaths: runner.skillPaths ?? this.options.skillPaths,
       yolo: this.options.yolo,
       ...(toolRefs && toolRefs.length > 0 ? { toolRefs } : {}),
+      ...(this.options.mcpConfig ? { mcpConfig: this.options.mcpConfig } : {}),
       ...(this.options.effort ? { effort: this.options.effort } : {}),
     };
   }

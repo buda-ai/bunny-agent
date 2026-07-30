@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { BunnyAgent } from "../bunny-agent.js";
-import type { SandboxAdapter, SandboxHandle } from "../types.js";
+import type {
+  SandboxAdapter,
+  SandboxHandle,
+  TranscriptEntry,
+} from "../types.js";
 
 /**
  * Create an async iterable from data
@@ -162,6 +166,79 @@ describe("BunnyAgent", () => {
 
       const call = vi.mocked(sandbox.handle.exec).mock.calls[0];
       expect(call?.[0]).not.toContain("--fork-from");
+    });
+
+    it("passes MCP config through a one-shot env payload", async () => {
+      const sandbox = createMockSandbox();
+      const transcriptEntries: TranscriptEntry[] = [];
+      const transcriptWriter = {
+        write: vi.fn(async (entry: TranscriptEntry) => {
+          transcriptEntries.push(entry);
+        }),
+      };
+      const agent = new BunnyAgent({
+        sandbox,
+        runner: {
+          model: "openai:gpt-5",
+          runnerType: "pi",
+        },
+      });
+
+      const stream = await agent.stream({
+        messages: [{ role: "user", content: "Use the MCP server" }],
+        transcriptWriter,
+        mcpConfig: {
+          mcpServers: {
+            remote: {
+              url: "https://mcp.example.com",
+              auth: "bearer",
+              bearerToken: "mcp-secret",
+            },
+          },
+        },
+      });
+      await new Response(stream).arrayBuffer();
+
+      const [command, execOptions] = vi.mocked(sandbox.handle.exec).mock
+        .calls[0];
+      const payload = JSON.parse(
+        execOptions?.env?.BUNNY_AGENT_MCP_CONFIG_JSON ?? "{}",
+      );
+      expect(payload).toMatchObject({
+        config: {
+          mcpServers: {
+            remote: { bearerToken: "mcp-secret" },
+          },
+        },
+      });
+      expect(command.join(" ")).not.toContain("mcp-secret");
+      expect(JSON.stringify(transcriptEntries)).not.toContain("mcp-secret");
+    });
+
+    it("rejects MCP payloads above the environment size limit", async () => {
+      const sandbox = createMockSandbox();
+      const agent = new BunnyAgent({
+        sandbox,
+        runner: {
+          model: "openai:gpt-5",
+          runnerType: "pi",
+        },
+      });
+
+      await expect(
+        agent.stream({
+          messages: [{ role: "user", content: "Use the MCP server" }],
+          mcpConfig: {
+            mcpServers: {
+              remote: {
+                url: "https://mcp.example.com",
+                headers: { "X-Large": "x".repeat(262_144) },
+              },
+            },
+          },
+        }),
+      ).rejects.toThrow("256 KiB");
+      expect(sandbox.handle.exec).not.toHaveBeenCalled();
     });
 
     it("should pass through stdout without modification", async () => {

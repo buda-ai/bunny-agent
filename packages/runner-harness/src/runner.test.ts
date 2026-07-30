@@ -7,6 +7,13 @@ const createCopilotRunner = vi.hoisted(() =>
     }),
   }),
 );
+const createPiRunner = vi.hoisted(() =>
+  vi.fn().mockReturnValue({
+    run: vi.fn().mockImplementation(async function* () {
+      yield "data: [DONE]\n\n";
+    }),
+  }),
+);
 
 vi.mock("@bunny-agent/runner-claude", () => ({ createClaudeRunner: vi.fn() }));
 vi.mock("@bunny-agent/runner-codex", () => ({ createCodexRunner: vi.fn() }));
@@ -15,7 +22,7 @@ vi.mock("@bunny-agent/runner-gemini", () => ({ createGeminiRunner: vi.fn() }));
 vi.mock("@bunny-agent/runner-opencode", () => ({
   createOpenCodeRunner: vi.fn(),
 }));
-vi.mock("@bunny-agent/runner-pi", () => ({ createPiRunner: vi.fn() }));
+vi.mock("@bunny-agent/runner-pi", () => ({ createPiRunner }));
 
 import { createRunner } from "./runner.js";
 
@@ -52,5 +59,32 @@ describe("createRunner", () => {
       abortController,
     });
     expect(chunks).toEqual(["data: [DONE]\n\n"]);
+  });
+
+  it("passes request-scoped MCP config only into the Pi runner", async () => {
+    const mcpConfig = {
+      mcpServers: {
+        remote: { url: "https://mcp.example.com" },
+      },
+    };
+
+    for await (const _chunk of createRunner({
+      runner: "pi",
+      model: "openai:gpt-5",
+      userInput: "Use the remote tool",
+      allowedTools: ["read", "mcp"],
+      mcpConfig,
+      cwd: "/tmp/project",
+      autoInject: false,
+    })) {
+      // Consume the stream.
+    }
+
+    expect(createPiRunner).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mcpConfig,
+        allowedTools: ["read", "mcp"],
+      }),
+    );
   });
 });
