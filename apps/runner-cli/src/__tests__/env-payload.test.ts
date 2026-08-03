@@ -1,5 +1,31 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { takeMcpConfigFromEnv, takeToolRefsFromEnv } from "../env-payload.js";
+import {
+  takeAgentInputFromEnv,
+  takeMcpConfigFromEnv,
+  takeToolRefsFromEnv,
+} from "../env-payload.js";
+
+describe("takeAgentInputFromEnv", () => {
+  it("validates and deletes the one-shot structured payload", () => {
+    const env = {
+      BUNNY_AGENT_INPUT_JSON: JSON.stringify({
+        version: 1,
+        input: [{ type: "text", text: "hello" }],
+        capabilities: [],
+        execution: {},
+      }),
+    };
+
+    expect(takeAgentInputFromEnv(env)).toMatchObject({ version: 1 });
+    expect(env.BUNNY_AGENT_INPUT_JSON).toBeUndefined();
+  });
+
+  it("deletes malformed payloads before throwing", () => {
+    const env = { BUNNY_AGENT_INPUT_JSON: "not-json" };
+    expect(() => takeAgentInputFromEnv(env)).toThrow();
+    expect(env.BUNNY_AGENT_INPUT_JSON).toBeUndefined();
+  });
+});
 
 describe("takeToolRefsFromEnv", () => {
   beforeEach(() => {

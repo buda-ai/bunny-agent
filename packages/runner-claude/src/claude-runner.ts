@@ -22,6 +22,10 @@ import type {
   SDKUserMessage,
 } from "@anthropic-ai/claude-agent-sdk";
 import {
+  type AgentTurnInputV1,
+  compileAgentTurnInput,
+} from "@bunny-agent/manager";
+import {
   convertUsageToAISDK,
   formatDataStream,
   generateId,
@@ -78,31 +82,13 @@ export interface ClaudeRunnerOptions extends BaseRunnerOptions {
 /**
  * Build a regular user message (not a tool result)
  */
-export function buildUserMessage(userInput: string): SDKUserMessage {
-  // If userInput is a serialized JSON array (from BunnyAgent manager for multi-part messages)
-  // Claude Agent SDK allows content to be string or array of blocks.
-  // Let's decode it safely.
-  let parsedContent: string | Array<Record<string, unknown>> = userInput;
-  try {
-    if (userInput.startsWith("[") && userInput.endsWith("]")) {
-      const parsed = JSON.parse(userInput);
-      if (Array.isArray(parsed)) {
-        // Claude SDK UserMessage allows arrays of ContentBlock
-        // Convert to Claude's format if it contains images
-        parsedContent = parsed.map((p) => {
-          if (p.type === "text") return { type: "text", text: p.text };
-          if (p.type === "image")
-            return {
-              type: "image",
-              source: { type: "base64", media_type: p.mimeType, data: p.data },
-            };
-          return { type: "text", text: JSON.stringify(p) };
-        });
-      }
-    }
-  } catch (_e) {
-    // Fallback to string
-  }
+export function buildUserMessage(
+  userInput: string | AgentTurnInputV1,
+): SDKUserMessage {
+  const parsedContent =
+    typeof userInput === "string"
+      ? userInput
+      : buildStructuredClaudeContent(userInput);
 
   return {
     type: "user",
@@ -113,11 +99,33 @@ export function buildUserMessage(userInput: string): SDKUserMessage {
   } as SDKUserMessage;
 }
 
+function buildStructuredClaudeContent(
+  input: AgentTurnInputV1,
+): Array<Record<string, unknown>> {
+  const compiled = compileAgentTurnInput(input);
+  const content: Array<Record<string, unknown>> = [];
+  for (const image of compiled.images) {
+    content.push({ type: "text", text: image.label });
+    content.push({
+      type: "image",
+      source: {
+        type: "base64",
+        media_type: image.mediaType,
+        data: image.data,
+      },
+    });
+  }
+  if (compiled.text.length > 0) {
+    content.push({ type: "text", text: compiled.text });
+  }
+  return content;
+}
+
 /**
  * Build an AsyncIterable<SDKUserMessage> from options
  */
 export async function* buildSDKUserMessageIterable(
-  userInput: string,
+  userInput: string | AgentTurnInputV1,
 ): AsyncIterable<SDKUserMessage> {
   yield buildUserMessage(userInput);
 }
@@ -132,7 +140,7 @@ export interface ClaudeRunner {
    * @param signal - Optional AbortSignal for cancelling the operation
    * @returns An async iterable of AI SDK UI message chunks
    */
-  run(userInput: string): AsyncIterable<string>;
+  run(userInput: string | AgentTurnInputV1): AsyncIterable<string>;
 }
 
 /**
@@ -306,7 +314,7 @@ export function hasClaudeAuth(): boolean {
  */
 export function createClaudeRunner(options: ClaudeRunnerOptions): ClaudeRunner {
   return {
-    async *run(userInput: string): AsyncIterable<string> {
+    async *run(userInput: string | AgentTurnInputV1): AsyncIterable<string> {
       // Check for API key or Bedrock proxy config
       if (!hasClaudeAuth()) {
         console.error(
@@ -319,7 +327,9 @@ export function createClaudeRunner(options: ClaudeRunnerOptions): ClaudeRunner {
 
         yield* runMockAgent(
           options,
-          userInput,
+          typeof userInput === "string"
+            ? userInput
+            : compileAgentTurnInput(userInput).text,
           options.abortController?.signal,
         );
         return;
@@ -330,7 +340,13 @@ export function createClaudeRunner(options: ClaudeRunnerOptions): ClaudeRunner {
 
       if (sdk) {
         // Use the real Claude Agent SDK
-        yield* runWithClaudeAgentSDK(sdk, options, userInput);
+        yield* runWithClaudeAgentSDK(
+          sdk,
+          options,
+          typeof userInput === "string"
+            ? userInput
+            : buildSDKUserMessageIterable(userInput),
+        );
       } else {
         // Fallback to mock implementation
         console.error(
@@ -339,7 +355,9 @@ export function createClaudeRunner(options: ClaudeRunnerOptions): ClaudeRunner {
         );
         yield* runMockAgent(
           options,
-          userInput,
+          typeof userInput === "string"
+            ? userInput
+            : compileAgentTurnInput(userInput).text,
           options.abortController?.signal,
         );
       }

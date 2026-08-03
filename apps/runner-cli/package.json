@@ -66,6 +66,7 @@
   },
   "devDependencies": {
     "@bunny-agent/apply-patch": "workspace:*",
+    "@bunny-agent/manager": "workspace:*",
     "@bunny-agent/runner-claude": "workspace:*",
     "@bunny-agent/runner-codex": "workspace:*",
     "@bunny-agent/runner-copilot": "workspace:*",

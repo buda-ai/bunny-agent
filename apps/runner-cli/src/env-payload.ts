@@ -12,12 +12,26 @@
  * is the expected bash environment.
  */
 
+import {
+  type AgentTurnInputV1,
+  parseAgentTurnInputV1,
+} from "@bunny-agent/manager";
 import type { PiRunnerOptions } from "@bunny-agent/runner-pi";
 
 type RunnerToolRefs = NonNullable<PiRunnerOptions["toolRefs"]>;
 export type RunnerToolRefsPayload = { tools: RunnerToolRefs };
 type RunnerMcpConfig = NonNullable<PiRunnerOptions["mcpConfig"]>;
 export type RunnerMcpConfigPayload = { config: RunnerMcpConfig };
+
+export function takeAgentInputFromEnv(
+  env: NodeJS.ProcessEnv = process.env,
+): AgentTurnInputV1 | null {
+  const raw = env.BUNNY_AGENT_INPUT_JSON;
+  if (raw === undefined) return null;
+  delete env.BUNNY_AGENT_INPUT_JSON;
+  if (raw.length === 0) return null;
+  return parseAgentTurnInputV1(JSON.parse(raw));
+}
 
 /**
  * Take `BUNNY_AGENT_TOOL_REFS_JSON`. Returns null when the var is absent or

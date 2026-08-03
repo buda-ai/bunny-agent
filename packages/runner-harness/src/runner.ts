@@ -1,3 +1,9 @@
+import {
+  type AgentTurnInputV1,
+  compileAgentTurnInput,
+  createLegacyAgentTurnInput,
+  parseAgentTurnInputV1,
+} from "@bunny-agent/manager";
 import type { BaseRunnerOptions } from "@bunny-agent/runner-claude";
 import { createClaudeRunner } from "@bunny-agent/runner-claude";
 import { createCodexRunner } from "@bunny-agent/runner-codex";
@@ -24,7 +30,10 @@ export interface RunnerToolRef {
 
 export interface RunnerCoreOptions extends BaseRunnerOptions {
   runner: string;
-  userInput: string;
+  /** Versioned structured input. Preferred over userInput when present. */
+  input?: AgentTurnInputV1;
+  /** Text-only compatibility input. */
+  userInput?: string;
   skillPaths?: string[];
   cwd?: string;
   env?: Record<string, string>;
@@ -99,7 +108,10 @@ export function createRunner(
     abortController,
   };
 
-  const rawStream = dispatchRunner(options.runner, base, cwd, options);
+  const input = options.input
+    ? parseAgentTurnInputV1(options.input)
+    : createLegacyAgentTurnInput(options.userInput ?? "");
+  const rawStream = dispatchRunner(options.runner, base, cwd, options, input);
   return autoInject ? captureSessionId(rawStream, cwd) : rawStream;
 }
 
@@ -111,8 +123,11 @@ function dispatchRunner(
   },
   cwd: string,
   options: RunnerCoreOptions,
+  input: AgentTurnInputV1,
 ): AsyncIterable<string> {
   const _env = base.env;
+  const compiled = compileAgentTurnInput(input);
+  const hasStructuredInput = options.input !== undefined;
   switch (runner) {
     case "claude":
       return createClaudeRunner({
@@ -121,11 +136,14 @@ function dispatchRunner(
         forkFrom: options.forkFrom,
         skillPaths: options.skillPaths ?? discoverSkillPaths(cwd),
         toolRefs: options.toolRefs,
-      }).run(options.userInput);
+      }).run(hasStructuredInput ? input : compiled.text);
     case "codex": {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { outputFormat: _of, ...codexBase } = base;
       const codexEfforts = ["minimal", "low", "medium", "high", "xhigh"];
+      if (compiled.images.length > 0) {
+        throw new Error("Runner codex does not support structured image input");
+      }
       return createCodexRunner({
         ...codexBase,
         cwd,
@@ -135,9 +153,14 @@ function dispatchRunner(
                 options.effort as import("@bunny-agent/runner-codex").CodexRunnerOptions["modelReasoningEffort"],
             }
           : {}),
-      }).run(options.userInput);
+      }).run(compiled.text);
     }
     case "gemini":
+      if (compiled.images.length > 0) {
+        throw new Error(
+          "Runner gemini does not support structured image input",
+        );
+      }
       return createGeminiRunner({
         model: options.model,
         cwd,
@@ -146,7 +169,7 @@ function dispatchRunner(
         systemPrompt: base.systemPrompt,
         resume: base.resume,
         yolo: base.yolo,
-      }).run(options.userInput);
+      }).run(compiled.text);
     case "pi": {
       return createPiRunner({
         ...base,
@@ -158,9 +181,14 @@ function dispatchRunner(
         mcpConfig: options.mcpConfig,
         effort: options.effort,
         systemEnv: options.systemEnv,
-      }).run(options.userInput);
+      }).run(hasStructuredInput ? input : compiled.text);
     }
     case "opencode":
+      if (compiled.images.length > 0) {
+        throw new Error(
+          "Runner opencode does not support structured image input",
+        );
+      }
       return createOpenCodeRunner({
         model: options.model,
         cwd,
@@ -169,9 +197,14 @@ function dispatchRunner(
         systemPrompt: base.systemPrompt,
         resume: base.resume,
         yolo: base.yolo,
-      }).run(options.userInput);
+      }).run(compiled.text);
     case "copilot": {
       const reasoningEfforts = ["low", "medium", "high", "xhigh"];
+      if (compiled.images.length > 0) {
+        throw new Error(
+          "Runner copilot does not support structured image input",
+        );
+      }
       return createCopilotRunner({
         model: options.model,
         systemPrompt: base.systemPrompt,
@@ -187,7 +220,7 @@ function dispatchRunner(
                 options.effort as import("@bunny-agent/runner-copilot").CopilotReasoningEffort,
             }
           : {}),
-      }).run(options.userInput);
+      }).run(compiled.text);
     }
     default:
       throw new Error(`Unknown runner: ${runner}`);

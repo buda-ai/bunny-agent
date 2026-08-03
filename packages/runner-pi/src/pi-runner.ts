@@ -1,7 +1,11 @@
 import { appendFileSync, existsSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
+import {
+  type AgentTurnInputV1,
+  compileAgentTurnInput,
+} from "@bunny-agent/manager";
 import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
-import type { Api, Model } from "@earendil-works/pi-ai";
+import type { Api, ImageContent, Model } from "@earendil-works/pi-ai";
 import { getBuiltinModel } from "@earendil-works/pi-ai/providers/all";
 import {
   type AgentSession,
@@ -113,7 +117,7 @@ export interface PiRunnerOptions {
 }
 
 export interface PiRunner {
-  run(userInput: string): AsyncIterable<string>;
+  run(userInput: string | AgentTurnInputV1): AsyncIterable<string>;
 }
 
 export async function disposePiSession(
@@ -388,7 +392,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
     : undefined;
 
   return {
-    async *run(userInput: string): AsyncIterable<string> {
+    async *run(userInput: string | AgentTurnInputV1): AsyncIterable<string> {
       const modelRuntime = await ModelRuntime.create({
         modelsPath: null,
         allowModelNetwork: false,
@@ -659,8 +663,18 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
         try {
           traceRawMessage(cwd, null, true, options.env);
 
-          const promptText = userInput;
-          const promptPromise = session.prompt(promptText);
+          const compiled =
+            typeof userInput === "string"
+              ? { text: userInput, images: [] }
+              : compileAgentTurnInput(userInput);
+          const images: ImageContent[] = compiled.images.map((image) => ({
+            type: "image",
+            data: image.data,
+            mimeType: image.mediaType,
+          }));
+          const promptPromise = session.prompt(compiled.text, {
+            images: images.length > 0 ? images : undefined,
+          });
           void promptPromise.then(
             () => {
               promptSettled = true;

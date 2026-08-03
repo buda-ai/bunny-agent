@@ -13,6 +13,7 @@ import type {
   SharedV3Warning,
 } from "@ai-sdk/provider";
 import {
+  type AgentTurnInputV1,
   BunnyAgent,
   type BunnyAgentCodingRunBody,
   type Message,
@@ -98,83 +99,108 @@ function mergeToolRefs(
   return merged.length > 0 ? merged : undefined;
 }
 
-function extractTextContent(content: Message["content"]): string {
-  if (typeof content === "string") return content;
-  return content
-    .filter((p): p is { type: "text"; text: string } => p.type === "text")
-    .map((p) => p.text)
-    .join("\n");
+function getCurrentTurnStart(messages: Message[]): number {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role !== "user") return i + 1;
+  }
+  return 0;
 }
 
-function getLastUserTextFromMessages(messages: Message[]): string {
-  // Collect all trailing user messages (handles batched/queued messages)
-  const trailingUserMessages: Message[] = [];
-  for (let i = messages.length - 1; i >= 0; i--) {
-    if (messages[i].role === "user") {
-      trailingUserMessages.unshift(messages[i]);
-    } else {
-      break;
-    }
+async function resolveImageData(
+  data: string,
+  declaredMediaType: string,
+): Promise<{ data: string; mediaType: string }> {
+  if (!declaredMediaType.startsWith("image/")) {
+    throw new Error(
+      `Unsupported BunnyAgent file media type: ${declaredMediaType}`,
+    );
   }
-  if (trailingUserMessages.length === 0) return "";
-  return trailingUserMessages
-    .map((msg) => extractTextContent(msg.content))
-    .join("\n\n");
+  const dataUrl = /^data:([^;,]+);base64,(.+)$/s.exec(data);
+  if (dataUrl) {
+    if (!dataUrl[1].startsWith("image/")) {
+      throw new Error(
+        `Unsupported BunnyAgent data URL media type: ${dataUrl[1]}`,
+      );
+    }
+    return { mediaType: dataUrl[1], data: dataUrl[2] };
+  }
+  if (/^https?:\/\//i.test(data)) {
+    const response = await fetch(data, { redirect: "follow" });
+    if (!response.ok) {
+      throw new Error(
+        `Unable to fetch BunnyAgent image: HTTP ${response.status}`,
+      );
+    }
+    const contentLength = Number(response.headers.get("content-length") ?? 0);
+    if (contentLength > 20 * 1024 * 1024) {
+      throw new Error("BunnyAgent image exceeds the 20 MiB limit");
+    }
+    const mediaType =
+      response.headers.get("content-type")?.split(";")[0] ?? declaredMediaType;
+    if (!mediaType.startsWith("image/")) {
+      throw new Error(`Fetched BunnyAgent asset is not an image: ${mediaType}`);
+    }
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    if (bytes.byteLength > 20 * 1024 * 1024) {
+      throw new Error("BunnyAgent image exceeds the 20 MiB limit");
+    }
+    return { mediaType, data: Buffer.from(bytes).toString("base64") };
+  }
+  return { mediaType: declaredMediaType, data };
 }
 
-/**
- * Serialize the full transcript into a single userInput string.
- *
- * Used when the runtime has no session context to hydrate from — i.e. neither
- * `resume` (existing runner session id) nor `forkFrom` (parent session to
- * snapshot-clone) is set. In that case the runner starts a brand-new session
- * whose only visible input is the `userInput` payload; if we passed only the
- * last user turn the runner would lose all prior conversation, which is what
- * happened when share-continued fallback sessions arrived at pi with just
- * the current question instead of the copied `agent_messages` history.
- *
- * Format: prior turns labeled by role, then the current user message under
- * a "Current message" header so the runner treats it as the actual prompt.
- */
-function serializeMessagesToUserInput(messages: Message[]): string {
-  // Split trailing consecutive user messages (the "current" turn) from history.
-  let currentStart = messages.length;
-  for (let i = messages.length - 1; i >= 0; i--) {
-    if (messages[i].role === "user") {
-      currentStart = i;
-    } else {
-      break;
+export async function compileMessagesToAgentInput(
+  messages: Message[],
+  includeHistory: boolean,
+): Promise<AgentTurnInputV1> {
+  const selected = includeHistory
+    ? messages
+    : messages.slice(getCurrentTurnStart(messages));
+  const text: string[] = [];
+  const assets: AgentTurnInputV1["input"] = [];
+  let imageNumber = 0;
+
+  for (const message of selected) {
+    if (includeHistory) {
+      const role = message.role[0].toUpperCase() + message.role.slice(1);
+      text.push(`${role}: `);
     }
+    const parts =
+      typeof message.content === "string"
+        ? [{ type: "text" as const, text: message.content }]
+        : message.content;
+    for (const part of parts) {
+      if (part.type === "text") {
+        text.push(part.text);
+        continue;
+      }
+      imageNumber += 1;
+      const label = `[Image #${imageNumber}]`;
+      const resolved = await resolveImageData(part.data, part.mimeType);
+      if (!text.join("").endsWith(label)) text.push(label);
+      assets.push({
+        type: "asset",
+        id: `image-${imageNumber}`,
+        label,
+        asset: resolved,
+      });
+    }
+    text.push("\n\n");
   }
 
-  const history = messages.slice(0, currentStart);
-  const current = messages.slice(currentStart);
-
-  const currentText = current
-    .map((msg) => extractTextContent(msg.content))
-    .filter((t) => t.length > 0)
-    .join("\n\n");
-
-  if (history.length === 0) return currentText;
-
-  const historyLines: string[] = [];
-  for (const msg of history) {
-    const text = extractTextContent(msg.content);
-    if (text.length === 0) continue;
-    const label =
-      msg.role === "user"
-        ? "User"
-        : msg.role === "assistant"
-          ? "Assistant"
-          : "System";
-    historyLines.push(`${label}: ${text}`);
-  }
-
-  if (historyLines.length === 0) return currentText;
-
-  const historyBlock = `Previous conversation:\n\n${historyLines.join("\n\n")}`;
-  if (currentText.length === 0) return historyBlock;
-  return `${historyBlock}\n\nCurrent message:\n\n${currentText}`;
+  return {
+    version: 1,
+    input: [...assets, { type: "text", text: text.join("").trimEnd() }],
+    capabilities: [],
+    execution: {
+      resolvedBy: "server",
+      skills: [],
+      integrations: [],
+      references: [],
+      capabilityKeys: [],
+      extensionVersions: {},
+    },
+  };
 }
 
 function createEmptyUsage(): LanguageModelV3Usage {
@@ -415,7 +441,11 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
       const sandboxEnv = sandbox.getEnv?.() ?? {};
       const runnerEnv = { ...sandboxEnv, ...this.options.env };
       const body: BunnyAgentCodingRunBody = {
-        ...this.buildCodingRunBody(messages, handle.getWorkdir(), toolRefs),
+        ...(await this.buildCodingRunBody(
+          messages,
+          handle.getWorkdir(),
+          toolRefs,
+        )),
         ...(Object.keys(runnerEnv).length > 0 ? { env: runnerEnv } : {}),
         ...(this.options.systemEnv &&
         Object.keys(this.options.systemEnv).length > 0
@@ -456,8 +486,13 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
     });
 
     try {
+      const input = await compileMessagesToAgentInput(
+        messages,
+        !(this.options.resume ?? this.options.forkFrom),
+      );
       const bytesStream = await agent.stream({
         messages,
+        input,
         workspace: {
           path: sandboxWorkdir,
         },
@@ -514,30 +549,26 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
     ];
   }
 
-  private buildCodingRunBody(
+  private async buildCodingRunBody(
     messages: Message[],
     cwdFallback: string,
     toolRefs: ToolRef[] | undefined,
-  ): BunnyAgentCodingRunBody {
+  ): Promise<BunnyAgentCodingRunBody> {
     const runner = this.options.runner;
     const cwd = this.options.cwd ?? cwdFallback;
 
-    // When the runner has session context to hydrate from (resume points at
-    // an existing runner session, or forkFrom snapshot-clones a parent), send
-    // only the last user turn — history lives in the runner's session file.
-    // Otherwise it's a fresh session with no server-side history, so serialize
-    // the full transcript into userInput so the runner sees prior turns.
     const hasRuntimeHistory = Boolean(
       this.options.resume ?? this.options.forkFrom,
     );
-    const userInput = hasRuntimeHistory
-      ? getLastUserTextFromMessages(messages)
-      : serializeMessagesToUserInput(messages);
+    const input = await compileMessagesToAgentInput(
+      messages,
+      !hasRuntimeHistory,
+    );
 
     return {
       runner: runner.runnerType ?? "claude",
       model: this.modelId,
-      userInput,
+      input,
       cwd,
       resume: this.options.resume,
       forkFrom: this.options.forkFrom,

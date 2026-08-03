@@ -10,7 +10,10 @@ type RunMcpConfig = RunnerCoreOptions["mcpConfig"];
 export interface RunRequest {
   runner?: string;
   model?: string;
-  userInput: string;
+  /** Versioned structured input. Preferred over userInput when present. */
+  input?: RunnerCoreOptions["input"];
+  /** Text-only compatibility fallback for one release. */
+  userInput?: string;
   systemPrompt?: string;
   maxTurns?: number;
   allowedTools?: string[];
@@ -43,6 +46,12 @@ export interface RunRequest {
   /** Reasoning effort / thinking level (e.g. "low", "medium", "high"). */
   effort?: string;
 }
+
+const assertRunRequestInput = (req: RunRequest): void => {
+  if (req.input === undefined && typeof req.userInput !== "string") {
+    throw new Error("Either input or userInput is required");
+  }
+};
 
 /** SSE comment keepalive interval (ms). Prevents idle-timeout disconnects
  *  from reverse proxies or sandbox shell APIs during long tool executions. */
@@ -85,9 +94,11 @@ export async function bunnyAgentRun(
   }, getHeartbeatIntervalMs());
 
   try {
+    assertRunRequestInput(req);
     const stream = createRunner({
       runner: req.runner ?? "claude",
       model: req.model ?? "claude-sonnet-4-20250514",
+      input: req.input,
       userInput: req.userInput,
       systemPrompt: req.systemPrompt,
       maxTurns: req.maxTurns,
@@ -133,6 +144,14 @@ export function codingRunStream(
   req: RunRequest,
   env: Record<string, string>,
 ): Response {
+  try {
+    assertRunRequestInput(req);
+  } catch (error) {
+    return Response.json(
+      { error: error instanceof Error ? error.message : String(error) },
+      { status: 400 },
+    );
+  }
   const abortController = new AbortController();
 
   const body = new ReadableStream({
@@ -153,6 +172,7 @@ export function codingRunStream(
         const stream = createRunner({
           runner: req.runner ?? "claude",
           model: req.model ?? "claude-sonnet-4-20250514",
+          input: req.input,
           userInput: req.userInput,
           systemPrompt: req.systemPrompt,
           maxTurns: req.maxTurns,
