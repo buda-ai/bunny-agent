@@ -27,6 +27,7 @@
   },
   "license": "Apache-2.0",
   "dependencies": {
+    "@bunny-agent/manager": "workspace:*",
     "ai": "^6.0.0"
   },
   "devDependencies": {

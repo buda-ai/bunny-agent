@@ -1,3 +1,4 @@
+import type { AgentTurnInputV1 } from "@bunny-agent/manager";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createRunner, type RunnerToolRef } from "../runner.js";
 
@@ -70,5 +71,40 @@ describe("createRunner dispatch", () => {
     expect(opts.toolRefs).toEqual(toolRefs);
     expect(opts.skillPaths).toEqual(["/tmp/skills/foo"]);
     expect(piRun).toHaveBeenCalledWith("hi");
+  });
+
+  it("passes structured image input to Claude and Pi without stringifying", () => {
+    const input: AgentTurnInputV1 = {
+      version: 1,
+      input: [
+        {
+          type: "asset",
+          id: "asset-1",
+          label: "[Image #1]",
+          asset: { mediaType: "image/png", data: "aW1hZ2U=" },
+        },
+        { type: "text", text: "Inspect [Image #1]" },
+      ],
+      capabilities: [],
+      execution: { resolvedBy: "server" },
+    };
+
+    createRunner({
+      runner: "claude",
+      model: "claude-sonnet-4-20250514",
+      input,
+      cwd: "/tmp",
+      autoInject: false,
+    });
+    createRunner({
+      runner: "pi",
+      model: "gpt-5",
+      input,
+      cwd: "/tmp",
+      autoInject: false,
+    });
+
+    expect(claudeRun).toHaveBeenCalledWith(input);
+    expect(piRun).toHaveBeenCalledWith(input);
   });
 });

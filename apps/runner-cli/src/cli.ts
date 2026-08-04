@@ -19,7 +19,11 @@ config({ path: resolve(process.cwd(), "../../.env") });
 
 import { parseArgs } from "node:util";
 import { buildImage } from "./build-image.js";
-import { takeMcpConfigFromEnv, takeToolRefsFromEnv } from "./env-payload.js";
+import {
+  takeAgentInputFromEnv,
+  takeMcpConfigFromEnv,
+  takeToolRefsFromEnv,
+} from "./env-payload.js";
 import { runAgent } from "./runner.js";
 
 // ---------------------------------------------------------------------------
@@ -314,12 +318,13 @@ async function main(): Promise<void> {
     case "run": {
       const args = parseRunArgs();
       process.chdir(args.cwd);
+      const input = takeAgentInputFromEnv();
       const toolRefs = takeToolRefsFromEnv();
       const mcpConfig = takeMcpConfigFromEnv();
       await runAgent({
         runner: args.runner,
         model: args.model,
-        userInput: args.userInput,
+        ...(input ? { input } : { userInput: args.userInput }),
         systemPrompt: args.systemPrompt,
         maxTurns: args.maxTurns,
         allowedTools: args.allowedTools,

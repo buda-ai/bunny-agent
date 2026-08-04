@@ -1,3 +1,4 @@
+import type { AgentTurnInputV1 } from "@bunny-agent/manager";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // ── Mock session that drives the event loop ──────────────────────────
@@ -9,6 +10,8 @@ class MockSession {
   sessionId = "mock-session-id";
   extensionRunner = { emit: vi.fn().mockResolvedValue(undefined) };
   hasExtensionHandlers = vi.fn().mockReturnValue(false);
+  lastPrompt: string | undefined;
+  lastPromptOptions: unknown;
   private listeners: Listener[] = [];
   private behavior:
     | "normal"
@@ -37,7 +40,9 @@ class MockSession {
     this.behavior = behavior;
   }
 
-  async prompt(_userInput: string): Promise<void> {
+  async prompt(userInput: string, options?: unknown): Promise<void> {
+    this.lastPrompt = userInput;
+    this.lastPromptOptions = options;
     if (this.behavior === "pending") {
       return new Promise(() => {
         // Keep pending forever so the abort test can fire.
@@ -472,6 +477,33 @@ describe("createPiRunner", () => {
     ).toBe(true);
     expect(chunks.some((c) => c.includes('"type":"finish"'))).toBe(true);
     expect(chunks.some((c) => c.includes("[DONE]"))).toBe(true);
+  });
+
+  it("passes labeled image data through Pi prompt options", async () => {
+    const input: AgentTurnInputV1 = {
+      version: 1,
+      input: [
+        {
+          type: "asset",
+          id: "asset-1",
+          label: "[Image #1]",
+          asset: { mediaType: "image/png", data: "aW1hZ2U=" },
+        },
+        { type: "text", text: "Before [Image #1] after" },
+      ],
+      capabilities: [],
+      execution: { resolvedBy: "server" },
+    };
+    const runner = createPiRunner({ model: "google:gemini-2.5-pro" });
+
+    for await (const _chunk of runner.run(input)) {
+      // Drain the stream so the prompt completes.
+    }
+
+    expect(createdSessions[0].lastPrompt).toBe("Before [Image #1] after");
+    expect(createdSessions[0].lastPromptOptions).toEqual({
+      images: [{ type: "image", data: "aW1hZ2U=", mimeType: "image/png" }],
+    });
   });
 
   it("emits web_search billing metadata on tool output and finish", async () => {

@@ -1,3 +1,5 @@
+import type { AgentTurnInputV1 } from "./agent-input.js";
+
 /**
  * Volume info (for backends that support persistent volumes)
  */
@@ -117,7 +119,10 @@ export interface McpConfig {
 export interface BunnyAgentCodingRunBody {
   runner?: string;
   model?: string;
-  userInput: string;
+  /** Versioned structured input. Preferred over userInput when present. */
+  input?: AgentTurnInputV1;
+  /** Text-only compatibility fallback for older clients. */
+  userInput?: string;
   systemPrompt?: string;
   maxTurns?: number;
   allowedTools?: string[];
@@ -342,6 +347,8 @@ export interface Message {
 export interface StreamInput {
   /** Messages to send to the agent */
   messages: Message[];
+  /** Versioned structured input for the current turn. */
+  input?: AgentTurnInputV1;
   /** Workspace configuration */
   workspace?: {
     /** Path to the workspace directory */

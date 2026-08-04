@@ -32,6 +32,7 @@
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "0.3.215",
     "@anthropic-ai/sdk": "0.112.3",
+    "@bunny-agent/manager": "workspace:*",
     "zod": "^4.0.0"
   },
   "devDependencies": {

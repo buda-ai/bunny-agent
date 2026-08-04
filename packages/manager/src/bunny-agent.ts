@@ -1,3 +1,4 @@
+import { compileAgentTurnInput } from "./agent-input.js";
 import type {
   BunnyAgentOptions,
   Message,
@@ -110,7 +111,9 @@ export class BunnyAgent {
       .filter((m): m is Message & { role: "user" } => m.role === "user")
       .pop();
 
-    if (lastUserMessage) {
+    if (input.input) {
+      cmd.push(compileAgentTurnInput(input.input).text || "[Structured input]");
+    } else if (lastUserMessage) {
       cmd.push(
         typeof lastUserMessage.content === "string"
           ? lastUserMessage.content
@@ -174,6 +177,15 @@ export class BunnyAgent {
     // One-shot payloads are consumed and deleted by runner-cli before runner
     // startup so tokens and headers cannot leak into bash child processes.
     const runnerPayloadEnv: Record<string, string> = {};
+    if (input.input) {
+      const payload = JSON.stringify(input.input);
+      if (Buffer.byteLength(payload, "utf8") > 20 * 1024 * 1024) {
+        throw new Error(
+          "Structured agent input payload exceeds the 20 MiB limit",
+        );
+      }
+      runnerPayloadEnv.BUNNY_AGENT_INPUT_JSON = payload;
+    }
     if (input.toolRefs && input.toolRefs.length > 0) {
       runnerPayloadEnv.BUNNY_AGENT_TOOL_REFS_JSON = JSON.stringify({
         tools: input.toolRefs,
