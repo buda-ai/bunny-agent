@@ -49,7 +49,6 @@ export type {
   BunnyAgentModelId,
   BunnyAgentProvider,
   BunnyAgentProviderSettings,
-  CompactionEvent,
   // Re-exports from @ai-sdk/provider
   LanguageModelV3StreamPart,
   Logger,

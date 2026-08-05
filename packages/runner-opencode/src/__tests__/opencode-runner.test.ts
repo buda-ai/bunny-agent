@@ -10,18 +10,13 @@ import { createOpenCodeRunner } from "../opencode-runner.js";
 
 describe("createOpenCodeRunner", () => {
   it("configures the OpenCode ACP subprocess", () => {
-    createOpenCodeRunner({
-      model: "openai/gpt-5.4",
-      resume: "opencode-session",
-      yolo: false,
-    });
+    createOpenCodeRunner({ model: "openai/gpt-5.4", yolo: false });
 
     expect(createAcpProcessRunner).toHaveBeenCalledWith(
       expect.objectContaining({
         displayName: "OpenCode",
         command: "opencode",
         args: ["acp", "--model", "openai/gpt-5.4"],
-        resume: "opencode-session",
         yolo: false,
       }),
     );
