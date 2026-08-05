@@ -8,7 +8,7 @@ const mocks = vi.hoisted(() => ({
   forceStop: vi.fn().mockResolvedValue(undefined),
   createSession: vi.fn(),
   resumeSession: vi.fn(),
-  sendAndWait: vi.fn(),
+  send: vi.fn(),
   disconnect: vi.fn().mockResolvedValue(undefined),
   abort: vi.fn().mockResolvedValue(undefined),
   handler: undefined as ((event: unknown) => void) | undefined,
@@ -41,7 +41,7 @@ describe("createCopilotRunner", () => {
         mocks.handler = handler;
         return vi.fn();
       }),
-      sendAndWait: mocks.sendAndWait,
+      send: mocks.send,
       disconnect: mocks.disconnect,
       abort: mocks.abort,
     };
@@ -54,7 +54,7 @@ describe("createCopilotRunner", () => {
       createSession: mocks.createSession,
       resumeSession: mocks.resumeSession,
     }));
-    mocks.sendAndWait.mockImplementation(async () => {
+    mocks.send.mockImplementation(async () => {
       mocks.handler?.(
         event("assistant.message_delta", {
           messageId: "message-1",
@@ -126,7 +126,7 @@ describe("createCopilotRunner", () => {
         onPermissionRequest: mocks.approveAll,
       }),
     );
-    expect(mocks.sendAndWait).toHaveBeenCalledWith("Implement it");
+    expect(mocks.send).toHaveBeenCalledWith("Implement it");
     const output = chunks.join("");
     expect(output).toContain('"sessionId":"copilot-session-1"');
     expect(output).toContain('"delta":"Hello "');
@@ -139,43 +139,6 @@ describe("createCopilotRunner", () => {
     expect(output).toContain("data: [DONE]");
     expect(mocks.disconnect).toHaveBeenCalled();
     expect(mocks.stop).toHaveBeenCalled();
-  });
-
-  it("surfaces Copilot compaction events", async () => {
-    mocks.sendAndWait.mockImplementationOnce(async () => {
-      mocks.handler?.(
-        event("session.compaction_start", { conversationTokens: 120_000 }),
-      );
-      mocks.handler?.(
-        event("session.compaction_complete", {
-          success: true,
-          preCompactionTokens: 120_000,
-          postCompactionTokens: 30_000,
-        }),
-      );
-      mocks.handler?.(event("session.idle", { aborted: false }));
-    });
-    const runner = createCopilotRunner({ model: "gpt-5", yolo: true });
-    const chunks: string[] = [];
-    for await (const chunk of runner.run("Compact")) chunks.push(chunk);
-
-    const output = chunks.join("");
-    expect(output).toContain('"type":"compaction","phase":"start"');
-    expect(output).toContain('"preTokens":120000');
-    expect(output).toContain('"phase":"end"');
-    expect(output).toContain('"postTokens":30000');
-  });
-
-  it("returns an error when the SDK turn ends without an idle event", async () => {
-    mocks.sendAndWait.mockResolvedValueOnce(undefined);
-    const runner = createCopilotRunner({ model: "gpt-5", yolo: true });
-    const chunks: string[] = [];
-    for await (const chunk of runner.run("Incomplete")) chunks.push(chunk);
-
-    const output = chunks.join("");
-    expect(output).toContain("ended unexpectedly");
-    expect(output).toContain('"finishReason":"error"');
-    expect(output).toContain("data: [DONE]");
   });
 
   it("resumes an existing Copilot session", async () => {

@@ -14,11 +14,14 @@ import {
   type PermissionRequest,
   type SessionEvent,
 } from "@github/copilot-sdk";
-import type { BaseRunnerOptions } from "./types.js";
 
 export type CopilotReasoningEffort = "low" | "medium" | "high" | "xhigh";
 
-export interface CopilotRunnerOptions extends BaseRunnerOptions {
+export interface CopilotRunnerOptions {
+  model: string;
+  systemPrompt?: string;
+  allowedTools?: string[];
+  resume?: string;
   yolo?: boolean;
   cwd?: string;
   env?: Record<string, string>;
@@ -33,35 +36,12 @@ export interface CopilotRunner {
 
 class AsyncEventQueue<T> implements AsyncIterable<T> {
   private values: T[] = [];
-  private waiters: Array<{
-    resolve: (result: IteratorResult<T>) => void;
-    reject: (error: unknown) => void;
-  }> = [];
-  private ended = false;
-  private error: unknown;
+  private waiters: Array<(value: T) => void> = [];
 
   push(value: T): void {
-    if (this.ended) return;
     const waiter = this.waiters.shift();
-    if (waiter) waiter.resolve({ value, done: false });
+    if (waiter) waiter(value);
     else this.values.push(value);
-  }
-
-  close(): void {
-    if (this.ended) return;
-    this.ended = true;
-    for (const waiter of this.waiters.splice(0)) {
-      waiter.resolve({ value: undefined, done: true });
-    }
-  }
-
-  fail(error: unknown): void {
-    if (this.ended) return;
-    this.ended = true;
-    this.error = error;
-    for (const waiter of this.waiters.splice(0)) {
-      waiter.reject(error);
-    }
   }
 
   [Symbol.asyncIterator](): AsyncIterator<T> {
@@ -69,10 +49,10 @@ class AsyncEventQueue<T> implements AsyncIterable<T> {
       next: async () => {
         const value = this.values.shift();
         if (value !== undefined) return { value, done: false };
-        if (this.error !== undefined) throw this.error;
-        if (this.ended) return { value: undefined, done: true };
-        return new Promise<IteratorResult<T>>((resolve, reject) => {
-          this.waiters.push({ resolve, reject });
+        return new Promise<IteratorResult<T>>((resolve) => {
+          this.waiters.push((nextValue) =>
+            resolve({ value: nextValue, done: false }),
+          );
         });
       },
     };
@@ -192,8 +172,7 @@ export function createCopilotRunner(
       }
 
       const env = { ...process.env, ...options.env };
-      const githubToken =
-        env.COPILOT_GITHUB_TOKEN ?? env.GITHUB_TOKEN ?? env.GH_TOKEN;
+      const githubToken = env.GITHUB_TOKEN ?? env.GH_TOKEN;
       const client = new CopilotClient({
         workingDirectory: cwd,
         env,
@@ -246,17 +225,13 @@ export function createCopilotRunner(
           reasoning: 0,
         };
         let failed = false;
-        let finished = false;
 
         yield sseData({ type: "start" });
         yield sseData({
           type: "message-metadata",
           messageMetadata: { sessionId: session.sessionId },
         });
-        const turn = session
-          .sendAndWait(userInput)
-          .then(() => events.close())
-          .catch((error) => events.fail(error));
+        await session.send(userInput);
 
         try {
           for await (const event of events) {
@@ -341,33 +316,6 @@ export function createCopilotRunner(
               continue;
             }
 
-            if (event.type === "session.compaction_start") {
-              yield sseData({
-                type: "compaction",
-                phase: "start",
-                ...(event.data.conversationTokens != null
-                  ? { preTokens: event.data.conversationTokens }
-                  : {}),
-              });
-              continue;
-            }
-
-            if (event.type === "session.compaction_complete") {
-              yield sseData({
-                type: "compaction",
-                phase: "end",
-                success: event.data.success,
-                ...(event.data.preCompactionTokens != null
-                  ? { preTokens: event.data.preCompactionTokens }
-                  : {}),
-                ...(event.data.postCompactionTokens != null
-                  ? { postTokens: event.data.postCompactionTokens }
-                  : {}),
-                ...(event.data.error ? { error: event.data.error } : {}),
-              });
-              continue;
-            }
-
             if (event.type === "session.error") {
               failed = true;
               yield sseData({ type: "error", errorText: event.data.message });
@@ -385,7 +333,6 @@ export function createCopilotRunner(
             }
 
             if (event.type === "session.idle") {
-              finished = true;
               for (const id of openText) {
                 yield sseData({ type: "text-end", id });
               }
@@ -405,18 +352,8 @@ export function createCopilotRunner(
                 },
               });
               yield "data: [DONE]\n\n";
-              await turn;
               return;
             }
-          }
-
-          if (!finished) {
-            yield sseData({
-              type: "error",
-              errorText: "Copilot stream ended unexpectedly before completing.",
-            });
-            yield sseData({ type: "finish", finishReason: "error" });
-            yield "data: [DONE]\n\n";
           }
         } finally {
           abortSignal?.removeEventListener("abort", abortHandler);
