@@ -576,7 +576,12 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
       maxTurns: this.options.maxTurns ?? runner.maxTurns,
       allowedTools: runner.allowedTools ?? this.options.allowedTools,
       skillPaths: runner.skillPaths ?? this.options.skillPaths,
-      yolo: this.options.yolo,
+      // Hosted Pi integrations historically execute regular tools immediately.
+      // Keep that compatibility unless the host explicitly opts into approvals;
+      // the runner CLI still owns its separate non-yolo default.
+      yolo:
+        this.options.yolo ??
+        (runner.runnerType === "pi" ? true : undefined),
       ...(toolRefs && toolRefs.length > 0 ? { toolRefs } : {}),
       ...(this.options.mcpConfig ? { mcpConfig: this.options.mcpConfig } : {}),
       ...(this.options.effort ? { effort: this.options.effort } : {}),

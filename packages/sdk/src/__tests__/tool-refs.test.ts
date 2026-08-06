@@ -378,6 +378,43 @@ describe("Bunny provider tool refs", () => {
     });
   });
 
+  it("defaults hosted Pi runs to bypass regular tool approvals", async () => {
+    const capturedBodies: BunnyAgentCodingRunBody[] = [];
+    const sandbox = createCodingRunSandbox(capturedBodies);
+    const bunnyAgent = createBunnyAgent({
+      sandbox,
+      daemonUrl: "http://127.0.0.1:3080",
+    });
+
+    const result = streamText({
+      model: bunnyAgent("google:gemini-2.5-pro", { runnerType: "pi" }),
+      messages: [{ role: "user", content: "write a file" }],
+    });
+
+    await result.consumeStream();
+
+    expect(capturedBodies[0]).toMatchObject({ yolo: true });
+  });
+
+  it("preserves explicit Pi approval mode for capable hosts", async () => {
+    const capturedBodies: BunnyAgentCodingRunBody[] = [];
+    const sandbox = createCodingRunSandbox(capturedBodies);
+    const bunnyAgent = createBunnyAgent({
+      sandbox,
+      daemonUrl: "http://127.0.0.1:3080",
+      yolo: false,
+    });
+
+    const result = streamText({
+      model: bunnyAgent("google:gemini-2.5-pro", { runnerType: "pi" }),
+      messages: [{ role: "user", content: "ask before writing" }],
+    });
+
+    await result.consumeStream();
+
+    expect(capturedBodies[0]).toMatchObject({ yolo: false });
+  });
+
   it("forwards request-scoped MCP config into the daemon body", async () => {
     const capturedBodies: BunnyAgentCodingRunBody[] = [];
     const sandbox = createCodingRunSandbox(capturedBodies);

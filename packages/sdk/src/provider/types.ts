@@ -170,7 +170,11 @@ export interface BunnyAgentProviderSettings
   skillPaths?: string[];
   /** Allowed tools for the runner (undefined = template defaults). */
   allowedTools?: string[];
-  /** Skip tool approval checks (bypass permissions). */
+  /**
+   * Skip tool approval checks (bypass permissions).
+   * Defaults to true for Pi when used through the hosted SDK transport.
+   * Set false only when the host implements the approval-file workflow.
+   */
   yolo?: boolean;
   /** Advanced static tool refs to expose directly to the runner. */
   toolRefs?: ToolRef[];
