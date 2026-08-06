@@ -580,8 +580,7 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
       // Keep that compatibility unless the host explicitly opts into approvals;
       // the runner CLI still owns its separate non-yolo default.
       yolo:
-        this.options.yolo ??
-        (runner.runnerType === "pi" ? true : undefined),
+        this.options.yolo ?? (runner.runnerType === "pi" ? true : undefined),
       ...(toolRefs && toolRefs.length > 0 ? { toolRefs } : {}),
       ...(this.options.mcpConfig ? { mcpConfig: this.options.mcpConfig } : {}),
       ...(this.options.effort ? { effort: this.options.effort } : {}),

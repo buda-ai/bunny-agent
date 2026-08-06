@@ -23,6 +23,7 @@ AI Agent: Codex
 - Defaulted hosted SDK Pi runs to bypass regular tool approvals when `yolo` is omitted.
 - Preserved explicit `yolo: false` for hosts that implement the approval-file workflow.
 - Documented the hosted Pi default and added daemon request-body regression tests.
+- Applied the repository's Biome formatting to the hosted Pi `yolo` fallback expression.
 
 ## Why
 
