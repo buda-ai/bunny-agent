@@ -36,8 +36,10 @@ import {
 } from "./stream-converter.js";
 import {
   type ApprovalGateOptions,
+  ASK_USER_QUESTION_TOOL_NAME,
   buildAskUserQuestionTool,
   gateToolsForApproval,
+  LEGACY_ASK_USER_QUESTION_TOOL_NAME,
 } from "./tool-approval.js";
 import {
   buildEnvInjectedBashTool,
@@ -145,6 +147,21 @@ function applyAllowedTools(
   if (!allowedTools) return tools;
   const allowed = new Set(allowedTools);
   return tools.filter((tool) => allowed.has(tool.name));
+}
+
+function normalizeAllowedTools(
+  allowedTools: string[] | undefined,
+): string[] | undefined {
+  if (!allowedTools) return undefined;
+  return [
+    ...new Set(
+      allowedTools.map((toolName) =>
+        toolName === LEGACY_ASK_USER_QUESTION_TOOL_NAME
+          ? ASK_USER_QUESTION_TOOL_NAME
+          : toolName,
+      ),
+    ),
+  ];
 }
 
 export function shouldStripLLMThoughtSignaturesForModel(model: {
@@ -572,6 +589,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           );
         }
 
+        const allowedTools = normalizeAllowedTools(options.allowedTools);
         const toolRefDefinitions =
           options.toolRefs && options.toolRefs.length > 0
             ? buildToolDefinitionsFromRefs(options.toolRefs)
@@ -588,7 +606,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           fallbackSignal: options.abortController?.signal,
         };
         let regularTools: ToolDefinition[] = [
-          ...applyAllowedTools(customTools, options.allowedTools),
+          ...applyAllowedTools(customTools, allowedTools),
           ...toolRefDefinitions,
         ];
         if (!bypassApproval) {
@@ -597,7 +615,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           );
           const builtinTools = applyAllowedTools(
             createCodingTools(cwd) as unknown as ToolDefinition[],
-            options.allowedTools,
+            allowedTools,
           ).filter((tool) => !overriddenNames.has(tool.name));
           regularTools = [...regularTools, ...builtinTools];
         }
@@ -616,7 +634,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           thinkingLevel: options.effort
             ? (options.effort as ThinkingLevel)
             : undefined,
-          tools: options.allowedTools,
+          tools: allowedTools,
           customTools: [...gatedTools, buildAskUserQuestionTool(approvalGate)],
         });
 

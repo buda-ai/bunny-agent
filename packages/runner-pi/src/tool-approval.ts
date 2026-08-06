@@ -19,7 +19,15 @@ import * as path from "node:path";
 import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
 
-export const ASK_USER_QUESTION_TOOL_NAME = "AskUserQuestion";
+export const ASK_USER_QUESTION_TOOL_NAME = "ask_user_question";
+export const LEGACY_ASK_USER_QUESTION_TOOL_NAME = "AskUserQuestion";
+
+export function isAskUserQuestionToolName(toolName: string): boolean {
+  return (
+    toolName === ASK_USER_QUESTION_TOOL_NAME ||
+    toolName === LEGACY_ASK_USER_QUESTION_TOOL_NAME
+  );
+}
 
 /** Same poll cadence as runner-claude's approval bridge. */
 export const DEFAULT_POLL_INTERVAL_MS = 500;
@@ -90,10 +98,9 @@ export async function waitForApproval(
           status: "pending",
           toolName,
           input,
-          questions:
-            toolName === ASK_USER_QUESTION_TOOL_NAME
-              ? (input as Record<string, unknown>)?.questions
-              : undefined,
+          questions: isAskUserQuestionToolName(toolName)
+            ? (input as Record<string, unknown>)?.questions
+            : undefined,
           answers: {},
         }),
       );
@@ -215,6 +222,17 @@ export interface ApprovalGateOptions {
   timeoutMs?: number;
 }
 
+function formatAskUserQuestionResult(updatedInput: {
+  questions: unknown;
+  answers: Record<string, unknown>;
+}): string {
+  return [
+    "The user answered the interactive questions.",
+    `Answers: ${JSON.stringify(updatedInput.answers)}`,
+    "Continue the original task using these answers and provide a user-visible response. Do not end the turn with an empty response.",
+  ].join("\n");
+}
+
 /**
  * Build the AskUserQuestion custom tool. Its execute() blocks on the approval
  * file bridge and returns the user's answers as the tool result. This tool is
@@ -248,10 +266,10 @@ export function buildAskUserQuestionTool(
         content: [
           {
             type: "text" as const,
-            text: JSON.stringify(decision.updatedInput),
+            text: formatAskUserQuestionResult(decision.updatedInput),
           },
         ],
-        details: undefined,
+        details: decision.updatedInput,
       };
     },
   };

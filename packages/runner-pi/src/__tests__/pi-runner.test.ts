@@ -941,6 +941,55 @@ describe("createPiRunner", () => {
     expect(callArgs?.tools).toEqual(["read", "bash"]);
   });
 
+  it("registers the snake-case question tool enabled by Buda's allowlist", async () => {
+    const { createAgentSession: mockCreateAgentSession } = await import(
+      "@earendil-works/pi-coding-agent"
+    );
+    const spy = vi.mocked(mockCreateAgentSession);
+    spy.mockClear();
+
+    const runner = createPiRunner({
+      model: "google:gemini-2.5-pro",
+      allowedTools: ["read", "ask_user_question"],
+    });
+
+    for await (const _ of runner.run("ask for clarification")) {
+      break;
+    }
+
+    const callArgs = spy.mock.calls[0]?.[0];
+    expect(callArgs?.tools).toEqual(["read", "ask_user_question"]);
+    expect(callArgs?.customTools).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "ask_user_question" }),
+      ]),
+    );
+    expect(callArgs?.customTools).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "AskUserQuestion" }),
+      ]),
+    );
+  });
+
+  it("normalizes the legacy question-tool allowlist name", async () => {
+    const { createAgentSession: mockCreateAgentSession } = await import(
+      "@earendil-works/pi-coding-agent"
+    );
+    const spy = vi.mocked(mockCreateAgentSession);
+    spy.mockClear();
+
+    const runner = createPiRunner({
+      model: "google:gemini-2.5-pro",
+      allowedTools: ["AskUserQuestion"],
+    });
+
+    for await (const _ of runner.run("ask for clarification")) {
+      break;
+    }
+
+    expect(spy.mock.calls[0]?.[0]?.tools).toEqual(["ask_user_question"]);
+  });
+
   it("does not mutate process.env when injecting runner env", async () => {
     const key = "__PI_RUNNER_ENV_LEAK_TEST__";
     delete process.env[key];
