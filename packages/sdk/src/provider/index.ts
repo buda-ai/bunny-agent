@@ -28,7 +28,6 @@ export type {
   ArtifactResult,
   BunnyAgentModelId,
   BunnyAgentProviderSettings,
-  CompactionEvent,
   Logger,
   McpConfig,
   McpHttpServerConfig,

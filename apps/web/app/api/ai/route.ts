@@ -387,17 +387,6 @@ export async function POST(request: Request) {
         ...(mcpConfig ? { mcpConfig } : {}),
         verbose: true,
         artifactProcessors: [artifactProcessor],
-        // Surface automatic context compaction as a transient data part so the
-        // UI can show "Compacting…" without persisting it into the message.
-        onCompaction: (event) => {
-          console.info("[api/ai] compaction", event);
-          writer.write({
-            type: "data-compaction",
-            id: "compaction",
-            data: event,
-            transient: true,
-          });
-        },
         resume,
         systemPrompt: "============test============",
         ...(REASONING_EFFORT ? { effort: REASONING_EFFORT } : {}),
