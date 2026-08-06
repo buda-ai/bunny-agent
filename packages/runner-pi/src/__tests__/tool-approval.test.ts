@@ -216,9 +216,17 @@ describe("buildAskUserQuestionTool", () => {
     expect(result.content).toEqual([
       {
         type: "text",
-        text: JSON.stringify({ questions, answers: { "Deploy?": "Yes" } }),
+        text: [
+          "The user answered the interactive questions.",
+          'Answers: {"Deploy?":"Yes"}',
+          "Continue the original task using these answers and provide a user-visible response. Do not end the turn with an empty response.",
+        ].join("\n"),
       },
     ]);
+    expect(result.details).toEqual({
+      questions,
+      answers: { "Deploy?": "Yes" },
+    });
   });
 
   it("throws on timeout so the tool call fails", async () => {

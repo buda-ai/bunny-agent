@@ -222,6 +222,17 @@ export interface ApprovalGateOptions {
   timeoutMs?: number;
 }
 
+function formatAskUserQuestionResult(updatedInput: {
+  questions: unknown;
+  answers: Record<string, unknown>;
+}): string {
+  return [
+    "The user answered the interactive questions.",
+    `Answers: ${JSON.stringify(updatedInput.answers)}`,
+    "Continue the original task using these answers and provide a user-visible response. Do not end the turn with an empty response.",
+  ].join("\n");
+}
+
 /**
  * Build the AskUserQuestion custom tool. Its execute() blocks on the approval
  * file bridge and returns the user's answers as the tool result. This tool is
@@ -255,10 +266,10 @@ export function buildAskUserQuestionTool(
         content: [
           {
             type: "text" as const,
-            text: JSON.stringify(decision.updatedInput),
+            text: formatAskUserQuestionResult(decision.updatedInput),
           },
         ],
-        details: undefined,
+        details: decision.updatedInput,
       };
     },
   };
