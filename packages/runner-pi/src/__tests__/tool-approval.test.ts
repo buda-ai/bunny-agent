@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   ASK_USER_QUESTION_TOOL_NAME,
   buildAskUserQuestionTool,
+  LEGACY_ASK_USER_QUESTION_TOOL_NAME,
   waitForApproval,
   wrapToolWithApproval,
 } from "../tool-approval.js";
@@ -76,6 +77,25 @@ describe("waitForApproval", () => {
     expect(raw.toolName).toBe("bash");
     expect(raw.input).toEqual({ command: "ls" });
     expect(raw.questions).toBeUndefined();
+    await promise;
+  });
+
+  it("preserves questions for legacy AskUserQuestion approval files", async () => {
+    const input = { questions: [{ question: "Continue?" }] };
+    const promise = waitForApproval({
+      cwd,
+      toolCallId: "call-legacy",
+      toolName: LEGACY_ASK_USER_QUESTION_TOOL_NAME,
+      input,
+      pollIntervalMs: 10,
+      timeoutMs: 100,
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    const raw = JSON.parse(
+      fs.readFileSync(approvalFile("call-legacy"), "utf-8"),
+    );
+    expect(raw.questions).toEqual(input.questions);
     await promise;
   });
 
