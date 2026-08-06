@@ -589,9 +589,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           );
         }
 
-        console.log('all',options.allowedTools);
         const allowedTools = normalizeAllowedTools(options.allowedTools);
-        console.log('all',allowedTools);
         const toolRefDefinitions =
           options.toolRefs && options.toolRefs.length > 0
             ? buildToolDefinitionsFromRefs(options.toolRefs)
