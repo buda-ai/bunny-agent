@@ -27,6 +27,8 @@ export interface AcpProcessRunnerOptions {
   env?: Record<string, string>;
   abortController?: AbortController;
   systemPrompt?: string;
+  /** Existing session to load when the ACP agent advertises load support. */
+  resume?: string;
   yolo?: boolean;
 }
 
@@ -227,6 +229,8 @@ export function createAcpProcessRunner(
       const startedText = new Set<string>();
       const startedTools = new Set<string>();
       let aborted = false;
+      let loadedSessionId: string | undefined;
+      let acceptingLoadedUpdates = false;
 
       const closeText = () => {
         for (const id of startedText) {
@@ -323,17 +327,79 @@ export function createAcpProcessRunner(
         }
       };
 
-      const app = client({ name: "bunny-agent" }).onRequest(
-        methods.client.session.requestPermission,
-        ({ params }) => resolvePermission(cwd, options.yolo ?? false, params),
-      );
+      const finish = (
+        sessionId: string,
+        stopReason: string,
+        usage: Usage | null | undefined,
+      ) => {
+        closeText();
+        output.push(
+          sseData({
+            type: "finish",
+            finishReason: aborted ? "error" : finishReason(stopReason),
+            messageMetadata: {
+              sessionId,
+              usage: usageMetadata(usage),
+            },
+          }),
+        );
+        output.push("data: [DONE]\n\n");
+        output.close();
+      };
+
+      const app = client({ name: "bunny-agent" })
+        .onRequest(methods.client.session.requestPermission, ({ params }) =>
+          resolvePermission(cwd, options.yolo ?? false, params),
+        )
+        .onNotification(methods.client.session.update, ({ params }) => {
+          if (acceptingLoadedUpdates && params.sessionId === loadedSessionId) {
+            handleUpdate(params.update);
+          }
+        });
 
       const workflow = app
         .connectWith(stream, async (context) => {
-          await context.request(methods.agent.initialize, {
-            protocolVersion: PROTOCOL_VERSION,
-            clientCapabilities: {},
-          });
+          const initialization = await context.request(
+            methods.agent.initialize,
+            {
+              protocolVersion: PROTOCOL_VERSION,
+              clientCapabilities: {},
+            },
+          );
+
+          const resume = options.resume?.trim();
+          if (resume && initialization.agentCapabilities?.loadSession) {
+            loadedSessionId = resume;
+            await context.request(methods.agent.session.load, {
+              sessionId: resume,
+              cwd,
+              mcpServers: [],
+            });
+
+            output.push(sseData({ type: "start" }));
+            output.push(
+              sseData({
+                type: "message-metadata",
+                messageMetadata: { sessionId: resume },
+              }),
+            );
+
+            acceptingLoadedUpdates = true;
+            const response = await context.request(
+              methods.agent.session.prompt,
+              {
+                sessionId: resume,
+                prompt: [
+                  {
+                    type: "text",
+                    text: promptText(options.systemPrompt, userInput),
+                  },
+                ],
+              },
+            );
+            finish(resume, response.stopReason, response.usage);
+            return;
+          }
 
           return context.buildSession(cwd).withSession(async (session) => {
             output.push(sseData({ type: "start" }));
@@ -355,22 +421,11 @@ export function createAcpProcessRunner(
                 continue;
               }
 
-              closeText();
-              const reason = aborted
-                ? "error"
-                : finishReason(message.stopReason);
-              output.push(
-                sseData({
-                  type: "finish",
-                  finishReason: reason,
-                  messageMetadata: {
-                    sessionId: session.sessionId,
-                    usage: usageMetadata(message.response.usage),
-                  },
-                }),
+              finish(
+                session.sessionId,
+                message.stopReason,
+                message.response.usage,
               );
-              output.push("data: [DONE]\n\n");
-              output.close();
               return;
             }
           });

@@ -13,6 +13,7 @@
 
 import type {
   CanUseTool,
+  createSdkMcpServer,
   Options,
   PermissionUpdate,
   Query,
@@ -31,6 +32,13 @@ import {
   mapFinishReason,
   streamSDKMessagesToAISDKUI,
 } from "./ai-sdk-stream.js";
+import { createSkillPlugin } from "./skill-plugin.js";
+import {
+  buildMcpToolDefinitionsFromRefs,
+  type ClaudeToolRef,
+  TOOL_REF_MCP_SERVER_NAME,
+  toolRefMcpToolName,
+} from "./tool-refs.js";
 import type { BaseRunnerOptions } from "./types";
 
 /**
@@ -58,6 +66,17 @@ export interface ClaudeRunnerOptions extends BaseRunnerOptions {
    * listed skill names. Omitted = CLI defaults.
    */
   skills?: string[] | "all";
+  /**
+   * Serializable custom tool refs, exposed to the model as tools on an
+   * in-process (SDK-transport) MCP server named `bunny-tools`. Structurally
+   * compatible with pi's `PiToolRef`.
+   */
+  toolRefs?: ClaudeToolRef[];
+  /**
+   * Directories containing SKILL.md-style skills. Wrapped into a temporary
+   * local plugin (SDK `plugins` option) so Claude discovers them as skills.
+   */
+  skillPaths?: string[];
 }
 
 /**
@@ -133,6 +152,7 @@ interface ClaudeAgentSDKModule {
     prompt: string | AsyncIterable<SDKUserMessage>;
     options?: Options;
   }): Query;
+  createSdkMcpServer?: typeof createSdkMcpServer;
 }
 
 /**
@@ -195,15 +215,22 @@ function createCanUseToolCallback(
         );
       }
 
-      // Poll for answers (60 second timeout) — must wait for file like "looking for file"
-      const timeout = Date.now() + 60000;
-      let lastApproval: {
-        questions: unknown;
-        answers: Record<string, unknown>;
-        status: string;
-      } | null = null;
+      // Poll for answers indefinitely — wait until the web layer writes
+      // `status: "completed"` or the tool's abort signal fires. There is no
+      // timeout: a human may take arbitrarily long to answer.
+      while (true) {
+        if (options.signal?.aborted) {
+          try {
+            fs.unlinkSync(approvalFile);
+          } catch {
+            // Ignore cleanup errors
+          }
+          return {
+            behavior: "deny",
+            message: "Aborted while waiting for user approval",
+          };
+        }
 
-      while (Date.now() < timeout) {
         try {
           const data = fs.readFileSync(approvalFile, "utf-8");
           const approval = JSON.parse(data) as {
@@ -211,7 +238,6 @@ function createCanUseToolCallback(
             answers: Record<string, unknown>;
             status: string;
           };
-          lastApproval = approval;
 
           if (approval.status === "completed") {
             try {
@@ -233,27 +259,6 @@ function createCanUseToolCallback(
 
         await new Promise((resolve) => setTimeout(resolve, 500));
       }
-
-      try {
-        fs.unlinkSync(approvalFile);
-      } catch {
-        // Ignore cleanup errors
-      }
-
-      if (lastApproval && Object.keys(lastApproval.answers).length > 0) {
-        // Return partial answers
-        return {
-          behavior: "allow",
-          updatedInput: {
-            questions: lastApproval.questions,
-            answers: lastApproval.answers,
-          },
-        };
-      }
-      return {
-        behavior: "deny",
-        message: "Timeout waiting for user input",
-      };
     } catch (error) {
       console.error("Failed to handle approval flow:", error);
       return {
@@ -277,6 +282,8 @@ const OPTIONAL_MODULES: Record<string, string> = {
  * - ANTHROPIC_AUTH_TOKEN (Bedrock proxy API key)
  * - LITELLM_MASTER_KEY (Bedrock proxy API key)
  * - CLAUDE_CODE_USE_BEDROCK=1 + ANTHROPIC_BEDROCK_BASE_URL (Bedrock proxy; key in ANTHROPIC_AUTH_TOKEN or LITELLM_MASTER_KEY)
+ * - CLAUDE_CODE_USE_VERTEX=1 + ANTHROPIC_VERTEX_PROJECT_ID + CLOUD_ML_REGION
+ *   (Google Vertex AI; credentials come from ADC, e.g. GOOGLE_APPLICATION_CREDENTIALS)
  */
 export function hasClaudeAuth(): boolean {
   if (process.env.ANTHROPIC_API_KEY) return true;
@@ -287,6 +294,16 @@ export function hasClaudeAuth(): boolean {
     process.env.CLAUDE_CODE_USE_BEDROCK === "1" &&
     process.env.ANTHROPIC_BEDROCK_BASE_URL
   ) {
+    return true;
+  }
+  if (
+    process.env.CLAUDE_CODE_USE_VERTEX === "1" &&
+    process.env.ANTHROPIC_VERTEX_PROJECT_ID &&
+    process.env.CLOUD_ML_REGION
+  ) {
+    // Actual Google credentials are resolved via Application Default
+    // Credentials (GOOGLE_APPLICATION_CREDENTIALS, gcloud auth, or metadata
+    // server), so we do not require a specific credential env var here.
     return true;
   }
   return false;
@@ -375,12 +392,46 @@ async function* runWithClaudeAgentSDK(
 }
 
 /**
+ * Build the `mcpServers` entry hosting tool refs on an in-process
+ * SDK-transport MCP server, plus the MCP tool names to allow.
+ */
+function buildToolRefServer(
+  options: ClaudeRunnerOptions,
+  sdk: ClaudeAgentSDKModule | undefined,
+): {
+  mcpServers?: Options["mcpServers"];
+  allowedToolNames: string[];
+} {
+  const refs = options.toolRefs ?? [];
+  if (refs.length === 0 || !sdk?.createSdkMcpServer) {
+    return { allowedToolNames: [] };
+  }
+  const tools = buildMcpToolDefinitionsFromRefs(refs);
+  const server = sdk.createSdkMcpServer({
+    name: TOOL_REF_MCP_SERVER_NAME,
+    tools: tools as unknown as Parameters<
+      typeof createSdkMcpServer
+    >[0]["tools"],
+  });
+  return {
+    mcpServers: { [TOOL_REF_MCP_SERVER_NAME]: server },
+    allowedToolNames: refs.map((ref) => toolRefMcpToolName(ref.name)),
+  };
+}
+
+/**
  * Create SDK options for query
  */
-function createSDKOptions(options: ClaudeRunnerOptions): Options {
+function createSDKOptions(
+  options: ClaudeRunnerOptions,
+  sdk?: ClaudeAgentSDKModule,
+): Options {
   // Claude CLI rejects --dangerously-skip-permissions under root/sudo.
   // Fall back to "default" permission mode and let canUseTool handle approvals.
   const isRoot = typeof process.getuid === "function" && process.getuid() === 0;
+
+  const toolRefServer = buildToolRefServer(options, sdk);
+  const skillPluginPath = createSkillPlugin(options.skillPaths ?? []);
 
   return {
     model: options.model,
@@ -391,7 +442,14 @@ function createSDKOptions(options: ClaudeRunnerOptions): Options {
       "Skill",
       "WebSearch",
       "WebFetch",
+      ...toolRefServer.allowedToolNames,
     ],
+    ...(toolRefServer.mcpServers
+      ? { mcpServers: toolRefServer.mcpServers }
+      : {}),
+    ...(skillPluginPath
+      ? { plugins: [{ type: "local" as const, path: skillPluginPath }] }
+      : {}),
     cwd: options.cwd,
     env: options.env,
     // forkFrom snapshot-clones the source session into a new session id;
@@ -452,7 +510,7 @@ async function* _runWithTextOutput(
   options: ClaudeRunnerOptions,
   userInput: string | AsyncIterable<SDKUserMessage>,
 ): AsyncIterable<string> {
-  const sdkOptions = createSDKOptions(options);
+  const sdkOptions = createSDKOptions(options, sdk);
   const queryIterator = sdk.query({ prompt: userInput, options: sdkOptions });
   const cleanup = setupAbortHandler(
     queryIterator,
@@ -487,7 +545,7 @@ async function* _runWithJSONOutput(
   options: ClaudeRunnerOptions,
   userInput: string | AsyncIterable<SDKUserMessage>,
 ): AsyncIterable<string> {
-  const sdkOptions = createSDKOptions(options);
+  const sdkOptions = createSDKOptions(options, sdk);
   const queryIterator = sdk.query({ prompt: userInput, options: sdkOptions });
   const cleanup = setupAbortHandler(
     queryIterator,
@@ -519,7 +577,7 @@ async function* _runWithStreamJSONOutput(
   options: ClaudeRunnerOptions,
   userInput: string | AsyncIterable<SDKUserMessage>,
 ): AsyncIterable<string> {
-  const sdkOptions = createSDKOptions(options);
+  const sdkOptions = createSDKOptions(options, sdk);
   const queryIterator = sdk.query({ prompt: userInput, options: sdkOptions });
   const cleanup = setupAbortHandler(
     queryIterator,
@@ -545,10 +603,13 @@ async function* runWithAISDKUIOutput(
   options: ClaudeRunnerOptions,
   userInput: string | AsyncIterable<SDKUserMessage>,
 ): AsyncIterable<string> {
-  const sdkOptions = createSDKOptions({
-    ...options,
-    includePartialMessages: true,
-  });
+  const sdkOptions = createSDKOptions(
+    {
+      ...options,
+      includePartialMessages: true,
+    },
+    sdk,
+  );
   const queryIterator = sdk.query({ prompt: userInput, options: sdkOptions });
   const cleanup = setupAbortHandler(
     queryIterator,
