@@ -1,7 +1,7 @@
 export type { BaseRunnerOptions } from "@bunny-agent/runner-claude";
 export { BUNNY_AGENT_SYSTEM_PROMPT } from "./agent-context.js";
 export { loadSystemPrompt } from "./prompt.js";
-export type { RunnerCoreOptions } from "./runner.js";
+export type { RunnerCoreOptions, RunnerToolRef } from "./runner.js";
 export { createRunner } from "./runner.js";
 
 export { clearSessionId, readSessionId, writeSessionId } from "./session.js";

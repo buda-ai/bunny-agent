@@ -576,7 +576,11 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
       maxTurns: this.options.maxTurns ?? runner.maxTurns,
       allowedTools: runner.allowedTools ?? this.options.allowedTools,
       skillPaths: runner.skillPaths ?? this.options.skillPaths,
-      yolo: this.options.yolo,
+      // Hosted Pi integrations historically execute regular tools immediately.
+      // Keep that compatibility unless the host explicitly opts into approvals;
+      // the runner CLI still owns its separate non-yolo default.
+      yolo:
+        this.options.yolo ?? (runner.runnerType === "pi" ? true : undefined),
       ...(toolRefs && toolRefs.length > 0 ? { toolRefs } : {}),
       ...(this.options.mcpConfig ? { mcpConfig: this.options.mcpConfig } : {}),
       ...(this.options.effort ? { effort: this.options.effort } : {}),
@@ -779,6 +783,30 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
             rawValue: this.sessionId,
           });
         }
+        break;
+      }
+
+      // Context compaction progress. Delivered out-of-band via the
+      // `onCompaction` callback: the AI SDK stream protocol has no part type
+      // for it, and it must not become assistant content.
+      case "compaction": {
+        const phase = parsed.phase === "start" ? "start" : "end";
+        this.options.onCompaction?.({
+          phase,
+          ...(typeof parsed.success === "boolean"
+            ? { success: parsed.success }
+            : {}),
+          ...(typeof parsed.trigger === "string"
+            ? { trigger: parsed.trigger }
+            : {}),
+          ...(typeof parsed.preTokens === "number"
+            ? { preTokens: parsed.preTokens }
+            : {}),
+          ...(typeof parsed.postTokens === "number"
+            ? { postTokens: parsed.postTokens }
+            : {}),
+          ...(typeof parsed.error === "string" ? { error: parsed.error } : {}),
+        });
         break;
       }
 

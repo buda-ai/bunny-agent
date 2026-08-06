@@ -8,6 +8,8 @@ export type {
   ArtifactData,
   AskUserQuestionInput,
   AskUserQuestionOutput,
+  // Context compaction indicator
+  CompactionState,
   DynamicToolUIPart,
   // useAskUserQuestion types
   Question,

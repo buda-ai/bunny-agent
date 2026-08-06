@@ -29,9 +29,26 @@ export interface UseBunnyAgentChatOptions {
 /**
  * Return type for useBunnyAgentChat hook
  */
+/**
+ * Context compaction in progress.
+ *
+ * Runners backed by an agent SDK that compacts automatically when the context
+ * window fills (claude, copilot) report this; it is non-null only while
+ * compaction is running.
+ */
+export interface CompactionState {
+  phase: "start" | "end";
+  /** What triggered it, when reported (e.g. "auto", "manual"). */
+  trigger?: string;
+  /** Context tokens before compaction, when reported. */
+  preTokens?: number;
+}
+
 export interface UseBunnyAgentChatReturn {
   /** All chat messages */
   messages: UIMessage[];
+  /** Non-null while the runner is compacting the conversation context. */
+  compaction: CompactionState | null;
   /** Current chat status */
   status: "submitted" | "streaming" | "ready" | "error";
   /** Error if any */

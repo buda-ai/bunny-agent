@@ -369,6 +369,8 @@ export class AISDKStreamConverter {
   private sessionId: string | undefined;
   /** True after we emitted an error from a result message (e.g. API 400). Avoids emitting a second generic "exited with code 1" that would hide the real error. */
   private errorEmitted = false;
+  /** True between a `status: "compacting"` message and its completion, so we only close a compaction we actually opened. */
+  private compacting = false;
 
   private readonly partIdMap = new Map<string, string>();
 
@@ -511,6 +513,56 @@ export class AISDKStreamConverter {
         }
 
         trace(message);
+
+        // Context compaction. The SDK compacts automatically when the context
+        // window fills; surface it so the UI can show a "Compacting…" state.
+        // `status: "compacting"` marks the start, and the compact_boundary
+        // system message marks completion with pre/post token counts.
+        if (message.type === "system" && message.subtype === "status") {
+          const statusMsg = message as unknown as {
+            status: string | null;
+            compact_result?: "success" | "failed";
+            compact_error?: string;
+          };
+          if (statusMsg.status === "compacting") {
+            this.compacting = true;
+            yield this.emit({ type: "compaction", phase: "start" });
+          } else if (this.compacting && statusMsg.compact_result != null) {
+            this.compacting = false;
+            yield this.emit({
+              type: "compaction",
+              phase: "end",
+              success: statusMsg.compact_result === "success",
+              ...(statusMsg.compact_error
+                ? { error: statusMsg.compact_error }
+                : {}),
+            });
+          }
+        }
+
+        if (
+          message.type === "system" &&
+          message.subtype === "compact_boundary"
+        ) {
+          const meta = (
+            message as unknown as {
+              compact_metadata?: {
+                trigger?: string;
+                pre_tokens?: number;
+                post_tokens?: number;
+              };
+            }
+          ).compact_metadata;
+          this.compacting = false;
+          yield this.emit({
+            type: "compaction",
+            phase: "end",
+            success: true,
+            trigger: meta?.trigger,
+            preTokens: meta?.pre_tokens,
+            postTokens: meta?.post_tokens,
+          });
+        }
 
         // Handle streaming events (token-by-token via includePartialMessages)
         if (message.type === "stream_event") {

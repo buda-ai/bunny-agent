@@ -39,6 +39,28 @@ export interface StreamWriter {
 }
 
 /**
+ * Context compaction progress reported by a runner.
+ *
+ * Runners whose agent SDK compacts the conversation automatically when the
+ * context window fills (claude, copilot) emit a `start` event when compaction
+ * begins and an `end` event when it finishes. Use it to render a transient
+ * "Compacting…" indicator.
+ */
+export interface CompactionEvent {
+  phase: "start" | "end";
+  /** Only on `end`: whether compaction succeeded. */
+  success?: boolean;
+  /** What triggered it, when the runner reports it (e.g. "auto", "manual"). */
+  trigger?: string;
+  /** Context tokens before compaction. */
+  preTokens?: number;
+  /** Context tokens after compaction. */
+  postTokens?: number;
+  /** Failure detail, when compaction failed. */
+  error?: string;
+}
+
+/**
  * Artifact Processor interface
  */
 export interface ArtifactProcessor {
@@ -134,6 +156,12 @@ export interface BunnyAgentProviderSettings
   logger?: Logger | false;
   /** Artifact processors for handling artifact events. */
   artifactProcessors?: ArtifactProcessor[];
+  /**
+   * Called when the runner reports context compaction progress. The AI SDK
+   * stream protocol has no part type for this, so it is delivered out-of-band;
+   * a UI typically forwards it as a transient data part.
+   */
+  onCompaction?: (event: CompactionEvent) => void;
   /** Limit the number of back-and-forth iterations */
   maxTurns?: number;
   /** Optional system prompt override (overrides template's default) */
@@ -142,7 +170,11 @@ export interface BunnyAgentProviderSettings
   skillPaths?: string[];
   /** Allowed tools for the runner (undefined = template defaults). */
   allowedTools?: string[];
-  /** Skip tool approval checks (bypass permissions). */
+  /**
+   * Skip tool approval checks (bypass permissions).
+   * Defaults to true for Pi when used through the hosted SDK transport.
+   * Set false only when the host implements the approval-file workflow.
+   */
   yolo?: boolean;
   /** Advanced static tool refs to expose directly to the runner. */
   toolRefs?: ToolRef[];

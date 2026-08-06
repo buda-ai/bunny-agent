@@ -6,6 +6,8 @@ export interface GeminiRunnerOptions {
   env?: Record<string, string>;
   abortController?: AbortController;
   systemPrompt?: string;
+  /** Existing ACP session to load when the agent advertises load support. */
+  resume?: string;
   yolo?: boolean;
 }
 
@@ -28,6 +30,7 @@ export function createGeminiRunner(
     env: options.env,
     abortController: options.abortController,
     systemPrompt: options.systemPrompt,
+    resume: options.resume,
     yolo: options.yolo,
   });
 }

@@ -5,6 +5,7 @@ import { DefaultChatTransport, type UIMessage } from "ai";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   ArtifactData,
+  CompactionState,
   UseBunnyAgentChatOptions,
   UseBunnyAgentChatReturn,
 } from "./types";
@@ -71,6 +72,12 @@ export function useBunnyAgentChat({
     return undefined;
   };
 
+  // Context compaction indicator. The runner's agent SDK compacts the
+  // conversation automatically when the context window fills; the server sends
+  // it as a transient data part, so it arrives via onData rather than in
+  // message.parts.
+  const [compaction, setCompaction] = useState<CompactionState | null>(null);
+
   // Core chat hook
   const {
     messages,
@@ -92,6 +99,13 @@ export function useBunnyAgentChat({
         };
       },
     }),
+    onData: (dataPart) => {
+      if (dataPart.type !== "data-compaction") return;
+      const event = dataPart.data as CompactionState & {
+        phase: "start" | "end";
+      };
+      setCompaction(event.phase === "start" ? event : null);
+    },
   });
 
   // Keep messagesRef in sync
@@ -206,6 +220,7 @@ export function useBunnyAgentChat({
 
   return {
     messages,
+    compaction,
     status,
     error,
     isLoading,
