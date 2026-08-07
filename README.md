@@ -208,19 +208,11 @@ Use the SDK to embed Bunny Agent in any product — a **Next.js SaaS**, an **Ele
 
 ### Architecture
 
-```
-Your Next.js App
-    │
-    ├── useChat() ─────────────────────────  React client (AI SDK)
-    │
-    └── POST /api/agent ──────────────────   your API route
-            │
-            └── Bunny Agent.stream() ────────  Bunny Agent SDK
-                    │
-                    ├── runner: pi / claude / codex / gemini
-                    │
-                    └── sandbox: Sandock / E2B / Daytona / Local
-```
+<div align="center">
+  <img src="docs/architecture-diagram.svg" alt="Bunny Agent architecture diagram" width="100%">
+</div>
+
+`@bunny-agent/sdk` gives you `createBunnyAgent()` — an AI SDK `LanguageModelV3`-compatible provider that plugs straight into `useChat()`/`streamText()`. Under the hood it drives `@bunny-agent/manager`, which owns session lifecycle (`BunnyAgent.stream()`), transcript persistence/replay, and structured turn input — then execs a `runner-cli` command inside a sandbox. `runner-harness` dispatches to whichever agent runner is selected (SDK-based: Claude, Pi, Codex, Copilot; subprocess/ACP-based: Gemini, OpenCode) and streams back an AI SDK UI NDJSON payload with no re-parsing at any layer. The sandbox itself is equally pluggable — remote (Sandock, E2B, Daytona), locally isolated (`srt`), or no isolation at all (`local`). `apps/bunny-bench` exercises this same runner-harness path directly for GAIA benchmarking, and `apps/daemon`/`manager-cli` expose the same session primitives over HTTP and as an operator CLI, respectively.
 
 ### Sandbox options
 
