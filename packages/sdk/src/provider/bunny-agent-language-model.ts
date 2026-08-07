@@ -638,10 +638,11 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
 
             let foundDone = false;
             for (const line of lines) {
+              const trimmedLine = line.trim();
+              if (!trimmedLine || trimmedLine.startsWith(":")) continue;
               const candidate = line.startsWith("data: ")
                 ? line.slice(6)
-                : line.trim();
-              if (!candidate) continue;
+                : trimmedLine;
               if (candidate === "[DONE]") {
                 foundDone = true;
                 continue;
@@ -714,8 +715,10 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
     const lines = buffer.split("\n");
 
     for (const line of lines) {
-      const candidate = line.startsWith("data: ") ? line.slice(6) : line.trim();
-      if (!candidate || candidate === "[DONE]") continue;
+      const trimmedLine = line.trim();
+      if (!trimmedLine || trimmedLine.startsWith(":")) continue;
+      const candidate = line.startsWith("data: ") ? line.slice(6) : trimmedLine;
+      if (candidate === "[DONE]") continue;
       try {
         const parsedParts = this.parseSSEData(candidate);
         parts.push(...parsedParts);
