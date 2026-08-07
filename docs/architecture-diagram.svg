@@ -1,78 +1,141 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 460" font-family="Helvetica, Arial, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1240 1000" font-family="Helvetica, Arial, sans-serif">
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-      <path d="M0,0 L10,5 L0,10 z" fill="#64748b"/>
+      <path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/>
     </marker>
     <style>
-      .box { fill: #ffffff; stroke: #cbd5e1; stroke-width: 1.5; rx: 10; }
-      .box-accent { fill: #eff6ff; stroke: #93c5fd; stroke-width: 1.5; rx: 10; }
-      .box-warm { fill: #fff7ed; stroke: #fdba74; stroke-width: 1.5; rx: 10; }
-      .title { font-size: 15px; font-weight: 700; fill: #0f172a; }
-      .sub { font-size: 12px; fill: #475569; }
-      .group-title { font-size: 13px; font-weight: 700; fill: #334155; }
-      .edge { stroke: #64748b; stroke-width: 1.6; fill: none; marker-end: url(#arrow); }
-      .edge-label { font-size: 11px; fill: #64748b; }
+      .card { fill: #ffffff; stroke: #e2e8f0; stroke-width: 1.5; rx: 12; }
+      .card-line { fill: #ffffff; stroke: #d6dde6; stroke-width: 1.5; stroke-dasharray: 4 3; rx: 14; }
+      .card-blue { fill: #eff6ff; stroke: #bfdbfe; stroke-width: 1.5; rx: 12; }
+      .card-amber { fill: #fff7ed; stroke: #fed7aa; stroke-width: 1.5; rx: 12; }
+      .card-dark { fill: #0f172a; stroke: #0f172a; stroke-width: 1.5; rx: 12; }
+      .title { font-size: 16px; font-weight: 700; fill: #0f172a; }
+      .title-inv { font-size: 15px; font-weight: 700; fill: #f8fafc; }
+      .sub { font-size: 11px; fill: #64748b; }
+      .sub-inv { font-size: 11px; fill: #cbd5e1; }
+      .group-title { font-size: 12.5px; font-weight: 700; fill: #475569; letter-spacing: 0.04em; text-transform: uppercase; }
+      .edge { stroke: #b6c2d1; stroke-width: 1.6; fill: none; marker-end: url(#arrow); }
+      .edge-label { font-size: 10.5px; fill: #64748b; }
+      .pill { fill: #ffffff; stroke: #e2e8f0; stroke-width: 1.2; rx: 8; }
+      .pill-text { font-size: 11px; fill: #1e293b; font-weight: 600; }
+      .pill-sub { font-size: 9.5px; fill: #94a3b8; }
     </style>
   </defs>
 
-  <rect width="960" height="460" fill="#ffffff"/>
+  <rect width="1240" height="1000" fill="#ffffff"/>
 
-  <!-- User -->
-  <rect x="30" y="200" width="120" height="60" class="box-accent"/>
-  <text x="90" y="226" text-anchor="middle" class="title">User</text>
-  <text x="90" y="244" text-anchor="middle" class="sub">chat / task</text>
+  <text x="30" y="36" class="title">Bunny Agent — Architecture</text>
+  <text x="30" y="56" class="sub">SDK → session orchestration → pluggable agent runners → pluggable sandbox isolation</text>
 
-  <!-- React Client -->
-  <rect x="210" y="190" width="170" height="80" class="box"/>
-  <text x="295" y="220" text-anchor="middle" class="title">React Client</text>
-  <text x="295" y="238" text-anchor="middle" class="sub">AI SDK UI</text>
-  <text x="295" y="254" text-anchor="middle" class="sub">useChat()</text>
+  <!-- App / Product layer -->
+  <rect x="30" y="90" width="1180" height="110" class="card-line"/>
+  <text x="620" y="114" text-anchor="middle" class="group-title">App / Product Layer</text>
 
-  <!-- API Route -->
-  <rect x="440" y="190" width="170" height="80" class="box"/>
-  <text x="525" y="220" text-anchor="middle" class="title">API Route</text>
-  <text x="525" y="238" text-anchor="middle" class="sub">POST /api/agent</text>
-  <text x="525" y="254" text-anchor="middle" class="sub">your Next.js server</text>
+  <rect x="50" y="128" width="180" height="54" class="pill"/>
+  <text x="140" y="150" text-anchor="middle" class="pill-text">apps/web</text>
+  <text x="140" y="166" text-anchor="middle" class="pill-sub">docs + live chat demo</text>
 
-  <!-- Bunny Agent SDK -->
-  <rect x="670" y="180" width="230" height="100" class="box-warm"/>
-  <text x="785" y="212" text-anchor="middle" class="title">Bunny Agent SDK</text>
-  <text x="785" y="232" text-anchor="middle" class="sub">agent.stream()</text>
-  <text x="785" y="250" text-anchor="middle" class="sub">AI SDK UI stream out</text>
+  <rect x="248" y="128" width="180" height="54" class="pill"/>
+  <text x="338" y="150" text-anchor="middle" class="pill-text">runner-cli</text>
+  <text x="338" y="166" text-anchor="middle" class="pill-sub">run one agent turn</text>
 
-  <!-- Runner group -->
-  <rect x="650" y="320" width="130" height="130" class="box" fill="#f8fafc"/>
-  <text x="715" y="342" text-anchor="middle" class="group-title">Runner</text>
-  <rect x="665" y="352" width="100" height="24" rx="6" fill="#ecfeff" stroke="#67e8f9"/>
-  <text x="715" y="368" text-anchor="middle" class="sub">pi</text>
-  <rect x="665" y="382" width="100" height="24" rx="6" fill="#ecfeff" stroke="#67e8f9"/>
-  <text x="715" y="398" text-anchor="middle" class="sub">claude</text>
-  <rect x="665" y="412" width="100" height="24" rx="6" fill="#ecfeff" stroke="#67e8f9"/>
-  <text x="715" y="428" text-anchor="middle" class="sub">codex / gemini</text>
+  <rect x="446" y="128" width="180" height="54" class="pill"/>
+  <text x="536" y="150" text-anchor="middle" class="pill-text">manager-cli</text>
+  <text x="536" y="166" text-anchor="middle" class="pill-sub">session run/list/info/stop</text>
 
-  <!-- Sandbox group -->
-  <rect x="800" y="320" width="130" height="130" class="box" fill="#f8fafc"/>
-  <text x="865" y="342" text-anchor="middle" class="group-title">Sandbox</text>
-  <rect x="815" y="352" width="100" height="24" rx="6" fill="#fef2f2" stroke="#fca5a5"/>
-  <text x="865" y="368" text-anchor="middle" class="sub">Sandock</text>
-  <rect x="815" y="382" width="100" height="24" rx="6" fill="#fef2f2" stroke="#fca5a5"/>
-  <text x="865" y="398" text-anchor="middle" class="sub">E2B / Daytona</text>
-  <rect x="815" y="412" width="100" height="24" rx="6" fill="#fef2f2" stroke="#fca5a5"/>
-  <text x="865" y="428" text-anchor="middle" class="sub">Local</text>
+  <rect x="644" y="128" width="180" height="54" class="pill"/>
+  <text x="734" y="150" text-anchor="middle" class="pill-text">daemon</text>
+  <text x="734" y="166" text-anchor="middle" class="pill-sub">HTTP API for hosted use</text>
+
+  <rect x="842" y="128" width="170" height="54" class="pill"/>
+  <text x="927" y="150" text-anchor="middle" class="pill-text">bunny-agent-tui</text>
+  <text x="927" y="166" text-anchor="middle" class="pill-sub">editor / TUI extension</text>
+
+  <rect x="1030" y="128" width="160" height="54" class="pill"/>
+  <text x="1110" y="150" text-anchor="middle" class="pill-text">bunny-bench</text>
+  <text x="1110" y="166" text-anchor="middle" class="pill-sub">GAIA benchmark runner</text>
+
+  <!-- SDK layer -->
+  <rect x="30" y="230" width="1180" height="90" class="card-blue"/>
+  <text x="620" y="256" text-anchor="middle" class="group-title">SDK Layer — @bunny-agent/sdk</text>
+  <text x="620" y="280" text-anchor="middle" class="sub">createBunnyAgent() → AI SDK LanguageModelV3 provider · React hooks (useBunnyAgentChat, useArtifacts, useAskUserQuestion)</text>
+  <text x="620" y="298" text-anchor="middle" class="sub">Embeds directly in useChat() / streamText() — zero protocol translation</text>
+
+  <!-- Manager layer -->
+  <rect x="30" y="350" width="1180" height="120" class="card"/>
+  <text x="620" y="376" text-anchor="middle" class="group-title">Orchestration Layer — @bunny-agent/manager</text>
+
+  <rect x="50" y="392" width="270" height="60" class="pill"/>
+  <text x="185" y="414" text-anchor="middle" class="pill-text">BunnyAgent (session)</text>
+  <text x="185" y="430" text-anchor="middle" class="pill-sub">attach sandbox · buildCommand · exec</text>
+
+  <rect x="335" y="392" width="270" height="60" class="pill"/>
+  <text x="470" y="414" text-anchor="middle" class="pill-text">Transcript</text>
+  <text x="470" y="430" text-anchor="middle" class="pill-sub">persist + replay TranscriptEntry</text>
+
+  <rect x="620" y="392" width="270" height="60" class="pill"/>
+  <text x="755" y="414" text-anchor="middle" class="pill-text">Agent Input (V1)</text>
+  <text x="755" y="430" text-anchor="middle" class="pill-sub">structured turn compilation</text>
+
+  <rect x="905" y="392" width="270" height="60" class="pill"/>
+  <text x="1040" y="414" text-anchor="middle" class="pill-text">Coding Run + Daemon Health</text>
+  <text x="1040" y="430" text-anchor="middle" class="pill-sub">shared request/response contract</text>
+
+  <!-- Runner layer -->
+  <rect x="30" y="500" width="1180" height="180" class="card-line"/>
+  <text x="620" y="524" text-anchor="middle" class="group-title">Runner Layer — pluggable agent backends (dispatched via runner-harness)</text>
+
+  <rect x="50" y="540" width="1150" height="46" class="pill"/>
+  <text x="625" y="568" text-anchor="middle" class="pill-text">runner-harness — dispatch + AI SDK UI NDJSON stream</text>
+
+  <rect x="50" y="600" width="270" height="60" class="pill"/>
+  <text x="185" y="622" text-anchor="middle" class="pill-text">runner-claude</text>
+  <text x="185" y="638" text-anchor="middle" class="pill-sub">@anthropic-ai/claude-agent-sdk</text>
+
+  <rect x="335" y="600" width="270" height="60" class="pill"/>
+  <text x="470" y="622" text-anchor="middle" class="pill-text">runner-pi</text>
+  <text x="470" y="638" text-anchor="middle" class="pill-sub">pi-coding-agent, multi-provider</text>
+
+  <rect x="620" y="600" width="270" height="60" class="pill"/>
+  <text x="755" y="622" text-anchor="middle" class="pill-text">runner-codex / copilot</text>
+  <text x="755" y="638" text-anchor="middle" class="pill-sub">Codex SDK / Copilot SDK</text>
+
+  <rect x="905" y="600" width="270" height="60" class="pill"/>
+  <text x="1040" y="622" text-anchor="middle" class="pill-text">runner-gemini / opencode</text>
+  <text x="1040" y="638" text-anchor="middle" class="pill-sub">via runner-acp subprocess (ACP)</text>
+
+  <!-- Sandbox layer -->
+  <rect x="30" y="710" width="1180" height="150" class="card-amber"/>
+  <text x="620" y="734" text-anchor="middle" class="group-title">Sandbox Layer — pluggable isolation backends</text>
+
+  <rect x="50" y="750" width="270" height="90" class="pill"/>
+  <text x="185" y="774" text-anchor="middle" class="pill-text">sandbox-sandock</text>
+  <text x="185" y="790" text-anchor="middle" class="pill-sub">remote · NVMe/POSIX container</text>
+  <text x="185" y="804" text-anchor="middle" class="pill-sub">default "bunny remote" backend</text>
+
+  <rect x="335" y="750" width="270" height="90" class="pill"/>
+  <text x="470" y="774" text-anchor="middle" class="pill-text">sandbox-e2b / daytona</text>
+  <text x="470" y="790" text-anchor="middle" class="pill-sub">other managed cloud sandboxes</text>
+
+  <rect x="620" y="750" width="270" height="90" class="pill"/>
+  <text x="755" y="774" text-anchor="middle" class="pill-text">sandbox-srt</text>
+  <text x="755" y="790" text-anchor="middle" class="pill-sub">local, isolated (Anthropic srt)</text>
+
+  <rect x="905" y="750" width="270" height="90" class="pill"/>
+  <text x="1040" y="774" text-anchor="middle" class="pill-text">sandbox-local</text>
+  <text x="1040" y="790" text-anchor="middle" class="pill-sub">runs on host — no isolation</text>
+
+  <!-- Deployment footer -->
+  <rect x="30" y="890" width="1180" height="46" class="card"/>
+  <text x="620" y="918" text-anchor="middle" class="sub" font-weight="700">Output: AI SDK UI stream (NDJSON) end to end — pure passthrough, no re-parsing between layers</text>
 
   <!-- Edges -->
-  <path class="edge" d="M150,222 L206,222"/>
-  <text x="178" y="212" text-anchor="middle" class="edge-label">chat</text>
+  <path class="edge" d="M620,200 L620,226"/>
+  <path class="edge" d="M620,320 L620,346"/>
+  <path class="edge" d="M620,470 L620,496"/>
+  <path class="edge" d="M620,680 L620,706"/>
 
-  <path class="edge" d="M380,222 L436,222"/>
-  <text x="408" y="212" text-anchor="middle" class="edge-label">HTTP</text>
-
-  <path class="edge" d="M610,225 L666,225"/>
-  <text x="638" y="215" text-anchor="middle" class="edge-label">call</text>
-
-  <path class="edge" d="M755,280 L735,318"/>
-  <path class="edge" d="M815,280 L845,318"/>
-
-  <path class="edge" d="M670,240 C520,300 400,300 300,270" />
-  <text x="480" y="308" text-anchor="middle" class="edge-label">AI SDK UI stream (response)</text>
+  <path class="edge" d="M1110,182 L1110,536" />
+  <text x="1150" y="360" text-anchor="middle" class="edge-label" transform="rotate(90 1150 360)"></text>
+  <text x="1120" y="360" class="edge-label">drives runners directly</text>
 </svg>
