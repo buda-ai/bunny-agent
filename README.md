@@ -208,19 +208,9 @@ Use the SDK to embed Bunny Agent in any product — a **Next.js SaaS**, an **Ele
 
 ### Architecture
 
-```
-Your Next.js App
-    │
-    ├── useChat() ─────────────────────────  React client (AI SDK)
-    │
-    └── POST /api/agent ──────────────────   your API route
-            │
-            └── Bunny Agent.stream() ────────  Bunny Agent SDK
-                    │
-                    ├── runner: pi / claude / codex / gemini
-                    │
-                    └── sandbox: Sandock / E2B / Daytona / Local
-```
+<div align="center">
+  <img src="docs/architecture-diagram.svg" alt="Bunny Agent architecture diagram" width="100%">
+</div>
 
 ### Sandbox options
 
