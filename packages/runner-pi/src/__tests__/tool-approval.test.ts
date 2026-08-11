@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { approvalFileName } from "@bunny-agent/manager";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   ASK_USER_QUESTION_TIMEOUT_ANSWER_KEY,
@@ -15,7 +16,7 @@ import {
 let cwd: string;
 
 function approvalFile(toolCallId: string): string {
-  return path.join(cwd, ".bunny-agent", "approvals", `${toolCallId}.json`);
+  return path.join(cwd, ".bunny-agent", "approvals", approvalFileName(toolCallId));
 }
 
 function completeApproval(
@@ -39,6 +40,28 @@ afterEach(() => {
 });
 
 describe("waitForApproval", () => {
+  it("supports opaque tool call IDs that are unsafe as filenames", async () => {
+    const toolCallId = `thought/${"opaque+payload".repeat(80)}`;
+    const questions = [{ question: "Format?" }];
+    const promise = waitForApproval({
+      cwd,
+      toolCallId,
+      toolName: ASK_USER_QUESTION_TOOL_NAME,
+      input: { questions },
+      pollIntervalMs: 10,
+      timeoutMs: 5_000,
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(fs.existsSync(approvalFile(toolCallId))).toBe(true);
+    completeApproval(toolCallId, questions, { "Format?": "Video" });
+
+    await expect(promise).resolves.toEqual({
+      behavior: "allow",
+      updatedInput: { questions, answers: { "Format?": "Video" } },
+    });
+  });
+
   it("writes a pending approval file with the claude-compatible shape", async () => {
     const input = { questions: [{ question: "Pick one?" }] };
     const promise = waitForApproval({

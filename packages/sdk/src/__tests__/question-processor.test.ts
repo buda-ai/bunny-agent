@@ -87,4 +87,22 @@ describe("submitAnswer", () => {
     const payload = JSON.parse(String(files[0].content));
     expect(payload.status).toBe("pending");
   });
+
+  it("uploads unsafe opaque tool call IDs using the shared hashed filename", async () => {
+    const handle = createHandle();
+    const sandbox = {
+      getHandle: () => handle,
+      attach: vi.fn(),
+    } as unknown as SandboxAdapter;
+    const toolCallId = `thought/${"opaque+payload".repeat(80)}`;
+
+    await submitAnswer(sandbox, {
+      toolCallId,
+      questions: [{ question: "Format?" }],
+      answers: { "Format?": "Video" },
+    });
+
+    const [files] = (handle.upload as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(files[0].path).toMatch(/^hashed-[a-f0-9]{64}\.json$/);
+  });
 });

@@ -23,6 +23,12 @@ interface PiAISDKStreamConverterOptions {
   ) => string | undefined;
 }
 
+const ASK_USER_QUESTION_TOOL_NAMES = new Set([
+  "AskUserQuestion",
+  "ask_user_question",
+]);
+const ASK_USER_QUESTION_TIMEOUT_ANSWER_KEY = "__bunny_agent_timeout__";
+
 function emitStreamError(errorText: string): string[] {
   const errorLine =
     "data: " + JSON.stringify({ type: "error", errorText }) + "\n\n";
@@ -51,6 +57,32 @@ export function extractToolResultText(result: unknown): string {
   } catch {
     return String(result);
   }
+}
+
+function extractAskUserQuestionOutput(
+  toolName: string,
+  result: unknown,
+): { answers: Record<string, unknown> } | undefined {
+  if (!ASK_USER_QUESTION_TOOL_NAMES.has(toolName)) return undefined;
+  if (result === null || typeof result !== "object") return undefined;
+
+  const details = (result as { details?: unknown }).details;
+  if (details === null || typeof details !== "object" || Array.isArray(details)) {
+    return undefined;
+  }
+
+  const answers = (details as { answers?: unknown }).answers;
+  if (answers === null || typeof answers !== "object" || Array.isArray(answers)) {
+    return undefined;
+  }
+
+  return {
+    answers: Object.fromEntries(
+      Object.entries(answers as Record<string, unknown>).filter(
+        ([key]) => key !== ASK_USER_QUESTION_TIMEOUT_ANSWER_KEY,
+      ),
+    ),
+  };
 }
 
 function sseData(obj: Record<string, unknown>): string {
@@ -124,7 +156,7 @@ export class PiAISDKStreamConverter {
     }
 
     if (event.type === "tool_execution_end") {
-      const output = this.options.normalizeToolOutput(event.result);
+      const textOutput = this.options.normalizeToolOutput(event.result);
       const raw = (event.result as { details?: ToolDetailsWithUsage })?.details
         ?.usage?.raw;
       if (raw != null) accumulateToolUsage(this.toolUsageTally, raw);
@@ -133,12 +165,14 @@ export class PiAISDKStreamConverter {
           sseData({
             type: "tool-output-error",
             toolCallId: event.toolCallId,
-            errorText: output,
+            errorText: textOutput,
             dynamic: true,
             providerExecuted: true,
           }),
         );
       } else {
+        const output =
+          extractAskUserQuestionOutput(event.toolName, event.result) ?? textOutput;
         chunks.push(
           sseData({
             type: "tool-output-available",

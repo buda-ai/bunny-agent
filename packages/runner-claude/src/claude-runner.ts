@@ -23,6 +23,7 @@ import type {
 } from "@anthropic-ai/claude-agent-sdk";
 import {
   type AgentTurnInputV1,
+  approvalFileName,
   compileAgentTurnInput,
 } from "@bunny-agent/manager";
 import {
@@ -44,7 +45,7 @@ import type { BaseRunnerOptions } from "./types";
 export const DEFAULT_ASK_USER_QUESTION_TIMEOUT_MS = 60_000;
 export const ASK_USER_QUESTION_TIMEOUT_ANSWER_KEY = "__bunny_agent_timeout__";
 export const ASK_USER_QUESTION_TIMEOUT_MESSAGE =
-  "The user did not answer before the interactive question timed out. Continue the original task without waiting, using reasonable assumptions when safe, and provide a user-visible response.";
+  "The user did not answer before the interactive question timed out. Continue the original task without waiting, using reasonable assumptions when safe, and provide a user-visible response. Do not call AskUserQuestion again during this turn.";
 
 /**
  * Options for creating a Claude runner
@@ -175,6 +176,8 @@ interface ClaudeAgentSDKModule {
 export function createCanUseToolCallback(
   claudeOptions: ClaudeRunnerOptions,
 ): CanUseTool {
+  let questionTimedOut = false;
+
   return async (
     toolName: string,
     input: unknown,
@@ -188,6 +191,19 @@ export function createCanUseToolCallback(
     },
   ) => {
     const { toolUseID } = options;
+
+    if (toolName === "AskUserQuestion" && questionTimedOut) {
+      return {
+        behavior: "allow",
+        updatedInput: {
+          questions: (input as Record<string, unknown>)?.questions,
+          answers: {
+            [ASK_USER_QUESTION_TIMEOUT_ANSWER_KEY]:
+              ASK_USER_QUESTION_TIMEOUT_MESSAGE,
+          },
+        },
+      };
+    }
 
     // If yolo mode, only intercept AskUserQuestion (skip approval for all other tools)
     if (claudeOptions.yolo && toolName !== "AskUserQuestion") {
@@ -205,7 +221,7 @@ export function createCanUseToolCallback(
       const path = await import("node:path");
 
       const approvalDir = path.join(cwd, ".bunny-agent", "approvals");
-      const approvalFile = path.join(approvalDir, `${toolUseID}.json`);
+      const approvalFile = path.join(approvalDir, approvalFileName(toolUseID));
 
       // Write pending file so frontend knows a tool is waiting for approval
       fs.mkdirSync(approvalDir, { recursive: true });
@@ -286,6 +302,7 @@ export function createCanUseToolCallback(
         // Ignore cleanup errors
       }
 
+      questionTimedOut = true;
       return {
         behavior: "allow",
         updatedInput: {

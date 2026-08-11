@@ -15,6 +15,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { approvalFileName } from "@bunny-agent/manager";
 import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
 
@@ -59,7 +60,7 @@ export interface WaitForApprovalOptions {
 }
 
 function approvalFilePath(cwd: string, toolCallId: string): string {
-  return path.join(cwd, ".bunny-agent", "approvals", `${toolCallId}.json`);
+  return path.join(cwd, ".bunny-agent", "approvals", approvalFileName(toolCallId));
 }
 
 /**

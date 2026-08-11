@@ -47,6 +47,13 @@ function deltasOf(chunks: string[]): string[] {
     .map((e) => e.delta ?? "");
 }
 
+function eventsOf(chunks: string[]): Array<Record<string, unknown>> {
+  return chunks
+    .map((chunk) => chunk.replace(/^data: /, "").replace(/\n\n$/, ""))
+    .filter((line) => line && line !== "[DONE]")
+    .map((line) => JSON.parse(line) as Record<string, unknown>);
+}
+
 describe("PiAISDKStreamConverter text-delta passthrough", () => {
   it("preserves leading/trailing newlines in a single delta", () => {
     const conv = makeConverter();
@@ -67,5 +74,64 @@ describe("PiAISDKStreamConverter text-delta passthrough", () => {
       deltas.push(...deltasOf(chunks));
     }
     expect(deltas.join("")).toBe("。\n\n---\n\n## 先说");
+  });
+});
+
+describe("PiAISDKStreamConverter tool output", () => {
+  it("emits structured answers for ask-user-question results", () => {
+    const conv = makeConverter();
+    const chunks = conv.handleEvent(
+      {
+        type: "tool_execution_end",
+        toolCallId: "tool-1",
+        toolName: "ask_user_question",
+        result: {
+          content: [{ type: "text", text: "The user answered." }],
+          details: {
+            questions: [{ question: "What would you like to create?" }],
+            answers: { "What would you like to create?": "Make a video" },
+          },
+        },
+        isError: false,
+      } as AgentSessionEvent,
+      false,
+    );
+
+    expect(eventsOf(chunks)).toContainEqual(
+      expect.objectContaining({
+        type: "tool-output-available",
+        toolCallId: "tool-1",
+        output: {
+          answers: { "What would you like to create?": "Make a video" },
+        },
+      }),
+    );
+  });
+
+  it("does not persist the internal timeout marker as a user answer", () => {
+    const conv = makeConverter();
+    const chunks = conv.handleEvent(
+      {
+        type: "tool_execution_end",
+        toolCallId: "tool-2",
+        toolName: "AskUserQuestion",
+        result: {
+          details: {
+            answers: {
+              "Known question": "Known answer",
+              __bunny_agent_timeout__: "Timed out",
+            },
+          },
+        },
+        isError: false,
+      } as AgentSessionEvent,
+      false,
+    );
+
+    expect(eventsOf(chunks)).toContainEqual(
+      expect.objectContaining({
+        output: { answers: { "Known question": "Known answer" } },
+      }),
+    );
   });
 });
