@@ -14,7 +14,8 @@ const SAFE_APPROVAL_FILE_STEM = /^[A-Za-z0-9._-]+$/;
 export function approvalFileName(toolCallId: string): string {
   const useLegacyName =
     SAFE_APPROVAL_FILE_STEM.test(toolCallId) &&
-    Buffer.byteLength(toolCallId, "utf8") <= LEGACY_APPROVAL_FILE_STEM_MAX_BYTES;
+    Buffer.byteLength(toolCallId, "utf8") <=
+      LEGACY_APPROVAL_FILE_STEM_MAX_BYTES;
 
   const stem = useLegacyName
     ? toolCallId

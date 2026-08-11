@@ -16,7 +16,12 @@ import {
 let cwd: string;
 
 function approvalFile(toolCallId: string): string {
-  return path.join(cwd, ".bunny-agent", "approvals", approvalFileName(toolCallId));
+  return path.join(
+    cwd,
+    ".bunny-agent",
+    "approvals",
+    approvalFileName(toolCallId),
+  );
 }
 
 function completeApproval(

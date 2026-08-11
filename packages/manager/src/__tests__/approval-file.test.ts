@@ -3,7 +3,9 @@ import { approvalFileName } from "../approval-file.js";
 
 describe("approvalFileName", () => {
   it("preserves legacy filenames for normal tool call IDs", () => {
-    expect(approvalFileName("tool-call_123.abc")).toBe("tool-call_123.abc.json");
+    expect(approvalFileName("tool-call_123.abc")).toBe(
+      "tool-call_123.abc.json",
+    );
   });
 
   it("hashes path-unsafe and oversized tool call IDs deterministically", () => {

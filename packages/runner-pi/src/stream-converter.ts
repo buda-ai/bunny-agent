@@ -67,12 +67,20 @@ function extractAskUserQuestionOutput(
   if (result === null || typeof result !== "object") return undefined;
 
   const details = (result as { details?: unknown }).details;
-  if (details === null || typeof details !== "object" || Array.isArray(details)) {
+  if (
+    details === null ||
+    typeof details !== "object" ||
+    Array.isArray(details)
+  ) {
     return undefined;
   }
 
   const answers = (details as { answers?: unknown }).answers;
-  if (answers === null || typeof answers !== "object" || Array.isArray(answers)) {
+  if (
+    answers === null ||
+    typeof answers !== "object" ||
+    Array.isArray(answers)
+  ) {
     return undefined;
   }
 
@@ -172,7 +180,8 @@ export class PiAISDKStreamConverter {
         );
       } else {
         const output =
-          extractAskUserQuestionOutput(event.toolName, event.result) ?? textOutput;
+          extractAskUserQuestionOutput(event.toolName, event.result) ??
+          textOutput;
         chunks.push(
           sseData({
             type: "tool-output-available",

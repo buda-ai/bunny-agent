@@ -60,7 +60,12 @@ export interface WaitForApprovalOptions {
 }
 
 function approvalFilePath(cwd: string, toolCallId: string): string {
-  return path.join(cwd, ".bunny-agent", "approvals", approvalFileName(toolCallId));
+  return path.join(
+    cwd,
+    ".bunny-agent",
+    "approvals",
+    approvalFileName(toolCallId),
+  );
 }
 
 /**
