@@ -41,6 +41,11 @@ import {
 } from "./tool-refs.js";
 import type { BaseRunnerOptions } from "./types";
 
+export const DEFAULT_ASK_USER_QUESTION_TIMEOUT_MS = 60_000;
+export const ASK_USER_QUESTION_TIMEOUT_ANSWER_KEY = "__bunny_agent_timeout__";
+export const ASK_USER_QUESTION_TIMEOUT_MESSAGE =
+  "The user did not answer before the interactive question timed out. Continue the original task without waiting, using reasonable assumptions when safe, and provide a user-visible response.";
+
 /**
  * Options for creating a Claude runner
  * Extends BaseRunnerOptions with internal runtime options
@@ -54,6 +59,11 @@ export interface ClaudeRunnerOptions extends BaseRunnerOptions {
   includePartialMessages?: boolean;
   /** AbortController for cancelling operations */
   abortController?: AbortController;
+  /**
+   * Maximum time to wait for an AskUserQuestion answer before returning a
+   * timeout result to Claude so the conversation can continue.
+   */
+  askUserQuestionTimeoutMs?: number;
   /**
    * Fork a new session from this session ID instead of continuing it.
    * The forked session gets a new ID; the source session is left untouched.
@@ -162,7 +172,7 @@ interface ClaudeAgentSDKModule {
  * @param claudeOptions - Claude runner options
  * @returns canUseTool callback function
  */
-function createCanUseToolCallback(
+export function createCanUseToolCallback(
   claudeOptions: ClaudeRunnerOptions,
 ): CanUseTool {
   return async (
@@ -215,10 +225,19 @@ function createCanUseToolCallback(
         );
       }
 
-      // Poll for answers indefinitely — wait until the web layer writes
-      // `status: "completed"` or the tool's abort signal fires. There is no
-      // timeout: a human may take arbitrarily long to answer.
-      while (true) {
+      const timeoutMs =
+        toolName === "AskUserQuestion"
+          ? (claudeOptions.askUserQuestionTimeoutMs ??
+            DEFAULT_ASK_USER_QUESTION_TIMEOUT_MS)
+          : Number.POSITIVE_INFINITY;
+      const deadline = Date.now() + Math.max(0, timeoutMs);
+      let lastApproval: {
+        questions: unknown;
+        answers: Record<string, unknown>;
+        status: string;
+      } | null = null;
+
+      while (Date.now() < deadline) {
         if (options.signal?.aborted) {
           try {
             fs.unlinkSync(approvalFile);
@@ -238,6 +257,7 @@ function createCanUseToolCallback(
             answers: Record<string, unknown>;
             status: string;
           };
+          lastApproval = approval;
 
           if (approval.status === "completed") {
             try {
@@ -259,6 +279,26 @@ function createCanUseToolCallback(
 
         await new Promise((resolve) => setTimeout(resolve, 500));
       }
+
+      try {
+        fs.unlinkSync(approvalFile);
+      } catch {
+        // Ignore cleanup errors
+      }
+
+      return {
+        behavior: "allow",
+        updatedInput: {
+          questions:
+            lastApproval?.questions ??
+            (input as Record<string, unknown>)?.questions,
+          answers: {
+            ...(lastApproval?.answers ?? {}),
+            [ASK_USER_QUESTION_TIMEOUT_ANSWER_KEY]:
+              ASK_USER_QUESTION_TIMEOUT_MESSAGE,
+          },
+        },
+      };
     } catch (error) {
       console.error("Failed to handle approval flow:", error);
       return {

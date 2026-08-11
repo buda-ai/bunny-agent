@@ -70,6 +70,11 @@ export interface RunnerCoreOptions extends BaseRunnerOptions {
    */
   effort?: string;
   /**
+   * Maximum time to wait for an interactive user answer before allowing the
+   * supported runner to continue with a model-visible timeout result.
+   */
+  askUserQuestionTimeoutMs?: number;
+  /**
    * Source session ID to fork from before running the current turn. When set,
    * the runner snapshot-clones the source session into a fresh session with a
    * new id and continues chat on top of that copied history. Mutually
@@ -106,6 +111,7 @@ export function createRunner(
     yolo: options.yolo,
     env,
     abortController,
+    askUserQuestionTimeoutMs: options.askUserQuestionTimeoutMs,
   };
 
   const input = options.input
@@ -120,6 +126,7 @@ function dispatchRunner(
   base: BaseRunnerOptions & {
     env: Record<string, string>;
     abortController: AbortController;
+    askUserQuestionTimeoutMs?: number;
   },
   cwd: string,
   options: RunnerCoreOptions,

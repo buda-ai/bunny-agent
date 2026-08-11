@@ -1,6 +1,12 @@
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  ASK_USER_QUESTION_TIMEOUT_ANSWER_KEY,
+  ASK_USER_QUESTION_TIMEOUT_MESSAGE,
   type ClaudeRunnerOptions,
+  createCanUseToolCallback,
   createClaudeRunner,
 } from "../claude-runner.js";
 
@@ -189,6 +195,68 @@ describe("ClaudeRunnerOptions", () => {
 
     const runner = createClaudeRunner(options);
     expect(runner).toBeDefined();
+  });
+});
+
+describe("createCanUseToolCallback", () => {
+  it("returns a model-visible timeout result for unanswered questions", async () => {
+    const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "claude-approval-"));
+    try {
+      const callback = createCanUseToolCallback({
+        model: "claude-sonnet-4-20250514",
+        cwd,
+        askUserQuestionTimeoutMs: 20,
+      });
+      const questions = [{ question: "Continue?" }];
+      const result = await callback(
+        "AskUserQuestion",
+        { questions },
+        {
+          signal: new AbortController().signal,
+          toolUseID: "ask-timeout",
+          requestId: "request-timeout",
+        },
+      );
+
+      expect(result).toEqual({
+        behavior: "allow",
+        updatedInput: {
+          questions,
+          answers: {
+            [ASK_USER_QUESTION_TIMEOUT_ANSWER_KEY]:
+              ASK_USER_QUESTION_TIMEOUT_MESSAGE,
+          },
+        },
+      });
+      expect(
+        fs.existsSync(
+          path.join(cwd, ".bunny-agent", "approvals", "ask-timeout.json"),
+        ),
+      ).toBe(false);
+
+      const secondStartedAt = Date.now();
+      const secondResult = await callback(
+        "AskUserQuestion",
+        { questions: [{ question: "Another question?" }] },
+        {
+          signal: new AbortController().signal,
+          toolUseID: "ask-timeout-2",
+          requestId: "request-timeout-2",
+        },
+      );
+      expect(Date.now() - secondStartedAt).toBeLessThan(25);
+      expect(secondResult).toMatchObject({
+        behavior: "allow",
+        updatedInput: {
+          answers: {
+            [ASK_USER_QUESTION_TIMEOUT_ANSWER_KEY]:
+              ASK_USER_QUESTION_TIMEOUT_MESSAGE,
+          },
+        },
+      });
+    } finally {
+      fs.rmSync(cwd, { recursive: true, force: true });
+    }
   });
 });
 

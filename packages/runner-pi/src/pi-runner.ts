@@ -38,6 +38,7 @@ import {
   type ApprovalGateOptions,
   ASK_USER_QUESTION_TOOL_NAME,
   buildAskUserQuestionTool,
+  DEFAULT_ASK_USER_QUESTION_TIMEOUT_MS,
   gateToolsForApproval,
   LEGACY_ASK_USER_QUESTION_TOOL_NAME,
 } from "./tool-approval.js";
@@ -116,6 +117,11 @@ export interface PiRunnerOptions {
    * Mapped to pi-mono's ThinkingLevel and passed to createAgentSession.
    */
   effort?: string;
+  /**
+   * Maximum time to wait for an interactive question answer before returning
+   * a timeout result to the model so the conversation can continue.
+   */
+  askUserQuestionTimeoutMs?: number;
 }
 
 export interface PiRunner {
@@ -635,7 +641,15 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
             ? (options.effort as ThinkingLevel)
             : undefined,
           tools: allowedTools,
-          customTools: [...gatedTools, buildAskUserQuestionTool(approvalGate)],
+          customTools: [
+            ...gatedTools,
+            buildAskUserQuestionTool({
+              ...approvalGate,
+              timeoutMs:
+                options.askUserQuestionTimeoutMs ??
+                DEFAULT_ASK_USER_QUESTION_TIMEOUT_MS,
+            }),
+          ],
         });
 
         try {
