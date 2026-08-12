@@ -7,20 +7,24 @@
  *   shape claude writes ({ status, toolName, input, questions?, answers }),
  *   so the SDK's question-processor / AskUserQuestion web UI works unchanged.
  * - Polls the file every 500ms waiting for the web layer to overwrite it with
- *   `status: "completed"` (see packages/sdk submitAnswer). By default it waits
- *   indefinitely, matching runner-claude — only aborting the session signal
- *   stops polling and denies. An optional `timeoutMs` bound exists for tests.
- * - On completion returns `{ questions, answers }`; if a finite `timeoutMs`
- *   elapses with partial answers it returns those, otherwise denies.
+ *   `status: "completed"` (see packages/sdk submitAnswer).
+ * - AskUserQuestion uses a 60-second default timeout and returns a model-visible
+ *   timeout answer so the conversation continues. Regular approvals remain
+ *   unbounded unless a caller explicitly supplies `timeoutMs`.
  */
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { approvalFileName } from "@bunny-agent/manager";
 import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
 
 export const ASK_USER_QUESTION_TOOL_NAME = "ask_user_question";
 export const LEGACY_ASK_USER_QUESTION_TOOL_NAME = "AskUserQuestion";
+export const DEFAULT_ASK_USER_QUESTION_TIMEOUT_MS = 60_000;
+export const ASK_USER_QUESTION_TIMEOUT_ANSWER_KEY = "__bunny_agent_timeout__";
+export const ASK_USER_QUESTION_TIMEOUT_MESSAGE =
+  "The user did not answer before the interactive question timed out. Do not call ask_user_question again during this turn.";
 
 export function isAskUserQuestionToolName(toolName: string): boolean {
   return (
@@ -49,15 +53,19 @@ export interface WaitForApprovalOptions {
   signal?: AbortSignal;
   pollIntervalMs?: number;
   /**
-   * Optional upper bound on how long to wait. Omitted (the default) waits
-   * indefinitely for the user's answer, matching runner-claude; only the abort
-   * signal ends the wait. Primarily useful for tests.
+   * Optional upper bound on how long to wait. Omitted waits indefinitely at
+   * this low-level bridge; AskUserQuestion supplies its production default.
    */
   timeoutMs?: number;
 }
 
 function approvalFilePath(cwd: string, toolCallId: string): string {
-  return path.join(cwd, ".bunny-agent", "approvals", `${toolCallId}.json`);
+  return path.join(
+    cwd,
+    ".bunny-agent",
+    "approvals",
+    approvalFileName(toolCallId),
+  );
 }
 
 /**
@@ -153,13 +161,18 @@ export async function waitForApproval(
 
     cleanup();
 
-    if (lastApproval && Object.keys(lastApproval.answers ?? {}).length > 0) {
-      // Return partial answers on timeout, like runner-claude.
+    if (isAskUserQuestionToolName(toolName)) {
       return {
         behavior: "allow",
         updatedInput: {
-          questions: lastApproval.questions,
-          answers: lastApproval.answers,
+          questions:
+            lastApproval?.questions ??
+            (input as Record<string, unknown>)?.questions,
+          answers: {
+            ...(lastApproval?.answers ?? {}),
+            [ASK_USER_QUESTION_TIMEOUT_ANSWER_KEY]:
+              ASK_USER_QUESTION_TIMEOUT_MESSAGE,
+          },
         },
       };
     }
@@ -226,6 +239,19 @@ function formatAskUserQuestionResult(updatedInput: {
   questions: unknown;
   answers: Record<string, unknown>;
 }): string {
+  if (ASK_USER_QUESTION_TIMEOUT_ANSWER_KEY in updatedInput.answers) {
+    const availableAnswers = Object.fromEntries(
+      Object.entries(updatedInput.answers).filter(
+        ([key]) => key !== ASK_USER_QUESTION_TIMEOUT_ANSWER_KEY,
+      ),
+    );
+    return [
+      ASK_USER_QUESTION_TIMEOUT_MESSAGE,
+      `Available answers: ${JSON.stringify(availableAnswers)}`,
+      "Continue the original task without waiting. Use any available answers, make reasonable assumptions when safe, and provide a user-visible response. Do not call ask_user_question again during this turn.",
+    ].join("\n");
+  }
+
   return [
     "The user answered the interactive questions.",
     `Answers: ${JSON.stringify(updatedInput.answers)}`,
@@ -241,6 +267,8 @@ function formatAskUserQuestionResult(updatedInput: {
 export function buildAskUserQuestionTool(
   options: ApprovalGateOptions,
 ): ToolDefinition {
+  let questionTimedOut = false;
+
   return {
     name: ASK_USER_QUESTION_TOOL_NAME,
     label: "Ask User Question",
@@ -250,6 +278,25 @@ export function buildAskUserQuestionTool(
       "missing information required to continue the task.",
     parameters: askUserQuestionParameters,
     async execute(toolCallId, params, signal) {
+      if (questionTimedOut) {
+        const updatedInput = {
+          questions: (params as Record<string, unknown>)?.questions,
+          answers: {
+            [ASK_USER_QUESTION_TIMEOUT_ANSWER_KEY]:
+              ASK_USER_QUESTION_TIMEOUT_MESSAGE,
+          },
+        };
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: formatAskUserQuestionResult(updatedInput),
+            },
+          ],
+          details: updatedInput,
+        };
+      }
+
       const decision = await waitForApproval({
         cwd: options.cwd,
         toolCallId,
@@ -257,11 +304,13 @@ export function buildAskUserQuestionTool(
         input: params,
         signal: signal ?? options.fallbackSignal,
         pollIntervalMs: options.pollIntervalMs,
-        timeoutMs: options.timeoutMs,
+        timeoutMs: options.timeoutMs ?? DEFAULT_ASK_USER_QUESTION_TIMEOUT_MS,
       });
       if (decision.behavior === "deny") {
         throw new Error(decision.message);
       }
+      questionTimedOut =
+        ASK_USER_QUESTION_TIMEOUT_ANSWER_KEY in decision.updatedInput.answers;
       return {
         content: [
           {

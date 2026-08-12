@@ -1,4 +1,5 @@
 export * from "./agent-input.js";
+export { approvalFileName } from "./approval-file.js";
 export { BunnyAgent } from "./bunny-agent.js";
 export type { DaemonCodingRunExecParams } from "./coding-run.js";
 export {

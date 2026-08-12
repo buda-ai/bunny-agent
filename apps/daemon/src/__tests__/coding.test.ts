@@ -163,6 +163,23 @@ describe("codingRunStream (Web Response)", () => {
       mcpConfig,
     });
   });
+
+  it("forwards the interactive question timeout to the runner harness", async () => {
+    const res = codingRunStream(
+      {
+        userInput: "ask a question",
+        runner: "pi",
+        askUserQuestionTimeoutMs: 1_500,
+      },
+      {},
+    );
+
+    await res.text();
+
+    expect(createRunnerCalls.at(-1)).toMatchObject({
+      askUserQuestionTimeoutMs: 1_500,
+    });
+  });
 });
 
 describe("createNextHandler", () => {

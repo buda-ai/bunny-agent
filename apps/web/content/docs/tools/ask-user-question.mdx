@@ -3,14 +3,16 @@ title: AskUserQuestion
 description: Let the agent ask interactive questions during a run
 ---
 
-`AskUserQuestion` is a dynamic tool that lets the agent ask the user questions during execution. Your UI renders the questions and submits answers to an answer API. The runner waits for an approval file in the sandbox, then continues.
+`AskUserQuestion` is a dynamic tool that lets the agent ask the user questions during execution. Your UI renders the questions and submits answers to an answer API. The runner waits up to 60 seconds by default, then continues with either the submitted answers or a model-visible timeout result.
 
 ## Architecture
 
 ```
 Runner (inside sandbox)
+  - Creates the pending approval file
   - Polls approval file every 500ms
   - Continues when status == "completed"
+  - Continues with a timeout result after 60s by default
         ↕
 Answer API (server)
   - Receives { toolCallId, questions, answers }
@@ -22,9 +24,10 @@ UI
 ```
 
 Key points:
-- The runner only reads/polls the file — it does not create it
+- The runner creates the pending file and then reads/polls it
 - The answer API overwrites the file on every update
-- If timeout occurs, the runner may continue with partial answers
+- If a timeout occurs, the runner continues with any partial answers plus an explicit timeout marker
+- Set `askUserQuestionTimeoutMs` in runner options to override the 60-second default
 
 ## 1. Answer API
 
@@ -77,7 +80,8 @@ function AskUserQuestionUI({ part }: { part: DynamicToolUIPart }) {
 1. Agent emits `AskUserQuestion` tool call
 2. UI renders the tool and submits answers
 3. Answer API writes approval file via `submitAnswer`
-4. Runner reads the file, continues, and the tool becomes completed
+4. Runner reads the file and continues when the answer is completed
+5. If no completed answer arrives before the timeout, the runner returns a timeout result to the model so it can keep chatting
 
 ## Data Structures
 

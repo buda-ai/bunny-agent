@@ -21,8 +21,11 @@ export {
 export {
   type ApprovalDecision,
   type ApprovalGateOptions,
+  ASK_USER_QUESTION_TIMEOUT_ANSWER_KEY,
+  ASK_USER_QUESTION_TIMEOUT_MESSAGE,
   ASK_USER_QUESTION_TOOL_NAME,
   buildAskUserQuestionTool,
+  DEFAULT_ASK_USER_QUESTION_TIMEOUT_MS,
   gateToolsForApproval,
   type WaitForApprovalOptions,
   waitForApproval,

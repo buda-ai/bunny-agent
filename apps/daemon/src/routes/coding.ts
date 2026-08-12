@@ -45,6 +45,11 @@ export interface RunRequest {
   mcpConfig?: RunMcpConfig;
   /** Reasoning effort / thinking level (e.g. "low", "medium", "high"). */
   effort?: string;
+  /**
+   * Maximum time to wait for an interactive question answer before returning
+   * a timeout result to the model so the conversation can continue.
+   */
+  askUserQuestionTimeoutMs?: number;
 }
 
 const assertRunRequestInput = (req: RunRequest): void => {
@@ -114,6 +119,7 @@ export async function bunnyAgentRun(
       toolRefs: req.toolRefs,
       mcpConfig: req.mcpConfig,
       effort: req.effort,
+      askUserQuestionTimeoutMs: req.askUserQuestionTimeoutMs,
       // API: caller owns resume/session; do not read/write cwd/.bunny-agent or auto-load CLAUDE.md.
       autoInject: false,
     });
@@ -188,6 +194,7 @@ export function codingRunStream(
           toolRefs: req.toolRefs,
           mcpConfig: req.mcpConfig,
           effort: req.effort,
+          askUserQuestionTimeoutMs: req.askUserQuestionTimeoutMs,
           autoInject: false,
         });
         for await (const chunk of stream) {

@@ -73,6 +73,26 @@ describe("createRunner dispatch", () => {
     expect(piRun).toHaveBeenCalledWith("hi");
   });
 
+  it("passes the interactive question timeout to supported runners", () => {
+    const commonOptions = {
+      model: "test-model",
+      userInput: "hello",
+      cwd: "/tmp",
+      autoInject: false,
+      askUserQuestionTimeoutMs: 1_500,
+    };
+
+    createRunner({ runner: "claude", ...commonOptions });
+    createRunner({ runner: "pi", ...commonOptions });
+
+    expect(createClaudeRunner.mock.calls[0][0].askUserQuestionTimeoutMs).toBe(
+      1_500,
+    );
+    expect(createPiRunner.mock.calls[0][0].askUserQuestionTimeoutMs).toBe(
+      1_500,
+    );
+  });
+
   it("passes structured image input to Claude and Pi without stringifying", () => {
     const input: AgentTurnInputV1 = {
       version: 1,

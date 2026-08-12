@@ -1,4 +1,4 @@
-import type { SandboxAdapter } from "@bunny-agent/manager";
+import { approvalFileName, type SandboxAdapter } from "@bunny-agent/manager";
 import type { SubmitAnswerParams } from "./types";
 
 /**
@@ -46,7 +46,7 @@ export async function submitAnswer(
     timestamp: new Date().toISOString(),
   };
 
-  const filename = `${toolCallId}.json`;
+  const filename = approvalFileName(toolCallId);
   const handle = sandbox.getHandle() ?? (await sandbox.attach());
   // Absolute path so remote sandboxes (Sandock) write to the same path the runner reads (/workspace/.bunny-agent/approvals).
   const workdir = handle.getWorkdir();

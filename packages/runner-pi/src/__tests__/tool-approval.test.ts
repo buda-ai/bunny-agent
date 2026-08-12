@@ -1,8 +1,11 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { approvalFileName } from "@bunny-agent/manager";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
+  ASK_USER_QUESTION_TIMEOUT_ANSWER_KEY,
+  ASK_USER_QUESTION_TIMEOUT_MESSAGE,
   ASK_USER_QUESTION_TOOL_NAME,
   buildAskUserQuestionTool,
   LEGACY_ASK_USER_QUESTION_TOOL_NAME,
@@ -13,7 +16,12 @@ import {
 let cwd: string;
 
 function approvalFile(toolCallId: string): string {
-  return path.join(cwd, ".bunny-agent", "approvals", `${toolCallId}.json`);
+  return path.join(
+    cwd,
+    ".bunny-agent",
+    "approvals",
+    approvalFileName(toolCallId),
+  );
 }
 
 function completeApproval(
@@ -37,6 +45,28 @@ afterEach(() => {
 });
 
 describe("waitForApproval", () => {
+  it("supports opaque tool call IDs that are unsafe as filenames", async () => {
+    const toolCallId = `thought/${"opaque+payload".repeat(80)}`;
+    const questions = [{ question: "Format?" }];
+    const promise = waitForApproval({
+      cwd,
+      toolCallId,
+      toolName: ASK_USER_QUESTION_TOOL_NAME,
+      input: { questions },
+      pollIntervalMs: 10,
+      timeoutMs: 5_000,
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(fs.existsSync(approvalFile(toolCallId))).toBe(true);
+    completeApproval(toolCallId, questions, { "Format?": "Video" });
+
+    await expect(promise).resolves.toEqual({
+      behavior: "allow",
+      updatedInput: { questions, answers: { "Format?": "Video" } },
+    });
+  });
+
   it("writes a pending approval file with the claude-compatible shape", async () => {
     const input = { questions: [{ question: "Pick one?" }] };
     const promise = waitForApproval({
@@ -60,7 +90,16 @@ describe("waitForApproval", () => {
     });
 
     const decision = await promise;
-    expect(decision.behavior).toBe("deny");
+    expect(decision).toEqual({
+      behavior: "allow",
+      updatedInput: {
+        questions: input.questions,
+        answers: {
+          [ASK_USER_QUESTION_TIMEOUT_ANSWER_KEY]:
+            ASK_USER_QUESTION_TIMEOUT_MESSAGE,
+        },
+      },
+    });
   });
 
   it("omits questions for regular tools", async () => {
@@ -141,7 +180,7 @@ describe("waitForApproval", () => {
     expect(fs.existsSync(approvalFile("call-4"))).toBe(false);
   });
 
-  it("returns partial answers on timeout, like runner-claude", async () => {
+  it("returns partial answers with a timeout marker", async () => {
     const questions = [{ question: "A?" }, { question: "B?" }];
     const promise = waitForApproval({
       cwd,
@@ -164,7 +203,14 @@ describe("waitForApproval", () => {
     const decision = await promise;
     expect(decision).toEqual({
       behavior: "allow",
-      updatedInput: { questions, answers: { "A?": "yes" } },
+      updatedInput: {
+        questions,
+        answers: {
+          "A?": "yes",
+          [ASK_USER_QUESTION_TIMEOUT_ANSWER_KEY]:
+            ASK_USER_QUESTION_TIMEOUT_MESSAGE,
+        },
+      },
     });
   });
 
@@ -229,22 +275,55 @@ describe("buildAskUserQuestionTool", () => {
     });
   });
 
-  it("throws on timeout so the tool call fails", async () => {
+  it("returns a timeout result so the model can continue", async () => {
     const tool = buildAskUserQuestionTool({
       cwd,
       pollIntervalMs: 10,
       timeoutMs: 50,
     });
-    await expect(
-      tool.execute(
-        "ask-2",
-        { questions: [{ question: "Q?" }] },
-        undefined,
-        undefined,
-        // biome-ignore lint/suspicious/noExplicitAny: ExtensionContext unused in execute
-        undefined as any,
-      ),
-    ).rejects.toThrow("Timeout waiting for user input");
+    const questions = [{ question: "Q?" }];
+    const result = await tool.execute(
+      "ask-2",
+      { questions },
+      undefined,
+      undefined,
+      // biome-ignore lint/suspicious/noExplicitAny: ExtensionContext unused in execute
+      undefined as any,
+    );
+    expect(result.content).toEqual([
+      {
+        type: "text",
+        text: [
+          ASK_USER_QUESTION_TIMEOUT_MESSAGE,
+          "Available answers: {}",
+          "Continue the original task without waiting. Use any available answers, make reasonable assumptions when safe, and provide a user-visible response. Do not call ask_user_question again during this turn.",
+        ].join("\n"),
+      },
+    ]);
+    expect(result.details).toEqual({
+      questions,
+      answers: {
+        [ASK_USER_QUESTION_TIMEOUT_ANSWER_KEY]:
+          ASK_USER_QUESTION_TIMEOUT_MESSAGE,
+      },
+    });
+
+    const secondStartedAt = Date.now();
+    const secondResult = await tool.execute(
+      "ask-3",
+      { questions: [{ question: "Another question?" }] },
+      undefined,
+      undefined,
+      // biome-ignore lint/suspicious/noExplicitAny: ExtensionContext unused in execute
+      undefined as any,
+    );
+    expect(Date.now() - secondStartedAt).toBeLessThan(25);
+    expect(secondResult.details).toMatchObject({
+      answers: {
+        [ASK_USER_QUESTION_TIMEOUT_ANSWER_KEY]:
+          ASK_USER_QUESTION_TIMEOUT_MESSAGE,
+      },
+    });
   });
 });
 
