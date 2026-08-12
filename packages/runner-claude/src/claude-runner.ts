@@ -42,7 +42,8 @@ import {
 } from "./tool-refs.js";
 import type { BaseRunnerOptions } from "./types";
 
-export const DEFAULT_ASK_USER_QUESTION_TIMEOUT_MS = 60_000;
+export const DEFAULT_ASK_USER_QUESTION_TIMEOUT_MS = 180_000;
+export const MAX_ASK_USER_QUESTIONS = 8;
 export const ASK_USER_QUESTION_TIMEOUT_ANSWER_KEY = "__bunny_agent_timeout__";
 export const ASK_USER_QUESTION_TIMEOUT_MESSAGE =
   "The user did not answer before the interactive question timed out. Continue the original task without waiting, using reasonable assumptions when safe, and provide a user-visible response. Do not call AskUserQuestion again during this turn.";
@@ -191,12 +192,24 @@ export function createCanUseToolCallback(
     },
   ) => {
     const { toolUseID } = options;
+    const questions = (input as Record<string, unknown>)?.questions;
+
+    if (
+      toolName === "AskUserQuestion" &&
+      Array.isArray(questions) &&
+      questions.length > MAX_ASK_USER_QUESTIONS
+    ) {
+      return {
+        behavior: "deny",
+        message: `AskUserQuestion supports at most ${MAX_ASK_USER_QUESTIONS} questions per survey.`,
+      };
+    }
 
     if (toolName === "AskUserQuestion" && questionTimedOut) {
       return {
         behavior: "allow",
         updatedInput: {
-          questions: (input as Record<string, unknown>)?.questions,
+          questions,
           answers: {
             [ASK_USER_QUESTION_TIMEOUT_ANSWER_KEY]:
               ASK_USER_QUESTION_TIMEOUT_MESSAGE,
@@ -233,9 +246,7 @@ export function createCanUseToolCallback(
             toolName,
             input,
             questions:
-              toolName === "AskUserQuestion"
-                ? (input as Record<string, unknown>)?.questions
-                : undefined,
+              toolName === "AskUserQuestion" ? questions : undefined,
             answers: {},
           }),
         );

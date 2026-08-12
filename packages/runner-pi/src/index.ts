@@ -27,6 +27,7 @@ export {
   buildAskUserQuestionTool,
   DEFAULT_ASK_USER_QUESTION_TIMEOUT_MS,
   gateToolsForApproval,
+  MAX_ASK_USER_QUESTIONS,
   type WaitForApprovalOptions,
   waitForApproval,
   wrapToolWithApproval,

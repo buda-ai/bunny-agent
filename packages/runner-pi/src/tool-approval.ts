@@ -8,7 +8,7 @@
  *   so the SDK's question-processor / AskUserQuestion web UI works unchanged.
  * - Polls the file every 500ms waiting for the web layer to overwrite it with
  *   `status: "completed"` (see packages/sdk submitAnswer).
- * - AskUserQuestion uses a 60-second default timeout and returns a model-visible
+ * - AskUserQuestion uses a 3-minute default timeout and returns a model-visible
  *   timeout answer so the conversation continues. Regular approvals remain
  *   unbounded unless a caller explicitly supplies `timeoutMs`.
  */
@@ -21,7 +21,8 @@ import { Type } from "@sinclair/typebox";
 
 export const ASK_USER_QUESTION_TOOL_NAME = "ask_user_question";
 export const LEGACY_ASK_USER_QUESTION_TOOL_NAME = "AskUserQuestion";
-export const DEFAULT_ASK_USER_QUESTION_TIMEOUT_MS = 60_000;
+export const DEFAULT_ASK_USER_QUESTION_TIMEOUT_MS = 180_000;
+export const MAX_ASK_USER_QUESTIONS = 8;
 export const ASK_USER_QUESTION_TIMEOUT_ANSWER_KEY = "__bunny_agent_timeout__";
 export const ASK_USER_QUESTION_TIMEOUT_MESSAGE =
   "The user did not answer before the interactive question timed out. Do not call ask_user_question again during this turn.";
@@ -223,7 +224,10 @@ const askUserQuestionParameters = Type.Object({
         }),
       ),
     }),
-    { description: "Questions to present to the user." },
+    {
+      description: `Questions to present to the user (maximum ${MAX_ASK_USER_QUESTIONS}).`,
+      maxItems: MAX_ASK_USER_QUESTIONS,
+    },
   ),
 });
 
@@ -278,9 +282,19 @@ export function buildAskUserQuestionTool(
       "missing information required to continue the task.",
     parameters: askUserQuestionParameters,
     async execute(toolCallId, params, signal) {
+      const questions = (params as Record<string, unknown>)?.questions;
+      if (
+        Array.isArray(questions) &&
+        questions.length > MAX_ASK_USER_QUESTIONS
+      ) {
+        throw new Error(
+          `ask_user_question supports at most ${MAX_ASK_USER_QUESTIONS} questions per survey.`,
+        );
+      }
+
       if (questionTimedOut) {
         const updatedInput = {
-          questions: (params as Record<string, unknown>)?.questions,
+          questions,
           answers: {
             [ASK_USER_QUESTION_TIMEOUT_ANSWER_KEY]:
               ASK_USER_QUESTION_TIMEOUT_MESSAGE,

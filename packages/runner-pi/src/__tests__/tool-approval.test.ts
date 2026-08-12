@@ -8,7 +8,9 @@ import {
   ASK_USER_QUESTION_TIMEOUT_MESSAGE,
   ASK_USER_QUESTION_TOOL_NAME,
   buildAskUserQuestionTool,
+  DEFAULT_ASK_USER_QUESTION_TIMEOUT_MS,
   LEGACY_ASK_USER_QUESTION_TOOL_NAME,
+  MAX_ASK_USER_QUESTIONS,
   waitForApproval,
   wrapToolWithApproval,
 } from "../tool-approval.js";
@@ -238,6 +240,35 @@ describe("waitForApproval", () => {
 });
 
 describe("buildAskUserQuestionTool", () => {
+  it("uses a three-minute default timeout and caps surveys at eight questions", () => {
+    const tool = buildAskUserQuestionTool({ cwd });
+    const parameters = tool.parameters as {
+      properties: { questions: { maxItems?: number } };
+    };
+
+    expect(DEFAULT_ASK_USER_QUESTION_TIMEOUT_MS).toBe(180_000);
+    expect(MAX_ASK_USER_QUESTIONS).toBe(8);
+    expect(parameters.properties.questions.maxItems).toBe(8);
+  });
+
+  it("rejects oversized surveys when execution bypasses schema validation", async () => {
+    const tool = buildAskUserQuestionTool({ cwd });
+    const questions = Array.from({ length: 9 }, (_, index) => ({
+      question: `Question ${index + 1}?`,
+    }));
+
+    await expect(
+      tool.execute(
+        "ask-too-many",
+        { questions },
+        undefined,
+        undefined,
+        // biome-ignore lint/suspicious/noExplicitAny: ExtensionContext unused in execute
+        undefined as any,
+      ),
+    ).rejects.toThrow("at most 8 questions");
+  });
+
   it("returns the user's answers as the tool result on completion", async () => {
     const tool = buildAskUserQuestionTool({
       cwd,

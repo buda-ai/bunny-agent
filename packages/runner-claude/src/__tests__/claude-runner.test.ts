@@ -8,6 +8,8 @@ import {
   type ClaudeRunnerOptions,
   createCanUseToolCallback,
   createClaudeRunner,
+  DEFAULT_ASK_USER_QUESTION_TIMEOUT_MS,
+  MAX_ASK_USER_QUESTIONS,
 } from "../claude-runner.js";
 
 // Mock the Claude Agent SDK so tests always use mock mode
@@ -199,6 +201,33 @@ describe("ClaudeRunnerOptions", () => {
 });
 
 describe("createCanUseToolCallback", () => {
+  it("uses a three-minute default timeout and rejects surveys over eight questions", async () => {
+    expect(DEFAULT_ASK_USER_QUESTION_TIMEOUT_MS).toBe(180_000);
+    expect(MAX_ASK_USER_QUESTIONS).toBe(8);
+
+    const callback = createCanUseToolCallback({
+      model: "claude-sonnet-4-20250514",
+    });
+    const questions = Array.from({ length: 9 }, (_, index) => ({
+      question: `Question ${index + 1}?`,
+    }));
+
+    await expect(
+      callback(
+        "AskUserQuestion",
+        { questions },
+        {
+          signal: new AbortController().signal,
+          toolUseID: "ask-too-many",
+          requestId: "request-too-many",
+        },
+      ),
+    ).resolves.toEqual({
+      behavior: "deny",
+      message: "AskUserQuestion supports at most 8 questions per survey.",
+    });
+  });
+
   it("returns a model-visible timeout result for unanswered questions", async () => {
     const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "claude-approval-"));
     try {
