@@ -8,6 +8,7 @@ export {
   createClaudeRunner,
   DEFAULT_ASK_USER_QUESTION_TIMEOUT_MS,
   hasClaudeAuth,
+  MAX_ASK_USER_QUESTIONS,
 } from "./claude-runner.js";
 export {
   buildMcpToolDefinitionsFromRefs,
