@@ -245,8 +245,7 @@ export function createCanUseToolCallback(
             status: "pending",
             toolName,
             input,
-            questions:
-              toolName === "AskUserQuestion" ? questions : undefined,
+            questions: toolName === "AskUserQuestion" ? questions : undefined,
             answers: {},
           }),
         );
