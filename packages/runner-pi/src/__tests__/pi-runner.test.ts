@@ -939,6 +939,11 @@ describe("createPiRunner", () => {
     expect(spy).toHaveBeenCalled();
     const callArgs = spy.mock.calls[0]?.[0];
     expect(callArgs?.tools).toEqual(["read", "bash"]);
+    expect(callArgs?.customTools).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "ask_user_question" }),
+      ]),
+    );
   });
 
   it("registers the snake-case question tool enabled by Buda's allowlist", async () => {
