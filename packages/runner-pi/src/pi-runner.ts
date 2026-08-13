@@ -630,6 +630,9 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           bypassApproval,
           approvalGate,
         );
+        const askUserQuestionEnabled =
+          allowedTools === undefined ||
+          allowedTools.includes(ASK_USER_QUESTION_TOOL_NAME);
 
         const { session } = await createAgentSession({
           cwd,
@@ -643,12 +646,16 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           tools: allowedTools,
           customTools: [
             ...gatedTools,
-            buildAskUserQuestionTool({
-              ...approvalGate,
-              timeoutMs:
-                options.askUserQuestionTimeoutMs ??
-                DEFAULT_ASK_USER_QUESTION_TIMEOUT_MS,
-            }),
+            ...(askUserQuestionEnabled
+              ? [
+                  buildAskUserQuestionTool({
+                    ...approvalGate,
+                    timeoutMs:
+                      options.askUserQuestionTimeoutMs ??
+                      DEFAULT_ASK_USER_QUESTION_TIMEOUT_MS,
+                  }),
+                ]
+              : []),
           ],
         });
 
