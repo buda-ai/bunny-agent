@@ -70,29 +70,39 @@ incoming HTTP request
 │                  bunny-agent-daemon                     │
 │                                                       │
 │  POST /api/coding/run  ──────────────────────────┐ │
-│                                                     │ │
-│  GET|POST /api/fs/*   ──────────────────────────┐  │ │
-│  GET|POST /api/git/*  ──────────────────────┐   │  │ │
-│  GET|POST /api/volumes/*  ──────────────┐   │   │  │ │
-│  GET /healthz  ─────────────────────┐   │   │   │  │ │
-│                                     │   │   │   │  │ │
-│                                     ▼   ▼   ▼   │  │ │
-│                               ┌─────────────┐   │  │ │
-│                               │ DaemonRouter│   │  │ │
-│                               │ (core logic)│   │  │ │
-│                               └──────┬──────┘   │  │ │
-│                                      │          │  │ │
-│              ┌───────────────────────┤          │  │ │
-│              ▼                       ▼          ▼  │ │
-│         node:fs/promises    isomorphic-git    SSE │ │
-│         (file ops)              (git ops)  stream │ │
-│                                                    │ │
-│                                    @bunny-agent/     │ │
-│                                    runner-core ◄───┘ │
-│                                    claude/pi/        │
-│                                    gemini/codex      │
+│  POST /api/coding/acp  ────────────────────────┐ │ │
+│                                                   │ │ │
+│  GET|POST /api/fs/*   ──────────────────────────┐│ │ │
+│  GET|POST /api/git/*  ──────────────────────┐   ││ │ │
+│  GET|POST /api/volumes/*  ──────────────┐   │   ││ │ │
+│  GET /healthz  ─────────────────────┐   │   │   ││ │ │
+│                                     │   │   │   ││ │ │
+│                                     ▼   ▼   ▼   ││ │ │
+│                               ┌─────────────┐   ││ │ │
+│                               │ DaemonRouter│   ││ │ │
+│                               │ (core logic)│   ││ │ │
+│                               └──────┬──────┘   ││ │ │
+│                                      │          ││ │ │
+│              ┌───────────────────────┤          ││ │ │
+│              ▼                       ▼          ▼│ │ │
+│         node:fs/promises    isomorphic-git   SSE │ │ │
+│         (file ops)              (git ops) (server-ai-sdk)
+│                                                   │ │ │
+│                                     ACP JSON-RPC ◄┘ │ │
+│                                     (server-acp) ◄──┘ │
+│                                          │            │
+│                                          ▼            │
+│                                    @bunny-agent/       │
+│                                    runner-harness ◄────┘
+│                                    claude/pi/          │
+│                                    gemini/codex        │
 └───────────────────────────────────────────────────────┘
 ```
+
+`/api/coding/run` (server-ai-sdk) and `/api/coding/acp` (server-acp) are two
+independent wire protocols over the same runner dispatch — see
+[`docs/runner-maturity.md`](../../docs/runner-maturity.md#output-protocols) for
+the full protocol comparison.
 
 ---
 
@@ -142,7 +152,11 @@ packages/
 │  Mode C: runner-cli (local terminal, no daemon needed)           │
 │                                                                  │
 │  bunny-agent run --runner claude -- "Build a REST API"             │
-│  └── runner-core → stdout (AI SDK UI NDJSON stream)              │
+│  └── stdout: AI SDK UI NDJSON stream, one-shot                   │
+│                                                                  │
+│  bunny-agent acp --runner claude                                   │
+│  └── stdio: long-lived ACP agent (JSON-RPC), for editors that     │
+│      spawn agent binaries directly — Zed, JetBrains, ...          │
 │                                                                  │
 │  Runs directly on local filesystem. No HTTP server.              │
 └──────────────────────────────────────────────────────────────────┘
@@ -164,11 +178,16 @@ apps/bunny-agent-daemon/
 │       ├── health.ts   GET /healthz
 │       ├── fs.ts       GET|POST /api/fs/*
 │       ├── volumes.ts  GET|POST /api/volumes/*
-│       ├── git.ts      POST /api/git/*  (isomorphic-git)
-│       └── coding.ts POST /api/coding/run  (SSE, uses runner-core)
+│       └── git.ts      POST /api/git/*  (isomorphic-git)
 └── src/__tests__/
     └── daemon.test.ts  13 integration tests (no mocks, real fs + git)
 ```
+
+`POST /api/coding/run` and `POST /api/coding/acp` aren't defined in
+`src/routes/` — `server.ts`/`nextjs.ts` mount them directly from
+`@bunny-agent/server-ai-sdk` and `@bunny-agent/server-acp`, the packages that
+own the AI SDK and ACP wire protocols respectively (both dispatch through
+`runner-harness`, same as everything else here).
 
 ---
 
@@ -317,6 +336,45 @@ curl -N -X POST http://localhost:3080/api/coding/run \
 ```
 
 Response: `application/x-ndjson` chunked stream — each line is an AI SDK UI message, compatible with Vercel AI SDK `useChat` / `streamText`.
+
+#### `POST /api/coding/acp`
+
+Serves the same runners as an [Agent Client Protocol](https://agentclientprotocol.com)
+agent over Streamable HTTP, for ACP clients (Zed, JetBrains, and the
+Neovim/Emacs/VS Code plugins) instead of AI SDK UI clients. Backed by
+`@bunny-agent/server-acp`; the request/response bodies are ACP JSON-RPC 2.0
+messages, not the `RunRequest` shape used by `/api/coding/run`.
+
+```bash
+curl -N -X POST http://localhost:3080/api/coding/acp \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/json, text/event-stream' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":1,"clientCapabilities":{}}}'
+```
+
+`session/new` has no runner/model field in the ACP spec, so select one through
+the `_meta` extension, namespaced under `"bunny-agent"`:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 2,
+  "method": "session/new",
+  "params": {
+    "cwd": "/workspace",
+    "mcpServers": [],
+    "_meta": { "bunny-agent": { "runner": "pi", "model": "gemini-2.0-flash" } }
+  }
+}
+```
+
+Omitted or malformed `_meta` falls back to the daemon's configured default
+runner/model. See
+[`docs/runner-maturity.md`](../../docs/runner-maturity.md#output-protocols)
+for the full protocol comparison, and
+[`apps/runner-cli/README.md`](../runner-cli/README.md#bunny-agent-acp) for
+`bunny-agent acp`, the stdio equivalent used when an editor spawns the agent
+as a subprocess instead of talking HTTP.
 
 ### Filesystem `/api/fs/*`
 
