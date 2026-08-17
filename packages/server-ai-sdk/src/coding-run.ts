@@ -47,7 +47,7 @@ export interface RunRequest {
   effort?: string;
 }
 
-const assertRunRequestInput = (req: RunRequest): void => {
+export const assertRunRequestInput = (req: RunRequest): void => {
   if (req.input === undefined && typeof req.userInput !== "string") {
     throw new Error("Either input or userInput is required");
   }
@@ -66,6 +66,60 @@ export function getHeartbeatIntervalMs(): number {
 /** Override heartbeat interval — exposed for testing only. */
 export function setHeartbeatIntervalMs(ms: number): void {
   _heartbeatIntervalMs = ms;
+}
+
+const errorEnvelope = (err: unknown): string => {
+  const msg = err instanceof Error ? err.message : String(err);
+  // Keep output format consistent with runner-cli (SSE `data:` events),
+  // so the SDK can parse errors uniformly.
+  return (
+    `data: ${JSON.stringify({ type: "error", errorText: msg })}\n\n` +
+    `data: ${JSON.stringify({ type: "finish", finishReason: "error" })}\n\n` +
+    `data: [DONE]\n\n`
+  );
+};
+
+/**
+ * Single source of truth for the AI SDK wire stream: validates the request,
+ * drives `createRunner`, and terminates with the SSE error envelope on failure.
+ * Both the Node and Web adapters below consume this.
+ */
+export async function* codingRunChunks(
+  req: RunRequest,
+  env: Record<string, string>,
+  abortController: AbortController,
+): AsyncIterable<string> {
+  try {
+    assertRunRequestInput(req);
+    const stream = createRunner({
+      runner: req.runner ?? "claude",
+      model: req.model ?? "claude-sonnet-4-20250514",
+      input: req.input,
+      userInput: req.userInput,
+      systemPrompt: req.systemPrompt,
+      maxTurns: req.maxTurns,
+      allowedTools: req.allowedTools,
+      resume: req.resume,
+      forkFrom: req.forkFrom,
+      skillPaths: req.skillPaths,
+      cwd: req.cwd ?? process.env.BUNNY_AGENT_ROOT ?? "/workspace",
+      yolo: req.yolo,
+      env,
+      systemEnv: req.systemEnv,
+      abortController,
+      toolRefs: req.toolRefs,
+      mcpConfig: req.mcpConfig,
+      effort: req.effort,
+      // API: caller owns resume/session; do not read/write cwd/.bunny-agent or auto-load CLAUDE.md.
+      autoInject: false,
+    });
+
+    for await (const chunk of stream) {
+      yield chunk;
+    }
+  } catch (err) {
+    yield errorEnvelope(err);
+  }
 }
 
 /**
@@ -94,42 +148,9 @@ export async function bunnyAgentRun(
   }, getHeartbeatIntervalMs());
 
   try {
-    assertRunRequestInput(req);
-    const stream = createRunner({
-      runner: req.runner ?? "claude",
-      model: req.model ?? "claude-sonnet-4-20250514",
-      input: req.input,
-      userInput: req.userInput,
-      systemPrompt: req.systemPrompt,
-      maxTurns: req.maxTurns,
-      allowedTools: req.allowedTools,
-      resume: req.resume,
-      forkFrom: req.forkFrom,
-      skillPaths: req.skillPaths,
-      cwd: req.cwd ?? process.env.BUNNY_AGENT_ROOT ?? "/workspace",
-      yolo: req.yolo,
-      env,
-      systemEnv: req.systemEnv,
-      abortController,
-      toolRefs: req.toolRefs,
-      mcpConfig: req.mcpConfig,
-      effort: req.effort,
-      // API: caller owns resume/session; do not read/write cwd/.bunny-agent or auto-load CLAUDE.md.
-      autoInject: false,
-    });
-
-    for await (const chunk of stream) {
+    for await (const chunk of codingRunChunks(req, env, abortController)) {
       res.write(chunk);
     }
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    // Keep output format consistent with runner-cli (SSE `data:` events),
-    // so the SDK can parse errors uniformly.
-    res.write(`data: ${JSON.stringify({ type: "error", errorText: msg })}\n\n`);
-    res.write(
-      `data: ${JSON.stringify({ type: "finish", finishReason: "error" })}\n\n`,
-    );
-    res.write(`data: [DONE]\n\n`);
   } finally {
     clearInterval(heartbeat);
     res.end();
@@ -169,39 +190,9 @@ export function codingRunStream(
       }, getHeartbeatIntervalMs());
 
       try {
-        const stream = createRunner({
-          runner: req.runner ?? "claude",
-          model: req.model ?? "claude-sonnet-4-20250514",
-          input: req.input,
-          userInput: req.userInput,
-          systemPrompt: req.systemPrompt,
-          maxTurns: req.maxTurns,
-          allowedTools: req.allowedTools,
-          resume: req.resume,
-          forkFrom: req.forkFrom,
-          skillPaths: req.skillPaths,
-          cwd: req.cwd ?? process.env.BUNNY_AGENT_ROOT ?? "/workspace",
-          yolo: req.yolo,
-          env,
-          systemEnv: req.systemEnv,
-          abortController,
-          toolRefs: req.toolRefs,
-          mcpConfig: req.mcpConfig,
-          effort: req.effort,
-          autoInject: false,
-        });
-        for await (const chunk of stream) {
+        for await (const chunk of codingRunChunks(req, env, abortController)) {
           controller.enqueue(encoder.encode(chunk));
         }
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        controller.enqueue(
-          encoder.encode(
-            `data: ${JSON.stringify({ type: "error", errorText: msg })}\n\n` +
-              `data: ${JSON.stringify({ type: "finish", finishReason: "error" })}\n\n` +
-              `data: [DONE]\n\n`,
-          ),
-        );
       } finally {
         clearInterval(heartbeat);
         controller.close();

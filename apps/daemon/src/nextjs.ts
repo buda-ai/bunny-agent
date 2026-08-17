@@ -17,10 +17,14 @@
 
 import { createReadStream } from "node:fs";
 import { Readable } from "node:stream";
-import { prepareCodingRunEnv } from "./coding-run-env.js";
+import { createAcpHttpServer } from "@bunny-agent/server-acp";
+import { createAiSdkCodingRunServer } from "@bunny-agent/server-ai-sdk";
+import {
+  type CodingRunBodyWithEnv,
+  prepareCodingRunEnv,
+} from "./coding-run-env.js";
 import { parseMultipart } from "./multipart.js";
 import { DaemonRouter } from "./router.js";
-import { codingRunStream, type RunRequest } from "./routes/coding.js";
 import { fsDownload, fsUpload, fsWriteStream } from "./routes/fs.js";
 import { AppError, type AppState, fail, guessMimeType } from "./utils.js";
 
@@ -32,6 +36,13 @@ export function createNextHandler(opts: { root: string; prefix?: string }) {
     root: opts.root,
     volumesRoot: `${opts.root}/volumes`,
   };
+  const codingRunServers = [
+    createAiSdkCodingRunServer({
+      prepareEnv: (body) =>
+        prepareCodingRunEnv(env, body as CodingRunBodyWithEnv),
+    }),
+    createAcpHttpServer({ defaultCwd: opts.root, env }),
+  ];
 
   return async (req: Request): Promise<Response> => {
     const url = new URL(req.url);
@@ -41,12 +52,14 @@ export function createNextHandler(opts: { root: string; prefix?: string }) {
       : url.pathname;
     const method = req.method ?? "GET";
 
-    // Streaming: /api/coding/run → NDJSON stream
-    if (method === "POST" && pathname === "/api/coding/run") {
-      const body = (await req.json().catch(() => ({}))) as RunRequest;
-      const { env: mergedEnv, systemEnv } = prepareCodingRunEnv(env, body);
-      body.systemEnv = systemEnv;
-      return codingRunStream(body, mergedEnv);
+    // Streaming protocol servers: /api/coding/run (AI SDK), /api/coding/acp (ACP)
+    if (method === "POST") {
+      const codingRunServer = codingRunServers.find(
+        (server) => server.mountPath === pathname,
+      );
+      if (codingRunServer) {
+        return codingRunServer.handleWebRequest(req);
+      }
     }
 
     // Raw streamed upload: /api/fs/write-stream?path=...

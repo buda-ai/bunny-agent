@@ -1,0 +1,32 @@
+{
+  "name": "@bunny-agent/server-acp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Agent Client Protocol (ACP) server exposing BunnyAgent runners as an ACP agent",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@agentclientprotocol/sdk": "^1.2.1",
+    "@bunny-agent/runner-harness": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.0",
+    "vitest": "^1.6.1"
+  },
+  "license": "Apache-2.0"
+}

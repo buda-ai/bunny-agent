@@ -9,6 +9,9 @@ Architecture recap:
 UI (useBunnyAgentChat) → /api/ai → SDK provider (packages/sdk, LanguageModelV3)
   → daemon (/api/coding/run) or CLI (bunny-agent run)
     → runner-harness (dispatchRunner) → runner-claude | runner-pi | runner-codex | runner-gemini | runner-opencode | runner-copilot
+
+ACP client (Zed, JetBrains, ...) → daemon (/api/coding/acp) or CLI (bunny-agent acp, stdio)
+  → server-acp (BunnyAgentAcpAgent) → runner-harness (dispatchRunner) → same runners
 ```
 
 All runners speak the same wire protocol: SSE lines of AI SDK UI Data Stream
@@ -17,6 +20,33 @@ chunks (`start`, `message-metadata`, `text-start/delta/end`, `tool-*`,
 (`packages/sdk/src/provider/bunny-agent-language-model.ts`) parses that stream,
 so runner differences below describe **what each runner emits/supports**, not
 different protocols.
+
+## Output protocols
+
+Runner output is served over two wire protocols, one package each. Both consume
+the same `RunnerChunk` stream from `runner-harness`, so every runner is
+available on both:
+
+| Package | Protocol | Transports | Consumed by |
+|---|---|---|---|
+| `server-ai-sdk` | AI SDK UI Data Stream (SSE/NDJSON) | HTTP (`/api/coding/run`) | `packages/sdk`, Vercel AI SDK UI clients |
+| `server-acp` | Agent Client Protocol (JSON-RPC) | HTTP (`/api/coding/acp`), stdio (`bunny-agent acp`) | ACP clients: Zed, JetBrains, Neovim/Emacs/VS Code plugins |
+
+Note the direction: `server-acp` makes BunnyAgent *be* an ACP agent, whereas
+`runner-acp` makes BunnyAgent an ACP *client* driving external ACP agents
+(gemini-cli, opencode) as subprocesses.
+
+ACP's `session/new` has no runner/model field, so clients select one through the
+protocol's implementation-defined `_meta` extension, namespaced to avoid
+colliding with other implementations:
+
+```json
+{ "cwd": "/workspace", "mcpServers": [],
+  "_meta": { "bunny-agent": { "runner": "pi", "model": "..." } } }
+```
+
+Absent `_meta`, the server falls back to its configured default runner/model
+(`--runner`/`--model` for the CLI, daemon config for HTTP).
 
 ## SDK versions
 

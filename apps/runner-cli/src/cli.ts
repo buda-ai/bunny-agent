@@ -12,12 +12,15 @@ import { resolve } from "node:path";
 // Load environment variables from .env file
 import { config } from "dotenv";
 
-// Try loading .env from current directory and project root
-config({ path: resolve(process.cwd(), ".env") });
-config({ path: resolve(process.cwd(), "../.env") });
-config({ path: resolve(process.cwd(), "../../.env") });
+// Try loading .env from current directory and project root.
+// `quiet` keeps dotenv's tips off stdout, which carries the protocol stream
+// (AI SDK chunks for `run`, JSON-RPC for `acp`).
+config({ path: resolve(process.cwd(), ".env"), quiet: true });
+config({ path: resolve(process.cwd(), "../.env"), quiet: true });
+config({ path: resolve(process.cwd(), "../../.env"), quiet: true });
 
 import { parseArgs } from "node:util";
+import { runAcpAgent } from "./acp.js";
 import { buildImage } from "./build-image.js";
 import {
   takeAgentInputFromEnv,
@@ -162,6 +165,62 @@ function parseRunArgs(): ParsedRunArgs {
 }
 
 // ---------------------------------------------------------------------------
+// `bunny-agent acp`
+// ---------------------------------------------------------------------------
+
+interface ParsedAcpArgs {
+  runner: string;
+  model: string;
+  cwd: string;
+  yolo?: boolean;
+}
+
+function parseAcpArgs(): ParsedAcpArgs {
+  const { values } = parseArgs({
+    args: argsAfterPositionals(1),
+    options: {
+      runner: { type: "string", short: "r", default: "claude" },
+      model: {
+        type: "string",
+        short: "m",
+        default: "claude-sonnet-4-20250514",
+      },
+      cwd: {
+        type: "string",
+        short: "c",
+        default: process.env.BUNNY_AGENT_WORKSPACE ?? process.cwd(),
+      },
+      yolo: { type: "boolean" },
+      help: { type: "boolean", short: "h" },
+    },
+    allowPositionals: false,
+    strict: true,
+  });
+
+  if (values.help) {
+    printAcpHelp();
+    process.exit(0);
+  }
+
+  const runner = values.runner!;
+  if (
+    !["claude", "codex", "gemini", "opencode", "copilot", "pi"].includes(runner)
+  ) {
+    console.error(
+      'Error: --runner must be one of: "claude", "codex", "gemini", "opencode", "copilot", "pi"',
+    );
+    process.exit(1);
+  }
+
+  return {
+    runner,
+    model: values.model!,
+    cwd: values.cwd!,
+    yolo: values.yolo,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // `bunny-agent image build`
 // ---------------------------------------------------------------------------
 
@@ -245,6 +304,29 @@ Environment:
 `);
 }
 
+function printAcpHelp(): void {
+  console.log(`
+🔌 BunnyAgent Runner CLI — acp
+
+Serves BunnyAgent as an Agent Client Protocol (ACP) agent over stdio, so ACP
+clients (Zed, JetBrains, ...) can spawn this CLI as their agent subprocess.
+Unlike "run", this is a long-lived process driven by the connected client.
+
+Usage:
+  bunny-agent acp [options]
+
+Options:
+  -r, --runner <runner>        Default runner: claude, codex, gemini, opencode, copilot, pi (default: claude)
+  -m, --model <model>          Default model (default: claude-sonnet-4-20250514)
+  -c, --cwd <path>             Default working directory (default: cwd)
+      --yolo                   Automatically approve tool permission requests
+  -h, --help                   Show this help
+
+Clients may override the runner/model per session by sending
+_meta["bunny-agent"] = { runner, model } on the ACP session/new request.
+`);
+}
+
 function printImageBuildHelp(): void {
   console.log(`
 🐳 BunnyAgent Runner CLI — image build
@@ -296,6 +378,7 @@ Usage:
 
 Commands:
   run          Run an agent locally (streams AI SDK UI messages to stdout)
+  acp          Serve as an ACP agent over stdio (for Zed, JetBrains, ...)
   image build  Build a BunnyAgent Docker image (with optional --push)
 
 Run "bunny-agent <command> --help" for command-specific options.
@@ -336,6 +419,12 @@ async function main(): Promise<void> {
         ...(toolRefs ? { toolRefs: toolRefs.tools } : {}),
         ...(mcpConfig ? { mcpConfig: mcpConfig.config } : {}),
       });
+      break;
+    }
+    case "acp": {
+      const args = parseAcpArgs();
+      process.chdir(args.cwd);
+      await runAcpAgent(args);
       break;
     }
     case "image": {
