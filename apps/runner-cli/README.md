@@ -2,29 +2,25 @@
 
 Bunny Agent Runner CLI - A **lightweight, local** command-line interface for running AI agents in your terminal.
 
-Like gemini-cli, claude-code, or codex-cli, this tool runs **directly on your local filesystem** and streams AI SDK UI messages to stdout.
+Like gemini-cli, claude-code, or codex-cli, this tool runs **directly on your local filesystem**. It has two subcommands, one per output protocol: `run` streams AI SDK UI messages to stdout for a single task, and `acp` serves as a long-lived [Agent Client Protocol](https://agentclientprotocol.com) agent over stdio for editors like Zed and JetBrains.
 
 ## 🎯 Key Features
 
 - 🔌 **Choose Different Runners**: Switch between Claude, Codex, Gemini, Copilot with `--runner` flag
 - 🚀 **Local Execution**: Runs directly on your filesystem, no sandbox required
 - 💨 **Lightweight**: No manager dependency, minimal overhead
-- 📡 **Streaming**: Real-time AI SDK UI streaming
+- 📡 **Streaming**: Real-time AI SDK UI streaming (`run`) or ACP JSON-RPC over stdio (`acp`)
 
 ## 📐 Architecture
 
 ```
-runner-cli → runner-* (direct, NO dependencies on manager or sandbox)
-             ├─ runner-claude ✅
-             ├─ runner-codex ✅
-             ├─ runner-gemini ✅
-             └─ runner-copilot ✅
+runner-cli
+  ├─ run  → @bunny-agent/runner-harness → runner-claude / runner-codex / ...
+  └─ acp  → @bunny-agent/server-acp     → runner-harness → same runners
 
 Dependencies:
-✅ @bunny-agent/runner-claude (runtime)
-✅ @bunny-agent/runner-codex (runtime)
-✅ @bunny-agent/runner-gemini (runtime)
-✅ @bunny-agent/runner-copilot (runtime)
+✅ @bunny-agent/runner-harness (dispatches to every runner)
+✅ @bunny-agent/server-acp (the `acp` subcommand's ACP agent + stdio transport)
 ❌ NO @bunny-agent/manager
 ❌ NO @bunny-agent/sandbox-*
 ```
@@ -97,7 +93,8 @@ through the SDK `streamText({ tools })` API, not directly through runner-cli.
 
 ## Output Format
 
-`bunny-agent run` always outputs AI SDK data stream (SSE) format.
+`bunny-agent run` always outputs AI SDK data stream (SSE) format, one-shot —
+it runs the task and exits.
 
 ```bash
 bunny-agent run -- "Calculate 2+2"
@@ -109,6 +106,54 @@ data: {"type":"start","messageId":"msg_123"}
 data: {"type":"text-delta","id":"text_1","delta":"The answer is 4."}
 data: [DONE]
 ```
+
+For the ACP protocol instead, use `bunny-agent acp` — see below. The two are
+separate subcommands, not a flag on `run`: ACP is a long-lived session
+(`initialize` → `session/new` → possibly many `session/prompt` calls from the
+connected editor), not a single request/response.
+
+## `bunny-agent acp`
+
+Serves BunnyAgent as an [Agent Client Protocol](https://agentclientprotocol.com)
+**agent** over stdio — the transport editors use when they spawn an agent
+binary directly, e.g. Zed's "custom agent" setup or JetBrains' AI Assistant
+agent integration. The process stays alive handling JSON-RPC over
+stdin/stdout until the connecting client disconnects; it does not take a
+task argument like `run` does.
+
+```bash
+bunny-agent acp --runner claude
+bunny-agent acp --runner pi --model gemini-2.0-flash --cwd ./my-project
+```
+
+| Option | Short | Description | Default |
+|--------|-------|--------------|---------|
+| `--runner <runner>` | `-r` | Runner to use: `claude`, `codex`, `gemini`, `opencode`, `copilot`, `pi` | `claude` |
+| `--model <model>` | `-m` | Model to use | `claude-sonnet-4-20250514` |
+| `--cwd <path>` | `-c` | Working directory | Current directory |
+| `--yolo` | - | Automatically approve tool permission requests | `false` |
+| `--help` | `-h` | Show help message | - |
+
+These flags set the **session default**. ACP's `session/new` has no native
+runner/model field, so a connecting client can still override per-session
+through the protocol's `_meta` extension, namespaced under `"bunny-agent"`:
+
+```json
+{ "cwd": "/workspace", "mcpServers": [],
+  "_meta": { "bunny-agent": { "runner": "pi", "model": "gemini-2.0-flash" } } }
+```
+
+Point an ACP client at the CLI itself as the agent command (exact
+configuration is client-specific — see each editor's ACP docs):
+
+```json
+{ "command": "bunny-agent", "args": ["acp", "--runner", "claude"] }
+```
+
+For the HTTP equivalent (`POST /api/coding/acp`, used by the daemon instead
+of a spawned subprocess), see
+[`apps/daemon/README.md`](../daemon/README.md#post-apicodingacp). Both are
+backed by `@bunny-agent/server-acp` and support every runner this CLI does.
 
 ## Environment Variables
 
@@ -178,3 +223,5 @@ bunny-agent image build --name vikadata/bunny-agent --tag 0.1.0
 - [Skills](docs/SKILLS.md) — Where skills live and how they are loaded (local and Docker)
 - [Claude Agent SDK](https://platform.claude.com/docs/agent-sdk/typescript)
 - [AI SDK UI Stream Protocol](https://ai-sdk.dev/docs/ai-sdk-ui/stream-protocol)
+- [Agent Client Protocol](https://agentclientprotocol.com) — the protocol `bunny-agent acp` speaks
+- [Runner maturity / output protocols](../../docs/runner-maturity.md#output-protocols) — how `run` and `acp` compare
