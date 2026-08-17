@@ -143,16 +143,12 @@ describe("waitForApproval", () => {
 
   it("returns partial answers on timeout, like runner-claude", async () => {
     const questions = [{ question: "A?" }, { question: "B?" }];
-    const promise = waitForApproval({
-      cwd,
-      toolCallId: "call-5",
-      toolName: ASK_USER_QUESTION_TOOL_NAME,
-      input: { questions },
-      pollIntervalMs: 10,
-      timeoutMs: 100,
-    });
-    await new Promise((r) => setTimeout(r, 20));
-    // Web layer wrote partial answers but never completed.
+    // Web layer wrote partial answers but never completed. Seeding the file up
+    // front keeps this deterministic: waitForApproval only writes its own
+    // pending file when none exists, so the first poll reads these answers and
+    // the timeout path returns them. Racing the write against the deadline
+    // instead makes the test flaky under load.
+    fs.mkdirSync(path.dirname(approvalFile("call-5")), { recursive: true });
     fs.writeFileSync(
       approvalFile("call-5"),
       JSON.stringify({
@@ -161,7 +157,14 @@ describe("waitForApproval", () => {
         status: "pending",
       }),
     );
-    const decision = await promise;
+    const decision = await waitForApproval({
+      cwd,
+      toolCallId: "call-5",
+      toolName: ASK_USER_QUESTION_TOOL_NAME,
+      input: { questions },
+      pollIntervalMs: 10,
+      timeoutMs: 100,
+    });
     expect(decision).toEqual({
       behavior: "allow",
       updatedInput: { questions, answers: { "A?": "yes" } },
