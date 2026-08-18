@@ -80,8 +80,9 @@ describe("waitForApproval", () => {
       timeoutMs: 100,
     });
 
-    // Give the synchronous write a tick, then inspect the file.
-    await new Promise((r) => setTimeout(r, 20));
+    // waitForApproval writes the pending file synchronously, before its first
+    // await, so it is readable the moment the call returns. Sleeping first
+    // would race the timeout, whose cleanup deletes this file.
     const raw = JSON.parse(fs.readFileSync(approvalFile("call-1"), "utf-8"));
     expect(raw).toEqual({
       status: "pending",
@@ -113,7 +114,6 @@ describe("waitForApproval", () => {
       pollIntervalMs: 10,
       timeoutMs: 100,
     });
-    await new Promise((r) => setTimeout(r, 20));
     const raw = JSON.parse(fs.readFileSync(approvalFile("call-2"), "utf-8"));
     expect(raw.toolName).toBe("bash");
     expect(raw.input).toEqual({ command: "ls" });
@@ -132,7 +132,6 @@ describe("waitForApproval", () => {
       timeoutMs: 100,
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 20));
     const raw = JSON.parse(
       fs.readFileSync(approvalFile("call-legacy"), "utf-8"),
     );
