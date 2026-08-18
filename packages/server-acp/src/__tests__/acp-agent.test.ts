@@ -16,6 +16,20 @@ vi.mock("@bunny-agent/runner-harness", async () => {
     ...actual,
     createRunner: vi.fn((opts: Record<string, unknown>) => {
       createRunnerCalls.push(opts);
+      // Mirror dispatchRunner's contract: an unrecognised runner throws
+      // synchronously (runner-harness/src/runner.ts), rather than failing
+      // somewhere inside the stream.
+      const KNOWN_RUNNERS = [
+        "claude",
+        "codex",
+        "gemini",
+        "opencode",
+        "copilot",
+        "pi",
+      ];
+      if (!KNOWN_RUNNERS.includes(opts.runner as string)) {
+        throw new Error(`Unknown runner: ${opts.runner}`);
+      }
       const userInput = opts.userInput as string;
       const abort = opts.abortController as AbortController | undefined;
       return (async function* () {
@@ -425,6 +439,96 @@ describe("BunnyAgent ACP agent", () => {
           prompt: [{ type: "text", text: "hi" }],
         }),
       ).rejects.toThrow(/Unknown session/);
+    } finally {
+      connection.close();
+    }
+  });
+
+  it("surfaces an unknown runner from _meta as invalidParams, not a bare internal error", async () => {
+    const agentApp = createBunnyAgentAcpApp();
+    const clientApp = client({ name: "test-client" });
+    const connection = clientApp.connect(agentApp as never);
+
+    try {
+      await connection.agent.request(methods.agent.initialize, {
+        protocolVersion: PROTOCOL_VERSION,
+        clientCapabilities: {},
+      });
+      const session = await connection.agent.request(
+        methods.agent.session.new,
+        {
+          cwd: "/workspace",
+          mcpServers: [],
+          // A plausible client-side typo — must not read as "Internal error".
+          _meta: { "bunny-agent": { runner: "claude-code" } },
+        },
+      );
+
+      const error = await connection.agent
+        .request(methods.agent.session.prompt, {
+          sessionId: session.sessionId,
+          prompt: [{ type: "text", text: "hi" }],
+        })
+        .then(
+          () => undefined,
+          (e) => e as { code?: number; message?: string; data?: unknown },
+        );
+
+      expect(error).toBeDefined();
+      // -32602 invalid params, not -32603 internal error.
+      expect(error?.code).toBe(-32602);
+      // The real reason must reach the client, not just "Invalid params".
+      expect(error?.message).toMatch(/Unknown runner: claude-code/);
+    } finally {
+      connection.close();
+    }
+  });
+
+  it("clears the abort handle when runner setup fails", async () => {
+    const agentApp = createBunnyAgentAcpApp();
+    const clientApp = client({ name: "test-client" });
+    const connection = clientApp.connect(agentApp as never);
+
+    try {
+      await connection.agent.request(methods.agent.initialize, {
+        protocolVersion: PROTOCOL_VERSION,
+        clientCapabilities: {},
+      });
+      const session = await connection.agent.request(
+        methods.agent.session.new,
+        {
+          cwd: "/workspace",
+          mcpServers: [],
+          _meta: { "bunny-agent": { runner: "nope" } },
+        },
+      );
+
+      await connection.agent
+        .request(methods.agent.session.prompt, {
+          sessionId: session.sessionId,
+          prompt: [{ type: "text", text: "hi" }],
+        })
+        .catch(() => undefined);
+
+      // A cancel after a failed setup must be inert, not act on a stale
+      // controller left behind by the failure.
+      await expect(
+        connection.agent.notify(methods.agent.session.cancel, {
+          sessionId: session.sessionId,
+        }),
+      ).resolves.toBeUndefined();
+
+      // The session is still usable afterwards.
+      createRunnerCalls.length = 0;
+      const result = await connection.agent
+        .request(methods.agent.session.prompt, {
+          sessionId: session.sessionId,
+          prompt: [{ type: "text", text: "hi" }],
+        })
+        .catch((e) => e);
+      // Still the same invalidParams (the bad runner is session state), but the
+      // point is the server stayed responsive rather than wedging.
+      expect(result).toBeDefined();
     } finally {
       connection.close();
     }

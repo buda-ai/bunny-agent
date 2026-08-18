@@ -108,22 +108,35 @@ export function createBunnyAgentAcpApp(
       session.abort = abort;
       const serializer = new AcpSessionUpdateSerializer();
 
-      const chunks = parseRunnerStream(
-        createRunner({
-          runner: session.runner ?? options.defaultRunner ?? "claude",
-          model: session.model ?? options.defaultModel ?? DEFAULT_MODEL,
-          userInput: promptToText(params.prompt),
-          systemPrompt: session.systemPrompt,
-          cwd: session.cwd,
-          yolo: session.yolo ?? options.yolo,
-          env: options.env,
-          abortController: abort,
-          // Caller owns session/resume; don't touch cwd/.bunny-agent state.
-          autoInject: false,
-        }),
-      );
-
       try {
+        let chunks: ReturnType<typeof parseRunnerStream>;
+        try {
+          // createRunner dispatches synchronously, so setup failures (an
+          // unknown runner from `_meta`, malformed input) land here rather than
+          // in the stream. Surfacing them as invalidParams keeps the real
+          // reason visible; letting them escape would reach the client as a
+          // bare JSON-RPC "Internal error".
+          chunks = parseRunnerStream(
+            createRunner({
+              runner: session.runner ?? options.defaultRunner ?? "claude",
+              model: session.model ?? options.defaultModel ?? DEFAULT_MODEL,
+              userInput: promptToText(params.prompt),
+              systemPrompt: session.systemPrompt,
+              cwd: session.cwd,
+              yolo: session.yolo ?? options.yolo,
+              env: options.env,
+              abortController: abort,
+              // Caller owns session/resume; don't touch cwd/.bunny-agent state.
+              autoInject: false,
+            }),
+          );
+        } catch (error) {
+          throw RequestError.invalidParams(
+            undefined,
+            error instanceof Error ? error.message : String(error),
+          );
+        }
+
         for await (const update of serializer.serialize(chunks)) {
           await client.notify(methods.client.session.update, {
             sessionId: params.sessionId,
