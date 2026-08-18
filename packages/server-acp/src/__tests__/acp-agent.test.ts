@@ -7,6 +7,8 @@ import {
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const createRunnerCalls: Array<Record<string, unknown>> = [];
+/** userInput of every runner whose abort signal fired. */
+const abortedRunners: string[] = [];
 
 vi.mock("@bunny-agent/runner-harness", async () => {
   const actual = await vi.importActual<
@@ -32,6 +34,9 @@ vi.mock("@bunny-agent/runner-harness", async () => {
       }
       const userInput = opts.userInput as string;
       const abort = opts.abortController as AbortController | undefined;
+      abort?.signal.addEventListener("abort", () => {
+        abortedRunners.push(userInput);
+      });
       return (async function* () {
         if (userInput === "__THROW__") {
           yield `data: ${JSON.stringify({ type: "error", errorText: "runner exploded" })}\n\n`;
@@ -71,6 +76,7 @@ import { createBunnyAgentAcpApp } from "../acp-agent.js";
 describe("BunnyAgent ACP agent", () => {
   beforeEach(() => {
     createRunnerCalls.length = 0;
+    abortedRunners.length = 0;
   });
 
   it("negotiates the protocol version on initialize", async () => {
@@ -315,6 +321,38 @@ describe("BunnyAgent ACP agent", () => {
     } finally {
       connection.close();
     }
+  });
+
+  it("aborts the runner when the client disconnects mid-prompt", async () => {
+    const agentApp = createBunnyAgentAcpApp();
+    const clientApp = client({ name: "test-client" });
+    const connection = clientApp.connect(agentApp as never);
+
+    await connection.agent.request(methods.agent.initialize, {
+      protocolVersion: PROTOCOL_VERSION,
+      clientCapabilities: {},
+    });
+    const session = await connection.agent.request(methods.agent.session.new, {
+      cwd: "/workspace",
+      mcpServers: [],
+    });
+
+    connection.agent
+      .request(methods.agent.session.prompt, {
+        sessionId: session.sessionId,
+        prompt: [{ type: "text", text: "__HANG__" }],
+      })
+      .catch(() => undefined);
+
+    // Let the turn reach the runner, then drop the connection without any
+    // session/cancel — an editor being closed, or a network drop.
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(createRunnerCalls).toHaveLength(1);
+    connection.close();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    // Without this the runner would keep running on a long-lived daemon.
+    expect(abortedRunners).toContain("__HANG__");
   });
 
   it("keeps runner selection isolated between concurrent sessions", async () => {

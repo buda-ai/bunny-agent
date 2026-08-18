@@ -95,60 +95,70 @@ export function createBunnyAgentAcpApp(
       return { sessionId };
     })
 
-    .onRequest(methods.agent.session.prompt, async ({ params, client }) => {
-      const session = sessions.get(params.sessionId);
-      if (!session) {
-        throw RequestError.invalidParams(
-          undefined,
-          `Unknown session: ${params.sessionId}`,
-        );
-      }
-
-      const abort = new AbortController();
-      session.abort = abort;
-      const serializer = new AcpSessionUpdateSerializer();
-
-      try {
-        let chunks: ReturnType<typeof parseRunnerStream>;
-        try {
-          // createRunner dispatches synchronously, so setup failures (an
-          // unknown runner from `_meta`, malformed input) land here rather than
-          // in the stream. Surfacing them as invalidParams keeps the real
-          // reason visible; letting them escape would reach the client as a
-          // bare JSON-RPC "Internal error".
-          chunks = parseRunnerStream(
-            createRunner({
-              runner: session.runner ?? options.defaultRunner ?? "claude",
-              model: session.model ?? options.defaultModel ?? DEFAULT_MODEL,
-              userInput: promptToText(params.prompt),
-              systemPrompt: session.systemPrompt,
-              cwd: session.cwd,
-              yolo: session.yolo ?? options.yolo,
-              env: options.env,
-              abortController: abort,
-              // Caller owns session/resume; don't touch cwd/.bunny-agent state.
-              autoInject: false,
-            }),
-          );
-        } catch (error) {
+    .onRequest(
+      methods.agent.session.prompt,
+      async ({ params, client, signal }) => {
+        const session = sessions.get(params.sessionId);
+        if (!session) {
           throw RequestError.invalidParams(
             undefined,
-            error instanceof Error ? error.message : String(error),
+            `Unknown session: ${params.sessionId}`,
           );
         }
 
-        for await (const update of serializer.serialize(chunks)) {
-          await client.notify(methods.client.session.update, {
-            sessionId: params.sessionId,
-            update,
-          });
-        }
-      } finally {
-        session.abort = undefined;
-      }
+        const abort = new AbortController();
+        session.abort = abort;
+        // Transport-level cancellation — the client disconnecting, or the
+        // request being cancelled — must stop the runner too. Without this a
+        // dropped editor connection leaves it running on a long-lived daemon.
+        const onTransportAbort = () => abort.abort();
+        if (signal.aborted) abort.abort();
+        else signal.addEventListener("abort", onTransportAbort, { once: true });
+        const serializer = new AcpSessionUpdateSerializer();
 
-      return { stopReason: serializer.stopReason };
-    })
+        try {
+          let chunks: ReturnType<typeof parseRunnerStream>;
+          try {
+            // createRunner dispatches synchronously, so setup failures (an
+            // unknown runner from `_meta`, malformed input) land here rather
+            // than in the stream. Surfacing them as invalidParams keeps the
+            // real reason visible; letting them escape would reach the client
+            // as a bare JSON-RPC "Internal error".
+            chunks = parseRunnerStream(
+              createRunner({
+                runner: session.runner ?? options.defaultRunner ?? "claude",
+                model: session.model ?? options.defaultModel ?? DEFAULT_MODEL,
+                userInput: promptToText(params.prompt),
+                systemPrompt: session.systemPrompt,
+                cwd: session.cwd,
+                yolo: session.yolo ?? options.yolo,
+                env: options.env,
+                abortController: abort,
+                // Caller owns session/resume; don't touch cwd/.bunny-agent.
+                autoInject: false,
+              }),
+            );
+          } catch (error) {
+            throw RequestError.invalidParams(
+              undefined,
+              error instanceof Error ? error.message : String(error),
+            );
+          }
+
+          for await (const update of serializer.serialize(chunks)) {
+            await client.notify(methods.client.session.update, {
+              sessionId: params.sessionId,
+              update,
+            });
+          }
+        } finally {
+          signal.removeEventListener("abort", onTransportAbort);
+          session.abort = undefined;
+        }
+
+        return { stopReason: serializer.stopReason };
+      },
+    )
 
     .onNotification(methods.agent.session.cancel, ({ params }) => {
       sessions.get(params.sessionId)?.abort?.abort();

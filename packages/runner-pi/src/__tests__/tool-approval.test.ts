@@ -37,15 +37,23 @@ afterEach(() => {
 });
 
 describe("waitForApproval", () => {
+  // These three inspect the pending file while waitForApproval is still
+  // waiting. The deadline is deliberately long — on timeout the call deletes
+  // that file, so a short one races the read and fails with ENOENT under load.
+  // Aborting after the read ends the call immediately, keeping them fast.
+  const INSPECT_TIMEOUT_MS = 30_000;
+
   it("writes a pending approval file with the claude-compatible shape", async () => {
     const input = { questions: [{ question: "Pick one?" }] };
+    const controller = new AbortController();
     const promise = waitForApproval({
       cwd,
       toolCallId: "call-1",
       toolName: ASK_USER_QUESTION_TOOL_NAME,
       input,
       pollIntervalMs: 10,
-      timeoutMs: 100,
+      timeoutMs: INSPECT_TIMEOUT_MS,
+      signal: controller.signal,
     });
 
     // Give the synchronous write a tick, then inspect the file.
@@ -59,36 +67,42 @@ describe("waitForApproval", () => {
       answers: {},
     });
 
+    controller.abort();
     const decision = await promise;
     expect(decision.behavior).toBe("deny");
   });
 
   it("omits questions for regular tools", async () => {
+    const controller = new AbortController();
     const promise = waitForApproval({
       cwd,
       toolCallId: "call-2",
       toolName: "bash",
       input: { command: "ls" },
       pollIntervalMs: 10,
-      timeoutMs: 100,
+      timeoutMs: INSPECT_TIMEOUT_MS,
+      signal: controller.signal,
     });
     await new Promise((r) => setTimeout(r, 20));
     const raw = JSON.parse(fs.readFileSync(approvalFile("call-2"), "utf-8"));
     expect(raw.toolName).toBe("bash");
     expect(raw.input).toEqual({ command: "ls" });
     expect(raw.questions).toBeUndefined();
+    controller.abort();
     await promise;
   });
 
   it("preserves questions for legacy AskUserQuestion approval files", async () => {
     const input = { questions: [{ question: "Continue?" }] };
+    const controller = new AbortController();
     const promise = waitForApproval({
       cwd,
       toolCallId: "call-legacy",
       toolName: LEGACY_ASK_USER_QUESTION_TOOL_NAME,
       input,
       pollIntervalMs: 10,
-      timeoutMs: 100,
+      timeoutMs: INSPECT_TIMEOUT_MS,
+      signal: controller.signal,
     });
 
     await new Promise((resolve) => setTimeout(resolve, 20));
@@ -96,6 +110,7 @@ describe("waitForApproval", () => {
       fs.readFileSync(approvalFile("call-legacy"), "utf-8"),
     );
     expect(raw.questions).toEqual(input.questions);
+    controller.abort();
     await promise;
   });
 
