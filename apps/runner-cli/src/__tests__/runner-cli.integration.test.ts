@@ -172,6 +172,50 @@ describe("runner-cli Integration Tests", () => {
     },
     TIMEOUT,
   );
+
+  it(
+    "reports an unknown runner from _meta as invalid params, not an internal error",
+    async () => {
+      // Fully unmocked, and credential-free: dispatch rejects the runner name
+      // before any agent SDK is constructed.
+      const result = await runAcpHandshake([
+        {
+          jsonrpc: "2.0",
+          id: 1,
+          method: "initialize",
+          params: { protocolVersion: 1, clientCapabilities: {} },
+        },
+        {
+          jsonrpc: "2.0",
+          id: 2,
+          method: "session/new",
+          params: {
+            cwd: process.cwd(),
+            mcpServers: [],
+            _meta: { "bunny-agent": { runner: "claude-code" } },
+          },
+        },
+        (prior) => ({
+          jsonrpc: "2.0",
+          id: 3,
+          method: "session/prompt",
+          params: {
+            sessionId: prior[1].result.sessionId,
+            prompt: [{ type: "text", text: "hi" }],
+          },
+        }),
+      ]);
+
+      const promptResponse = result.responses[2];
+      expect(promptResponse.error).toBeDefined();
+      // -32602 invalid params, not -32603 internal error.
+      expect(promptResponse.error?.code).toBe(-32602);
+      expect(promptResponse.error?.message).toMatch(
+        /Unknown runner: claude-code/,
+      );
+    },
+    TIMEOUT,
+  );
 });
 
 /**
@@ -227,17 +271,21 @@ interface AcpRpcResponse {
   jsonrpc: "2.0";
   id: number;
   // biome-ignore lint/suspicious/noExplicitAny: test-only, response shape varies by method
-  result: any;
+  result?: any;
+  error?: { code: number; message: string; data?: unknown };
 }
 
+/** A request, or one built from the responses received so far. */
+type AcpRpcStep = AcpRpcRequest | ((prior: AcpRpcResponse[]) => AcpRpcRequest);
+
 /**
- * Drives `bunny-agent acp` as a real subprocess: writes newline-delimited
- * JSON-RPC requests to its stdin, collects matching responses from stdout by
- * id, then closes stdin (how a disconnecting editor looks on the wire) and
- * waits for the process to exit cleanly.
+ * Drives `bunny-agent acp` as a real subprocess over its actual stdin/stdout:
+ * sends each step, waits for the matching response before sending the next
+ * (so a step can depend on an earlier `sessionId`), then closes stdin — how a
+ * disconnecting editor looks on the wire — and waits for a clean exit.
  */
 function runAcpHandshake(
-  requests: AcpRpcRequest[],
+  steps: AcpRpcStep[],
 ): Promise<{ responses: AcpRpcResponse[]; exitCode: number }> {
   return new Promise((resolve, reject) => {
     const proc = spawn("node", [CLI_PATH, "acp", "--runner", "claude"], {
@@ -245,10 +293,22 @@ function runAcpHandshake(
       stdio: "pipe",
     });
 
-    const pendingIds = new Set(requests.map((r) => r.id));
     const responses: AcpRpcResponse[] = [];
     let buffer = "";
     let stderr = "";
+    let stepIndex = 0;
+    let awaitingId: number | null = null;
+
+    const sendNext = () => {
+      if (stepIndex >= steps.length) {
+        proc.stdin?.end();
+        return;
+      }
+      const step = steps[stepIndex++];
+      const req = typeof step === "function" ? step(responses) : step;
+      awaitingId = req.id;
+      proc.stdin?.write(`${JSON.stringify(req)}\n`);
+    };
 
     proc.stdout?.on("data", (chunk) => {
       buffer += chunk.toString();
@@ -267,13 +327,11 @@ function runAcpHandshake(
           );
           return;
         }
-        if (typeof msg.id === "number" && pendingIds.has(msg.id)) {
+        if (msg.id === awaitingId) {
           responses.push(msg);
-          pendingIds.delete(msg.id);
+          awaitingId = null;
+          sendNext();
         }
-      }
-      if (pendingIds.size === 0) {
-        proc.stdin?.end();
       }
     });
 
@@ -282,10 +340,10 @@ function runAcpHandshake(
     });
 
     proc.on("close", (code) => {
-      if (pendingIds.size > 0) {
+      if (responses.length < steps.length) {
         reject(
           new Error(
-            `acp process exited before answering all requests (missing ids: ${[...pendingIds].join(",")}). stderr: ${stderr}`,
+            `acp process exited after ${responses.length}/${steps.length} responses. stderr: ${stderr}`,
           ),
         );
         return;
@@ -295,9 +353,7 @@ function runAcpHandshake(
 
     proc.on("error", reject);
 
-    for (const req of requests) {
-      proc.stdin?.write(`${JSON.stringify(req)}\n`);
-    }
+    sendNext();
 
     setTimeout(() => {
       proc.kill();
