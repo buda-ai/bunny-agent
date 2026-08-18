@@ -109,6 +109,12 @@ importers:
       '@bunny-agent/runner-harness':
         specifier: workspace:*
         version: link:../../packages/runner-harness
+      '@bunny-agent/server-acp':
+        specifier: workspace:*
+        version: link:../../packages/server-acp
+      '@bunny-agent/server-ai-sdk':
+        specifier: workspace:*
+        version: link:../../packages/server-ai-sdk
       '@types/node':
         specifier: ^20.10.0
         version: 20.19.33
@@ -225,6 +231,9 @@ importers:
       '@bunny-agent/runner-pi':
         specifier: workspace:*
         version: link:../../packages/runner-pi
+      '@bunny-agent/server-acp':
+        specifier: workspace:*
+        version: link:../../packages/server-acp
       '@types/node':
         specifier: ^20.10.0
         version: 20.19.33
@@ -880,6 +889,41 @@ importers:
         version: 8.5.1(jiti@2.7.0)(postcss@8.5.6)(tsx@4.21.0)(typescript@5.9.3)(yaml@2.9.0)
       typescript:
         specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.33)(lightningcss@1.30.2)
+
+  packages/server-acp:
+    dependencies:
+      '@agentclientprotocol/sdk':
+        specifier: ^1.2.1
+        version: 1.2.1(zod@4.3.6)
+      '@bunny-agent/runner-harness':
+        specifier: workspace:*
+        version: link:../runner-harness
+    devDependencies:
+      '@types/node':
+        specifier: ^20.10.0
+        version: 20.19.33
+      typescript:
+        specifier: ^5.3.0
+        version: 5.9.3
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@20.19.33)(lightningcss@1.30.2)
+
+  packages/server-ai-sdk:
+    dependencies:
+      '@bunny-agent/runner-harness':
+        specifier: workspace:*
+        version: link:../runner-harness
+    devDependencies:
+      '@types/node':
+        specifier: ^20.10.0
+        version: 20.19.33
+      typescript:
+        specifier: ^5.3.0
         version: 5.9.3
       vitest:
         specifier: ^1.6.1

@@ -2,13 +2,14 @@ import { createReadStream } from "node:fs";
 import * as http from "node:http";
 import { pipeline } from "node:stream/promises";
 import { URL } from "node:url";
+import { createAcpHttpServer } from "@bunny-agent/server-acp";
+import { createAiSdkCodingRunServer } from "@bunny-agent/server-ai-sdk";
 import {
   type CodingRunBodyWithEnv,
   prepareCodingRunEnv,
 } from "./coding-run-env.js";
 import { parseMultipart } from "./multipart.js";
 import { DaemonRouter } from "./router.js";
-import { bunnyAgentRun } from "./routes/coding.js";
 import { fsDownload, fsUpload, fsWriteStream } from "./routes/fs.js";
 import { AppError, type AppState, fail, guessMimeType } from "./utils.js";
 
@@ -25,6 +26,13 @@ export function createDaemon(config: DaemonConfig): http.Server {
     root: config.root,
     volumesRoot: `${config.root}/volumes`,
   };
+  const codingRunServers = [
+    createAiSdkCodingRunServer({
+      prepareEnv: (body) =>
+        prepareCodingRunEnv(env, body as CodingRunBodyWithEnv),
+    }),
+    createAcpHttpServer({ defaultCwd: config.root, env }),
+  ];
 
   return http.createServer(async (req, res) => {
     try {
@@ -35,22 +43,14 @@ export function createDaemon(config: DaemonConfig): http.Server {
       );
       const pathname = url.pathname;
 
-      // Streaming: /api/coding/run
-      if (method === "POST" && pathname === "/api/coding/run") {
-        const body = safeJsonParse(await readBody(req)) as Record<
-          string,
-          unknown
-        >;
-        const { env: mergedEnv, systemEnv } = prepareCodingRunEnv(
-          env,
-          body as CodingRunBodyWithEnv,
+      // Streaming protocol servers: /api/coding/run (AI SDK), /api/coding/acp (ACP)
+      if (method === "POST") {
+        const codingRunServer = codingRunServers.find(
+          (server) => server.mountPath === pathname,
         );
-        body.systemEnv = systemEnv;
-        return bunnyAgentRun(
-          body as unknown as Parameters<typeof bunnyAgentRun>[0],
-          res,
-          mergedEnv,
-        );
+        if (codingRunServer) {
+          return codingRunServer.handleNodeHttp(req, res);
+        }
       }
 
       // Raw streamed upload: /api/fs/write-stream?path=...

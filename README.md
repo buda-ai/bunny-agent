@@ -283,6 +283,8 @@ Options:
 | `@bunny-agent/runner-copilot` | GitHub Copilot SDK runner |
 | `@bunny-agent/runner-gemini` | Gemini CLI runner |
 | `@bunny-agent/runner-opencode` | OpenCode CLI runner |
+| `@bunny-agent/server-ai-sdk` | Serves runner output as the AI SDK UI stream (HTTP) |
+| `@bunny-agent/server-acp` | Serves runners as an [Agent Client Protocol](https://agentclientprotocol.com) agent (HTTP + stdio), for editors like Zed and JetBrains |
 | `@bunny-agent/sandbox-sandock` | Sandock sandbox adapter |
 | `@bunny-agent/sandbox-e2b` | E2B sandbox adapter |
 | `@bunny-agent/sandbox-daytona` | Daytona sandbox adapter |

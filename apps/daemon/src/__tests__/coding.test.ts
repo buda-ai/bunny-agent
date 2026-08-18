@@ -49,8 +49,11 @@ vi.mock("@bunny-agent/runner-harness", () => ({
   ),
 }));
 
+import {
+  codingRunStream,
+  setHeartbeatIntervalMs,
+} from "@bunny-agent/server-ai-sdk";
 import { createNextHandler } from "../nextjs.js";
-import { codingRunStream, setHeartbeatIntervalMs } from "../routes/coding.js";
 import { createDaemon } from "../server.js";
 
 const PORT = 13081;
@@ -106,6 +109,40 @@ describe("POST /api/coding/run (standalone server)", () => {
     });
     // createRunner will be called with undefined userInput — still streams
     expect(res.status).toBe(200);
+  });
+});
+
+describe("POST /api/coding/acp (standalone server)", () => {
+  it("serves an ACP initialize handshake alongside the AI SDK route", async () => {
+    const res = await fetch(`${BASE}/api/coding/acp`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json, text/event-stream",
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "initialize",
+        params: { protocolVersion: 1, clientCapabilities: {} },
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    const text = await res.text();
+    expect(text).toContain('"protocolVersion"');
+    expect(text).toContain('"name":"bunny-agent"');
+  });
+
+  it("does not shadow the AI SDK route", async () => {
+    const res = await fetch(`${BASE}/api/coding/run`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userInput: "still works" }),
+    });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("application/x-ndjson");
+    expect(await res.text()).toContain("echo: still works");
   });
 });
 

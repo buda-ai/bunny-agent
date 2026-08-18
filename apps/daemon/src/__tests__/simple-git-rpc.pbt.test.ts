@@ -341,7 +341,7 @@ describe("simple-git-rpc PBT", () => {
     } finally {
       fs.rmSync(nonRepoDir, { recursive: true, force: true });
     }
-  });
+  }, 30_000); // 30 s — each run invokes a real git subprocess; 100 runs need extra time
 
   /**
    * Property 8: Existing /api/git/rpc endpoint is unaffected
