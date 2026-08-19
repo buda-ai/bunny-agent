@@ -43,14 +43,18 @@ export function createDaemon(config: DaemonConfig): http.Server {
       );
       const pathname = url.pathname;
 
-      // Streaming protocol servers: /api/coding/run (AI SDK), /api/coding/acp (ACP)
-      if (method === "POST") {
-        const codingRunServer = codingRunServers.find(
-          (server) => server.mountPath === pathname,
-        );
-        if (codingRunServer) {
-          return codingRunServer.handleNodeHttp(req, res);
-        }
+      // AI SDK is POST-only. ACP Streamable HTTP additionally uses GET for
+      // connection/session SSE streams and DELETE to close the connection.
+      const codingRunServer = codingRunServers.find(
+        (server) => server.mountPath === pathname,
+      );
+      if (
+        codingRunServer &&
+        (method === "POST" ||
+          (codingRunServer.protocol === "acp" &&
+            (method === "GET" || method === "DELETE")))
+      ) {
+        return codingRunServer.handleNodeHttp(req, res);
       }
 
       // Raw streamed upload: /api/fs/write-stream?path=...

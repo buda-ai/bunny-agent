@@ -52,14 +52,18 @@ export function createNextHandler(opts: { root: string; prefix?: string }) {
       : url.pathname;
     const method = req.method ?? "GET";
 
-    // Streaming protocol servers: /api/coding/run (AI SDK), /api/coding/acp (ACP)
-    if (method === "POST") {
-      const codingRunServer = codingRunServers.find(
-        (server) => server.mountPath === pathname,
-      );
-      if (codingRunServer) {
-        return codingRunServer.handleWebRequest(req);
-      }
+    // AI SDK is POST-only. ACP Streamable HTTP additionally uses GET for
+    // connection/session SSE streams and DELETE to close the connection.
+    const codingRunServer = codingRunServers.find(
+      (server) => server.mountPath === pathname,
+    );
+    if (
+      codingRunServer &&
+      (method === "POST" ||
+        (codingRunServer.protocol === "acp" &&
+          (method === "GET" || method === "DELETE")))
+    ) {
+      return codingRunServer.handleWebRequest(req);
     }
 
     // Raw streamed upload: /api/fs/write-stream?path=...

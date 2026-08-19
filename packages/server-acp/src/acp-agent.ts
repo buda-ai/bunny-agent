@@ -7,7 +7,12 @@ import {
   PROTOCOL_VERSION,
   RequestError,
 } from "@agentclientprotocol/sdk";
-import { createRunner, parseRunnerStream } from "@bunny-agent/runner-harness";
+import {
+  createRunner,
+  parseRunnerStream,
+  type RunnerCoreOptions,
+  type RunnerToolRef,
+} from "@bunny-agent/runner-harness";
 import { AcpSessionUpdateSerializer } from "./session-update-serializer.js";
 
 /** Namespace for BunnyAgent fields inside ACP's implementation-defined `_meta`. */
@@ -34,6 +39,20 @@ interface SessionOverrides {
   model?: string;
   systemPrompt?: string;
   yolo?: boolean;
+  allowedTools?: string[];
+  resume?: string;
+  forkFrom?: string;
+  skillPaths?: string[];
+  env?: Record<string, string>;
+  systemEnv?: Record<string, string>;
+  toolRefs?: RunnerToolRef[];
+  mcpConfig?: RunnerCoreOptions["mcpConfig"];
+  effort?: string;
+  askUserQuestionTimeoutMs?: number;
+}
+
+interface TurnOverrides extends SessionOverrides {
+  input?: RunnerCoreOptions["input"];
 }
 
 interface SessionState extends SessionOverrides {
@@ -44,6 +63,27 @@ interface SessionState extends SessionOverrides {
 const asString = (value: unknown): string | undefined =>
   typeof value === "string" && value.length > 0 ? value : undefined;
 
+const asStringArray = (value: unknown): string[] | undefined => {
+  if (!Array.isArray(value)) return undefined;
+  const strings = value.filter(
+    (item): item is string => typeof item === "string",
+  );
+  return strings.length === value.length ? strings : undefined;
+};
+
+const asStringRecord = (value: unknown): Record<string, string> | undefined => {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    return undefined;
+  const entries = Object.entries(value);
+  if (!entries.every(([, item]) => typeof item === "string")) return undefined;
+  return Object.fromEntries(entries) as Record<string, string>;
+};
+
+const asObject = (value: unknown): Record<string, unknown> | undefined =>
+  value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined;
+
 /**
  * ACP's `session/new` has no native runner/model field, so BunnyAgent reads
  * them from the protocol's implementation-defined `_meta` extension, namespaced
@@ -51,7 +91,7 @@ const asString = (value: unknown): string | undefined =>
  */
 function readBunnyMeta(
   meta: { [key: string]: unknown } | null | undefined,
-): SessionOverrides {
+): TurnOverrides {
   const scoped = meta?.[BUNNY_META_KEY];
   if (scoped === null || typeof scoped !== "object") return {};
   const value = scoped as Record<string, unknown>;
@@ -60,8 +100,32 @@ function readBunnyMeta(
     model: asString(value.model),
     systemPrompt: asString(value.systemPrompt),
     yolo: typeof value.yolo === "boolean" ? value.yolo : undefined,
+    allowedTools: asStringArray(value.allowedTools),
+    resume: asString(value.resume),
+    forkFrom: asString(value.forkFrom),
+    skillPaths: asStringArray(value.skillPaths),
+    env: asStringRecord(value.env),
+    systemEnv: asStringRecord(value.systemEnv),
+    toolRefs: Array.isArray(value.toolRefs)
+      ? (value.toolRefs as RunnerToolRef[])
+      : undefined,
+    mcpConfig: asObject(value.mcpConfig) as RunnerCoreOptions["mcpConfig"],
+    effort: asString(value.effort),
+    askUserQuestionTimeoutMs:
+      typeof value.askUserQuestionTimeoutMs === "number" &&
+      Number.isFinite(value.askUserQuestionTimeoutMs)
+        ? value.askUserQuestionTimeoutMs
+        : undefined,
+    input: asObject(value.input) as RunnerCoreOptions["input"],
   };
 }
+
+const mergeEnv = (
+  ...sources: Array<Record<string, string> | undefined>
+): Record<string, string> | undefined => {
+  const merged = Object.assign({}, ...sources.filter(Boolean));
+  return Object.keys(merged).length > 0 ? merged : undefined;
+};
 
 const promptToText = (prompt: ContentBlock[]): string =>
   prompt
@@ -108,6 +172,7 @@ export function createBunnyAgentAcpApp(
 
         const abort = new AbortController();
         session.abort = abort;
+        const turn = readBunnyMeta(params._meta);
         // Transport-level cancellation — the client disconnecting, or the
         // request being cancelled — must stop the runner too. Without this a
         // dropped editor connection leaves it running on a long-lived daemon.
@@ -126,13 +191,34 @@ export function createBunnyAgentAcpApp(
             // as a bare JSON-RPC "Internal error".
             chunks = parseRunnerStream(
               createRunner({
-                runner: session.runner ?? options.defaultRunner ?? "claude",
-                model: session.model ?? options.defaultModel ?? DEFAULT_MODEL,
-                userInput: promptToText(params.prompt),
-                systemPrompt: session.systemPrompt,
+                runner:
+                  turn.runner ??
+                  session.runner ??
+                  options.defaultRunner ??
+                  "claude",
+                model:
+                  turn.model ??
+                  session.model ??
+                  options.defaultModel ??
+                  DEFAULT_MODEL,
+                ...(turn.input
+                  ? { input: turn.input }
+                  : { userInput: promptToText(params.prompt) }),
+                systemPrompt: turn.systemPrompt ?? session.systemPrompt,
                 cwd: session.cwd,
-                yolo: session.yolo ?? options.yolo,
-                env: options.env,
+                yolo: turn.yolo ?? session.yolo ?? options.yolo,
+                allowedTools: turn.allowedTools ?? session.allowedTools,
+                resume: turn.resume ?? session.resume,
+                forkFrom: turn.forkFrom ?? session.forkFrom,
+                skillPaths: turn.skillPaths ?? session.skillPaths,
+                env: mergeEnv(options.env, session.env, turn.env),
+                systemEnv: mergeEnv(session.systemEnv, turn.systemEnv),
+                toolRefs: turn.toolRefs ?? session.toolRefs,
+                mcpConfig: turn.mcpConfig ?? session.mcpConfig,
+                effort: turn.effort ?? session.effort,
+                askUserQuestionTimeoutMs:
+                  turn.askUserQuestionTimeoutMs ??
+                  session.askUserQuestionTimeoutMs,
                 abortController: abort,
                 // Caller owns session/resume; don't touch cwd/.bunny-agent.
                 autoInject: false,
@@ -156,7 +242,17 @@ export function createBunnyAgentAcpApp(
           session.abort = undefined;
         }
 
-        return { stopReason: serializer.stopReason };
+        const runnerMeta = {
+          ...(serializer.sessionId ? { sessionId: serializer.sessionId } : {}),
+          ...(serializer.errorText ? { errorText: serializer.errorText } : {}),
+        };
+        return {
+          stopReason: serializer.stopReason,
+          ...(serializer.usage ? { usage: serializer.usage } : {}),
+          ...(Object.keys(runnerMeta).length > 0
+            ? { _meta: { [BUNNY_META_KEY]: runnerMeta } }
+            : {}),
+        };
       },
     )
 

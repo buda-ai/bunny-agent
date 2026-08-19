@@ -48,6 +48,7 @@
     "node": ">=20.0.0"
   },
   "devDependencies": {
+    "@agentclientprotocol/sdk": "^1.2.1",
     "@bunny-agent/apply-patch": "workspace:*",
     "@bunny-agent/runner-harness": "workspace:*",
     "@bunny-agent/server-acp": "workspace:*",
