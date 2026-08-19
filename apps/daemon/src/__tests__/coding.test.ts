@@ -2,52 +2,69 @@ import * as fs from "node:fs/promises";
 import type * as http from "node:http";
 import * as os from "node:os";
 import * as path from "node:path";
+import * as acp from "@agentclientprotocol/sdk";
+import { createHttpStream } from "@agentclientprotocol/sdk/experimental/http-client";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 // Mock runner-harness before importing server/nextjs
 // Track createRunner calls for assertion
 const createRunnerCalls: Array<Record<string, unknown>> = [];
 
-vi.mock("@bunny-agent/runner-harness", () => ({
-  createRunner: vi.fn(
-    (opts: { input?: unknown; userInput?: string; yolo?: boolean }) => {
-      createRunnerCalls.push(opts);
-      if (opts.userInput === "__THROW__") {
-        // biome-ignore lint/correctness/useYield: throw-only generator simulates immediate runner failure
+vi.mock("@bunny-agent/runner-harness", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@bunny-agent/runner-harness")>();
+  return {
+    ...actual,
+    createRunner: vi.fn(
+      (opts: { input?: unknown; userInput?: string; yolo?: boolean }) => {
+        createRunnerCalls.push(opts);
+        if (opts.userInput === "__THROW__") {
+          // biome-ignore lint/correctness/useYield: throw-only generator simulates immediate runner failure
+          return (async function* () {
+            throw new Error("runner exploded");
+          })();
+        }
+        if (opts.userInput === "__SLOW__") {
+          // Simulate a long-running tool execution (e.g. image generation).
+          return (async function* () {
+            yield `data: ${JSON.stringify({ type: "tool-input-start", toolCallId: "t1", toolName: "generate_image" })}\n\n`;
+            await new Promise<void>((resolve) => setTimeout(resolve, 40_000));
+            yield `data: ${JSON.stringify({ type: "tool-output-available", toolCallId: "t1", output: "/agent/img.png" })}\n\n`;
+            yield `data: ${JSON.stringify({ type: "finish", finishReason: "stop" })}\n\n`;
+            yield `data: [DONE]\n\n`;
+          })();
+        }
+        if (opts.userInput === "__SLOW_SHORT__") {
+          // Short delay (100ms) — used with a patched HEARTBEAT_INTERVAL_MS (20ms)
+          // so heartbeats fire multiple times within the pause.
+          return (async function* () {
+            yield `data: ${JSON.stringify({ type: "tool-input-start", toolCallId: "t1", toolName: "generate_image" })}\n\n`;
+            await new Promise<void>((resolve) => setTimeout(resolve, 100));
+            yield `data: ${JSON.stringify({ type: "tool-output-available", toolCallId: "t1", output: "/agent/img.png" })}\n\n`;
+            yield `data: ${JSON.stringify({ type: "finish", finishReason: "stop" })}\n\n`;
+            yield `data: [DONE]\n\n`;
+          })();
+        }
+        // Return an async iterable that yields SSE-style chunks.
         return (async function* () {
-          throw new Error("runner exploded");
-        })();
-      }
-      if (opts.userInput === "__SLOW__") {
-        // Simulate a long-running tool execution (e.g. image generation).
-        return (async function* () {
-          yield `data: ${JSON.stringify({ type: "tool-input-start", toolCallId: "t1", toolName: "generate_image" })}\n\n`;
-          await new Promise<void>((resolve) => setTimeout(resolve, 40_000));
-          yield `data: ${JSON.stringify({ type: "tool-output-available", toolCallId: "t1", output: "/agent/img.png" })}\n\n`;
+          if (
+            opts.userInput === "streamable lifecycle" ||
+            opts.userInput === "next acp"
+          ) {
+            yield `data: ${JSON.stringify({ type: "text-start", id: "m1" })}\n\n`;
+            yield `data: ${JSON.stringify({ type: "text-delta", id: "m1", delta: `echo: ${opts.userInput}` })}\n\n`;
+            yield `data: ${JSON.stringify({ type: "finish", finishReason: "stop" })}\n\n`;
+            yield `data: [DONE]\n\n`;
+            return;
+          }
+          yield `data: ${JSON.stringify({ type: "text", text: `echo: ${opts.userInput}` })}\n\n`;
           yield `data: ${JSON.stringify({ type: "finish", finishReason: "stop" })}\n\n`;
           yield `data: [DONE]\n\n`;
         })();
-      }
-      if (opts.userInput === "__SLOW_SHORT__") {
-        // Short delay (100ms) — used with a patched HEARTBEAT_INTERVAL_MS (20ms)
-        // so heartbeats fire multiple times within the pause.
-        return (async function* () {
-          yield `data: ${JSON.stringify({ type: "tool-input-start", toolCallId: "t1", toolName: "generate_image" })}\n\n`;
-          await new Promise<void>((resolve) => setTimeout(resolve, 100));
-          yield `data: ${JSON.stringify({ type: "tool-output-available", toolCallId: "t1", output: "/agent/img.png" })}\n\n`;
-          yield `data: ${JSON.stringify({ type: "finish", finishReason: "stop" })}\n\n`;
-          yield `data: [DONE]\n\n`;
-        })();
-      }
-      // Return an async iterable that yields SSE-style chunks.
-      return (async function* () {
-        yield `data: ${JSON.stringify({ type: "text", text: `echo: ${opts.userInput}` })}\n\n`;
-        yield `data: ${JSON.stringify({ type: "finish", finishReason: "stop" })}\n\n`;
-        yield `data: [DONE]\n\n`;
-      })();
-    },
-  ),
-}));
+      },
+    ),
+  };
+});
 
 import {
   codingRunStream,
@@ -143,6 +160,47 @@ describe("POST /api/coding/acp (standalone server)", () => {
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toBe("application/x-ndjson");
     expect(await res.text()).toContain("echo: still works");
+  });
+
+  it("supports the full Streamable HTTP lifecycle", async () => {
+    const updates: acp.SessionUpdate[] = [];
+    const stream = createHttpStream(`${BASE}/api/coding/acp`);
+    try {
+      const response = await acp
+        .client({ name: "daemon-acp-test" })
+        .onNotification(acp.methods.client.session.update, ({ params }) => {
+          updates.push(params.update);
+        })
+        .connectWith(stream, async (connection) => {
+          await connection.request(acp.methods.agent.initialize, {
+            protocolVersion: acp.PROTOCOL_VERSION,
+            clientCapabilities: {},
+          });
+          const session = await connection.request(
+            acp.methods.agent.session.new,
+            {
+              cwd: root,
+              mcpServers: [],
+            },
+          );
+          return connection.request(acp.methods.agent.session.prompt, {
+            sessionId: session.sessionId,
+            prompt: [{ type: "text", text: "streamable lifecycle" }],
+          });
+        });
+
+      expect(response.stopReason).toBe("end_turn");
+      expect(updates).toContainEqual(
+        expect.objectContaining({
+          sessionUpdate: "agent_message_chunk",
+          content: expect.objectContaining({
+            text: "echo: streamable lifecycle",
+          }),
+        }),
+      );
+    } finally {
+      await stream.writable.close();
+    }
   });
 });
 
@@ -248,6 +306,40 @@ describe("createNextHandler", () => {
 
     const text = await res.text();
     expect(text).toContain("echo: nextjs test");
+  });
+
+  it("routes ACP Streamable HTTP GET and DELETE through the adapter", async () => {
+    const stream = createHttpStream(
+      "http://localhost/api/daemon/api/coding/acp",
+      {
+        fetch: async (requestInput, requestInit) =>
+          handler(new Request(requestInput, requestInit)),
+      },
+    );
+    try {
+      const result = await acp
+        .client({ name: "next-acp-test" })
+        .connectWith(stream, async (connection) => {
+          await connection.request(acp.methods.agent.initialize, {
+            protocolVersion: acp.PROTOCOL_VERSION,
+            clientCapabilities: {},
+          });
+          const session = await connection.request(
+            acp.methods.agent.session.new,
+            {
+              cwd: os.tmpdir(),
+              mcpServers: [],
+            },
+          );
+          return connection.request(acp.methods.agent.session.prompt, {
+            sessionId: session.sessionId,
+            prompt: [{ type: "text", text: "next acp" }],
+          });
+        });
+      expect(result.stopReason).toBe("end_turn");
+    } finally {
+      await stream.writable.close();
+    }
   });
 
   it("routes /api/daemon/healthz to JSON", async () => {

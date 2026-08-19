@@ -32,7 +32,8 @@ vi.mock("@bunny-agent/runner-harness", async () => {
       if (!KNOWN_RUNNERS.includes(opts.runner as string)) {
         throw new Error(`Unknown runner: ${opts.runner}`);
       }
-      const userInput = opts.userInput as string;
+      const userInput =
+        (opts.userInput as string | undefined) ?? "__STRUCTURED__";
       const abort = opts.abortController as AbortController | undefined;
       abort?.signal.addEventListener("abort", () => {
         abortedRunners.push(userInput);
@@ -59,6 +60,13 @@ vi.mock("@bunny-agent/runner-harness", async () => {
             abort?.signal.addEventListener("abort", () => resolve());
           });
           yield `data: ${JSON.stringify({ type: "finish", finishReason: "abort" })}\n\n`;
+          yield `data: [DONE]\n\n`;
+          return;
+        }
+        if (userInput === "__META__") {
+          yield `data: ${JSON.stringify({ type: "message-metadata", messageMetadata: { sessionId: "runner-session-1" } })}\n\n`;
+          yield `data: ${JSON.stringify({ type: "step-finish", usage: { inputTokens: 12, outputTokens: 5 } })}\n\n`;
+          yield `data: ${JSON.stringify({ type: "finish", finishReason: "stop" })}\n\n`;
           yield `data: [DONE]\n\n`;
           return;
         }
@@ -456,6 +464,124 @@ describe("BunnyAgent ACP agent", () => {
       });
 
       expect(createRunnerCalls[0].userInput).toBe("line one\nline two");
+    } finally {
+      connection.close();
+    }
+  });
+
+  it("passes Buda runtime overrides from ACP metadata to createRunner", async () => {
+    const agentApp = createBunnyAgentAcpApp({
+      env: { OPENAI_API_KEY: "server-key", SHARED: "server" },
+    });
+    const clientApp = client({ name: "test-client" });
+    const connection = clientApp.connect(agentApp as never);
+
+    try {
+      await connection.agent.request(methods.agent.initialize, {
+        protocolVersion: PROTOCOL_VERSION,
+        clientCapabilities: {},
+      });
+      const session = await connection.agent.request(
+        methods.agent.session.new,
+        {
+          cwd: "/agent",
+          mcpServers: [],
+          _meta: {
+            "bunny-agent": {
+              runner: "pi",
+              model: "openai:gpt-5",
+              resume: "runner-session-0",
+              skillPaths: ["/agent/skills"],
+              env: { SHARED: "session", AGENT_KEY: "agent-key" },
+              allowedTools: ["bash", "read_file"],
+            },
+          },
+        },
+      );
+
+      await connection.agent.request(methods.agent.session.prompt, {
+        sessionId: session.sessionId,
+        prompt: [{ type: "text", text: "ignored by structured input" }],
+        _meta: {
+          "bunny-agent": {
+            input: {
+              version: 1,
+              input: [{ type: "text", text: "structured" }],
+              capabilities: [],
+              execution: {},
+            },
+            env: { SHARED: "turn" },
+            systemEnv: { AGENT_KEY: "agent-key" },
+            effort: "high",
+            mcpConfig: { mcpServers: {} },
+            toolRefs: [
+              {
+                name: "buda_tool",
+                description: "Buda tool",
+                inputSchema: { type: "object" },
+                runtime: { type: "http", url: "https://buda.test/tool" },
+              },
+            ],
+          },
+        },
+      });
+
+      expect(createRunnerCalls[0]).toMatchObject({
+        runner: "pi",
+        model: "openai:gpt-5",
+        input: { version: 1 },
+        resume: "runner-session-0",
+        skillPaths: ["/agent/skills"],
+        allowedTools: ["bash", "read_file"],
+        env: {
+          OPENAI_API_KEY: "server-key",
+          SHARED: "turn",
+          AGENT_KEY: "agent-key",
+        },
+        systemEnv: { AGENT_KEY: "agent-key" },
+        effort: "high",
+        mcpConfig: { mcpServers: {} },
+        toolRefs: [expect.objectContaining({ name: "buda_tool" })],
+      });
+      expect(createRunnerCalls[0]).not.toHaveProperty("userInput");
+    } finally {
+      connection.close();
+    }
+  });
+
+  it("returns runner session metadata and ACP token usage", async () => {
+    const agentApp = createBunnyAgentAcpApp();
+    const clientApp = client({ name: "test-client" });
+    const connection = clientApp.connect(agentApp as never);
+
+    try {
+      await connection.agent.request(methods.agent.initialize, {
+        protocolVersion: PROTOCOL_VERSION,
+        clientCapabilities: {},
+      });
+      const session = await connection.agent.request(
+        methods.agent.session.new,
+        {
+          cwd: "/workspace",
+          mcpServers: [],
+        },
+      );
+      const result = await connection.agent.request(
+        methods.agent.session.prompt,
+        {
+          sessionId: session.sessionId,
+          prompt: [{ type: "text", text: "__META__" }],
+        },
+      );
+
+      expect(result.usage).toEqual({
+        inputTokens: 12,
+        outputTokens: 5,
+        totalTokens: 17,
+      });
+      expect(result._meta).toEqual({
+        "bunny-agent": { sessionId: "runner-session-1" },
+      });
     } finally {
       connection.close();
     }

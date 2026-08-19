@@ -1,4 +1,8 @@
-import type { SessionUpdate, StopReason } from "@agentclientprotocol/sdk";
+import type {
+  SessionUpdate,
+  StopReason,
+  Usage,
+} from "@agentclientprotocol/sdk";
 import type { RunnerChunk } from "@bunny-agent/runner-harness";
 
 const asText = (value: unknown): string =>
@@ -16,6 +20,9 @@ export class AcpSessionUpdateSerializer {
   private readonly toolTitles = new Map<string, string>();
   private stopReasonValue: StopReason = "end_turn";
   private errorTextValue: string | undefined;
+  private sessionIdValue: string | undefined;
+  private inputTokensValue = 0;
+  private outputTokensValue = 0;
 
   /** Stop reason for the prompt turn; valid once `serialize()` completes. */
   get stopReason(): StopReason {
@@ -25,6 +32,20 @@ export class AcpSessionUpdateSerializer {
   /** Error text emitted by the runner, if the turn failed. */
   get errorText(): string | undefined {
     return this.errorTextValue;
+  }
+
+  get sessionId(): string | undefined {
+    return this.sessionIdValue;
+  }
+
+  get usage(): Usage | undefined {
+    const totalTokens = this.inputTokensValue + this.outputTokensValue;
+    if (totalTokens === 0) return undefined;
+    return {
+      inputTokens: this.inputTokensValue,
+      outputTokens: this.outputTokensValue,
+      totalTokens,
+    };
   }
 
   async *serialize(
@@ -129,7 +150,11 @@ export class AcpSessionUpdateSerializer {
       }
 
       case "finish": {
-        const { finishReason } = chunk as { finishReason?: string };
+        const { finishReason, messageMetadata } = chunk as {
+          finishReason?: string;
+          messageMetadata?: unknown;
+        };
+        this.captureMetadata(messageMetadata);
         // An `error` chunk already recorded the real cause; don't downgrade it.
         if (this.errorTextValue === undefined) {
           this.stopReasonValue = mapFinishReason(finishReason);
@@ -137,10 +162,52 @@ export class AcpSessionUpdateSerializer {
         return;
       }
 
+      case "step-finish": {
+        const usage = (
+          chunk as {
+            usage?: { inputTokens?: number; outputTokens?: number };
+          }
+        ).usage;
+        this.inputTokensValue += usage?.inputTokens ?? 0;
+        this.outputTokensValue += usage?.outputTokens ?? 0;
+        return;
+      }
+
+      case "message-metadata": {
+        this.captureMetadata(
+          (chunk as { messageMetadata?: unknown }).messageMetadata,
+        );
+        return;
+      }
+
       // text-start/text-end have no ACP equivalent (agent_message_chunk carries
       // messageId), and tool-input-delta has no incremental-input counterpart.
       default:
         return;
+    }
+  }
+
+  private captureMetadata(metadata: unknown): void {
+    if (!metadata || typeof metadata !== "object") return;
+    const value = metadata as Record<string, unknown>;
+    const sessionId = value.sessionId ?? value.session_id ?? value.sessionFile;
+    if (typeof sessionId === "string" && sessionId.length > 0) {
+      this.sessionIdValue = sessionId;
+    }
+    const usage = value.usage;
+    if (!usage || typeof usage !== "object") return;
+    const usageValue = usage as Record<string, unknown>;
+    if (typeof usageValue.inputTokens === "number") {
+      this.inputTokensValue = Math.max(
+        this.inputTokensValue,
+        usageValue.inputTokens,
+      );
+    }
+    if (typeof usageValue.outputTokens === "number") {
+      this.outputTokensValue = Math.max(
+        this.outputTokensValue,
+        usageValue.outputTokens,
+      );
     }
   }
 
