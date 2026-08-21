@@ -1,6 +1,6 @@
 {
   "name": "bunny-agent",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Bunny Agent — The harness-ready pi coding agent",
   "type": "module",
   "bin": {

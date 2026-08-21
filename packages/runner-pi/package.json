@@ -1,6 +1,6 @@
 {
   "name": "@bunny-agent/runner-pi",
-  "version": "0.6.4-beta.0",
+  "version": "0.6.4",
   "private": true,
   "description": "Pi agent runtime for BunnyAgent",
   "type": "module",
