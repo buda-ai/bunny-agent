@@ -1,6 +1,6 @@
 {
   "name": "@bunny-agent/server-ai-sdk",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "AI SDK UI stream protocol server for BunnyAgent runner output",
   "type": "module",
@@ -12,7 +12,9 @@
       "default": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc",
     "clean": "rm -rf dist",

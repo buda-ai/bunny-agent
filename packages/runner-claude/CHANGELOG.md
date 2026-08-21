@@ -1,5 +1,12 @@
 # @bunny-agent/runner-claude
 
+## 0.6.3
+
+### Patch Changes
+
+- Updated dependencies [8656309]
+  - @bunny-agent/manager@0.10.0
+
 ## 0.1.2
 
 ### Patch Changes
