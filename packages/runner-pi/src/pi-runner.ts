@@ -52,6 +52,28 @@ import { getUsageFromAgentEndMessages } from "./usage-metadata.js";
 const LOG_PREFIX = "[bunny-agent:pi]";
 const LLM_THOUGHT_SIGNATURE_SEPARATOR = "__thought__";
 
+export interface DynamicModelProfile {
+  contextWindow: number;
+  maxTokens: number;
+  reasoning: boolean;
+}
+
+const DEFAULT_DYNAMIC_MODEL_PROFILE = {
+  contextWindow: 128_000,
+  maxTokens: 8_192,
+} as const;
+
+const DYNAMIC_MODEL_PROFILES: Record<
+  string,
+  Omit<DynamicModelProfile, "reasoning"> & { reasoning?: boolean }
+> = {
+  "gemini-3.7-flash": {
+    contextWindow: 1_048_576,
+    maxTokens: 65_536,
+    reasoning: true,
+  },
+};
+
 export interface PiRunnerOptions {
   model?: string;
   systemPrompt?: string;
@@ -126,6 +148,19 @@ export interface PiRunnerOptions {
 
 export interface PiRunner {
   run(userInput: string | AgentTurnInputV1): AsyncIterable<string>;
+}
+
+export function resolveDynamicModelProfile(
+  modelName: string,
+  effort?: string,
+): DynamicModelProfile {
+  const profile = DYNAMIC_MODEL_PROFILES[modelName.toLowerCase()];
+  return {
+    contextWindow:
+      profile?.contextWindow ?? DEFAULT_DYNAMIC_MODEL_PROFILE.contextWindow,
+    maxTokens: profile?.maxTokens ?? DEFAULT_DYNAMIC_MODEL_PROFILE.maxTokens,
+    reasoning: profile?.reasoning ?? Boolean(effort && effort !== "off"),
+  };
 }
 
 export async function disposePiSession(
@@ -440,6 +475,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
                 `Set ${baseUrlEnvKey} (or OPENAI_BASE_URL) to auto-register it.`,
             );
           }
+          const profile = resolveDynamicModelProfile(modelName, options.effort);
           // Pi resolves `apiKey` via resolveConfigValue: env var name -> process.env, else literal.
           modelRuntime.registerProvider(provider, {
             baseUrl,
@@ -449,15 +485,15 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
               {
                 id: modelName,
                 name: modelName,
-                reasoning: !!options.effort && options.effort !== "off",
+                reasoning: profile.reasoning,
                 thinkingLevelMap: { off: null, xhigh: "xhigh" } as Record<
                   string,
                   string | null
                 >,
                 input: ["text", "image"],
                 cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-                contextWindow: 128000,
-                maxTokens: 8192,
+                contextWindow: profile.contextWindow,
+                maxTokens: profile.maxTokens,
               },
             ],
           });

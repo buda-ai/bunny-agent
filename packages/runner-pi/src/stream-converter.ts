@@ -97,6 +97,18 @@ function sseData(obj: Record<string, unknown>): string {
   return "data: " + JSON.stringify(obj) + "\n\n";
 }
 
+export function getProviderStopReasonFromAgentEndMessages(
+  messages: Array<{ role: string; stopReason?: string }>,
+): string | undefined {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message.role === "assistant" && message.stopReason) {
+      return message.stopReason;
+    }
+  }
+  return undefined;
+}
+
 export class PiAISDKStreamConverter {
   private readonly messageId =
     "msg_" + Date.now() + "_" + Math.random().toString(36).slice(2);
@@ -203,12 +215,18 @@ export class PiAISDKStreamConverter {
           event.messages,
         );
         if (errorMsg) chunks.push(...this.finishError(errorMsg));
-        else
+        else {
+          const providerStopReason = getProviderStopReasonFromAgentEndMessages(
+            event.messages,
+          );
           chunks.push(
             ...this.finishSuccess(
               this.options.getUsageFromAgentEndMessages(event.messages),
+              providerStopReason === "length" ? "length" : "stop",
+              providerStopReason,
             ),
           );
+        }
       }
       return chunks;
     }
@@ -264,9 +282,14 @@ export class PiAISDKStreamConverter {
     return [sseData({ type: "text-end", id })];
   }
 
-  private finishSuccess(usage?: Usage): string[] {
+  private finishSuccess(
+    usage?: Usage,
+    finishReason: "stop" | "length" = "stop",
+    providerStopReason?: string,
+  ): string[] {
     const chunks = [...this.endTextStreamIfOpen()];
     const raw: Record<string, Record<string, unknown>> = {};
+    const messageMetadata: Record<string, unknown> = {};
     // Capture chat-level usage before tool tally may overwrite the same key.
     let chatUsage: Record<string, unknown> | undefined;
     if (usage) {
@@ -282,10 +305,16 @@ export class PiAISDKStreamConverter {
     }
     const finishPayload: Record<string, unknown> = {
       type: "finish",
-      finishReason: "stop",
+      finishReason,
     };
     if (usage) {
-      finishPayload.messageMetadata = { usage: { ...chatUsage, raw } };
+      messageMetadata.usage = { ...chatUsage, raw };
+    }
+    if (providerStopReason) {
+      messageMetadata.providerStopReason = providerStopReason;
+    }
+    if (Object.keys(messageMetadata).length > 0) {
+      finishPayload.messageMetadata = messageMetadata;
     }
     chunks.push(sseData(finishPayload), "data: [DONE]\n\n");
     this.hasFinished = true;
