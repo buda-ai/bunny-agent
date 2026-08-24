@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   parseModelSpec,
+  resolveDynamicModelProfile,
   resolveImageModelName,
   stripLLMThoughtSignaturesFromSessionManager,
 } from "../pi-runner.js";
@@ -44,6 +45,35 @@ describe("parseModelSpec", () => {
       provider: "openai",
       modelName: "gpt-4o",
     });
+  });
+});
+
+describe("resolveDynamicModelProfile", () => {
+  it("uses the published Gemini 3.7 Flash limits", () => {
+    expect(resolveDynamicModelProfile("gemini-3.7-flash")).toEqual({
+      contextWindow: 1_048_576,
+      maxTokens: 65_536,
+      reasoning: true,
+    });
+  });
+
+  it("matches known model aliases case-insensitively", () => {
+    expect(resolveDynamicModelProfile("GEMINI-3.7-FLASH")).toEqual({
+      contextWindow: 1_048_576,
+      maxTokens: 65_536,
+      reasoning: true,
+    });
+  });
+
+  it("retains the generic profile for unknown aliases", () => {
+    expect(resolveDynamicModelProfile("custom-model")).toEqual({
+      contextWindow: 128_000,
+      maxTokens: 8_192,
+      reasoning: false,
+    });
+    expect(resolveDynamicModelProfile("custom-model", "high").reasoning).toBe(
+      true,
+    );
   });
 });
 

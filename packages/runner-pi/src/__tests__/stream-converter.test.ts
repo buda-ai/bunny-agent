@@ -77,6 +77,53 @@ describe("PiAISDKStreamConverter text-delta passthrough", () => {
   });
 });
 
+describe("PiAISDKStreamConverter finish reason", () => {
+  it("preserves length termination after partial text", () => {
+    const conv = makeConverter();
+    conv.handleEvent(textStart(), false);
+    conv.handleEvent(textDelta("Partial response"), false);
+
+    const chunks = conv.handleEvent(
+      {
+        type: "agent_end",
+        messages: [
+          {
+            role: "assistant",
+            stopReason: "length",
+          },
+        ],
+      } as AgentSessionEvent,
+      false,
+    );
+    const events = eventsOf(chunks);
+
+    expect(events.map((event) => event.type)).toEqual(["text-end", "finish"]);
+    expect(events[1]).toEqual({
+      type: "finish",
+      finishReason: "length",
+      messageMetadata: { providerStopReason: "length" },
+    });
+    expect(chunks).toContain("data: [DONE]\n\n");
+  });
+
+  it("keeps normal assistant termination as stop", () => {
+    const conv = makeConverter();
+    const chunks = conv.handleEvent(
+      {
+        type: "agent_end",
+        messages: [{ role: "assistant", stopReason: "stop" }],
+      } as AgentSessionEvent,
+      false,
+    );
+
+    expect(eventsOf(chunks)).toContainEqual({
+      type: "finish",
+      finishReason: "stop",
+      messageMetadata: { providerStopReason: "stop" },
+    });
+  });
+});
+
 describe("PiAISDKStreamConverter tool output", () => {
   it("emits structured answers for ask-user-question results", () => {
     const conv = makeConverter();
