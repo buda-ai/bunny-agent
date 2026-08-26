@@ -857,6 +857,30 @@ describe("createPiRunner", () => {
     expect(callArgs?.thinkingLevel).toBeUndefined();
   });
 
+  it("uses the new model default when a resumed session switches models", async () => {
+    const { createAgentSession: mockCreateAgentSession, SessionManager } =
+      await import("@earendil-works/pi-coding-agent");
+    const spy = vi.mocked(mockCreateAgentSession);
+    spy.mockClear();
+    vi.mocked(SessionManager.open).mockReturnValueOnce({
+      buildSessionContext: () => ({
+        model: { provider: "openai", modelId: "gemini-3.1-pro" },
+      }),
+    } as unknown as ReturnType<typeof SessionManager.open>);
+
+    const runner = createPiRunner({
+      model: "openai:gemini-3.7-flash",
+      sessionId: "/tmp/pi-sessions/gemini-3.1-pro.jsonl",
+    });
+
+    for await (const _ of runner.run("continue with Gemini 3.7 Flash")) {
+      break;
+    }
+
+    expect(spy).toHaveBeenCalled();
+    expect(spy.mock.calls[0]?.[0]?.thinkingLevel).toBe("medium");
+  });
+
   it("passes effort 'low' as thinkingLevel for GPT models", async () => {
     const { createAgentSession: mockCreateAgentSession } = await import(
       "@earendil-works/pi-coding-agent"

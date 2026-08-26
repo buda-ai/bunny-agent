@@ -55,23 +55,39 @@ export interface DynamicModelProfile {
   contextWindow: number;
   maxTokens: number;
   reasoning: boolean;
+  thinkingLevelMap: Record<string, string | null>;
 }
 
 const DEFAULT_DYNAMIC_MODEL_PROFILE = {
   contextWindow: 128_000,
   maxTokens: 8_192,
+  thinkingLevelMap: { off: null, xhigh: "xhigh" },
 } as const;
 
 const DYNAMIC_MODEL_PROFILES: Record<
   string,
-  Omit<DynamicModelProfile, "reasoning"> & { reasoning?: boolean }
+  Omit<DynamicModelProfile, "reasoning" | "thinkingLevelMap"> & {
+    reasoning?: boolean;
+    thinkingLevelMap?: Record<string, string | null>;
+  }
 > = {
   "gemini-3.7-flash": {
     contextWindow: 1_048_576,
     maxTokens: 65_536,
     reasoning: true,
+    thinkingLevelMap: {
+      off: null,
+      minimal: null,
+      xhigh: null,
+      max: null,
+    },
   },
 };
+
+interface ModelIdentity {
+  provider: string;
+  modelId: string;
+}
 
 export interface PiRunnerOptions {
   model?: string;
@@ -159,7 +175,27 @@ export function resolveDynamicModelProfile(
       profile?.contextWindow ?? DEFAULT_DYNAMIC_MODEL_PROFILE.contextWindow,
     maxTokens: profile?.maxTokens ?? DEFAULT_DYNAMIC_MODEL_PROFILE.maxTokens,
     reasoning: profile?.reasoning ?? Boolean(effort && effort !== "off"),
+    thinkingLevelMap: {
+      ...(profile?.thinkingLevelMap ??
+        DEFAULT_DYNAMIC_MODEL_PROFILE.thinkingLevelMap),
+    },
   };
+}
+
+export function resolveInitialThinkingLevel(
+  effort: string | undefined,
+  previousModel: ModelIdentity | null | undefined,
+  currentModel: Pick<Model<Api>, "id" | "provider">,
+): ThinkingLevel | undefined {
+  if (effort) return effort as ThinkingLevel;
+  if (
+    previousModel &&
+    (previousModel.provider !== currentModel.provider ||
+      previousModel.modelId !== currentModel.id)
+  ) {
+    return "medium";
+  }
+  return undefined;
 }
 
 export async function disposePiSession(
@@ -389,10 +425,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
                 id: modelName,
                 name: modelName,
                 reasoning: profile.reasoning,
-                thinkingLevelMap: { off: null, xhigh: "xhigh" } as Record<
-                  string,
-                  string | null
-                >,
+                thinkingLevelMap: profile.thinkingLevelMap,
                 input: ["text", "image"],
                 cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
                 contextWindow: profile.contextWindow,
@@ -571,15 +604,20 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           allowedTools === undefined ||
           allowedTools.includes(ASK_USER_QUESTION_TOOL_NAME);
 
+        const previousModel = sessionManager.buildSessionContext?.().model;
+        const thinkingLevel = resolveInitialThinkingLevel(
+          options.effort,
+          previousModel,
+          model,
+        );
+
         const { session } = await createAgentSession({
           cwd,
           model,
           sessionManager,
           modelRuntime,
           resourceLoader,
-          thinkingLevel: options.effort
-            ? (options.effort as ThinkingLevel)
-            : undefined,
+          thinkingLevel,
           tools: allowedTools,
           customTools: [
             ...gatedTools,
