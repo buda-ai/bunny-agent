@@ -51,6 +51,7 @@ import { getUsageFromAgentEndMessages } from "./usage-metadata.js";
 
 const LOG_PREFIX = "[bunny-agent:pi]";
 const LLM_THOUGHT_SIGNATURE_SEPARATOR = "__thought__";
+const OPENAI_TOOL_CALL_ID_LIMIT = 40;
 
 export interface DynamicModelProfile {
   contextWindow: number;
@@ -220,23 +221,22 @@ export function stripLLMThoughtSignatureFromId(id: string): string {
 
 export function stripLLMThoughtSignaturesFromSessionManager(
   sessionManager: unknown,
-  model: { id?: string },
+  model: { id?: string; provider?: string; api?: string },
 ): void {
-  if (!shouldStripLLMThoughtSignaturesForModel(model)) return;
-
   const manager = sessionManager as {
     getEntries?: () => unknown[];
     buildSessionContext?: () => { messages?: unknown[] };
   };
   const entries = manager.getEntries?.();
   if (Array.isArray(entries)) {
-    for (const entry of entries) {
-      if (entry == null || typeof entry !== "object") continue;
-      const message = (entry as { type?: string; message?: unknown }).message;
-      if ((entry as { type?: string }).type === "message") {
-        stripLLMThoughtSignaturesFromMessage(message);
-      }
-    }
+    repairLLMThoughtSignatures(
+      entries.flatMap((entry) => {
+        if (entry == null || typeof entry !== "object") return [];
+        const sessionEntry = entry as { type?: string; message?: unknown };
+        return sessionEntry.type === "message" ? [sessionEntry.message] : [];
+      }),
+      model,
+    );
     return;
   }
 
@@ -247,29 +247,40 @@ export function stripLLMThoughtSignaturesFromSessionManager(
   ).buildSessionContext?.();
   const messages = context?.messages;
   if (!Array.isArray(messages)) return;
+  repairLLMThoughtSignatures(messages, model);
+}
 
+function repairLLMThoughtSignatures(
+  messages: unknown[],
+  model: { id?: string; provider?: string; api?: string },
+): void {
+  const replacements = new Map<string, string>();
   for (const message of messages) {
-    stripLLMThoughtSignaturesFromMessage(message);
+    repairAssistantThoughtSignatures(message, model, replacements);
+  }
+  for (const message of messages) {
+    repairToolResultThoughtSignatures(message, model, replacements);
   }
 }
 
-function stripLLMThoughtSignaturesFromMessage(message: unknown): void {
+function repairAssistantThoughtSignatures(
+  message: unknown,
+  model: { id?: string; provider?: string; api?: string },
+  replacements: Map<string, string>,
+): void {
   if (message == null || typeof message !== "object") return;
   const msg = message as {
     role?: string;
-    toolCallId?: string;
-    tool_call_id?: string;
+    model?: string;
+    provider?: string;
+    api?: string;
     content?: unknown;
   };
+  if (msg.role !== "assistant" || !Array.isArray(msg.content)) return;
 
-  if (typeof msg.toolCallId === "string") {
-    msg.toolCallId = stripLLMThoughtSignatureFromId(msg.toolCallId);
-  }
-  if (typeof msg.tool_call_id === "string") {
-    msg.tool_call_id = stripLLMThoughtSignatureFromId(msg.tool_call_id);
-  }
-
-  if (!Array.isArray(msg.content)) return;
+  const stripAll =
+    shouldStripLLMThoughtSignaturesForModel(model) ||
+    isCrossModelAssistantMessage(msg, model);
   for (const block of msg.content) {
     if (block == null || typeof block !== "object") continue;
     const contentBlock = block as {
@@ -278,27 +289,83 @@ function stripLLMThoughtSignaturesFromMessage(message: unknown): void {
       toolCallId?: string;
       tool_call_id?: string;
       call_id?: string;
+      thoughtSignature?: string;
     };
     if (contentBlock.type !== "toolCall") continue;
-    if (typeof contentBlock.id === "string") {
-      contentBlock.id = stripLLMThoughtSignatureFromId(contentBlock.id);
+
+    let repaired = false;
+    for (const key of [
+      "id",
+      "toolCallId",
+      "tool_call_id",
+      "call_id",
+    ] as const) {
+      const id = contentBlock[key];
+      if (
+        typeof id !== "string" ||
+        (!stripAll && !isTruncatedEmbeddedThoughtSignature(id))
+      ) {
+        continue;
+      }
+      const unsignedId = stripLLMThoughtSignatureFromId(id);
+      if (unsignedId !== id) {
+        replacements.set(id, unsignedId);
+        contentBlock[key] = unsignedId;
+        repaired = true;
+      }
     }
-    if (typeof contentBlock.toolCallId === "string") {
-      contentBlock.toolCallId = stripLLMThoughtSignatureFromId(
-        contentBlock.toolCallId,
-      );
-    }
-    if (typeof contentBlock.tool_call_id === "string") {
-      contentBlock.tool_call_id = stripLLMThoughtSignatureFromId(
-        contentBlock.tool_call_id,
-      );
-    }
-    if (typeof contentBlock.call_id === "string") {
-      contentBlock.call_id = stripLLMThoughtSignatureFromId(
-        contentBlock.call_id,
-      );
+    if (repaired) {
+      delete contentBlock.thoughtSignature;
     }
   }
+}
+
+function repairToolResultThoughtSignatures(
+  message: unknown,
+  model: { id?: string },
+  replacements: ReadonlyMap<string, string>,
+): void {
+  if (message == null || typeof message !== "object") return;
+  const msg = message as {
+    role?: string;
+    toolCallId?: string;
+    tool_call_id?: string;
+  };
+  if (msg.role !== "toolResult") return;
+
+  for (const key of ["toolCallId", "tool_call_id"] as const) {
+    const id = msg[key];
+    if (typeof id !== "string") continue;
+    const replacement = replacements.get(id);
+    if (replacement) {
+      msg[key] = replacement;
+    } else if (
+      shouldStripLLMThoughtSignaturesForModel(model) ||
+      isTruncatedEmbeddedThoughtSignature(id)
+    ) {
+      msg[key] = stripLLMThoughtSignatureFromId(id);
+    }
+  }
+}
+
+function isCrossModelAssistantMessage(
+  message: { model?: string; provider?: string; api?: string },
+  model: { id?: string; provider?: string; api?: string },
+): boolean {
+  if (!message.model || !model.id) return false;
+  return (
+    message.model !== model.id ||
+    (Boolean(message.provider && model.provider) &&
+      message.provider !== model.provider) ||
+    (Boolean(message.api && model.api) && message.api !== model.api)
+  );
+}
+
+function isTruncatedEmbeddedThoughtSignature(id: string): boolean {
+  return (
+    id.length === OPENAI_TOOL_CALL_ID_LIMIT &&
+    id.includes(LLM_THOUGHT_SIGNATURE_SEPARATOR)
+  );
 }
 
 export function parseModelSpec(model: string): {

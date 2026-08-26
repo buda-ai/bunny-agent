@@ -182,4 +182,79 @@ describe("stripLLMThoughtSignaturesFromSessionManager", () => {
     ).toBe("call_abc__thought__signature");
     expect(messages[1]?.toolCallId).toBe("call_abc__thought__signature");
   });
+
+  it("strips signatures when switching between Gemini models", () => {
+    const signedId = `call_abc__thought__${"A".repeat(128)}`;
+    const assistantMessage = {
+      role: "assistant",
+      provider: "openai",
+      api: "openai-completions",
+      model: "gemini-3.1-pro",
+      content: [
+        {
+          type: "toolCall",
+          id: signedId,
+          thoughtSignature: "A".repeat(128),
+        },
+      ],
+    };
+    const toolResultMessage = {
+      role: "toolResult",
+      toolCallId: signedId,
+    };
+    const sessionManager = {
+      getEntries: () => [
+        { type: "message", message: assistantMessage },
+        { type: "message", message: toolResultMessage },
+      ],
+    };
+
+    stripLLMThoughtSignaturesFromSessionManager(sessionManager, {
+      id: "gemini-3.7-flash",
+      provider: "openai",
+      api: "openai-completions",
+    });
+
+    expect(assistantMessage.content[0]?.id).toBe("call_abc");
+    expect(assistantMessage.content[0]).not.toHaveProperty("thoughtSignature");
+    expect(toolResultMessage.toolCallId).toBe("call_abc");
+  });
+
+  it("repairs 40-character truncated signatures for same-model replay", () => {
+    const truncatedId = "call_2021541__thought__AY89a1/Y1ykE5wo1C";
+    expect(truncatedId).toHaveLength(40);
+    const assistantMessage = {
+      role: "assistant",
+      provider: "openai",
+      api: "openai-completions",
+      model: "gemini-3.7-flash",
+      content: [
+        {
+          type: "toolCall",
+          id: truncatedId,
+          thoughtSignature: "AY89a1/Y1ykE5wo1C",
+        },
+      ],
+    };
+    const toolResultMessage = {
+      role: "toolResult",
+      toolCallId: truncatedId,
+    };
+    const sessionManager = {
+      getEntries: () => [
+        { type: "message", message: assistantMessage },
+        { type: "message", message: toolResultMessage },
+      ],
+    };
+
+    stripLLMThoughtSignaturesFromSessionManager(sessionManager, {
+      id: "gemini-3.7-flash",
+      provider: "openai",
+      api: "openai-completions",
+    });
+
+    expect(assistantMessage.content[0]?.id).toBe("call_2021541");
+    expect(assistantMessage.content[0]).not.toHaveProperty("thoughtSignature");
+    expect(toolResultMessage.toolCallId).toBe("call_2021541");
+  });
 });

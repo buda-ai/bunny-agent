@@ -1,0 +1,45 @@
+diff --git a/dist/api/transform-messages.js b/dist/api/transform-messages.js
+index af65b6b..dce5886 100644
+--- a/dist/api/transform-messages.js
++++ b/dist/api/transform-messages.js
+@@ -1,5 +1,10 @@
+ const NON_VISION_USER_IMAGE_PLACEHOLDER = "(image omitted: model does not support images)";
+ const NON_VISION_TOOL_IMAGE_PLACEHOLDER = "(tool image omitted: model does not support images)";
++const LLM_THOUGHT_SIGNATURE_SEPARATOR = "__thought__";
++function stripEmbeddedThoughtSignature(id) {
++    const separatorIndex = id.indexOf(LLM_THOUGHT_SIGNATURE_SEPARATOR);
++    return separatorIndex === -1 ? id : id.slice(0, separatorIndex);
++}
+ function replaceImagesWithPlaceholder(content, placeholder) {
+     const result = [];
+     let previousWasPlaceholder = false;
+@@ -100,16 +105,18 @@ export function transformMessages(messages, model, normalizeToolCallId) {
+                 if (block.type === "toolCall") {
+                     const toolCall = block;
+-                    let normalizedToolCall = toolCall;
+-                    if (!isSameModel && toolCall.thoughtSignature) {
+-                        normalizedToolCall = { ...toolCall };
+-                        delete normalizedToolCall.thoughtSignature;
+-                    }
+-                    if (!isSameModel && normalizeToolCallId) {
+-                        const normalizedId = normalizeToolCallId(toolCall.id, model, assistantMsg);
+-                        if (normalizedId !== toolCall.id) {
++                    if (!isSameModel) {
++                        const unsignedId = stripEmbeddedThoughtSignature(toolCall.id);
++                        const normalizedId = normalizeToolCallId
++                            ? normalizeToolCallId(unsignedId, model, assistantMsg)
++                            : unsignedId;
++                        if (toolCall.thoughtSignature || normalizedId !== toolCall.id) {
++                            const normalizedToolCall = { ...toolCall, id: normalizedId };
++                            delete normalizedToolCall.thoughtSignature;
++                            if (normalizedId !== toolCall.id) {
+-                            toolCallIdMap.set(toolCall.id, normalizedId);
++                                toolCallIdMap.set(toolCall.id, normalizedId);
+-                            normalizedToolCall = { ...normalizedToolCall, id: normalizedId };
++                            }
++                            return normalizedToolCall;
+                         }
+                     }
+-                    return normalizedToolCall;
++                    return toolCall;
+                 }
