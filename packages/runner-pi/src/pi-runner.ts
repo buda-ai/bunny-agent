@@ -50,29 +50,44 @@ import { buildToolDefinitionsFromRefs, type PiToolRef } from "./tool-refs.js";
 import { getUsageFromAgentEndMessages } from "./usage-metadata.js";
 
 const LOG_PREFIX = "[bunny-agent:pi]";
-const LLM_THOUGHT_SIGNATURE_SEPARATOR = "__thought__";
 
 export interface DynamicModelProfile {
   contextWindow: number;
   maxTokens: number;
   reasoning: boolean;
+  thinkingLevelMap: Record<string, string | null>;
 }
 
 const DEFAULT_DYNAMIC_MODEL_PROFILE = {
   contextWindow: 128_000,
   maxTokens: 8_192,
+  thinkingLevelMap: { off: null, xhigh: "xhigh" },
 } as const;
 
 const DYNAMIC_MODEL_PROFILES: Record<
   string,
-  Omit<DynamicModelProfile, "reasoning"> & { reasoning?: boolean }
+  Omit<DynamicModelProfile, "reasoning" | "thinkingLevelMap"> & {
+    reasoning?: boolean;
+    thinkingLevelMap?: Record<string, string | null>;
+  }
 > = {
   "gemini-3.7-flash": {
     contextWindow: 1_048_576,
     maxTokens: 65_536,
     reasoning: true,
+    thinkingLevelMap: {
+      off: null,
+      minimal: null,
+      xhigh: null,
+      max: null,
+    },
   },
 };
+
+interface ModelIdentity {
+  provider: string;
+  modelId: string;
+}
 
 export interface PiRunnerOptions {
   model?: string;
@@ -160,7 +175,27 @@ export function resolveDynamicModelProfile(
       profile?.contextWindow ?? DEFAULT_DYNAMIC_MODEL_PROFILE.contextWindow,
     maxTokens: profile?.maxTokens ?? DEFAULT_DYNAMIC_MODEL_PROFILE.maxTokens,
     reasoning: profile?.reasoning ?? Boolean(effort && effort !== "off"),
+    thinkingLevelMap: {
+      ...(profile?.thinkingLevelMap ??
+        DEFAULT_DYNAMIC_MODEL_PROFILE.thinkingLevelMap),
+    },
   };
+}
+
+export function resolveInitialThinkingLevel(
+  effort: string | undefined,
+  previousModel: ModelIdentity | null | undefined,
+  currentModel: Pick<Model<Api>, "id" | "provider">,
+): ThinkingLevel | undefined {
+  if (effort) return effort as ThinkingLevel;
+  if (
+    previousModel &&
+    (previousModel.provider !== currentModel.provider ||
+      previousModel.modelId !== currentModel.id)
+  ) {
+    return "medium";
+  }
+  return undefined;
 }
 
 export async function disposePiSession(
@@ -203,102 +238,6 @@ function normalizeAllowedTools(
       ),
     ),
   ];
-}
-
-export function shouldStripLLMThoughtSignaturesForModel(model: {
-  id?: string;
-}): boolean {
-  const id = (model.id ?? "").toLowerCase();
-  return !id.includes("gemini");
-}
-
-export function stripLLMThoughtSignatureFromId(id: string): string {
-  const separatorIndex = id.indexOf(LLM_THOUGHT_SIGNATURE_SEPARATOR);
-  if (separatorIndex === -1) return id;
-  return id.slice(0, separatorIndex);
-}
-
-export function stripLLMThoughtSignaturesFromSessionManager(
-  sessionManager: unknown,
-  model: { id?: string },
-): void {
-  if (!shouldStripLLMThoughtSignaturesForModel(model)) return;
-
-  const manager = sessionManager as {
-    getEntries?: () => unknown[];
-    buildSessionContext?: () => { messages?: unknown[] };
-  };
-  const entries = manager.getEntries?.();
-  if (Array.isArray(entries)) {
-    for (const entry of entries) {
-      if (entry == null || typeof entry !== "object") continue;
-      const message = (entry as { type?: string; message?: unknown }).message;
-      if ((entry as { type?: string }).type === "message") {
-        stripLLMThoughtSignaturesFromMessage(message);
-      }
-    }
-    return;
-  }
-
-  const context = (
-    sessionManager as {
-      buildSessionContext?: () => { messages?: unknown[] };
-    }
-  ).buildSessionContext?.();
-  const messages = context?.messages;
-  if (!Array.isArray(messages)) return;
-
-  for (const message of messages) {
-    stripLLMThoughtSignaturesFromMessage(message);
-  }
-}
-
-function stripLLMThoughtSignaturesFromMessage(message: unknown): void {
-  if (message == null || typeof message !== "object") return;
-  const msg = message as {
-    role?: string;
-    toolCallId?: string;
-    tool_call_id?: string;
-    content?: unknown;
-  };
-
-  if (typeof msg.toolCallId === "string") {
-    msg.toolCallId = stripLLMThoughtSignatureFromId(msg.toolCallId);
-  }
-  if (typeof msg.tool_call_id === "string") {
-    msg.tool_call_id = stripLLMThoughtSignatureFromId(msg.tool_call_id);
-  }
-
-  if (!Array.isArray(msg.content)) return;
-  for (const block of msg.content) {
-    if (block == null || typeof block !== "object") continue;
-    const contentBlock = block as {
-      type?: string;
-      id?: string;
-      toolCallId?: string;
-      tool_call_id?: string;
-      call_id?: string;
-    };
-    if (contentBlock.type !== "toolCall") continue;
-    if (typeof contentBlock.id === "string") {
-      contentBlock.id = stripLLMThoughtSignatureFromId(contentBlock.id);
-    }
-    if (typeof contentBlock.toolCallId === "string") {
-      contentBlock.toolCallId = stripLLMThoughtSignatureFromId(
-        contentBlock.toolCallId,
-      );
-    }
-    if (typeof contentBlock.tool_call_id === "string") {
-      contentBlock.tool_call_id = stripLLMThoughtSignatureFromId(
-        contentBlock.tool_call_id,
-      );
-    }
-    if (typeof contentBlock.call_id === "string") {
-      contentBlock.call_id = stripLLMThoughtSignatureFromId(
-        contentBlock.call_id,
-      );
-    }
-  }
 }
 
 export function parseModelSpec(model: string): {
@@ -486,10 +425,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
                 id: modelName,
                 name: modelName,
                 reasoning: profile.reasoning,
-                thinkingLevelMap: { off: null, xhigh: "xhigh" } as Record<
-                  string,
-                  string | null
-                >,
+                thinkingLevelMap: profile.thinkingLevelMap,
                 input: ["text", "image"],
                 cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
                 contextWindow: profile.contextWindow,
@@ -558,8 +494,6 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           }
           return SessionManager.create(cwd);
         })();
-        stripLLMThoughtSignaturesFromSessionManager(sessionManager, model);
-
         // Create the loader whenever either input is present: systemPrompt is
         // delivered via appendSystemPrompt, so it must not depend on skillPaths.
         const resourceLoader =
@@ -670,15 +604,20 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           allowedTools === undefined ||
           allowedTools.includes(ASK_USER_QUESTION_TOOL_NAME);
 
+        const previousModel = sessionManager.buildSessionContext?.().model;
+        const thinkingLevel = resolveInitialThinkingLevel(
+          options.effort,
+          previousModel,
+          model,
+        );
+
         const { session } = await createAgentSession({
           cwd,
           model,
           sessionManager,
           modelRuntime,
           resourceLoader,
-          thinkingLevel: options.effort
-            ? (options.effort as ThinkingLevel)
-            : undefined,
+          thinkingLevel,
           tools: allowedTools,
           customTools: [
             ...gatedTools,

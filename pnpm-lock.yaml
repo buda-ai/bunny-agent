@@ -5,6 +5,9 @@ settings:
   excludeLinksFromLockfile: false
 
 patchedDependencies:
+  '@earendil-works/pi-ai@0.80.10':
+    hash: f30a60efb2e2b821b2464db64789c83ffbe0aa711335650039ad14cac9ea00ef
+    path: patches/@earendil-works__pi-ai@0.80.10.patch
   '@earendil-works/pi-coding-agent@0.80.10':
     hash: d32aeae7e1fdc8f9a384a96903fa392d4c0b3f3b2e3a34829e25e20b61376dd1
     path: patches/@earendil-works__pi-coding-agent@0.80.10.patch
@@ -77,7 +80,7 @@ importers:
     dependencies:
       '@earendil-works/pi-ai':
         specifier: 0.80.10
-        version: 0.80.10(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
+        version: 0.80.10(patch_hash=f30a60efb2e2b821b2464db64789c83ffbe0aa711335650039ad14cac9ea00ef)(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@earendil-works/pi-tui':
         specifier: 0.80.10
         version: 0.80.10
@@ -92,7 +95,7 @@ importers:
         version: 2.7.0
       pi-mcp-adapter:
         specifier: 2.15.0
-        version: 2.15.0(@earendil-works/pi-ai@0.80.10(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(ws@8.19.0)(zod@4.3.6))(@earendil-works/pi-tui@0.80.10)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typebox@1.1.38)(zod@4.3.6)
+        version: 2.15.0(@earendil-works/pi-ai@0.80.10(patch_hash=f30a60efb2e2b821b2464db64789c83ffbe0aa711335650039ad14cac9ea00ef)(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(ws@8.19.0)(zod@4.3.6))(@earendil-works/pi-tui@0.80.10)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typebox@1.1.38)(zod@4.3.6)
       ps-list:
         specifier: ^9.0.0
         version: 9.0.0
@@ -178,7 +181,7 @@ importers:
         version: 0.80.10(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@earendil-works/pi-ai':
         specifier: 0.80.10
-        version: 0.80.10(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
+        version: 0.80.10(patch_hash=f30a60efb2e2b821b2464db64789c83ffbe0aa711335650039ad14cac9ea00ef)(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@earendil-works/pi-coding-agent':
         specifier: 0.80.10
         version: 0.80.10(patch_hash=d32aeae7e1fdc8f9a384a96903fa392d4c0b3f3b2e3a34829e25e20b61376dd1)(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
@@ -199,7 +202,7 @@ importers:
         version: 2.7.0
       pi-mcp-adapter:
         specifier: 2.15.0
-        version: 2.15.0(@earendil-works/pi-ai@0.80.10(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(ws@8.19.0)(zod@4.3.6))(@earendil-works/pi-tui@0.80.10)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typebox@1.1.38)(zod@4.3.6)
+        version: 2.15.0(@earendil-works/pi-ai@0.80.10(patch_hash=f30a60efb2e2b821b2464db64789c83ffbe0aa711335650039ad14cac9ea00ef)(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(ws@8.19.0)(zod@4.3.6))(@earendil-works/pi-tui@0.80.10)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typebox@1.1.38)(zod@4.3.6)
       typebox:
         specifier: 1.1.38
         version: 1.1.38
@@ -359,12 +362,15 @@ importers:
 
   packages/apply-patch:
     devDependencies:
+      '@types/node':
+        specifier: ^20.10.0
+        version: 20.19.33
       typescript:
         specifier: ^5.7.3
         version: 5.9.3
       vitest:
         specifier: ^1.6.1
-        version: 1.6.1(@types/node@25.2.3)(lightningcss@1.30.2)
+        version: 1.6.1(@types/node@20.19.33)(lightningcss@1.30.2)
 
   packages/kui:
     dependencies:
@@ -723,7 +729,7 @@ importers:
         version: 0.80.10(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@earendil-works/pi-ai':
         specifier: 0.80.10
-        version: 0.80.10(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
+        version: 0.80.10(patch_hash=f30a60efb2e2b821b2464db64789c83ffbe0aa711335650039ad14cac9ea00ef)(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@earendil-works/pi-coding-agent':
         specifier: 0.80.10
         version: 0.80.10(patch_hash=d32aeae7e1fdc8f9a384a96903fa392d4c0b3f3b2e3a34829e25e20b61376dd1)(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
@@ -738,7 +744,7 @@ importers:
         version: 2.7.0
       pi-mcp-adapter:
         specifier: 2.15.0
-        version: 2.15.0(@earendil-works/pi-ai@0.80.10(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(ws@8.19.0)(zod@4.3.6))(@earendil-works/pi-tui@0.80.10)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typebox@1.1.38)(zod@4.3.6)
+        version: 2.15.0(@earendil-works/pi-ai@0.80.10(patch_hash=f30a60efb2e2b821b2464db64789c83ffbe0aa711335650039ad14cac9ea00ef)(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(ws@8.19.0)(zod@4.3.6))(@earendil-works/pi-tui@0.80.10)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typebox@1.1.38)(zod@4.3.6)
       typebox:
         specifier: 1.1.38
         version: 1.1.38
@@ -8506,7 +8512,7 @@ snapshots:
 
   '@earendil-works/pi-agent-core@0.80.10(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)':
     dependencies:
-      '@earendil-works/pi-ai': 0.80.10(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
+      '@earendil-works/pi-ai': 0.80.10(patch_hash=f30a60efb2e2b821b2464db64789c83ffbe0aa711335650039ad14cac9ea00ef)(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       ignore: 7.0.5
       typebox: 1.1.38
       yaml: 2.9.0
@@ -8518,7 +8524,7 @@ snapshots:
       - ws
       - zod
 
-  '@earendil-works/pi-ai@0.80.10(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)':
+  '@earendil-works/pi-ai@0.80.10(patch_hash=f30a60efb2e2b821b2464db64789c83ffbe0aa711335650039ad14cac9ea00ef)(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)':
     dependencies:
       '@anthropic-ai/sdk': 0.91.1(zod@4.3.6)
       '@aws-sdk/client-bedrock-runtime': 3.1048.0
@@ -8542,7 +8548,7 @@ snapshots:
   '@earendil-works/pi-coding-agent@0.80.10(patch_hash=d32aeae7e1fdc8f9a384a96903fa392d4c0b3f3b2e3a34829e25e20b61376dd1)(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)':
     dependencies:
       '@earendil-works/pi-agent-core': 0.80.10(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
-      '@earendil-works/pi-ai': 0.80.10(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
+      '@earendil-works/pi-ai': 0.80.10(patch_hash=f30a60efb2e2b821b2464db64789c83ffbe0aa711335650039ad14cac9ea00ef)(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@earendil-works/pi-tui': 0.80.10
       '@silvia-odwyer/photon-node': 0.3.4
       chalk: 5.6.2
@@ -13674,7 +13680,7 @@ snapshots:
 
   pathval@1.1.1: {}
 
-  pi-mcp-adapter@2.15.0(@earendil-works/pi-ai@0.80.10(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(ws@8.19.0)(zod@4.3.6))(@earendil-works/pi-tui@0.80.10)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typebox@1.1.38)(zod@4.3.6):
+  pi-mcp-adapter@2.15.0(@earendil-works/pi-ai@0.80.10(patch_hash=f30a60efb2e2b821b2464db64789c83ffbe0aa711335650039ad14cac9ea00ef)(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(ws@8.19.0)(zod@4.3.6))(@earendil-works/pi-tui@0.80.10)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typebox@1.1.38)(zod@4.3.6):
     dependencies:
       '@modelcontextprotocol/client': 2.0.0-beta.5
       '@modelcontextprotocol/ext-apps': 1.7.5(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.3.6)
@@ -13687,7 +13693,7 @@ snapshots:
       strip-json-comments: 5.0.3
       zod: 4.3.6
     optionalDependencies:
-      '@earendil-works/pi-ai': 0.80.10(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
+      '@earendil-works/pi-ai': 0.80.10(patch_hash=f30a60efb2e2b821b2464db64789c83ffbe0aa711335650039ad14cac9ea00ef)(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(ws@8.19.0)(zod@4.3.6)
       '@earendil-works/pi-tui': 0.80.10
       typebox: 1.1.38
     transitivePeerDependencies:

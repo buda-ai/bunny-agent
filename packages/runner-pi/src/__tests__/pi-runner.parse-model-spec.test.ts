@@ -3,7 +3,7 @@ import {
   parseModelSpec,
   resolveDynamicModelProfile,
   resolveImageModelName,
-  stripLLMThoughtSignaturesFromSessionManager,
+  resolveInitialThinkingLevel,
 } from "../pi-runner.js";
 
 describe("parseModelSpec", () => {
@@ -54,6 +54,12 @@ describe("resolveDynamicModelProfile", () => {
       contextWindow: 1_048_576,
       maxTokens: 65_536,
       reasoning: true,
+      thinkingLevelMap: {
+        off: null,
+        minimal: null,
+        xhigh: null,
+        max: null,
+      },
     });
   });
 
@@ -62,6 +68,12 @@ describe("resolveDynamicModelProfile", () => {
       contextWindow: 1_048_576,
       maxTokens: 65_536,
       reasoning: true,
+      thinkingLevelMap: {
+        off: null,
+        minimal: null,
+        xhigh: null,
+        max: null,
+      },
     });
   });
 
@@ -70,10 +82,45 @@ describe("resolveDynamicModelProfile", () => {
       contextWindow: 128_000,
       maxTokens: 8_192,
       reasoning: false,
+      thinkingLevelMap: { off: null, xhigh: "xhigh" },
     });
     expect(resolveDynamicModelProfile("custom-model", "high").reasoning).toBe(
       true,
     );
+  });
+});
+
+describe("resolveInitialThinkingLevel", () => {
+  const currentModel = { id: "gemini-3.7-flash", provider: "openai" } as const;
+
+  it("uses the new model default when resuming with a different model", () => {
+    expect(
+      resolveInitialThinkingLevel(
+        undefined,
+        { provider: "openai", modelId: "gemini-3.1-pro" },
+        currentModel,
+      ),
+    ).toBe("medium");
+  });
+
+  it("preserves Pi session restoration for the same model", () => {
+    expect(
+      resolveInitialThinkingLevel(
+        undefined,
+        { provider: "openai", modelId: "gemini-3.7-flash" },
+        currentModel,
+      ),
+    ).toBeUndefined();
+  });
+
+  it("keeps an explicit effort when switching models", () => {
+    expect(
+      resolveInitialThinkingLevel(
+        "high",
+        { provider: "openai", modelId: "gemini-3.1-pro" },
+        currentModel,
+      ),
+    ).toBe("high");
   });
 });
 
@@ -114,72 +161,5 @@ describe("resolveImageModelName", () => {
         IMAGE_GENERATION_MODEL: "openai:gemini-3-pro-image",
       }),
     ).toBe("gemini-3-pro-image");
-  });
-});
-
-describe("stripLLMThoughtSignaturesFromSessionManager", () => {
-  it("strips thought signatures for non-Gemini history", () => {
-    const assistantMessage = {
-      role: "assistant",
-      id: "msg_keep__thought__not-a-tool-id",
-      content: [
-        {
-          type: "toolCall",
-          id: "call_abc__thought__signature",
-          name: "read",
-          arguments: { path: "/tmp/a" },
-        },
-      ],
-    };
-    const toolResultMessage = {
-      role: "toolResult",
-      toolCallId: "call_abc__thought__signature",
-      content: [{ type: "text", text: "ok" }],
-    };
-    const entries = [
-      {
-        type: "message",
-        message: assistantMessage,
-      },
-      {
-        type: "message",
-        message: toolResultMessage,
-      },
-    ];
-    const sessionManager = {
-      getEntries: () => entries,
-    };
-
-    stripLLMThoughtSignaturesFromSessionManager(sessionManager, {
-      id: "gpt-5.1",
-    });
-
-    expect(assistantMessage.id).toBe("msg_keep__thought__not-a-tool-id");
-    expect(
-      (assistantMessage.content as Array<{ id?: string }> | undefined)?.[0]?.id,
-    ).toBe("call_abc");
-    expect(toolResultMessage.toolCallId).toBe("call_abc");
-  });
-
-  it("keeps Gemini history unchanged", () => {
-    const messages = [
-      {
-        role: "assistant",
-        content: [{ type: "toolCall", id: "call_abc__thought__signature" }],
-      },
-      { role: "toolResult", toolCallId: "call_abc__thought__signature" },
-    ];
-    const sessionManager = {
-      buildSessionContext: () => ({ messages }),
-    };
-
-    stripLLMThoughtSignaturesFromSessionManager(sessionManager, {
-      id: "gemini-2.5-pro",
-    });
-
-    expect(
-      (messages[0]?.content as Array<{ id?: string }> | undefined)?.[0]?.id,
-    ).toBe("call_abc__thought__signature");
-    expect(messages[1]?.toolCallId).toBe("call_abc__thought__signature");
   });
 });
