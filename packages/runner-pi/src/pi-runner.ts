@@ -50,8 +50,6 @@ import { buildToolDefinitionsFromRefs, type PiToolRef } from "./tool-refs.js";
 import { getUsageFromAgentEndMessages } from "./usage-metadata.js";
 
 const LOG_PREFIX = "[bunny-agent:pi]";
-const LLM_THOUGHT_SIGNATURE_SEPARATOR = "__thought__";
-const OPENAI_TOOL_CALL_ID_LIMIT = 40;
 
 export interface DynamicModelProfile {
   contextWindow: number;
@@ -204,168 +202,6 @@ function normalizeAllowedTools(
       ),
     ),
   ];
-}
-
-export function shouldStripLLMThoughtSignaturesForModel(model: {
-  id?: string;
-}): boolean {
-  const id = (model.id ?? "").toLowerCase();
-  return !id.includes("gemini");
-}
-
-export function stripLLMThoughtSignatureFromId(id: string): string {
-  const separatorIndex = id.indexOf(LLM_THOUGHT_SIGNATURE_SEPARATOR);
-  if (separatorIndex === -1) return id;
-  return id.slice(0, separatorIndex);
-}
-
-export function stripLLMThoughtSignaturesFromSessionManager(
-  sessionManager: unknown,
-  model: { id?: string; provider?: string; api?: string },
-): void {
-  const manager = sessionManager as {
-    getEntries?: () => unknown[];
-    buildSessionContext?: () => { messages?: unknown[] };
-  };
-  const entries = manager.getEntries?.();
-  if (Array.isArray(entries)) {
-    repairLLMThoughtSignatures(
-      entries.flatMap((entry) => {
-        if (entry == null || typeof entry !== "object") return [];
-        const sessionEntry = entry as { type?: string; message?: unknown };
-        return sessionEntry.type === "message" ? [sessionEntry.message] : [];
-      }),
-      model,
-    );
-    return;
-  }
-
-  const context = (
-    sessionManager as {
-      buildSessionContext?: () => { messages?: unknown[] };
-    }
-  ).buildSessionContext?.();
-  const messages = context?.messages;
-  if (!Array.isArray(messages)) return;
-  repairLLMThoughtSignatures(messages, model);
-}
-
-function repairLLMThoughtSignatures(
-  messages: unknown[],
-  model: { id?: string; provider?: string; api?: string },
-): void {
-  const replacements = new Map<string, string>();
-  for (const message of messages) {
-    repairAssistantThoughtSignatures(message, model, replacements);
-  }
-  for (const message of messages) {
-    repairToolResultThoughtSignatures(message, model, replacements);
-  }
-}
-
-function repairAssistantThoughtSignatures(
-  message: unknown,
-  model: { id?: string; provider?: string; api?: string },
-  replacements: Map<string, string>,
-): void {
-  if (message == null || typeof message !== "object") return;
-  const msg = message as {
-    role?: string;
-    model?: string;
-    provider?: string;
-    api?: string;
-    content?: unknown;
-  };
-  if (msg.role !== "assistant" || !Array.isArray(msg.content)) return;
-
-  const stripAll =
-    shouldStripLLMThoughtSignaturesForModel(model) ||
-    isCrossModelAssistantMessage(msg, model);
-  for (const block of msg.content) {
-    if (block == null || typeof block !== "object") continue;
-    const contentBlock = block as {
-      type?: string;
-      id?: string;
-      toolCallId?: string;
-      tool_call_id?: string;
-      call_id?: string;
-      thoughtSignature?: string;
-    };
-    if (contentBlock.type !== "toolCall") continue;
-
-    let repaired = false;
-    for (const key of [
-      "id",
-      "toolCallId",
-      "tool_call_id",
-      "call_id",
-    ] as const) {
-      const id = contentBlock[key];
-      if (
-        typeof id !== "string" ||
-        (!stripAll && !isTruncatedEmbeddedThoughtSignature(id))
-      ) {
-        continue;
-      }
-      const unsignedId = stripLLMThoughtSignatureFromId(id);
-      if (unsignedId !== id) {
-        replacements.set(id, unsignedId);
-        contentBlock[key] = unsignedId;
-        repaired = true;
-      }
-    }
-    if (repaired) {
-      delete contentBlock.thoughtSignature;
-    }
-  }
-}
-
-function repairToolResultThoughtSignatures(
-  message: unknown,
-  model: { id?: string },
-  replacements: ReadonlyMap<string, string>,
-): void {
-  if (message == null || typeof message !== "object") return;
-  const msg = message as {
-    role?: string;
-    toolCallId?: string;
-    tool_call_id?: string;
-  };
-  if (msg.role !== "toolResult") return;
-
-  for (const key of ["toolCallId", "tool_call_id"] as const) {
-    const id = msg[key];
-    if (typeof id !== "string") continue;
-    const replacement = replacements.get(id);
-    if (replacement) {
-      msg[key] = replacement;
-    } else if (
-      shouldStripLLMThoughtSignaturesForModel(model) ||
-      isTruncatedEmbeddedThoughtSignature(id)
-    ) {
-      msg[key] = stripLLMThoughtSignatureFromId(id);
-    }
-  }
-}
-
-function isCrossModelAssistantMessage(
-  message: { model?: string; provider?: string; api?: string },
-  model: { id?: string; provider?: string; api?: string },
-): boolean {
-  if (!message.model || !model.id) return false;
-  return (
-    message.model !== model.id ||
-    (Boolean(message.provider && model.provider) &&
-      message.provider !== model.provider) ||
-    (Boolean(message.api && model.api) && message.api !== model.api)
-  );
-}
-
-function isTruncatedEmbeddedThoughtSignature(id: string): boolean {
-  return (
-    id.length === OPENAI_TOOL_CALL_ID_LIMIT &&
-    id.includes(LLM_THOUGHT_SIGNATURE_SEPARATOR)
-  );
 }
 
 export function parseModelSpec(model: string): {
@@ -625,8 +461,6 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           }
           return SessionManager.create(cwd);
         })();
-        stripLLMThoughtSignaturesFromSessionManager(sessionManager, model);
-
         // Create the loader whenever either input is present: systemPrompt is
         // delivered via appendSystemPrompt, so it must not depend on skillPaths.
         const resourceLoader =

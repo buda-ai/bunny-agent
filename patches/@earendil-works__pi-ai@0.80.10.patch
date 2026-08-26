@@ -1,45 +1,58 @@
 diff --git a/dist/api/transform-messages.js b/dist/api/transform-messages.js
-index af65b6b..dce5886 100644
+index af65b6b..39cf074 100644
 --- a/dist/api/transform-messages.js
 +++ b/dist/api/transform-messages.js
-@@ -1,5 +1,10 @@
+@@ -1,5 +1,40 @@
  const NON_VISION_USER_IMAGE_PLACEHOLDER = "(image omitted: model does not support images)";
  const NON_VISION_TOOL_IMAGE_PLACEHOLDER = "(tool image omitted: model does not support images)";
 +const LLM_THOUGHT_SIGNATURE_SEPARATOR = "__thought__";
-+function stripEmbeddedThoughtSignature(id) {
++const OPENAI_TOOL_CALL_ID_LIMIT = 40;
++function stripLLMThoughtSignatureFromId(id) {
 +    const separatorIndex = id.indexOf(LLM_THOUGHT_SIGNATURE_SEPARATOR);
 +    return separatorIndex === -1 ? id : id.slice(0, separatorIndex);
++}
++function stripLLMThoughtSignaturesFromMessage(message, model, normalizeToolCallId, toolCallIdMap) {
++    const isSameModel = message.provider === model.provider &&
++        message.api === model.api &&
++        message.model === model.id;
++    let changed = false;
++    const content = message.content.map((block) => {
++        if (block.type !== "toolCall")
++            return block;
++        const shouldStrip = !isSameModel ||
++            (block.id.length === OPENAI_TOOL_CALL_ID_LIMIT &&
++                block.id.includes(LLM_THOUGHT_SIGNATURE_SEPARATOR));
++        if (!shouldStrip)
++            return block;
++        const unsignedId = stripLLMThoughtSignatureFromId(block.id);
++        const normalizedId = !isSameModel && normalizeToolCallId
++            ? normalizeToolCallId(unsignedId, model, message)
++            : unsignedId;
++        if (normalizedId === block.id && !block.thoughtSignature)
++            return block;
++        const normalizedToolCall = { ...block, id: normalizedId };
++        delete normalizedToolCall.thoughtSignature;
++        if (normalizedId !== block.id) {
++            toolCallIdMap.set(block.id, normalizedId);
++        }
++        changed = true;
++        return normalizedToolCall;
++    });
++    return changed ? { ...message, content } : message;
 +}
  function replaceImagesWithPlaceholder(content, placeholder) {
      const result = [];
      let previousWasPlaceholder = false;
-@@ -100,16 +105,18 @@ export function transformMessages(messages, model, normalizeToolCallId) {
-                 if (block.type === "toolCall") {
-                     const toolCall = block;
--                    let normalizedToolCall = toolCall;
--                    if (!isSameModel && toolCall.thoughtSignature) {
--                        normalizedToolCall = { ...toolCall };
--                        delete normalizedToolCall.thoughtSignature;
--                    }
--                    if (!isSameModel && normalizeToolCallId) {
--                        const normalizedId = normalizeToolCallId(toolCall.id, model, assistantMsg);
--                        if (normalizedId !== toolCall.id) {
-+                    if (!isSameModel) {
-+                        const unsignedId = stripEmbeddedThoughtSignature(toolCall.id);
-+                        const normalizedId = normalizeToolCallId
-+                            ? normalizeToolCallId(unsignedId, model, assistantMsg)
-+                            : unsignedId;
-+                        if (toolCall.thoughtSignature || normalizedId !== toolCall.id) {
-+                            const normalizedToolCall = { ...toolCall, id: normalizedId };
-+                            delete normalizedToolCall.thoughtSignature;
-+                            if (normalizedId !== toolCall.id) {
--                            toolCallIdMap.set(toolCall.id, normalizedId);
-+                                toolCallIdMap.set(toolCall.id, normalizedId);
--                            normalizedToolCall = { ...normalizedToolCall, id: normalizedId };
-+                            }
-+                            return normalizedToolCall;
-                         }
-                     }
--                    return normalizedToolCall;
-+                    return toolCall;
-                 }
+@@ -65,6 +100,11 @@ export function transformMessages(messages, model, normalizeToolCallId) {
+         // Assistant messages need transformation check
+         if (msg.role === "assistant") {
+-            const assistantMsg = msg;
++            const assistantMsg = stripLLMThoughtSignaturesFromMessage(
++                msg,
++                model,
++                normalizeToolCallId,
++                toolCallIdMap,
++            );
+             const isSameModel = assistantMsg.provider === model.provider &&
+                 assistantMsg.api === model.api &&
+                 assistantMsg.model === model.id;
