@@ -159,7 +159,7 @@ RUN printf '%s\n' \
     'error_log /tmp/nginx/error.log;' \
     'events {}' \
     'http {' \
-    '    access_log /tmp/nginx/access.log;' \
+    '    access_log off;' \
     '    client_body_temp_path /tmp/nginx/client_body;' \
     '    proxy_temp_path /tmp/nginx/proxy;' \
     '    fastcgi_temp_path /tmp/nginx/fastcgi;' \
