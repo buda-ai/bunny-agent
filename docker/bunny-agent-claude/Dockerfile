@@ -153,7 +153,24 @@ ENV DBUS_SESSION_BUS_ADDRESS=/dev/null
 # Create CDP (Chrome DevTools Protocol) startup script
 # Use nginx to proxy and rewrite Host header to localhost,
 # bypassing Chromium's Host header security check
-RUN echo 'server {\n\
+RUN printf '%s\n' \
+    'worker_processes auto;' \
+    'pid /tmp/nginx/nginx.pid;' \
+    'error_log /tmp/nginx/error.log;' \
+    'events {}' \
+    'http {' \
+    '    access_log off;' \
+    '    client_body_temp_path /tmp/nginx/client_body;' \
+    '    proxy_temp_path /tmp/nginx/proxy;' \
+    '    fastcgi_temp_path /tmp/nginx/fastcgi;' \
+    '    uwsgi_temp_path /tmp/nginx/uwsgi;' \
+    '    scgi_temp_path /tmp/nginx/scgi;' \
+    '    include /etc/nginx/mime.types;' \
+    '    default_type application/octet-stream;' \
+    '    sendfile on;' \
+    '    include /etc/nginx/conf.d/*.conf;' \
+    '}' > /etc/nginx/nginx.conf && \
+    echo 'server {\n\
     listen 9222;\n\
     location / {\n\
         proxy_pass http://127.0.0.1:9223;\n\
@@ -175,7 +192,9 @@ for i in $(seq 1 30); do\n\
   if curl -s http://127.0.0.1:9223/json/version > /dev/null 2>&1; then break; fi\n\
   sleep 0.5\n\
 done\n\
-sudo nginx\n\
+mkdir -p /tmp/nginx/client_body /tmp/nginx/proxy /tmp/nginx/fastcgi /tmp/nginx/uwsgi /tmp/nginx/scgi\n\
+nginx -t\n\
+nginx\n\
 echo "CDP available on 0.0.0.0:9222 (nginx proxy rewriting Host to localhost)"' > /usr/local/bin/start-cdp && \
     chmod +x /usr/local/bin/start-cdp
 
