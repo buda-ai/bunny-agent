@@ -23,6 +23,11 @@ import {
   evictSandbox,
   getOrCreateSandbox,
 } from "@/lib/example/create-sandbox";
+import {
+  assertSandboxCredentials,
+  resolveSandboxProvider,
+  SandboxProviderConfigError,
+} from "@/lib/example/sandbox-provider";
 import { WebMcpConfigError, webMcpServersToConfig } from "@/lib/mcp-config";
 
 import { DEFAULT_RUNNER, type RunnerType } from "@/lib/runner";
@@ -98,7 +103,7 @@ export async function POST(request: Request) {
     SANDOCK_API_KEY,
     SANDOCK_BASE_URL,
     DAYTONA_API_KEY,
-    SANDBOX_PROVIDER = "e2b",
+    SANDBOX_PROVIDER,
     BRAVE_API_KEY,
     TAVILY_API_KEY,
     /** When true, provider may pass `daemonUrl` after an in-sandbox `/healthz` probe; otherwise CLI runner. */
@@ -106,6 +111,27 @@ export async function POST(request: Request) {
     REASONING_EFFORT,
     mcpServers,
   } = body;
+
+  let sandboxProvider: ReturnType<typeof resolveSandboxProvider>;
+  try {
+    sandboxProvider = resolveSandboxProvider(
+      SANDBOX_PROVIDER,
+      process.env.SANDBOX_PROVIDER,
+    );
+    assertSandboxCredentials(sandboxProvider, {
+      E2B_API_KEY,
+      SANDOCK_API_KEY,
+      DAYTONA_API_KEY,
+    });
+  } catch (error) {
+    if (error instanceof SandboxProviderConfigError) {
+      return new Response(error.message, {
+        status: 400,
+        headers: { "Content-Type": "text/plain" },
+      });
+    }
+    throw error;
+  }
 
   const useBunnyAgentDaemon =
     USE_BUNNY_AGENT_DAEMON === true ||
@@ -115,18 +141,30 @@ export async function POST(request: Request) {
     process.env.BUNNY_AGENT_USE_DAEMON === "1";
 
   const signal = request.signal;
+  const serverAuth: Record<string, string | undefined> =
+    sandboxProvider === "local" ? process.env : {};
 
-  // Same logic as @bunny-agent/runner-claude hasClaudeAuth (supports Bedrock proxy)
+  // Local execution may use credentials already configured on the host.
   const hasClaudeAuth =
     !!ANTHROPIC_API_KEY ||
+    !!serverAuth.ANTHROPIC_API_KEY ||
     !!AWS_BEARER_TOKEN_BEDROCK ||
+    !!serverAuth.AWS_BEARER_TOKEN_BEDROCK ||
     !!ANTHROPIC_AUTH_TOKEN ||
+    !!serverAuth.ANTHROPIC_AUTH_TOKEN ||
     !!LITELLM_MASTER_KEY ||
-    (CLAUDE_CODE_USE_BEDROCK === "1" && !!ANTHROPIC_BEDROCK_BASE_URL);
+    !!serverAuth.LITELLM_MASTER_KEY ||
+    ((CLAUDE_CODE_USE_BEDROCK ?? serverAuth.CLAUDE_CODE_USE_BEDROCK) === "1" &&
+      !!(ANTHROPIC_BEDROCK_BASE_URL ?? serverAuth.ANTHROPIC_BEDROCK_BASE_URL));
   const runnerType = ((RUNNER ?? DEFAULT_RUNNER).toLowerCase() ||
     DEFAULT_RUNNER) as RunnerType;
   // Pi supports multiple providers: OpenAI, Gemini, or Anthropic (same as Claude)
-  const hasPiAuth = !!OPENAI_API_KEY || !!GEMINI_API_KEY || hasClaudeAuth;
+  const hasPiAuth =
+    !!OPENAI_API_KEY ||
+    !!serverAuth.OPENAI_API_KEY ||
+    !!GEMINI_API_KEY ||
+    !!serverAuth.GEMINI_API_KEY ||
+    hasClaudeAuth;
   let mcpConfig: ReturnType<typeof webMcpServersToConfig>;
 
   // --- Validation -----------------------------------------------------------
@@ -151,27 +189,6 @@ export async function POST(request: Request) {
   } else if (!hasClaudeAuth) {
     return new Response(
       "Claude auth is required. Set one of: ANTHROPIC_API_KEY, AWS_BEARER_TOKEN_BEDROCK, ANTHROPIC_AUTH_TOKEN, LITELLM_MASTER_KEY, or Bedrock proxy (CLAUDE_CODE_USE_BEDROCK=1 + ANTHROPIC_BEDROCK_BASE_URL). Configure in Settings.",
-      { status: 400, headers: { "Content-Type": "text/plain" } },
-    );
-  }
-
-  if (SANDBOX_PROVIDER === "e2b" && !E2B_API_KEY) {
-    return new Response("E2B_API_KEY is required when using E2B sandbox.", {
-      status: 400,
-      headers: { "Content-Type": "text/plain" },
-    });
-  }
-
-  if (SANDBOX_PROVIDER === "sandock" && !SANDOCK_API_KEY) {
-    return new Response(
-      "SANDOCK_API_KEY is required when using Sandock sandbox.",
-      { status: 400, headers: { "Content-Type": "text/plain" } },
-    );
-  }
-
-  if (SANDBOX_PROVIDER === "daytona" && !DAYTONA_API_KEY) {
-    return new Response(
-      "DAYTONA_API_KEY is required when using Daytona sandbox.",
       { status: 400, headers: { "Content-Type": "text/plain" } },
     );
   }
@@ -252,7 +269,7 @@ export async function POST(request: Request) {
 
   // --- Sandbox (cached per chat) --------------------------------------------
   const sandboxParams: CreateSandboxParams = {
-    SANDBOX_PROVIDER,
+    SANDBOX_PROVIDER: sandboxProvider,
     runnerType,
     E2B_API_KEY,
     SANDOCK_API_KEY,
@@ -354,7 +371,7 @@ export async function POST(request: Request) {
           { cwd: handle.getWorkdir(), signal },
         );
         console.info("[api/ai] daemon health check", {
-          sandboxProvider: SANDBOX_PROVIDER,
+          sandboxProvider,
           sandboxId: handle.getSandboxId(),
           daemonUrl: DEFAULT_BUNNY_AGENT_DAEMON_URL,
           daemonOk,

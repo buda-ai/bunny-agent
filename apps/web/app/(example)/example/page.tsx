@@ -49,6 +49,7 @@ import {
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
+import { getMissingSandboxCredential } from "@/lib/example/sandbox-provider";
 import {
   getWebMcpRequestFields,
   MCP_CONFIG_UPDATED_EVENT,
@@ -59,9 +60,6 @@ import {
 import { AskUserQuestionUI } from "./claude-tools/AskUserQuestionUI";
 import { STORAGE_KEY } from "./settings/page";
 
-const REQUIRED_KEYS = ["E2B_API_KEY"];
-
-/** Matches /api/ai: in development the server defaults to local daemon unless opted out. */
 const templates = [
   { id: "default", name: "Default", description: "General-purpose assistant" },
   { id: "coder", name: "Coder", description: "Software development" },
@@ -261,8 +259,7 @@ function HomeContent() {
   }, []);
 
   useEffect(() => {
-    const allRequiredSet = REQUIRED_KEYS.every((key) => !!clientConfig[key]);
-    setConfigReady(allRequiredSet);
+    setConfigReady(getMissingSandboxCredential(clientConfig) === undefined);
   }, [clientConfig]);
 
   const chatBody = {
