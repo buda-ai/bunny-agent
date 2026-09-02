@@ -17,10 +17,12 @@ import {
   BunnyAgent,
   type BunnyAgentCodingRunBody,
   type Message,
+  normalizeBunnyAgentError,
   type RunnerSpec,
   streamCodingRunFromSandbox,
   type ToolRef,
 } from "@bunny-agent/manager";
+import { BunnyAgentStreamError } from "./errors";
 import { getProviderLogger } from "./logging";
 import { compileToolRefsFromLanguageModelTools } from "./tool-refs";
 import type {
@@ -739,10 +741,19 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
     // daemon NDJSON errors may arrive as: {"error":"..."} (without type)
     if (!parsedType && typeof parsed.error === "string") {
       this.receivedFinish = true;
+      const rawErrorCode =
+        typeof parsed.errorCode === "string" ? parsed.errorCode : undefined;
+      const normalized = normalizeBunnyAgentError({
+        errorCode: rawErrorCode,
+        message: parsed.error,
+      });
       return [
         {
           type: "error",
-          error: new Error(parsed.error),
+          error: new BunnyAgentStreamError(
+            normalized.errorText,
+            normalized.errorCode ?? rawErrorCode,
+          ),
         },
       ];
     }
@@ -933,12 +944,21 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
       }
       case "error": {
         this.receivedFinish = true;
+        const errorText =
+          (parsed.errorText as string) ||
+          (parsed.error as string) ||
+          "Unknown stream error";
+        const rawErrorCode =
+          typeof parsed.errorCode === "string" ? parsed.errorCode : undefined;
+        const normalized = normalizeBunnyAgentError({
+          errorCode: rawErrorCode,
+          message: errorText,
+        });
         parts.push({
           type: "error",
-          error: new Error(
-            (parsed.errorText as string) ||
-              (parsed.error as string) ||
-              "Unknown stream error",
+          error: new BunnyAgentStreamError(
+            normalized.errorText,
+            normalized.errorCode ?? rawErrorCode,
           ),
         });
         break;

@@ -924,6 +924,9 @@ importers:
 
   packages/server-ai-sdk:
     dependencies:
+      '@bunny-agent/manager':
+        specifier: workspace:*
+        version: link:../manager
       '@bunny-agent/runner-harness':
         specifier: workspace:*
         version: link:../runner-harness

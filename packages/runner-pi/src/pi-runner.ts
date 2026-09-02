@@ -744,11 +744,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           }
 
           if (promptError !== undefined) {
-            const message =
-              promptError instanceof Error
-                ? promptError.message
-                : "Pi agent run failed.";
-            for (const chunk of streamConverter.forceError(message)) {
+            for (const chunk of streamConverter.forceError(promptError)) {
               yield chunk;
             }
             return;

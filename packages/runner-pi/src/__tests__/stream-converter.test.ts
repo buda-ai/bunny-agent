@@ -182,3 +182,32 @@ describe("PiAISDKStreamConverter tool output", () => {
     );
   });
 });
+
+describe("PiAISDKStreamConverter errors", () => {
+  it("emits a structured storage-full error without exposing the path", () => {
+    const conv = makeConverter();
+    const error = Object.assign(
+      new Error("ENOSPC: no space left on device, write /agent/private"),
+      {
+        code: "ENOSPC",
+        path: "/agent/private",
+      },
+    );
+
+    expect(eventsOf(conv.forceError(error))).toContainEqual({
+      type: "error",
+      errorCode: "WORKSPACE_STORAGE_FULL",
+      errorText: "Workspace storage is full.",
+    });
+  });
+
+  it("preserves an unrelated provider error", () => {
+    const conv = makeConverter();
+    expect(
+      eventsOf(conv.forceError(new Error("API quota exceeded"))),
+    ).toContainEqual({
+      type: "error",
+      errorText: "API quota exceeded",
+    });
+  });
+});

@@ -1,3 +1,4 @@
+import { normalizeBunnyAgentError } from "@bunny-agent/manager";
 import type { Usage } from "@earendil-works/pi-ai";
 import type { AgentSessionEvent } from "@earendil-works/pi-coding-agent";
 import type { ToolDetailsWithUsage } from "./tool-details.js";
@@ -29,9 +30,10 @@ const ASK_USER_QUESTION_TOOL_NAMES = new Set([
 ]);
 const ASK_USER_QUESTION_TIMEOUT_ANSWER_KEY = "__bunny_agent_timeout__";
 
-function emitStreamError(errorText: string): string[] {
+function emitStreamError(error: unknown): string[] {
+  const payload = normalizeBunnyAgentError(error);
   const errorLine =
-    "data: " + JSON.stringify({ type: "error", errorText }) + "\n\n";
+    "data: " + JSON.stringify({ type: "error", ...payload }) + "\n\n";
   const finishLine =
     "data: " +
     JSON.stringify({ type: "finish", finishReason: "error" }) +
@@ -123,9 +125,9 @@ export class PiAISDKStreamConverter {
     return this.hasFinished;
   }
 
-  forceError(errorText: string): string[] {
+  forceError(error: unknown): string[] {
     if (this.hasFinished) return [];
-    return [...this.ensureStart(), ...this.finishError(errorText)];
+    return [...this.ensureStart(), ...this.finishError(error)];
   }
 
   handleEvent(event: AgentSessionEvent, aborted: boolean): string[] {
@@ -321,8 +323,8 @@ export class PiAISDKStreamConverter {
     return chunks;
   }
 
-  private finishError(errorText: string): string[] {
+  private finishError(error: unknown): string[] {
     this.hasFinished = true;
-    return emitStreamError(errorText);
+    return emitStreamError(error);
   }
 }

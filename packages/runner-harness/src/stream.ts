@@ -1,3 +1,5 @@
+import { normalizeBunnyAgentError } from "@bunny-agent/manager";
+
 /**
  * Stream utilities: parse runner AsyncIterable<string> (SSE lines) into
  * typed chunks. Uses rawValue fallback so non-standard fields (isError,
@@ -39,7 +41,7 @@ export type RunnerChunk =
       finishReason?: string;
       usage?: { inputTokens?: number; outputTokens?: number };
     }
-  | { type: "error"; errorText: string }
+  | { type: "error"; errorText: string; errorCode?: string }
   | { type: "message-metadata"; messageMetadata: unknown }
   // passthrough for anything else
   | { type: string; [key: string]: unknown };
@@ -97,9 +99,6 @@ export async function* parseRunnerStream(
       }
     }
   } catch (e: unknown) {
-    yield {
-      type: "error",
-      errorText: e instanceof Error ? e.message : String(e),
-    };
+    yield { type: "error", ...normalizeBunnyAgentError(e) };
   }
 }

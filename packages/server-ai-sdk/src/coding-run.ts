@@ -1,4 +1,5 @@
 import type * as http from "node:http";
+import { normalizeBunnyAgentError } from "@bunny-agent/manager";
 import {
   createRunner,
   type RunnerCoreOptions,
@@ -74,11 +75,11 @@ export function setHeartbeatIntervalMs(ms: number): void {
 }
 
 const errorEnvelope = (err: unknown): string => {
-  const msg = err instanceof Error ? err.message : String(err);
+  const payload = normalizeBunnyAgentError(err);
   // Keep output format consistent with runner-cli (SSE `data:` events),
   // so the SDK can parse errors uniformly.
   return (
-    `data: ${JSON.stringify({ type: "error", errorText: msg })}\n\n` +
+    `data: ${JSON.stringify({ type: "error", ...payload })}\n\n` +
     `data: ${JSON.stringify({ type: "finish", finishReason: "error" })}\n\n` +
     `data: [DONE]\n\n`
   );

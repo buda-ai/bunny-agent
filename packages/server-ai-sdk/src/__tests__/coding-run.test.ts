@@ -10,6 +10,12 @@ vi.mock("@bunny-agent/runner-harness", () => ({
       if (userInput === "__THROW__") {
         throw new Error("runner exploded");
       }
+      if (userInput === "__STORAGE_FULL__") {
+        throw Object.assign(
+          new Error("ENOSPC: no space left on device, write /agent/private"),
+          { code: "ENOSPC", path: "/agent/private" },
+        );
+      }
       yield `data: ${JSON.stringify({ type: "text-delta", id: "m1", delta: `echo: ${userInput}` })}\n\n`;
       yield `data: ${JSON.stringify({ type: "finish", finishReason: "stop" })}\n\n`;
       yield `data: [DONE]\n\n`;
@@ -65,6 +71,26 @@ describe("codingRunChunks", () => {
         `data: ${JSON.stringify({ type: "finish", finishReason: "error" })}\n\n` +
         `data: [DONE]\n\n`,
     );
+  });
+
+  it("emits a structured storage-full envelope without exposing paths", async () => {
+    const out = await drain(
+      codingRunChunks(
+        { userInput: "__STORAGE_FULL__" },
+        {},
+        new AbortController(),
+      ),
+    );
+    expect(out).toBe(
+      `data: ${JSON.stringify({
+        type: "error",
+        errorCode: "WORKSPACE_STORAGE_FULL",
+        errorText: "Workspace storage is full.",
+      })}\n\n` +
+        `data: ${JSON.stringify({ type: "finish", finishReason: "error" })}\n\n` +
+        `data: [DONE]\n\n`,
+    );
+    expect(out).not.toContain("/agent/private");
   });
 
   it("reports validation failures through the same envelope", async () => {

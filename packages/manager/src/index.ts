@@ -15,6 +15,12 @@ export { isBunnyAgentDaemonHealthy } from "./daemon-health.js";
 export type { RunnerEnvParams, RunnerType } from "./env.js";
 // Env helpers
 export { buildRunnerEnv } from "./env.js";
+export type { BunnyAgentErrorCode, BunnyAgentErrorPayload } from "./errors.js";
+export {
+  normalizeBunnyAgentError,
+  WORKSPACE_STORAGE_FULL_ERROR_CODE,
+  WORKSPACE_STORAGE_FULL_ERROR_TEXT,
+} from "./errors.js";
 // Local adapters live in their own packages, mirroring the cloud adapters:
 // @bunny-agent/sandbox-local (LocalMachine — NO isolation) and
 // @bunny-agent/sandbox-srt (SrtSandbox — OS-level isolation via
