@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import type { DaytonaSandboxOptions } from "@bunny-agent/sandbox-daytona";
 import { E2BSandbox } from "@bunny-agent/sandbox-e2b";
@@ -9,6 +10,11 @@ import {
   type SandboxAdapter,
 } from "@bunny-agent/sdk";
 import type { RunnerType } from "@/lib/runner";
+import {
+  assertSandboxCredentials,
+  resolveLocalRunnerCommand,
+  type SandboxProvider,
+} from "./sandbox-provider";
 
 const MONOREPO_ROOT = path.resolve(process.cwd(), "../..");
 const TEMPLATES_PATH = path.join(MONOREPO_ROOT, "templates");
@@ -73,7 +79,7 @@ function sandockImageNeedsBundledEntrypoint(image: string): boolean {
 }
 
 export interface CreateSandboxParams {
-  SANDBOX_PROVIDER?: string;
+  SANDBOX_PROVIDER?: SandboxProvider;
   /** Runner type for buildRunnerEnv (e.g. pi needs ANTHROPIC_API_KEY / ANTHROPIC_BASE_URL mapping). */
   runnerType?: RunnerType;
   E2B_API_KEY?: string;
@@ -217,10 +223,16 @@ async function buildSandbox(
     TAVILY_API_KEY,
     inherit: extraEnv,
   });
-  if (SANDBOX_PROVIDER === "daytona" && DAYTONA_API_KEY) {
+  assertSandboxCredentials(SANDBOX_PROVIDER, {
+    E2B_API_KEY,
+    SANDOCK_API_KEY,
+    DAYTONA_API_KEY,
+  });
+
+  if (SANDBOX_PROVIDER === "daytona") {
     const { DaytonaSandbox } = await import("@bunny-agent/sandbox-daytona");
     const opts: DaytonaSandboxOptions & { snapshot?: string } = {
-      apiKey: DAYTONA_API_KEY,
+      apiKey: DAYTONA_API_KEY!,
       templatesPath: path.join(TEMPLATES_PATH, template),
       volumeName: sandboxName,
       volumeMountPath: "/workspace",
@@ -234,12 +246,12 @@ async function buildSandbox(
     return new DaytonaSandbox(opts) as unknown as SandboxAdapter;
   }
 
-  if (SANDBOX_PROVIDER === "sandock" && SANDOCK_API_KEY) {
+  if (SANDBOX_PROVIDER === "sandock") {
     const cacheKey = sandboxCacheKey(params);
     const cachedId = getCachedSandboxId(cacheKey);
     const image = params.SANDBOX_IMAGE ?? SANDBOX_IMAGE;
     return new SandockSandbox({
-      apiKey: SANDOCK_API_KEY,
+      apiKey: SANDOCK_API_KEY!,
       ...(SANDOCK_BASE_URL ? { baseUrl: SANDOCK_BASE_URL } : {}),
       image,
       skipBootstrap: true,
@@ -261,9 +273,9 @@ async function buildSandbox(
     });
   }
 
-  if (SANDBOX_PROVIDER === "e2b" && E2B_API_KEY) {
+  if (SANDBOX_PROVIDER === "e2b") {
     return new E2BSandbox({
-      apiKey: E2B_API_KEY,
+      apiKey: E2B_API_KEY!,
       templatesPath: path.join(TEMPLATES_PATH, template),
       name: sandboxName,
       env: baseEnv,
@@ -271,16 +283,23 @@ async function buildSandbox(
     });
   }
 
-  const localWorkdir =
-    params.localWorkdir ?? path.join(process.cwd(), "workspace");
-  return new LocalMachine({
-    workdir: localWorkdir,
-    templatesPath: path.join(TEMPLATES_PATH, template),
-    env: {
-      ...baseEnv,
-      DEBUG: "true",
-      API_TIMEOUT_MS: "3000",
-    },
-    runnerCommand: ["node", RUNNER_BUNDLE_PATH, "run"],
-  });
+  if (SANDBOX_PROVIDER === "local") {
+    const localWorkdir =
+      params.localWorkdir ?? path.join(process.cwd(), "workspace");
+    return new LocalMachine({
+      workdir: localWorkdir,
+      templatesPath: path.join(TEMPLATES_PATH, template),
+      env: {
+        ...baseEnv,
+        DEBUG: "true",
+        API_TIMEOUT_MS: "3000",
+      },
+      runnerCommand: resolveLocalRunnerCommand(
+        RUNNER_BUNDLE_PATH,
+        existsSync(RUNNER_BUNDLE_PATH),
+      ),
+    });
+  }
+
+  throw new Error(`Unsupported sandbox provider: ${SANDBOX_PROVIDER}`);
 }
