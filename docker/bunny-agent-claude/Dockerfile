@@ -187,6 +187,12 @@ set -e\n\
 CHROME_BIN=$(node -e "console.log(require('"'"'playwright'"'"').chromium.executablePath())")\n\
 "$CHROME_BIN" --headless --no-sandbox --disable-gpu --disable-dev-shm-usage --disable-software-rasterizer \\\n\
   --window-size=1280,800 --force-device-scale-factor=1 \\\n\
+  --user-data-dir=/tmp/bunny-agent-chromium \\\
+\
+  --disk-cache-dir=/tmp/bunny-agent-chromium-cache \\\
+\
+  --disk-cache-size=104857600 --media-cache-size=104857600 \\\
+\
   --remote-debugging-port=9223 --remote-allow-origins=* 2>/dev/null &\n\
 for i in $(seq 1 30); do\n\
   if curl -s http://127.0.0.1:9223/json/version > /dev/null 2>&1; then break; fi\n\

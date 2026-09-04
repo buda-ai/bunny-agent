@@ -79,6 +79,12 @@ describe("buildImage", () => {
     const content = readFileSync(dockerfilePath, "utf8");
     expect(content).toContain("FROM node:24-slim");
     expect(content).toContain("@bunny-agent/runner-cli");
+    expect(content).toContain("--user-data-dir=/tmp/bunny-agent-chromium");
+    expect(content).toContain(
+      "--disk-cache-dir=/tmp/bunny-agent-chromium-cache",
+    );
+    expect(content).toContain("--disk-cache-size=104857600");
+    expect(content).toContain("--media-cache-size=104857600");
     expect(content).toContain('CMD ["sleep", "infinity"]');
   });
 

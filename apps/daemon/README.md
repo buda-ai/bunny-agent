@@ -216,11 +216,19 @@ Output: raw AI SDK UI NDJSON stream to stdout.
 # DNS-rebinding security check. Without this rewrite, external clients
 # (Host: container-ip:9222) are rejected even when the port is open.
 chromium --headless --no-sandbox \
+  --user-data-dir=/tmp/bunny-agent-chromium \
+  --disk-cache-dir=/tmp/bunny-agent-chromium-cache \
+  --disk-cache-size=104857600 \
+  --media-cache-size=104857600 \
   --remote-debugging-port=9223 \
   --remote-allow-origins=* &
 nginx  # proxies :9222 → :9223 with Host rewrite
 exec bunny-agent-daemon
 ```
+
+The CDP browser uses an ephemeral profile under `/tmp` so browser state does not
+accumulate in `~/.config/chromium`. Disk and media caches are each capped at
+100 MiB.
 
 ```bash
 # Run an agent — SSE stream
