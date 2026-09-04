@@ -25,6 +25,10 @@ fi
 if [ -n "$CHROME_BIN" ]; then
   echo "Starting $CHROME_BIN CDP on internal :9223"
   "$CHROME_BIN" --headless --no-sandbox \
+    --user-data-dir=/tmp/bunny-agent-chromium \
+    --disk-cache-dir=/tmp/bunny-agent-chromium-cache \
+    --disk-cache-size=104857600 \
+    --media-cache-size=104857600 \
     --remote-debugging-port=9223 \
     --remote-allow-origins=* \
     2>/dev/null &
