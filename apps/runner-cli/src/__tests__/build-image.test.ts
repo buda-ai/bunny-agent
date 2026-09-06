@@ -85,6 +85,9 @@ describe("buildImage", () => {
     );
     expect(content).toContain("--disk-cache-size=104857600");
     expect(content).toContain("--media-cache-size=104857600");
+    expect(content).toContain("proxy_read_timeout 3600s;");
+    expect(content).toContain("proxy_send_timeout 3600s;");
+    expect(content).toContain("proxy_socket_keepalive on;");
     expect(content).toContain('CMD ["sleep", "infinity"]');
   });
 
