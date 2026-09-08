@@ -25,6 +25,25 @@ const mockedExecSync = vi.mocked(execSync);
 
 const TEST_DIR = join(process.cwd(), ".test-build-image");
 const BUILD_CONTEXT = join(TEST_DIR, ".docker-staging");
+const REPOSITORY_ROOT = join(process.cwd(), "../..");
+
+const CHROMIUM_STORAGE_ARGUMENTS = [
+  "--user-data-dir=/tmp/bunny-agent-chromium",
+  "--disk-cache-dir=/tmp/bunny-agent-chromium-cache",
+  "--disk-cache-size=104857600 --media-cache-size=104857600",
+];
+
+function expectValidChromiumArgumentContinuations(content: string): void {
+  const expectedSuffix = "\\".repeat(3) + "n\\";
+
+  for (const argument of CHROMIUM_STORAGE_ARGUMENTS) {
+    const line = content
+      .split("\n")
+      .find((candidate) => candidate.includes(argument));
+    expect(line, "missing Chromium argument: " + argument).toBeDefined();
+    expect(line?.endsWith(expectedSuffix), argument).toBe(true);
+  }
+}
 
 beforeEach(() => {
   mkdirSync(TEST_DIR, { recursive: true });
@@ -88,7 +107,24 @@ describe("buildImage", () => {
     expect(content).toContain("proxy_read_timeout 3600s;");
     expect(content).toContain("proxy_send_timeout 3600s;");
     expect(content).toContain("proxy_socket_keepalive on;");
+    expectValidChromiumArgumentContinuations(content);
     expect(content).toContain('CMD ["sleep", "infinity"]');
+  });
+
+  it("keeps Chromium argument continuations valid in every Dockerfile", () => {
+    const dockerfiles = [
+      "Dockerfile",
+      "Dockerfile.local",
+      "Dockerfile.template",
+    ];
+
+    for (const dockerfile of dockerfiles) {
+      const content = readFileSync(
+        join(REPOSITORY_ROOT, "docker/bunny-agent-claude", dockerfile),
+        "utf8",
+      );
+      expectValidChromiumArgumentContinuations(content);
+    }
   });
 
   it("uses --image override when provided", async () => {
