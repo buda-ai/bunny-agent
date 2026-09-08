@@ -49,32 +49,30 @@ describe("parseModelSpec", () => {
 });
 
 describe("resolveDynamicModelProfile", () => {
-  it("uses the published Gemini 3.7 Flash limits", () => {
-    expect(resolveDynamicModelProfile("gemini-3.7-flash")).toEqual({
-      contextWindow: 1_048_576,
-      maxTokens: 65_536,
-      reasoning: true,
-      thinkingLevelMap: {
-        off: null,
-        minimal: null,
-        xhigh: null,
-        max: null,
-      },
-    });
+  const geminiFlashProfile = {
+    contextWindow: 1_048_576,
+    maxTokens: 65_536,
+    reasoning: true,
+    thinkingLevelMap: {
+      off: null,
+      minimal: null,
+      xhigh: null,
+      max: null,
+    },
+  };
+
+  it.each([
+    "gemini-3.7-flash",
+    "gemini-3.8-flash",
+  ])("uses the same published Flash profile for %s", (modelName) => {
+    expect(resolveDynamicModelProfile(modelName)).toEqual(geminiFlashProfile);
   });
 
-  it("matches known model aliases case-insensitively", () => {
-    expect(resolveDynamicModelProfile("GEMINI-3.7-FLASH")).toEqual({
-      contextWindow: 1_048_576,
-      maxTokens: 65_536,
-      reasoning: true,
-      thinkingLevelMap: {
-        off: null,
-        minimal: null,
-        xhigh: null,
-        max: null,
-      },
-    });
+  it.each([
+    "GEMINI-3.7-FLASH",
+    "GEMINI-3.8-FLASH",
+  ])("matches %s case-insensitively", (modelName) => {
+    expect(resolveDynamicModelProfile(modelName)).toEqual(geminiFlashProfile);
   });
 
   it("retains the generic profile for unknown aliases", () => {

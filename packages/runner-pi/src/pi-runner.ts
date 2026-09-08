@@ -82,6 +82,17 @@ const DYNAMIC_MODEL_PROFILES: Record<
       max: null,
     },
   },
+  "gemini-3.8-flash": {
+    contextWindow: 1_048_576,
+    maxTokens: 65_536,
+    reasoning: true,
+    thinkingLevelMap: {
+      off: null,
+      minimal: null,
+      xhigh: null,
+      max: null,
+    },
+  },
 };
 
 interface ModelIdentity {
