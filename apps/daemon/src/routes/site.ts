@@ -76,12 +76,12 @@ export interface DeployBody {
   /** Cloudflare credentials extracted from the request body `env` map. */
   readonly cloudflareEnv: CloudflareEnv;
   /**
-   * Full caller-supplied `env` map from the request body.
-   * Forwarded as-is into the wrangler child process environment so every
-   * key the caller provides (beyond the three Cloudflare credentials) is
-   * available to wrangler without the daemon hard-coding individual vars.
+   * Safe application variables extracted from the request body `env` map.
+   * These become Worker runtime bindings through temporary Wrangler config.
+   * Deployment credentials and reserved platform/process-control names are
+   * removed at the daemon trust boundary.
    */
-  readonly callerEnv: Record<string, string>;
+  readonly applicationEnv: Record<string, string>;
 }
 
 /** Parsed, validated body for POST /api/site/delete. */
@@ -120,6 +120,53 @@ interface CloudflareEnv {
   readonly accountId: string;
   readonly dispatchNamespace: string;
 }
+
+/** Exact environment names callers may not control or publish as bindings. */
+const RESERVED_ENV_NAMES = new Set([
+  "AGENT_KEY",
+  "BASH_ENV",
+  "CDPATH",
+  "ENV",
+  "HOME",
+  "IFS",
+  "LD_LIBRARY_PATH",
+  "LD_PRELOAD",
+  "NODE_OPTIONS",
+  "NODE_PATH",
+  "PATH",
+  "PNPM_HOME",
+  "PS4",
+  "SHELLOPTS",
+]);
+
+/** Platform and deployment-tool prefixes callers may not publish or control. */
+const RESERVED_ENV_PREFIXES = [
+  "AGENT_",
+  "BUDA_",
+  "CF_",
+  "CLOUDFLARE_",
+  "NPM_",
+  "PNPM_",
+  "SANDBOX_",
+  "SANDOCK_",
+  "WRANGLER_",
+] as const;
+
+/** Host variables required for process lookup, temporary files, and Windows. */
+const WRANGLER_EXECUTION_ENV_NAMES = new Set([
+  "APPDATA",
+  "COMSPEC",
+  "HOME",
+  "LOCALAPPDATA",
+  "PATH",
+  "PATHEXT",
+  "SYSTEMROOT",
+  "TEMP",
+  "TMP",
+  "TMPDIR",
+  "USERPROFILE",
+  "WINDIR",
+]);
 
 // =============================================================================
 // Type guards
@@ -207,6 +254,47 @@ export function validateEnv(env: Record<string, string>): CloudflareEnv {
   return result as CloudflareEnv;
 }
 
+/**
+ * Returns caller variables that are safe to expose to Worker code. Names are
+ * checked case-insensitively so the policy is consistent on Windows, and
+ * invalid binding identifiers are omitted. Reserved values are stripped rather
+ * than reflected in errors.
+ */
+export function filterApplicationEnv(
+  env: Record<string, string>,
+): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(env).filter(([name]) => isSafeApplicationEnvName(name)),
+  );
+}
+
+function isSafeApplicationEnvName(name: string): boolean {
+  const normalizedName = name.toUpperCase();
+  return (
+    /^[A-Za-z_][A-Za-z0-9_]*$/.test(name) &&
+    !RESERVED_ENV_NAMES.has(normalizedName) &&
+    !RESERVED_ENV_PREFIXES.some((prefix) => normalizedName.startsWith(prefix))
+  );
+}
+
+/** Builds the isolated environment used by Wrangler deploy and delete. */
+function buildWranglerEnvironment(env: CloudflareEnv): NodeJS.ProcessEnv {
+  const executionEnv = Object.fromEntries(
+    Object.entries(process.env).filter(
+      ([name, value]) =>
+        value !== undefined &&
+        WRANGLER_EXECUTION_ENV_NAMES.has(name.toUpperCase()),
+    ),
+  );
+
+  return {
+    ...executionEnv,
+    CLOUDFLARE_API_TOKEN: env.apiToken,
+    CLOUDFLARE_ACCOUNT_ID: env.accountId,
+    CLOUDFLARE_DISPATCH_NAMESPACE: env.dispatchNamespace,
+  };
+}
+
 // =============================================================================
 // Request body parsing
 // =============================================================================
@@ -219,8 +307,9 @@ export function validateEnv(env: Record<string, string>): CloudflareEnv {
  * Returns a strongly-typed `DeployBody` with branded field types on success.
  * Throws AppError(400) on any validation failure.
  *
- * Cloudflare credentials are read from the `env` field of the request body
- * (a `Record<string, string>`) — never from `process.env`.
+ * Cloudflare credentials and application variables are read from the `env`
+ * field of the request body. Reserved variables are excluded from application
+ * bindings, and application variables never enter the local deploy process.
  */
 export function parseDeployBody(raw: unknown): DeployBody {
   if (!isPlainObject(raw)) {
@@ -249,13 +338,14 @@ export function parseDeployBody(raw: unknown): DeployBody {
       ? (raw.env as Record<string, string>)
       : {};
   const cloudflareEnv = validateEnv(envMap);
+  const applicationEnv = filterApplicationEnv(envMap);
 
   return {
     projectDir: toAbsolutePath(raw.projectDir),
     scriptName: toScriptName(raw.scriptName),
     environment,
     cloudflareEnv,
-    callerEnv: envMap,
+    applicationEnv,
   };
 }
 
@@ -362,7 +452,7 @@ export async function deployViteWithWrangler(
   scriptName: ScriptName,
   projectDir: AbsolutePath,
   env: CloudflareEnv,
-  callerEnv: Record<string, string>,
+  applicationEnv: Record<string, string> = {},
 ): Promise<void> {
   // Check for an existing wrangler config.
   let hasConfig = false;
@@ -378,7 +468,7 @@ export async function deployViteWithWrangler(
 
   if (hasConfig) {
     // ── Existing config: delegate entirely to the Next.js deploy path ──────
-    await deployNextjsWithWrangler(scriptName, projectDir, env, callerEnv);
+    await deployNextjsWithWrangler(scriptName, projectDir, env, applicationEnv);
   } else {
     // ── No config: generate a minimal wrangler.json, deploy, then remove ───
     //
@@ -401,16 +491,25 @@ export async function deployViteWithWrangler(
       compatibility_date: "2025-01-01",
     };
 
+    let generatedConfigCreated = false;
     try {
       await fs.writeFile(
         generatedConfigPath,
         JSON.stringify(minimalConfig, null, "\t"),
         "utf8",
       );
+      generatedConfigCreated = true;
       // Delegate to the shared deploy path — it will find and use the generated config.
-      await deployNextjsWithWrangler(scriptName, projectDir, env, callerEnv);
+      await deployNextjsWithWrangler(
+        scriptName,
+        projectDir,
+        env,
+        applicationEnv,
+      );
     } finally {
-      await fs.unlink(generatedConfigPath).catch(() => {});
+      if (generatedConfigCreated) {
+        await fs.unlink(generatedConfigPath);
+      }
     }
   }
 }
@@ -420,7 +519,8 @@ export async function deployViteWithWrangler(
  *
  * Strategy:
  * 1. Locate the wrangler config file (`wrangler.jsonc` or `wrangler.json`).
- * 2. Parse it, overwrite the `name` field with `scriptName`, write it back.
+ * 2. Parse it, overwrite `name`, and merge safe application variables into
+ *    top-level `vars`. Explicit caller values override same-named config vars.
  * 3. Spawn `npx wrangler deploy` in the project directory, forwarding
  *    `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` from the environment.
  * 4. Restore the original config content regardless of success or failure.
@@ -435,8 +535,10 @@ export async function deployNextjsWithWrangler(
   scriptName: ScriptName,
   projectDir: AbsolutePath,
   env: CloudflareEnv,
-  callerEnv: Record<string, string>,
+  applicationEnv: Record<string, string> = {},
 ): Promise<void> {
+  const safeApplicationEnv = filterApplicationEnv(applicationEnv);
+
   // Locate the wrangler config file.
   let configPath: string | null = null;
   for (const filename of WRANGLER_CONFIG_FILENAMES) {
@@ -508,19 +610,34 @@ export async function deployNextjsWithWrangler(
     deployConfig.services = servicesWithoutSelfRef;
   }
 
+  if (
+    deployConfig.vars !== undefined ||
+    Object.keys(safeApplicationEnv).length > 0
+  ) {
+    if (deployConfig.vars !== undefined && !isPlainObject(deployConfig.vars)) {
+      throw new AppError(400, "wrangler config vars must be a JSON object");
+    }
+    const safeConfigVars = Object.fromEntries(
+      Object.entries(deployConfig.vars ?? {}).filter(([name]) =>
+        isSafeApplicationEnvName(name),
+      ),
+    );
+    deployConfig.vars = {
+      ...safeConfigVars,
+      ...safeApplicationEnv,
+    };
+  }
+
   try {
     await fs.writeFile(
       configPath,
       JSON.stringify(deployConfig, null, "\t"),
       "utf8",
     );
-    await runWranglerDeploy(projectDir, env, scriptName, callerEnv);
+    await runWranglerDeploy(projectDir, env, scriptName);
   } finally {
     // Always restore the original config, even on error.
-    await fs.writeFile(configPath, originalContent, "utf8").catch(() => {
-      // Best-effort restore — if this fails the original file is at least
-      // recoverable by the user from their VCS.
-    });
+    await fs.writeFile(configPath, originalContent, "utf8");
   }
 }
 
@@ -531,11 +648,10 @@ export async function deployNextjsWithWrangler(
  * namespace so the user Worker is scoped to the namespace rather than being
  * deployed as a standalone account-level Worker.
  *
- * Merges `callerEnv` (the full `env` map from the request body) into the child
- * process environment on top of `process.env`, then pins the three Cloudflare
- * credentials from the validated `CloudflareEnv` so wrangler authenticates
- * without interactive login and all caller-supplied vars (e.g. NODE_ENV,
- * WRANGLER_SEND_METRICS) are also available to the child process.
+ * Uses only the host variables needed to execute npx across supported
+ * platforms and validated Cloudflare credentials. Application variables are
+ * delivered through Wrangler config and never enter this local environment.
+ * The daemon's remaining environment is not inherited.
  *
  * Resolves when wrangler exits with code 0.
  * Throws AppError(500) on non-zero exit or spawn error.
@@ -544,7 +660,6 @@ function runWranglerDeploy(
   projectDir: AbsolutePath,
   env: CloudflareEnv,
   scriptName: string,
-  callerEnv: Record<string, string>,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const child = spawn(
@@ -560,19 +675,7 @@ function runWranglerDeploy(
       {
         cwd: projectDir,
         stdio: ["ignore", "pipe", "pipe"],
-        env: {
-          ...process.env,
-          // Spread the full caller-supplied env map so every key the caller
-          // provides (e.g. WRANGLER_SEND_METRICS, CF_PAGES_BRANCH, …) reaches
-          // wrangler, not just the three Cloudflare credentials.
-          ...callerEnv,
-          // Pin the three credentials explicitly so they always match the
-          // validated CloudflareEnv values, even if callerEnv contained stale
-          // or differently-cased copies.
-          CLOUDFLARE_API_TOKEN: env.apiToken,
-          CLOUDFLARE_ACCOUNT_ID: env.accountId,
-          CLOUDFLARE_DISPATCH_NAMESPACE: env.dispatchNamespace,
-        },
+        env: buildWranglerEnvironment(env),
       },
     );
 
@@ -612,7 +715,6 @@ function runWranglerDeploy(
 export async function deleteWorker(
   scriptName: ScriptName,
   env: CloudflareEnv,
-  callerEnv: Record<string, string>,
 ): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     const child = spawn(
@@ -627,13 +729,7 @@ export async function deleteWorker(
       ],
       {
         stdio: ["ignore", "pipe", "pipe"],
-        env: {
-          ...process.env,
-          ...callerEnv,
-          CLOUDFLARE_API_TOKEN: env.apiToken,
-          CLOUDFLARE_ACCOUNT_ID: env.accountId,
-          CLOUDFLARE_DISPATCH_NAMESPACE: env.dispatchNamespace,
-        },
+        env: buildWranglerEnvironment(env),
       },
     );
 
@@ -683,7 +779,7 @@ export async function runDeployPipeline(raw: unknown): Promise<DeployResult> {
     scriptName: originalScriptName,
     environment,
     cloudflareEnv,
-    callerEnv,
+    applicationEnv,
   } = parseDeployBody(raw);
   const scriptName = toScriptName(`${originalScriptName}`);
   const framework = await detectFramework(projectDir);
@@ -693,14 +789,14 @@ export async function runDeployPipeline(raw: unknown): Promise<DeployResult> {
       scriptName,
       projectDir,
       cloudflareEnv,
-      callerEnv,
+      applicationEnv,
     );
   } else {
     await deployViteWithWrangler(
       scriptName,
       projectDir,
       cloudflareEnv,
-      callerEnv,
+      applicationEnv,
     );
   }
 
@@ -735,14 +831,7 @@ export async function deleteSite(
   body: Record<string, unknown>,
 ): Promise<ApiEnvelope<DeleteResult>> {
   const { scriptName, cloudflareEnv } = parseDeleteBody(body);
-  const callerEnv =
-    typeof body.env === "object" &&
-    body.env !== null &&
-    !Array.isArray(body.env) &&
-    Object.values(body.env).every((v) => typeof v === "string")
-      ? (body.env as Record<string, string>)
-      : {};
-  await deleteWorker(scriptName, cloudflareEnv, callerEnv);
+  await deleteWorker(scriptName, cloudflareEnv);
   return ok({
     scriptName,
     dispatchNamespace: cloudflareEnv.dispatchNamespace,
