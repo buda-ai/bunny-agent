@@ -269,6 +269,7 @@ describe("deploy pipeline", () => {
 
 describe("deployNextjsWithWrangler", () => {
   afterEach(() => {
+    vi.unstubAllEnvs();
     vi.resetModules();
     vi.restoreAllMocks();
   });
@@ -285,14 +286,20 @@ describe("deployNextjsWithWrangler", () => {
     });
   }
 
-  it("patches wrangler.jsonc name with scriptName, runs wrangler, then restores original", async () => {
+  it("publishes safe vars with caller precedence and restores the config", async () => {
     const originalContent = JSON.stringify({
       name: "original",
       main: ".open-next/worker.js",
+      vars: {
+        CONFIG_ONLY: "preserved",
+        COLLISION: "config-value",
+        CLOUDFLARE_ACCOUNT_ID: "config-runtime-leak",
+      },
       services: [{ binding: "WORKER_SELF_REFERENCE", service: "original" }],
     });
     const writtenContents: string[] = [];
     const spawnMock = makeSpawnMock(0);
+    vi.stubEnv("AMBIENT_SENTINEL_SECRET", "must-not-leak");
 
     vi.doMock("node:fs/promises", () => ({
       access: vi.fn().mockImplementation(async (p: unknown) => {
@@ -319,12 +326,25 @@ describe("deployNextjsWithWrangler", () => {
         accountId: "acc",
         dispatchNamespace: "ns",
       },
+      {
+        APP_PUBLIC_URL: "https://example.test",
+        COLLISION: "caller-value",
+        CLOUDFLARE_API_TOKEN: "runtime-token-leak",
+        BUDA_INTERNAL_SECRET: "runtime-platform-leak",
+        NODE_OPTIONS: "--require attacker.js",
+        PATH: "/caller-controlled",
+      },
     );
 
     // First write: patched config with scriptName
     const patched = JSON.parse(writtenContents[0]);
     expect(patched.name).toBe("my-worker");
     expect(patched.main).toBe(".open-next/worker.js");
+    expect(patched.vars).toEqual({
+      CONFIG_ONLY: "preserved",
+      COLLISION: "caller-value",
+      APP_PUBLIC_URL: "https://example.test",
+    });
     // Self-referential service binding is stripped to avoid CF API error 10143
     // on dispatch namespace deployments, so services should be absent.
     expect(patched.services).toBeUndefined();
@@ -345,6 +365,17 @@ describe("deployNextjsWithWrangler", () => {
       ],
       expect.objectContaining({ cwd: "/proj" }),
     );
+
+    const spawnEnv = spawnMock.mock.calls[0][2].env;
+    expect(spawnEnv.APP_PUBLIC_URL).toBeUndefined();
+    expect(spawnEnv.COLLISION).toBeUndefined();
+    expect(spawnEnv.CLOUDFLARE_API_TOKEN).toBe("tok");
+    expect(spawnEnv.CLOUDFLARE_ACCOUNT_ID).toBe("acc");
+    expect(spawnEnv.CLOUDFLARE_DISPATCH_NAMESPACE).toBe("ns");
+    expect(spawnEnv.BUDA_INTERNAL_SECRET).toBeUndefined();
+    expect(spawnEnv.NODE_OPTIONS).toBeUndefined();
+    expect(spawnEnv.PATH).not.toBe("/caller-controlled");
+    expect(spawnEnv.AMBIENT_SENTINEL_SECRET).toBeUndefined();
   });
 
   it("restores original config even when wrangler exits non-zero", async () => {
@@ -453,6 +484,75 @@ describe("deployNextjsWithWrangler", () => {
 
 // ---------------------------------------------------------------------------
 
+describe("deployViteWithWrangler runtime vars", () => {
+  afterEach(() => {
+    vi.resetModules();
+    vi.restoreAllMocks();
+  });
+
+  it("writes runtime vars and removes the generated config after failure", async () => {
+    const files = new Map<string, string>();
+    const writes: string[] = [];
+
+    vi.doMock("node:fs/promises", () => ({
+      access: vi.fn().mockImplementation(async (p: unknown) => {
+        const filePath = String(p);
+        if (files.has(filePath) || filePath.endsWith("dist/worker.js")) return;
+        throw new Error("ENOENT");
+      }),
+      readFile: vi.fn().mockImplementation(async (p: unknown) => {
+        const content = files.get(String(p));
+        if (content === undefined) throw new Error("ENOENT");
+        return content;
+      }),
+      writeFile: vi
+        .fn()
+        .mockImplementation(async (p: unknown, content: string | Buffer) => {
+          const text =
+            typeof content === "string" ? content : content.toString();
+          files.set(String(p), text);
+          writes.push(text);
+        }),
+      unlink: vi.fn().mockImplementation(async (p: unknown) => {
+        files.delete(String(p));
+      }),
+    }));
+    vi.doMock("node:child_process", () => ({
+      spawn: vi.fn().mockReturnValue({
+        stdout: { on: vi.fn() },
+        stderr: { on: vi.fn() },
+        on: vi
+          .fn()
+          .mockImplementation((event: string, cb: (code: number) => void) => {
+            if (event === "close") cb(1);
+          }),
+      }),
+    }));
+
+    vi.resetModules();
+    const { deployViteWithWrangler } = await import("../routes/site.js");
+    await expect(
+      deployViteWithWrangler(
+        "vite-worker" as ScriptName,
+        "/proj" as AbsolutePath,
+        { apiToken: "tok", accountId: "acc", dispatchNamespace: "ns" },
+        {
+          API_ORIGIN: "https://api.example.test",
+          SANDBOX_SECRET: "blocked",
+        },
+      ),
+    ).rejects.toMatchObject({ status: 500 });
+
+    const deploymentConfig = JSON.parse(writes[1]);
+    expect(deploymentConfig.vars).toEqual({
+      API_ORIGIN: "https://api.example.test",
+    });
+    expect(files.has("/proj/wrangler.json")).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+
 function withDeleteMock(exitCode: number) {
   vi.doMock("node:child_process", () => ({
     spawn: vi.fn().mockReturnValue({
@@ -486,6 +586,7 @@ describe("deleteSite", () => {
       if (v === undefined) delete process.env[k];
       else process.env[k] = v;
     }
+    vi.unstubAllEnvs();
     vi.resetModules();
     vi.restoreAllMocks();
   });
@@ -506,6 +607,43 @@ describe("deleteSite", () => {
     });
     expect(result.ok).toBe(true);
     expect((result.data as DeleteResult).deleted).toBe(true);
+  });
+
+  it("isolates the delete child environment and pins credentials", async () => {
+    const spawnMock = vi.fn().mockReturnValue({
+      stdout: { on: vi.fn() },
+      stderr: { on: vi.fn() },
+      on: vi
+        .fn()
+        .mockImplementation((event: string, cb: (code: number) => void) => {
+          if (event === "close") cb(0);
+        }),
+    });
+    vi.stubEnv("AMBIENT_DELETE_SECRET", "must-not-leak");
+    vi.doMock("node:child_process", () => ({ spawn: spawnMock }));
+
+    vi.resetModules();
+    const { deleteSite } = await import("../routes/site.js");
+    await deleteSite({} as AppState, {
+      scriptName: "my-worker" as ScriptName,
+      env: {
+        ...CF_ENV,
+        APP_MODE: "preview",
+        HOME: "/caller-home",
+        SANDOCK_TOKEN: "blocked",
+      },
+    });
+
+    const spawnEnv = spawnMock.mock.calls[0][2].env;
+    expect(spawnEnv.APP_MODE).toBeUndefined();
+    expect(spawnEnv.CLOUDFLARE_API_TOKEN).toBe("test-CLOUDFLARE_API_TOKEN");
+    expect(spawnEnv.CLOUDFLARE_ACCOUNT_ID).toBe("test-CLOUDFLARE_ACCOUNT_ID");
+    expect(spawnEnv.CLOUDFLARE_DISPATCH_NAMESPACE).toBe(
+      "test-CLOUDFLARE_DISPATCH_NAMESPACE",
+    );
+    expect(spawnEnv.HOME).not.toBe("/caller-home");
+    expect(spawnEnv.SANDOCK_TOKEN).toBeUndefined();
+    expect(spawnEnv.AMBIENT_DELETE_SECRET).toBeUndefined();
   });
 
   it("throws AppError(500) when wrangler delete fails", async () => {
@@ -561,6 +699,35 @@ describe("validateEnv", () => {
       );
     });
   }
+});
+
+describe("filterApplicationEnv", () => {
+  it("keeps application bindings and strips reserved names case-insensitively", async () => {
+    const { filterApplicationEnv } = await import("../routes/site.js");
+
+    expect(
+      filterApplicationEnv({
+        APP_NAME: "bunny",
+        NODE_ENV: "production",
+        AGENT_KEY: "blocked",
+        cloudflare_api_token: "blocked",
+        BUDA_SECRET: "blocked",
+        SANDBOX_ID: "blocked",
+        SANDOCK_TOKEN: "blocked",
+        WRANGLER_SEND_METRICS: "blocked",
+        PATH: "blocked",
+        HOME: "blocked",
+        NODE_OPTIONS: "blocked",
+        NODE_PATH: "blocked",
+        PNPM_HOME: "blocked",
+        BASH_ENV: "blocked",
+        ENV: "blocked",
+        LD_PRELOAD: "blocked",
+        LD_LIBRARY_PATH: "blocked",
+        "INVALID-NAME": "blocked",
+      }),
+    ).toEqual({ APP_NAME: "bunny", NODE_ENV: "production" });
+  });
 });
 
 // ---------------------------------------------------------------------------
