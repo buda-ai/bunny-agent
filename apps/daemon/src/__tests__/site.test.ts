@@ -229,7 +229,11 @@ describe("deploy pipeline", () => {
           result: {
             bindings: [
               { name: "ASSETS", type: "assets" },
-              { name: "MOONROUTER_API_KEY", type: "plain_text", text: "redacted" },
+              {
+                name: "MOONROUTER_API_KEY",
+                type: "plain_text",
+                text: "redacted",
+              },
             ],
           },
         }),
@@ -286,10 +290,16 @@ describe("deploy pipeline", () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({ method: "PATCH" });
     const deployForm = fetchMock.mock.calls[1]?.[1]?.body as FormData;
-    expect(JSON.parse(await (deployForm.get("settings") as Blob).text())).toEqual({
+    expect(
+      JSON.parse(await (deployForm.get("settings") as Blob).text()),
+    ).toEqual({
       bindings: [
         { name: "ASSETS", type: "assets" },
-        { name: "MOONROUTER_API_KEY", type: "plain_text", text: "test-app-secret" },
+        {
+          name: "MOONROUTER_API_KEY",
+          type: "plain_text",
+          text: "test-app-secret",
+        },
       ],
     });
   });
@@ -352,9 +362,13 @@ describe("publishApplicationEnvBindings", () => {
       "fetch",
       vi
         .fn()
-        .mockResolvedValueOnce(Response.json({ success: true, result: { bindings: [] } }))
+        .mockResolvedValueOnce(
+          Response.json({ success: true, result: { bindings: [] } }),
+        )
         .mockResolvedValueOnce(Response.json({ success: true, result: {} }))
-        .mockResolvedValueOnce(Response.json({ success: true, result: { bindings: [] } })),
+        .mockResolvedValueOnce(
+          Response.json({ success: true, result: { bindings: [] } }),
+        ),
     );
 
     const { publishApplicationEnvBindings } = await import("../routes/site.js");
@@ -364,7 +378,10 @@ describe("publishApplicationEnvBindings", () => {
         { apiToken: "tok", accountId: "acc", dispatchNamespace: "ns" },
         { PRODUCT_NAME: "Focus List" },
       ),
-    ).rejects.toMatchObject({ status: 502, message: "Cloudflare omitted application bindings: PRODUCT_NAME" });
+    ).rejects.toMatchObject({
+      status: 502,
+      message: "Cloudflare omitted application bindings: PRODUCT_NAME",
+    });
   });
 });
 

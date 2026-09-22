@@ -27,6 +27,9 @@ there directly.
 
 - `pnpm --filter @bunny-agent/daemon test` — 121 tests passed.
 - `pnpm --filter @bunny-agent/daemon typecheck`
+- `pnpm run -w lint` — 355 files passed after formatting.
+- CI follow-up: applied Biome formatting to the changed daemon source and test
+  files after the repository lint job reported formatting differences.
 - Live Cloudflare round-trip against the existing dispatch script: the settings
   API returned `PRODUCT_NAME` and `TITLE` as `plain_text` bindings after PATCH.
   Values were neither logged nor printed.

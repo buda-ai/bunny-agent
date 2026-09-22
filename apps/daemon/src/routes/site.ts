@@ -309,11 +309,16 @@ function buildWranglerEnvironment(env: CloudflareEnv): NodeJS.ProcessEnv {
   };
 }
 
-async function readCloudflareJson<T>(response: Response): Promise<CloudflareResponse<T>> {
+async function readCloudflareJson<T>(
+  response: Response,
+): Promise<CloudflareResponse<T>> {
   return (await response.json().catch(() => ({}))) as CloudflareResponse<T>;
 }
 
-function cloudflareErrorMessage(response: CloudflareResponse<unknown>, status: number): string {
+function cloudflareErrorMessage(
+  response: CloudflareResponse<unknown>,
+  status: number,
+): string {
   const detail = response.errors
     ?.map((error) => error.message)
     .filter(Boolean)
@@ -344,20 +349,27 @@ export async function publishApplicationEnvBindings(
   const headers = { Authorization: `Bearer ${env.apiToken}` };
 
   const currentResponse = await fetch(settingsUrl, { headers });
-  const current = await readCloudflareJson<{ bindings?: WorkerBinding[] }>(currentResponse);
+  const current = await readCloudflareJson<{ bindings?: WorkerBinding[] }>(
+    currentResponse,
+  );
   if (!currentResponse.ok || !current.success) {
-    throw new AppError(502, cloudflareErrorMessage(current, currentResponse.status));
+    throw new AppError(
+      502,
+      cloudflareErrorMessage(current, currentResponse.status),
+    );
   }
 
   const requestedNameSet = new Set(requestedNames);
   const preservedBindings = (current.result?.bindings ?? []).filter(
     (binding) => !binding.name || !requestedNameSet.has(binding.name),
   );
-  const applicationBindings = Object.entries(safeApplicationEnv).map(([name, text]) => ({
-    name,
-    text,
-    type: "plain_text" as const,
-  }));
+  const applicationBindings = Object.entries(safeApplicationEnv).map(
+    ([name, text]) => ({
+      name,
+      text,
+      type: "plain_text" as const,
+    }),
+  );
   const settings = {
     bindings: [...preservedBindings, ...applicationBindings],
   };
@@ -372,23 +384,38 @@ export async function publishApplicationEnvBindings(
     headers,
     body: formData,
   });
-  const patched = await readCloudflareJson<{ bindings?: WorkerBinding[] }>(patchResponse);
+  const patched = await readCloudflareJson<{ bindings?: WorkerBinding[] }>(
+    patchResponse,
+  );
   if (!patchResponse.ok || !patched.success) {
-    throw new AppError(502, cloudflareErrorMessage(patched, patchResponse.status));
+    throw new AppError(
+      502,
+      cloudflareErrorMessage(patched, patchResponse.status),
+    );
   }
 
   const verifyResponse = await fetch(settingsUrl, { headers });
-  const verified = await readCloudflareJson<{ bindings?: WorkerBinding[] }>(verifyResponse);
+  const verified = await readCloudflareJson<{ bindings?: WorkerBinding[] }>(
+    verifyResponse,
+  );
   if (!verifyResponse.ok || !verified.success) {
-    throw new AppError(502, cloudflareErrorMessage(verified, verifyResponse.status));
+    throw new AppError(
+      502,
+      cloudflareErrorMessage(verified, verifyResponse.status),
+    );
   }
 
   const publishedNames = new Set(
     (verified.result?.bindings ?? [])
-      .filter((binding) => binding.type === "plain_text" && typeof binding.name === "string")
+      .filter(
+        (binding) =>
+          binding.type === "plain_text" && typeof binding.name === "string",
+      )
       .map((binding) => binding.name as string),
   );
-  const missingNames = requestedNames.filter((name) => !publishedNames.has(name));
+  const missingNames = requestedNames.filter(
+    (name) => !publishedNames.has(name),
+  );
   if (missingNames.length > 0) {
     throw new AppError(
       502,
