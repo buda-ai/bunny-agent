@@ -66,6 +66,41 @@ jobs:
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "Detected version: ${VERSION} (from tag: ${TAG})"
 
+      - name: Wait for npm release availability
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          packages=(
+            "@bunny-agent/runner-cli"
+            "@bunny-agent/daemon"
+          )
+
+          for attempt in $(seq 1 12); do
+            unavailable=()
+
+            for package in "${packages[@]}"; do
+              published_version=$(npm view --prefer-online "${package}@${VERSION}" version 2>/dev/null || true)
+              if [ "${published_version}" != "${VERSION}" ]; then
+                unavailable+=("${package}@${VERSION}")
+              fi
+            done
+
+            if [ "${#unavailable[@]}" -eq 0 ]; then
+              echo "Required npm packages are available for version ${VERSION}."
+              exit 0
+            fi
+
+            if [ "${attempt}" -eq 12 ]; then
+              echo "::error::Required npm packages are still unavailable: ${unavailable[*]}"
+              exit 1
+            fi
+
+            echo "Attempt ${attempt}/12: waiting for npm registry propagation: ${unavailable[*]}"
+            sleep 10
+          done
+
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
