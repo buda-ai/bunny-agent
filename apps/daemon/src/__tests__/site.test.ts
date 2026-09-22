@@ -214,6 +214,27 @@ describe("deploy pipeline", () => {
   });
 
   it("returns ok:true with framework field", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        Response.json({
+          success: true,
+          result: { bindings: [{ name: "ASSETS", type: "assets" }] },
+        }),
+      )
+      .mockResolvedValueOnce(Response.json({ success: true, result: {} }))
+      .mockResolvedValueOnce(
+        Response.json({
+          success: true,
+          result: {
+            bindings: [
+              { name: "ASSETS", type: "assets" },
+              { name: "MOONROUTER_API_KEY", type: "plain_text", text: "redacted" },
+            ],
+          },
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
     vi.doMock("node:fs/promises", () => ({
       access: vi.fn().mockImplementation(async (p: unknown) => {
         const ps = String(p);
@@ -256,10 +277,94 @@ describe("deploy pipeline", () => {
         CLOUDFLARE_API_TOKEN: "test-CLOUDFLARE_API_TOKEN",
         CLOUDFLARE_ACCOUNT_ID: "test-CLOUDFLARE_ACCOUNT_ID",
         CLOUDFLARE_DISPATCH_NAMESPACE: "test-CLOUDFLARE_DISPATCH_NAMESPACE",
+        MOONROUTER_API_KEY: "test-app-secret",
       },
     });
     expect(result.ok).toBe(true);
     expect((result.data as DeployResult).framework).toMatch(/^(vite|nextjs)$/);
+    expect((result.data as DeployResult).applicationEnvBindingCount).toBe(1);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({ method: "PATCH" });
+    const deployForm = fetchMock.mock.calls[1]?.[1]?.body as FormData;
+    expect(JSON.parse(await (deployForm.get("settings") as Blob).text())).toEqual({
+      bindings: [
+        { name: "ASSETS", type: "assets" },
+        { name: "MOONROUTER_API_KEY", type: "plain_text", text: "test-app-secret" },
+      ],
+    });
+  });
+});
+
+describe("publishApplicationEnvBindings", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("preserves existing bindings, replaces matching names, and verifies the result", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        Response.json({
+          success: true,
+          result: {
+            bindings: [
+              { name: "ASSETS", type: "assets" },
+              { name: "TITLE", type: "plain_text", text: "old" },
+            ],
+          },
+        }),
+      )
+      .mockResolvedValueOnce(Response.json({ success: true, result: {} }))
+      .mockResolvedValueOnce(
+        Response.json({
+          success: true,
+          result: {
+            bindings: [
+              { name: "ASSETS", type: "assets" },
+              { name: "TITLE", type: "plain_text", text: "new" },
+            ],
+          },
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { publishApplicationEnvBindings } = await import("../routes/site.js");
+    await expect(
+      publishApplicationEnvBindings(
+        "focus-list" as ScriptName,
+        { apiToken: "tok", accountId: "acc", dispatchNamespace: "ns" },
+        { TITLE: "new", CLOUDFLARE_API_TOKEN: "blocked" },
+      ),
+    ).resolves.toBe(1);
+
+    const form = fetchMock.mock.calls[1]?.[1]?.body as FormData;
+    expect(JSON.parse(await (form.get("settings") as Blob).text())).toEqual({
+      bindings: [
+        { name: "ASSETS", type: "assets" },
+        { name: "TITLE", type: "plain_text", text: "new" },
+      ],
+    });
+  });
+
+  it("fails when Cloudflare does not persist every requested binding", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(Response.json({ success: true, result: { bindings: [] } }))
+        .mockResolvedValueOnce(Response.json({ success: true, result: {} }))
+        .mockResolvedValueOnce(Response.json({ success: true, result: { bindings: [] } })),
+    );
+
+    const { publishApplicationEnvBindings } = await import("../routes/site.js");
+    await expect(
+      publishApplicationEnvBindings(
+        "focus-list" as ScriptName,
+        { apiToken: "tok", accountId: "acc", dispatchNamespace: "ns" },
+        { PRODUCT_NAME: "Focus List" },
+      ),
+    ).rejects.toMatchObject({ status: 502, message: "Cloudflare omitted application bindings: PRODUCT_NAME" });
   });
 });
 

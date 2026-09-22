@@ -98,6 +98,8 @@ export interface DeployResult {
   readonly dispatchNamespace: string;
   readonly framework: FrameworkType;
   readonly environment: DeployEnvironment;
+  /** Number of caller-supplied application variables published as Worker bindings. */
+  readonly applicationEnvBindingCount: number;
 }
 
 /** Success payload returned by POST /api/site/delete. */
@@ -119,6 +121,18 @@ interface CloudflareEnv {
   readonly apiToken: string;
   readonly accountId: string;
   readonly dispatchNamespace: string;
+}
+
+interface WorkerBinding {
+  readonly name?: string;
+  readonly type?: string;
+  readonly [key: string]: unknown;
+}
+
+interface CloudflareResponse<T> {
+  readonly success?: boolean;
+  readonly result?: T;
+  readonly errors?: Array<{ readonly message?: string }>;
 }
 
 /** Exact environment names callers may not control or publish as bindings. */
@@ -293,6 +307,96 @@ function buildWranglerEnvironment(env: CloudflareEnv): NodeJS.ProcessEnv {
     CLOUDFLARE_ACCOUNT_ID: env.accountId,
     CLOUDFLARE_DISPATCH_NAMESPACE: env.dispatchNamespace,
   };
+}
+
+async function readCloudflareJson<T>(response: Response): Promise<CloudflareResponse<T>> {
+  return (await response.json().catch(() => ({}))) as CloudflareResponse<T>;
+}
+
+function cloudflareErrorMessage(response: CloudflareResponse<unknown>, status: number): string {
+  const detail = response.errors
+    ?.map((error) => error.message)
+    .filter(Boolean)
+    .join("; ");
+  return detail || `Cloudflare API request failed with status ${status}`;
+}
+
+/**
+ * Wrangler's dispatch-namespace deploy currently uploads the script but does
+ * not reliably persist config `vars` as namespace-script bindings. Patch the
+ * namespace-scoped settings explicitly, preserving all existing non-replaced
+ * bindings, then read the settings back so a successful deploy cannot silently
+ * omit application configuration.
+ */
+export async function publishApplicationEnvBindings(
+  scriptName: ScriptName,
+  env: CloudflareEnv,
+  applicationEnv: Record<string, string>,
+): Promise<number> {
+  const safeApplicationEnv = filterApplicationEnv(applicationEnv);
+  const requestedNames = Object.keys(safeApplicationEnv);
+  if (requestedNames.length === 0) return 0;
+
+  const settingsUrl =
+    `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(env.accountId)}` +
+    `/workers/dispatch/namespaces/${encodeURIComponent(env.dispatchNamespace)}` +
+    `/scripts/${encodeURIComponent(scriptName)}/settings`;
+  const headers = { Authorization: `Bearer ${env.apiToken}` };
+
+  const currentResponse = await fetch(settingsUrl, { headers });
+  const current = await readCloudflareJson<{ bindings?: WorkerBinding[] }>(currentResponse);
+  if (!currentResponse.ok || !current.success) {
+    throw new AppError(502, cloudflareErrorMessage(current, currentResponse.status));
+  }
+
+  const requestedNameSet = new Set(requestedNames);
+  const preservedBindings = (current.result?.bindings ?? []).filter(
+    (binding) => !binding.name || !requestedNameSet.has(binding.name),
+  );
+  const applicationBindings = Object.entries(safeApplicationEnv).map(([name, text]) => ({
+    name,
+    text,
+    type: "plain_text" as const,
+  }));
+  const settings = {
+    bindings: [...preservedBindings, ...applicationBindings],
+  };
+  const formData = new FormData();
+  formData.append(
+    "settings",
+    new Blob([JSON.stringify(settings)], { type: "application/json" }),
+  );
+
+  const patchResponse = await fetch(settingsUrl, {
+    method: "PATCH",
+    headers,
+    body: formData,
+  });
+  const patched = await readCloudflareJson<{ bindings?: WorkerBinding[] }>(patchResponse);
+  if (!patchResponse.ok || !patched.success) {
+    throw new AppError(502, cloudflareErrorMessage(patched, patchResponse.status));
+  }
+
+  const verifyResponse = await fetch(settingsUrl, { headers });
+  const verified = await readCloudflareJson<{ bindings?: WorkerBinding[] }>(verifyResponse);
+  if (!verifyResponse.ok || !verified.success) {
+    throw new AppError(502, cloudflareErrorMessage(verified, verifyResponse.status));
+  }
+
+  const publishedNames = new Set(
+    (verified.result?.bindings ?? [])
+      .filter((binding) => binding.type === "plain_text" && typeof binding.name === "string")
+      .map((binding) => binding.name as string),
+  );
+  const missingNames = requestedNames.filter((name) => !publishedNames.has(name));
+  if (missingNames.length > 0) {
+    throw new AppError(
+      502,
+      `Cloudflare omitted application bindings: ${missingNames.join(", ")}`,
+    );
+  }
+
+  return requestedNames.length;
 }
 
 // =============================================================================
@@ -800,11 +904,18 @@ export async function runDeployPipeline(raw: unknown): Promise<DeployResult> {
     );
   }
 
+  const applicationEnvBindingCount = await publishApplicationEnvBindings(
+    scriptName,
+    cloudflareEnv,
+    applicationEnv,
+  );
+
   return {
     scriptName,
     dispatchNamespace: cloudflareEnv.dispatchNamespace,
     framework,
     environment,
+    applicationEnvBindingCount,
   };
 }
 
