@@ -1,3 +1,4 @@
+import { getBuiltinModel } from "@earendil-works/pi-ai/providers/all";
 import { describe, expect, it } from "vitest";
 import {
   parseModelSpec,
@@ -49,6 +50,36 @@ describe("parseModelSpec", () => {
 });
 
 describe("resolveDynamicModelProfile", () => {
+  it("uses native Claude capabilities for a gateway model ID", () => {
+    expect(resolveDynamicModelProfile("claude-sonnet-5")).toMatchObject({
+      contextWindow: 1_000_000,
+      maxTokens: 128_000,
+      reasoning: true,
+      input: ["text", "image"],
+      thinkingLevelMap: { off: null, xhigh: "xhigh", max: "max" },
+    });
+  });
+
+  it("reuses native Google capabilities without guessing model limits", () => {
+    const nativeModel = getBuiltinModel("google", "gemini-2.5-pro");
+    expect(resolveDynamicModelProfile("gemini-2.5-pro")).toMatchObject({
+      contextWindow: nativeModel.contextWindow,
+      maxTokens: nativeModel.maxTokens,
+      reasoning: nativeModel.reasoning,
+      input: nativeModel.input,
+    });
+  });
+
+  it("does not assign known Claude limits to an unknown Claude alias", () => {
+    expect(
+      resolveDynamicModelProfile("claude-unknown-alias", "high"),
+    ).toMatchObject({
+      contextWindow: 128_000,
+      maxTokens: 16_384,
+      reasoning: true,
+    });
+  });
+
   const geminiFlashProfile = {
     contextWindow: 1_048_576,
     maxTokens: 65_536,
@@ -78,7 +109,7 @@ describe("resolveDynamicModelProfile", () => {
   it("retains the generic profile for unknown aliases", () => {
     expect(resolveDynamicModelProfile("custom-model")).toEqual({
       contextWindow: 128_000,
-      maxTokens: 8_192,
+      maxTokens: 16_384,
       reasoning: false,
       thinkingLevelMap: { off: null, xhigh: "xhigh" },
     });

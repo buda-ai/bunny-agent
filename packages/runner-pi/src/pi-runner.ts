@@ -56,11 +56,12 @@ export interface DynamicModelProfile {
   maxTokens: number;
   reasoning: boolean;
   thinkingLevelMap: Record<string, string | null>;
+  input?: Model<Api>["input"];
 }
 
 const DEFAULT_DYNAMIC_MODEL_PROFILE = {
   contextWindow: 128_000,
-  maxTokens: 8_192,
+  maxTokens: 16_384,
   thinkingLevelMap: { off: null, xhigh: "xhigh" },
 } as const;
 
@@ -180,16 +181,41 @@ export function resolveDynamicModelProfile(
   modelName: string,
   effort?: string,
 ): DynamicModelProfile {
-  const profile = DYNAMIC_MODEL_PROFILES[modelName.toLowerCase()];
+  const modelId = modelName.toLowerCase();
+  const profile = DYNAMIC_MODEL_PROFILES[modelId];
+  const nativeProvider = modelId.startsWith("claude-")
+    ? "anthropic"
+    : modelId.startsWith("gemini-")
+      ? "google"
+      : modelId.startsWith("deepseek-")
+        ? "deepseek"
+        : /^(gpt-|o[134]-)/.test(modelId)
+          ? "openai"
+          : undefined;
+  // Borrow catalog capabilities without changing the gateway transport or credentials.
+  const catalogModel = nativeProvider
+    ? getBuiltinModel(nativeProvider, modelId as never)
+    : undefined;
   return {
     contextWindow:
-      profile?.contextWindow ?? DEFAULT_DYNAMIC_MODEL_PROFILE.contextWindow,
-    maxTokens: profile?.maxTokens ?? DEFAULT_DYNAMIC_MODEL_PROFILE.maxTokens,
-    reasoning: profile?.reasoning ?? Boolean(effort && effort !== "off"),
+      profile?.contextWindow ??
+      catalogModel?.contextWindow ??
+      DEFAULT_DYNAMIC_MODEL_PROFILE.contextWindow,
+    maxTokens:
+      profile?.maxTokens ??
+      catalogModel?.maxTokens ??
+      DEFAULT_DYNAMIC_MODEL_PROFILE.maxTokens,
+    reasoning:
+      profile?.reasoning ??
+      catalogModel?.reasoning ??
+      Boolean(effort && effort !== "off"),
     thinkingLevelMap: {
-      ...(profile?.thinkingLevelMap ??
-        DEFAULT_DYNAMIC_MODEL_PROFILE.thinkingLevelMap),
+      ...(profile?.thinkingLevelMap ?? {
+        ...DEFAULT_DYNAMIC_MODEL_PROFILE.thinkingLevelMap,
+        ...catalogModel?.thinkingLevelMap,
+      }),
     },
+    ...(catalogModel ? { input: [...catalogModel.input] } : {}),
   };
 }
 
@@ -437,7 +463,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
                 name: modelName,
                 reasoning: profile.reasoning,
                 thinkingLevelMap: profile.thinkingLevelMap,
-                input: ["text", "image"],
+                input: profile.input ?? ["text", "image"],
                 cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
                 contextWindow: profile.contextWindow,
                 maxTokens: profile.maxTokens,

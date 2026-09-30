@@ -479,6 +479,63 @@ describe("createPiRunner", () => {
     expect(chunks.some((c) => c.includes("[DONE]"))).toBe(true);
   });
 
+  it("registers gateway Claude with native limits and the gateway transport", async () => {
+    const catalog = await vi.importActual<
+      typeof import("@earendil-works/pi-ai/providers/all")
+    >("@earendil-works/pi-ai/providers/all");
+    const { getBuiltinModel } = await import(
+      "@earendil-works/pi-ai/providers/all"
+    );
+    const { ModelRuntime, createAgentSession } = await import(
+      "@earendil-works/pi-coding-agent"
+    );
+    const runtime = await ModelRuntime.create({ modelsPath: null });
+    const nativeModel = catalog.getBuiltinModel("anthropic", "claude-sonnet-5");
+    const gatewayModel = {
+      ...nativeModel,
+      provider: "openai",
+      api: "openai-completions",
+      baseUrl: "https://gateway.example/v1",
+    };
+    vi.mocked(getBuiltinModel)
+      .mockReturnValueOnce(undefined as never)
+      .mockReturnValueOnce(nativeModel as never);
+    vi.mocked(runtime.getModel)
+      .mockReturnValueOnce(undefined)
+      .mockReturnValueOnce(gatewayModel as never);
+    const runner = createPiRunner({
+      model: "openai:claude-sonnet-5",
+      env: {
+        OPENAI_BASE_URL: "https://gateway.example/v1",
+        OPENAI_API_KEY: "gateway-test-key",
+      },
+    });
+
+    for await (const _chunk of runner.run("hello")) {
+      // Drain the stream to inspect the model used for the completed run.
+    }
+
+    expect(runtime.registerProvider).toHaveBeenLastCalledWith("openai", {
+      baseUrl: "https://gateway.example/v1",
+      apiKey: "gateway-test-key",
+      api: "openai-completions",
+      models: [
+        expect.objectContaining({
+          id: "claude-sonnet-5",
+          maxTokens: 128_000,
+          contextWindow: 1_000_000,
+          reasoning: true,
+        }),
+      ],
+    });
+    expect(createAgentSession).toHaveBeenLastCalledWith(
+      expect.objectContaining({ model: gatewayModel }),
+    );
+    expect(gatewayModel.api).toBe("openai-completions");
+    expect(gatewayModel.provider).toBe("openai");
+    expect(gatewayModel.baseUrl).toBe("https://gateway.example/v1");
+  });
+
   it("passes labeled image data through Pi prompt options", async () => {
     const input: AgentTurnInputV1 = {
       version: 1,

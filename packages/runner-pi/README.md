@@ -32,6 +32,20 @@ for await (const chunk of runner.run("Create a hello world script")) {
 - `abortController`: signal-driven cancellation
 - `mcpConfig`: request-scoped MCP servers loaded through `pi-mcp-adapter`
 
+## Gateway Model Capabilities
+
+When a model is not found under its selected provider, Bunny dynamically registers
+it using the configured gateway and the OpenAI Chat Completions API. Recognized
+Claude, Gemini, DeepSeek, and OpenAI model IDs reuse capabilities from Pi's native
+provider catalog without changing the gateway URL, credentials, or API protocol.
+Only exact catalog IDs match; unknown aliases do not inherit guessed limits.
+
+Bunny's explicit Gemini 3.7/3.8 Flash profiles retain their 65,536-token output
+limit. Other unknown models default to a 128,000-token context window and a
+16,384-token output limit, matching Pi's custom-model output default. Capabilities
+are based on the requested model, including when the gateway falls back to another
+model.
+
 ## Request-Scoped MCP
 
 Pi can connect to HTTP(S) or stdio MCP servers without writing an `mcp.json`
