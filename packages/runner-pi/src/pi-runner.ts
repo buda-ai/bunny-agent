@@ -6,10 +6,7 @@ import {
 } from "@bunny-agent/manager";
 import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
 import type { Api, ImageContent, Model } from "@earendil-works/pi-ai";
-import {
-  getBuiltinModel,
-  getBuiltinModels,
-} from "@earendil-works/pi-ai/providers/all";
+import { getBuiltinModel } from "@earendil-works/pi-ai/providers/all";
 import {
   type AgentSession,
   type AgentSessionEvent,
@@ -59,7 +56,6 @@ export interface DynamicModelProfile {
   maxTokens: number;
   reasoning: boolean;
   thinkingLevelMap: Record<string, string | null>;
-  input?: Model<Api>["input"];
 }
 
 const DEFAULT_DYNAMIC_MODEL_PROFILE = {
@@ -180,45 +176,20 @@ export interface PiRunner {
   run(userInput: string | AgentTurnInputV1): AsyncIterable<string>;
 }
 
-function findNativeModel(modelId: string): Model<Api> | undefined {
-  const providers = ["anthropic", "google", "deepseek", "openai"] as const;
-  for (const provider of providers) {
-    const model = getBuiltinModels(provider).find(
-      (model) => model.id === modelId,
-    );
-    if (model) return model;
-  }
-  return undefined;
-}
-
 export function resolveDynamicModelProfile(
   modelName: string,
   effort?: string,
 ): DynamicModelProfile {
-  const modelId = modelName.toLowerCase();
-  const profile = DYNAMIC_MODEL_PROFILES[modelId];
-  // Borrow catalog capabilities without changing the gateway transport or credentials.
-  const catalogModel = findNativeModel(modelId);
+  const profile = DYNAMIC_MODEL_PROFILES[modelName.toLowerCase()];
   return {
     contextWindow:
-      profile?.contextWindow ??
-      catalogModel?.contextWindow ??
-      DEFAULT_DYNAMIC_MODEL_PROFILE.contextWindow,
-    maxTokens:
-      profile?.maxTokens ??
-      catalogModel?.maxTokens ??
-      DEFAULT_DYNAMIC_MODEL_PROFILE.maxTokens,
-    reasoning:
-      profile?.reasoning ??
-      catalogModel?.reasoning ??
-      Boolean(effort && effort !== "off"),
+      profile?.contextWindow ?? DEFAULT_DYNAMIC_MODEL_PROFILE.contextWindow,
+    maxTokens: profile?.maxTokens ?? DEFAULT_DYNAMIC_MODEL_PROFILE.maxTokens,
+    reasoning: profile?.reasoning ?? Boolean(effort && effort !== "off"),
     thinkingLevelMap: {
-      ...(profile?.thinkingLevelMap ?? {
-        ...DEFAULT_DYNAMIC_MODEL_PROFILE.thinkingLevelMap,
-        ...catalogModel?.thinkingLevelMap,
-      }),
+      ...(profile?.thinkingLevelMap ??
+        DEFAULT_DYNAMIC_MODEL_PROFILE.thinkingLevelMap),
     },
-    ...(catalogModel ? { input: [...catalogModel.input] } : {}),
   };
 }
 
@@ -466,7 +437,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
                 name: modelName,
                 reasoning: profile.reasoning,
                 thinkingLevelMap: profile.thinkingLevelMap,
-                input: profile.input ?? ["text", "image"],
+                input: ["text", "image"],
                 cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
                 contextWindow: profile.contextWindow,
                 maxTokens: profile.maxTokens,
