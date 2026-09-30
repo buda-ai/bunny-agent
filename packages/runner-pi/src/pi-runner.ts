@@ -6,7 +6,10 @@ import {
 } from "@bunny-agent/manager";
 import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
 import type { Api, ImageContent, Model } from "@earendil-works/pi-ai";
-import { getBuiltinModel } from "@earendil-works/pi-ai/providers/all";
+import {
+  getBuiltinModel,
+  getBuiltinModels,
+} from "@earendil-works/pi-ai/providers/all";
 import {
   type AgentSession,
   type AgentSessionEvent,
@@ -177,25 +180,25 @@ export interface PiRunner {
   run(userInput: string | AgentTurnInputV1): AsyncIterable<string>;
 }
 
+function findNativeModel(modelId: string): Model<Api> | undefined {
+  const providers = ["anthropic", "google", "deepseek", "openai"] as const;
+  for (const provider of providers) {
+    const model = getBuiltinModels(provider).find(
+      (model) => model.id === modelId,
+    );
+    if (model) return model;
+  }
+  return undefined;
+}
+
 export function resolveDynamicModelProfile(
   modelName: string,
   effort?: string,
 ): DynamicModelProfile {
   const modelId = modelName.toLowerCase();
   const profile = DYNAMIC_MODEL_PROFILES[modelId];
-  const nativeProvider = modelId.startsWith("claude-")
-    ? "anthropic"
-    : modelId.startsWith("gemini-")
-      ? "google"
-      : modelId.startsWith("deepseek-")
-        ? "deepseek"
-        : /^(gpt-|o[134]-)/.test(modelId)
-          ? "openai"
-          : undefined;
   // Borrow catalog capabilities without changing the gateway transport or credentials.
-  const catalogModel = nativeProvider
-    ? getBuiltinModel(nativeProvider, modelId as never)
-    : undefined;
+  const catalogModel = findNativeModel(modelId);
   return {
     contextWindow:
       profile?.contextWindow ??

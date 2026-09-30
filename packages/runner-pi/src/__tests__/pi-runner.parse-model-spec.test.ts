@@ -80,6 +80,15 @@ describe("resolveDynamicModelProfile", () => {
     });
   });
 
+  it("matches catalog IDs without requiring a model-name prefix", () => {
+    const nativeModel = getBuiltinModel("openai", "o3");
+    expect(resolveDynamicModelProfile("o3")).toMatchObject({
+      contextWindow: nativeModel.contextWindow,
+      maxTokens: nativeModel.maxTokens,
+      reasoning: nativeModel.reasoning,
+    });
+  });
+
   const geminiFlashProfile = {
     contextWindow: 1_048_576,
     maxTokens: 65_536,

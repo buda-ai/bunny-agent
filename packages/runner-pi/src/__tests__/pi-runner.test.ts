@@ -497,9 +497,7 @@ describe("createPiRunner", () => {
       api: "openai-completions",
       baseUrl: "https://gateway.example/v1",
     };
-    vi.mocked(getBuiltinModel)
-      .mockReturnValueOnce(undefined as never)
-      .mockReturnValueOnce(nativeModel as never);
+    vi.mocked(getBuiltinModel).mockReturnValueOnce(undefined as never);
     vi.mocked(runtime.getModel)
       .mockReturnValueOnce(undefined)
       .mockReturnValueOnce(gatewayModel as never);
