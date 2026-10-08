@@ -60,7 +60,7 @@ export interface DynamicModelProfile {
 
 const DEFAULT_DYNAMIC_MODEL_PROFILE = {
   contextWindow: 128_000,
-  maxTokens: 8_192,
+  maxTokens: 16_384,
   thinkingLevelMap: { off: null, xhigh: "xhigh" },
 } as const;
 
