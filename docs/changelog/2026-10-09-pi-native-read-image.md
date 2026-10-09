@@ -2,11 +2,6 @@
 
 ## Changes
 
-- Added an OpenSpec change proposal directly without initializing OpenSpec or
-  generating tool instruction files.
-- Defined native file reading, declared model capability checks, permission
-  integration, upload compatibility, existing OCR extensions, and verification
-  requirements.
 - Added Pi package and website documentation for `read_image` and its model and
   permission boundaries.
 - Implemented and registered `read_image` with native Pi image processing,
@@ -23,7 +18,6 @@
 
 ## Verification
 
-- `openspec validate add-pi-native-read-image --strict --no-interactive` passed.
 - Pi runtime type checking and relevant CLI, daemon, SDK, and local sandbox
   builds passed. The existing Pi suite passed (196 tests) before adding new tests.
 - Pi tests passed (214 tests), including real image decoding/resizing and the
@@ -46,13 +40,13 @@
   require their respective test environments.
 - Verification level: partial. No browser screenshots were produced; evidence
   consists of runtime CLI/HTTP tests and the recorded check results above.
-- No OpenSpec initialization was performed.
 
 ## Pull Request Preparation
 
 - Added a release changeset for the runner CLI's native Pi image tool.
 - The user requested a pull request and explicitly skipped lint and typecheck
   for this publishing step; earlier check results above remain historical.
-- After confirming that `develop` was 164 commits behind the implementation
-  base, the user selected `main` as the pull request target to keep the diff
-  limited to ReadImage.
+- The pull request targets `main` and contains only the ReadImage feature and
+  its supporting tests, documentation, and release changeset.
+- Removed OpenSpec planning artifacts from the pull request and updated its
+  description to professional English.
