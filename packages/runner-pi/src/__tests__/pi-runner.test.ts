@@ -250,6 +250,9 @@ const mockPiAgentState = vi.hoisted(() => ({
 const mockCreateCodingToolsState = vi.hoisted(() => ({
   lastOptions: undefined as unknown,
 }));
+const mockModelInput = vi.hoisted(() => ({
+  value: ["text", "image"] as ("text" | "image")[],
+}));
 
 vi.mock("@earendil-works/pi-coding-agent", () => {
   const mockModelRuntime = {
@@ -361,7 +364,7 @@ vi.mock("@earendil-works/pi-ai/providers/all", async (importOriginal) => {
         baseUrl: "https://example.com",
         api: "openai-completions",
         reasoning: false,
-        input: ["text", "image"],
+        input: mockModelInput.value,
         contextWindow: 128000,
         maxTokens: 8192,
         cost: { input: 3, output: 30, cacheRead: 1, cacheWrite: 2 },
@@ -441,6 +444,7 @@ describe("createPiRunner", () => {
     nextSessionBehavior = "normal";
     mockPiAgentState.baseSystemPrompt = undefined;
     mockCreateCodingToolsState.lastOptions = undefined;
+    mockModelInput.value = ["text", "image"];
     const { createAgentSession: createSession } = await import(
       "@earendil-works/pi-coding-agent"
     );
@@ -504,6 +508,99 @@ describe("createPiRunner", () => {
     expect(createdSessions[0].lastPromptOptions).toEqual({
       images: [{ type: "image", data: "aW1hZ2U=", mimeType: "image/png" }],
     });
+  });
+
+  it("preserves multiple uploaded image labels and image order", async () => {
+    const runner = createPiRunner({ model: "google:gemini-2.5-pro" });
+    const input: AgentTurnInputV1 = {
+      version: 1,
+      input: [
+        {
+          type: "asset",
+          id: "first",
+          label: "[Image #1]",
+          asset: { mediaType: "image/png", data: "Zmlyc3Q=" },
+        },
+        { type: "text", text: "Compare [Image #1] with [Image #2]" },
+        {
+          type: "asset",
+          id: "second",
+          label: "[Image #2]",
+          asset: { mediaType: "image/jpeg", data: "c2Vjb25k" },
+        },
+      ],
+      capabilities: [],
+      execution: { resolvedBy: "server" },
+    };
+    for await (const _chunk of runner.run(input)) {
+    }
+    expect(createdSessions[0].lastPrompt).toBe(
+      "Compare [Image #1] with [Image #2]",
+    );
+    expect(createdSessions[0].lastPromptOptions).toEqual({
+      images: [
+        { type: "image", data: "Zmlyc3Q=", mimeType: "image/png" },
+        { type: "image", data: "c2Vjb25k", mimeType: "image/jpeg" },
+      ],
+    });
+  });
+
+  it("rejects uploaded images for a text-only model without prompting", async () => {
+    mockModelInput.value = ["text"];
+    const runner = createPiRunner({ model: "google:gemini-2.5-pro" });
+    const input: AgentTurnInputV1 = {
+      version: 1,
+      input: [
+        {
+          type: "asset",
+          id: "image",
+          label: "[Image #1]",
+          asset: { mediaType: "image/png", data: "aW1hZ2U=" },
+        },
+      ],
+      capabilities: [],
+      execution: { resolvedBy: "server" },
+    };
+    await expect(
+      (async () => {
+        for await (const _chunk of runner.run(input)) {
+        }
+      })(),
+    ).rejects.toThrow("does not support image input");
+    expect(createdSessions[0].lastPrompt).toBeUndefined();
+  });
+
+  it.each([
+    false,
+    true,
+  ])("requires an explicit read_image allowlist entry with yolo=%s", async (yolo) => {
+    const { createAgentSession } = await import(
+      "@earendil-works/pi-coding-agent"
+    );
+    const spy = vi.mocked(createAgentSession);
+    spy.mockClear();
+    for await (const _chunk of createPiRunner({
+      model: "google:gemini-2.5-pro",
+      allowedTools: ["read"],
+      yolo,
+    }).run("read a file")) {
+    }
+    expect(spy.mock.calls[0]?.[0]?.customTools).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ name: "read_image" })]),
+    );
+
+    spy.mockClear();
+    for await (const _chunk of createPiRunner({
+      model: "google:gemini-2.5-pro",
+      allowedTools: ["read_image"],
+      yolo,
+    }).run("read an image")) {
+    }
+    expect(spy.mock.calls[0]?.[0]?.customTools).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "read_image", label: "ReadImage" }),
+      ]),
+    );
   });
 
   it("emits web_search billing metadata on tool output and finish", async () => {
