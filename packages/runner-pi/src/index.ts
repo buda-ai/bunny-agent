@@ -18,6 +18,7 @@ export {
   type PiRunner,
   type PiRunnerOptions,
 } from "./pi-runner.js";
+export { buildReadImageTool } from "./read-image-tool.js";
 export {
   type ApprovalDecision,
   type ApprovalGateOptions,
