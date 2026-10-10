@@ -107,6 +107,12 @@ export async function runCommand(args: string[]): Promise<void> {
   } else if (values.sandbox === "sandock") {
     const { SandockSandbox } = await import("@bunny-agent/sandbox-sandock");
     sandboxAdapter = new SandockSandbox();
+  } else if (values.sandbox === "smol" || values.sandbox === "smol-cloud") {
+    const { SmolSandbox } = await import("@bunny-agent/sandbox-smol");
+    sandboxAdapter = new SmolSandbox({
+      target: values.sandbox === "smol-cloud" ? "cloud" : "local",
+      name: values.id,
+    });
   } else if (values.sandbox === "local") {
     const { LocalMachine } = await import("@bunny-agent/sandbox-local");
     sandboxAdapter = new LocalMachine({
@@ -119,7 +125,7 @@ export async function runCommand(args: string[]): Promise<void> {
     console.log("");
   } else {
     console.error(`❌ Error: Unknown sandbox: ${values.sandbox}`);
-    console.error("Available sandboxes: e2b, sandock, local");
+    console.error("Available sandboxes: e2b, sandock, smol, smol-cloud, local");
     process.exit(1);
   }
 

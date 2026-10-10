@@ -60,6 +60,8 @@ Examples:
   bunny-agent-manager run --template coder "Build a REST API with Express"
   bunny-agent-manager run --template analyst "Analyze sales.csv and create a report"
   bunny-agent-manager run --template researcher "Research the latest AI trends"
+  bunny-agent-manager run --sandbox smol "Run inside a local VM"
+  bunny-agent-manager run --sandbox smol-cloud "Run inside Smol Cloud"
   bunny-agent-manager run --sandbox e2b "Deploy this to production"
   bunny-agent-manager run --sandbox sandock "Run unit tests"
   bunny-agent-manager list
@@ -72,7 +74,7 @@ Environment Variables:
   E2B_API_KEY          E2B API key (for E2B sandbox)
   DOCKER_HOST          Docker host URL (for Sandock sandbox)
   BUNNY_AGENT_TEMPLATE   Default template to use
-  BUNNY_AGENT_SANDBOX    Default sandbox to use (e2b or sandock)
+  BUNNY_AGENT_SANDBOX    Default sandbox to use (e2b, sandock, smol, smol-cloud, or local)
 
 Documentation:
   https://github.com/vikadata/bunny-agent
