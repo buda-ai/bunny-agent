@@ -2,23 +2,25 @@
 
 **Choose where your agents run**
 
-Bunny Agent runs agents in isolated sandbox environments. You can choose between:
-- **E2B** — Cloud-hosted sandboxes (recommended for production)
-- **Sandock** — Docker-based sandboxes (great for development)
+Bunny Agent runs agents through interchangeable sandbox adapters:
+- **E2B** — Managed cloud sandboxes
+- **Smol Machines** — Local microVMs or Smol Cloud, with the same adapter API
+- **Sandock** — Cloud sandboxes
+- **LocalMachine** — Trusted commands on the host
+- **SrtSandbox** — OS-level local sandboxing
 
-Both provide the same interface, so you can switch with one line of code.
+All provide the same interface, so you can switch with one import.
 
 ---
 
 ## Quick Comparison
 
-| Feature | E2B | Sandock | LocalMachine | SrtSandbox |
-|---------|-----|---------|--------------|------------|
-| Setup | API key only | API key only | none | none (Linux: bwrap + socat) |
-| Best for | Production | Development | Trusted local dev / debugging | Untrusted code on your machine |
-| Hosting | Cloud (e2b.dev) | Cloud (sandock.ai) | Your machine | Your machine |
-| Isolation | Firecracker microVM | Docker container | **NONE** | OS-level (bubblewrap / Seatbelt) |
-| Customization | Templates | Any Docker image | workdir + templates | workdir + templates + srt policy |
+| Feature | E2B | Smol Machines | Sandock | LocalMachine | SrtSandbox |
+|---------|-----|---------------|---------|--------------|------------|
+| Setup | API key | No key locally, cloud login remotely | API key | None | Linux: bwrap + socat |
+| Hosting | Cloud | Local or cloud | Cloud | Local | Local |
+| Isolation | Firecracker microVM | microVM | Container | **None** | OS-level (bubblewrap / Seatbelt) |
+| Customization | Templates | OCI image, workdir, templates | Any Docker image | Workdir + templates | Workdir + templates + srt policy |
 
 ---
 
@@ -54,6 +56,36 @@ Get your API key at [e2b.dev](https://e2b.dev).
 | `code-interpreter` | Full code interpreter |
 
 ---
+
+## Smol Machines (local VM or cloud)
+
+Use one adapter to run coding agents in a local microVM, or on Smol Cloud by changing `target`:
+
+```bash
+pnpm add @bunny-agent/sandbox-smol
+```
+
+```ts
+import { SmolSandbox } from "@bunny-agent/sandbox-smol";
+
+const sandbox = new SmolSandbox({ name: "my-agent", target: "local" });
+// For Smol Cloud: target: "cloud" (SMOL_CLOUD_TOKEN or `smol auth login`).
+```
+
+The default image is `node:22-slim`. On first attach the adapter installs
+`@bunny-agent/runner-cli` in `/workspace`, then reuses it on later attaches.
+A named VM stops on `destroy()` and retains its disk for the next session;
+without a name it is deleted on destroy. Local execution requires `/dev/kvm`
+on Linux or Hypervisor.framework on macOS. Cloud requires a Smol account and
+uses the CLI login or `SMOL_CLOUD_TOKEN`; anonymous cloud machines have a
+2-hour expiry as a safety net, and cloud VMs auto-stop after 30 idle minutes.
+Both targets need network access to install
+the runner the first time. Set `templatesPath` to upload local template files
+into a newly created VM.
+
+Monorepo CLI: `node apps/manager-cli/dist/cli.js run --sandbox smol "task"`
+for local, or `--sandbox smol-cloud` for cloud. Pass `--id NAME` to choose
+the reusable session name.
 
 ## Sandock (Docker-based)
 
@@ -189,7 +221,7 @@ You can create custom sandbox adapters by implementing the `SandboxAdapter` inte
 
 ```ts
 interface SandboxAdapter {
-  attach(id: string): Promise<SandboxHandle>;
+  attach(): Promise<SandboxHandle>;
 }
 
 interface SandboxHandle {
