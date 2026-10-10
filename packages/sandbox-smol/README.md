@@ -16,6 +16,13 @@ and installs `@bunny-agent/runner-cli` in `/workspace` on first attach. Set
 `autoStopSeconds`, or `ttlSeconds` in
 `SmolSandboxOptions` as needed. The image must provide Node and npm.
 
+The manager CLI forwards its supported Claude token and proxy environment
+variables to the runner inside the VM. Code running in that VM can read those
+variables. When using the adapter directly, pass the runner credentials in
+`env`; cloud account credentials stay on the host. A host-only Vertex ADC
+login cannot authenticate a runner in a separate VM; the manager CLI reports
+this before creating the machine.
+
 Named sandboxes stop on `destroy()` and keep their disk for a later attach;
 unnamed sandboxes are deleted. Cloud VMs auto-stop after 30 idle minutes,
 and unnamed cloud VMs expire after two hours. To remove a named machine and

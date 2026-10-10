@@ -6,6 +6,7 @@
 
 import { parseArgs } from "node:util";
 import { BunnyAgent } from "@bunny-agent/manager";
+import { smolClaudeEnv } from "./smol-auth-env.js";
 
 export async function runCommand(args: string[]): Promise<void> {
   const { values, positionals } = parseArgs({
@@ -112,6 +113,7 @@ export async function runCommand(args: string[]): Promise<void> {
     sandboxAdapter = new SmolSandbox({
       target: values.sandbox === "smol-cloud" ? "cloud" : "local",
       name: values.id,
+      env: smolClaudeEnv(process.env),
     });
   } else if (values.sandbox === "local") {
     const { LocalMachine } = await import("@bunny-agent/sandbox-local");
