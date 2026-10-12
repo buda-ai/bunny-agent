@@ -7,6 +7,12 @@ import type {
   SandboxHandle,
   Volume,
 } from "@bunny-agent/manager";
+import {
+  ExecDiagnostics,
+  posixShellQuote,
+  SandboxExecError,
+  validateExecInput,
+} from "@bunny-agent/manager";
 import { createSandockClient, type SandockClient } from "sandock";
 import { withNetworkRetry } from "./retry.js";
 
@@ -621,7 +627,8 @@ class SandockHandle implements SandboxHandle {
     };
 
     // Debug: log environment variables being passed to sandbox
-    console.log("[Sandock] Executing command:", command.join(" "));
+    validateExecInput(command, envWithNodePath);
+    const diagnostics = new ExecDiagnostics(envWithNodePath);
 
     return {
       async *[Symbol.asyncIterator](): AsyncIterator<Uint8Array> {
@@ -630,37 +637,19 @@ class SandockHandle implements SandboxHandle {
         const baseCmd =
           command.length === 1
             ? command[0]
-            : command
-                .map((arg) => "'" + arg.replace(/'/g, "'\\''") + "'")
-                .join(" ");
+            : command.map((arg) => posixShellQuote(arg)).join(" ");
 
-        // Build full command with cwd and env support
-        const parts: string[] = [];
-
-        // Add working directory change (escape single quotes in path)
         const workdir = opts?.cwd ?? self.defaultWorkdir;
-        if (workdir) {
-          const escapedWorkdir = workdir.replace(/'/g, "'\\''");
-          parts.push(`cd '${escapedWorkdir}'`);
-        }
 
-        // Add environment variables (validate keys and escape values)
-        const validKeyPattern = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
-        const envParts = Object.entries(envWithNodePath)
-          .filter(([key]) => validKeyPattern.test(key))
-          .map(([key, value]) => `export ${key}=${JSON.stringify(value)}`)
-          .join(" && ");
-        if (envParts) {
-          parts.push(envParts);
-        }
-
-        // Wrap the command to capture its PID and handle signals
-        // We write the PID to a file so we can kill it if needed
+        // Wrap the command to capture its PID and handle signals. We write
+        // the PID to a file so we can kill it if needed, and explicitly
+        // capture `wait`'s exit status into EXIT_CODE before the cleanup
+        // `rm` runs — without this, the wrapping shell's own exit code is
+        // that of the trailing `rm -f` (almost always 0), masking a
+        // nonzero exit from the actual command.
         const pidFile = `/tmp/bunny-agent-${Date.now()}-${Math.random().toString(36).substring(7)}.pid`;
-        const wrappedCmd = `(${baseCmd}) & echo $! > ${pidFile}; wait $!; rm -f ${pidFile}`;
-        parts.push(wrappedCmd);
-
-        const cmd = parts.join(" && ");
+        const wrappedCmd = `(${baseCmd}) & echo $! > ${pidFile}; wait $!; EXIT_CODE=$?; rm -f ${pidFile}; exit $EXIT_CODE`;
+        const cmd = wrappedCmd;
 
         // Queue for streaming chunks
         const queue: Uint8Array[] = [];
@@ -701,8 +690,8 @@ class SandockHandle implements SandboxHandle {
               "[Sandock] Kill command stderr:",
               killResult.data.stderr,
             );
-          } catch (err) {
-            console.error("[Sandock] Failed to send termination signal:", err);
+          } catch {
+            console.error("[Sandock] Failed to send termination signal");
           }
 
           done = true;
@@ -718,39 +707,39 @@ class SandockHandle implements SandboxHandle {
           console.log("[Sandock] No signal provided");
         }
 
-        // Track if we've received any output (indicates proper stream completion)
-        let hasReceivedOutput = false;
+        // stderr is diagnostics only — never yielded to the caller, which
+        // treats this iterable's output as the stdout protocol stream (AI
+        // SDK NDJSON for coding runs). Capped so a runaway command can't
+        // balloon the eventual SandboxExecError's stderr payload.
 
         // Start shell command with streaming callbacks
-        const shellPromise = self.client.sandbox.shell(
-          self.sandboxId,
-          { cmd, timeoutMs: self.timeout },
-          {
-            onStdout: (chunk: string) => {
-              // Stop producing stdout chunks if signal is aborted
-              if (signal?.aborted) return;
-              hasReceivedOutput = true;
-              queue.push(new TextEncoder().encode(chunk));
-              resolveWait?.();
+        const shellPromise = Promise.resolve().then(() =>
+          self.client.sandbox.shell(
+            self.sandboxId,
+            {
+              cmd,
+              timeoutMs: opts?.timeout ?? self.timeout,
+              env: envWithNodePath,
+              workdir,
             },
-            onStderr: (chunk: string) => {
-              hasReceivedOutput = true;
-              queue.push(new TextEncoder().encode(chunk));
-              resolveWait?.();
+            {
+              onStdout: (chunk: string) => {
+                // Stop producing stdout chunks if signal is aborted
+                if (signal?.aborted) return;
+                queue.push(new TextEncoder().encode(chunk));
+                resolveWait?.();
+              },
+              onStderr: (chunk: string) => {
+                diagnostics.append(chunk);
+                resolveWait?.();
+              },
+              onError: (err: unknown) => {
+                error ??= diagnostics.failure(err);
+                done = true;
+                resolveWait?.();
+              },
             },
-            onError: (err: unknown) => {
-              console.log("[Sandock] SHELL ERROR:", err);
-              // Only set error if:
-              // 1. We haven't received any output (process failed before communicating)
-              // 2. The stream isn't already done
-              // If we received output, the process communicated its error properly
-              // and we shouldn't override it with a generic "process exited" error
-              if (!hasReceivedOutput && !done) {
-                error = err instanceof Error ? err : new Error(String(err));
-              }
-              resolveWait?.();
-            },
-          },
+          ),
         );
 
         // Handle completion
@@ -768,15 +757,18 @@ class SandockHandle implements SandboxHandle {
             }) => {
               // Check for errors in the result
               if (result.data.timedOut) {
-                error = new Error(
+                error ??= new SandboxExecError(
                   `Command timed out after ${result.data.durationMs}ms`,
+                  { code: "timeout", stderr: diagnostics.text() },
                 );
-              } else if (
-                result.data.exitCode !== 0 &&
-                result.data.exitCode !== null
-              ) {
-                console.warn(
+              } else if (!result.success || result.data.exitCode !== 0) {
+                error ??= new SandboxExecError(
                   `Command exited with code ${result.data.exitCode}`,
+                  {
+                    code: "nonzero_exit",
+                    exitCode: result.data.exitCode,
+                    stderr: diagnostics.text(),
+                  },
                 );
               }
               done = true;
@@ -784,17 +776,7 @@ class SandockHandle implements SandboxHandle {
             },
           )
           .catch((err: unknown) => {
-            // Only set error if we haven't received any output
-            // If we received output, the process communicated its error properly
-            if (!hasReceivedOutput) {
-              error = err instanceof Error ? err : new Error(String(err));
-            }
-            // Log AbortError appropriately
-            if (err instanceof Error && err.name === "AbortError") {
-              console.log("[Sandock] Command execution aborted by user");
-            } else {
-              console.error("[Sandock] Shell promise rejected:", err);
-            }
+            error ??= diagnostics.failure(err);
             done = true;
             resolveWait?.();
           })
@@ -807,12 +789,7 @@ class SandockHandle implements SandboxHandle {
               self.client.sandbox
                 .stop(self.sandboxId)
                 .then(() => self.client.sandbox.delete(self.sandboxId))
-                .catch((e) =>
-                  console.error(
-                    "[Sandock] Failed to stop/delete sandbox after execution:",
-                    e,
-                  ),
-                );
+                .catch(() => console.error("[Sandock] Sandbox cleanup failed"));
             }
           });
 

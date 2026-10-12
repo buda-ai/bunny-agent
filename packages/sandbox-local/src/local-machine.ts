@@ -3,9 +3,12 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import {
   buildRunnerEnv,
+  ExecDiagnostics,
   type ExecOptions,
   type SandboxAdapter,
+  SandboxExecError,
   type SandboxHandle,
+  validateExecInput,
 } from "@bunny-agent/manager";
 
 /**
@@ -309,8 +312,9 @@ class LocalMachineHandle implements SandboxHandle {
     command: string[],
     opts: ExecOptions = {},
   ): AsyncIterable<Uint8Array> {
-    if (command.length === 0) {
-      throw new Error("Command cannot be empty");
+    validateExecInput(command, { ...this.env, ...opts.env });
+    if (opts.signal?.aborted) {
+      throw new SandboxExecError("Command was aborted", { code: "aborted" });
     }
 
     const cwd = opts.cwd ? path.resolve(this.workDir, opts.cwd) : this.workDir;
@@ -325,17 +329,7 @@ class LocalMachineHandle implements SandboxHandle {
 
     const finalCommand = await this.transformCommand(command);
 
-    console.log(`[${this.label}] Executing command: ${finalCommand.join(" ")}`);
-    console.log(`[${this.label}] Working directory: ${cwd}`);
-    console.log(
-      `[${this.label}] ENV AWS_BEARER_TOKEN_BEDROCK: ${env.AWS_BEARER_TOKEN_BEDROCK ? "SET" : "NOT SET"}`,
-    );
-    console.log(
-      `[${this.label}] ENV CLAUDE_CODE_USE_BEDROCK: ${env.CLAUDE_CODE_USE_BEDROCK || "NOT SET"}`,
-    );
-    console.log(
-      `[${this.label}] ENV ANTHROPIC_API_KEY: ${env.ANTHROPIC_API_KEY ? "SET" : "NOT SET"}`,
-    );
+    const diagnostics = new ExecDiagnostics(env);
 
     // Ensure the working directory exists
     await fs.mkdir(cwd, { recursive: true });
@@ -350,6 +344,14 @@ class LocalMachineHandle implements SandboxHandle {
       // grandchildren) instead of just this direct child.
       detached: process.platform !== "win32",
     });
+    const completion = new Promise<{
+      code: number | null;
+      signal: string | null;
+    }>((resolve) => {
+      child.once("close", (code, signal) => resolve({ code, signal }));
+    });
+    child.stderr.setEncoding("utf8");
+    child.stderr.on("data", (chunk: string) => diagnostics.append(chunk));
 
     // Tracks real process exit — NOT the same as child.killed, which Node
     // sets true as soon as a kill() signal is successfully *sent*, whether
@@ -393,6 +395,7 @@ class LocalMachineHandle implements SandboxHandle {
 
     if (opts.signal) {
       opts.signal.addEventListener("abort", abortHandler);
+      if (opts.signal.aborted) abortHandler();
     }
 
     // Handle spawn errors (e.g., command not found)
@@ -409,16 +412,11 @@ class LocalMachineHandle implements SandboxHandle {
       if (opts.signal) {
         opts.signal.removeEventListener("abort", abortHandler);
       }
-      throw spawnError;
+      throw new SandboxExecError("Executable could not be started", {
+        code: "spawn_failed",
+        stderr: diagnostics.redact(spawnError.message),
+      });
     }
-
-    // Buffer stderr for error reporting; also mirror to the parent process so
-    // subprocess diagnostics (e.g. [bunny-agent:pi] skill load) are visible on success.
-    const stderrChunks: Buffer[] = [];
-    child.stderr.on("data", (chunk: Buffer) => {
-      stderrChunks.push(chunk);
-      process.stderr.write(chunk);
-    });
 
     try {
       // Yield stdout chunks
@@ -427,36 +425,28 @@ class LocalMachineHandle implements SandboxHandle {
       }
 
       // Wait for the process to complete
-      const exitCode = await new Promise<number>((resolve, reject) => {
-        child.on("error", reject);
-        child.on("close", (code) => resolve(code ?? 0));
-      });
+      const { code: exitCode, signal: exitSignal } = await completion;
 
       if (timeoutId) {
         clearTimeout(timeoutId);
       }
 
       if (isAborted) {
-        throw new Error("Command was aborted");
+        throw new SandboxExecError("Command was aborted", {
+          code: "aborted",
+          signal: exitSignal,
+        });
       }
 
       if (isTimedOut) {
-        throw new Error(`Command timed out after ${timeout}ms`);
+        throw new SandboxExecError(`Command timed out after ${timeout}ms`, {
+          code: "timeout",
+          signal: exitSignal,
+        });
       }
 
       if (exitCode !== 0) {
-        const stderr = stderrChunks.length
-          ? Buffer.concat(stderrChunks).toString("utf-8").trim()
-          : "";
-        if (stderr) {
-          console.error(
-            `[${this.label}] Command failed (exit ${exitCode}) stderr:\n${stderr}`,
-          );
-        } else {
-          console.error(
-            `[${this.label}] Command failed with exit ${exitCode} (no stderr). Run manually to see output: ${finalCommand.join(" ")}`,
-          );
-        }
+        const stderr = diagnostics.text();
         // User-facing message: show the actual error from stderr (where it failed)
         const lines = stderr
           .split(/\n/)
@@ -471,13 +461,18 @@ class LocalMachineHandle implements SandboxHandle {
           : stderr
             ? `Command failed (exit ${exitCode}). See server logs for stderr.`
             : `Command failed with exit ${exitCode}.`;
-        throw new Error(userMessage);
+        throw new SandboxExecError(userMessage, {
+          code: "nonzero_exit",
+          exitCode,
+          signal: exitSignal,
+          stderr,
+        });
       }
-    } catch (error) {
+    } finally {
       if (timeoutId) {
         clearTimeout(timeoutId);
       }
-      throw error;
+      opts.signal?.removeEventListener("abort", abortHandler);
     }
   }
 

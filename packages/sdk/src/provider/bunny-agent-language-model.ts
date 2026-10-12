@@ -18,6 +18,7 @@ import {
   type BunnyAgentCodingRunBody,
   type Message,
   type RunnerSpec,
+  SandboxExecError,
   streamCodingRunFromSandbox,
   type ToolRef,
 } from "@bunny-agent/manager";
@@ -463,7 +464,7 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
         execOpts,
       );
       const bytesStream = asyncIterableToReadableStream(iterable);
-      return this.buildStreamResult(bytesStream, messages);
+      return this.buildStreamResult(bytesStream, messages, abortSignal);
     }
 
     const sandboxEnv = sandbox.getEnv?.() ?? {};
@@ -504,9 +505,17 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
           ? { mcpConfig: this.options.mcpConfig }
           : {}),
       });
-      return this.buildStreamResult(bytesStream, messages);
+      return this.buildStreamResult(bytesStream, messages, abortSignal);
     } catch (error) {
       await agent.destroy().catch(() => {});
+      if (error instanceof SandboxExecError) {
+        const bytesStream = new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.error(error);
+          },
+        });
+        return this.buildStreamResult(bytesStream, messages, abortSignal);
+      }
       throw error;
     }
   }
@@ -590,11 +599,12 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
   private buildStreamResult(
     bytesStream: ReadableStream<Uint8Array>,
     messages: Message[],
+    signal?: AbortSignal,
   ): LanguageModelV3StreamResult {
     const reader = bytesStream.getReader();
 
     return {
-      stream: this.createLanguageModelStreamFromSseReader(reader),
+      stream: this.createLanguageModelStreamFromSseReader(reader, signal),
       request: {
         body: JSON.stringify({ messages }),
       },
@@ -603,6 +613,7 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
 
   private createLanguageModelStreamFromSseReader(
     reader: ReadableStreamDefaultReader<Uint8Array>,
+    signal?: AbortSignal,
   ): ReadableStream<LanguageModelV3StreamPart> {
     const self = this;
 
@@ -621,7 +632,7 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
                   controller.enqueue(part);
                 }
               }
-              if (!self.receivedFinish) {
+              if (!self.receivedFinish && !signal?.aborted) {
                 for (const part of self.buildUnexpectedEndParts()) {
                   controller.enqueue(part);
                 }
@@ -676,7 +687,7 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
             }
 
             if (foundDone) {
-              if (!self.receivedFinish) {
+              if (!self.receivedFinish && !signal?.aborted) {
                 for (const part of self.buildUnexpectedEndParts()) {
                   controller.enqueue(part);
                 }
@@ -691,7 +702,9 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
             (typeof DOMException !== "undefined" &&
               error instanceof DOMException &&
               error.name === "AbortError") ||
-            (error instanceof Error && /abort/i.test(error.message));
+            (error instanceof Error &&
+              "code" in error &&
+              error.code === "aborted");
           if (isAbort) {
             self.logger.info("[bunny-agent] Stream aborted by user");
             controller.close();
@@ -699,7 +712,20 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
             self.logger.error(
               `[bunny-agent] Stream error: ${formatErrorForLog(error)}`,
             );
-            controller.error(error);
+            // Process completion is authoritative even after a protocol finish.
+            // Surface a trailing execution failure without duplicating finish.
+            controller.enqueue({ type: "error", error });
+            if (!self.receivedFinish) {
+              self.receivedFinish = true;
+              for (const part of self.closeReasoningPart())
+                controller.enqueue(part);
+              controller.enqueue({
+                type: "finish",
+                finishReason: { unified: "error", raw: "execution-error" },
+                usage: createEmptyUsage(),
+              });
+            }
+            controller.close();
           }
         }
       },

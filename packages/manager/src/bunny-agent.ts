@@ -158,7 +158,9 @@ export class BunnyAgent {
 
     // Check if signal is already aborted
     if (signal?.aborted) {
-      throw new Error("Operation was aborted");
+      const error = new Error("Operation was aborted");
+      error.name = "AbortError";
+      throw error;
     }
 
     // Write start entry if transcript is enabled
@@ -245,7 +247,9 @@ export class BunnyAgent {
             (typeof DOMException !== "undefined" &&
               error instanceof DOMException &&
               error.name === "AbortError") ||
-            (error instanceof Error && /abort/i.test(error.message));
+            (error instanceof Error &&
+              "code" in error &&
+              error.code === "aborted");
 
           if (isAbort) {
             console.log("[BunnyAgent] Operation aborted by user");

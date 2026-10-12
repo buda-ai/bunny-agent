@@ -191,6 +191,13 @@ export interface SandboxHandle {
 
   /**
    * Execute a command in the sandbox and stream the output
+   *
+   * Stdout is the protocol channel; stderr is diagnostic only. The local,
+   * Sandock, E2B and Daytona adapters reject unconfirmed/nonzero completion
+   * with a nonretryable SandboxExecError. Never blindly replay an execution.
+   * Sandock preserves legacy single-element raw-shell commands; multiple
+   * elements are quoted argv. Use ["/bin/sh", "-c", script] for portable shell
+   * syntax. Local execution uses direct argv without an intermediate shell.
    * @param command - The command and arguments to execute
    * @param opts - Execution options
    * @returns An async iterable of stdout chunks

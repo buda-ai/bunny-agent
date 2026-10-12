@@ -5,7 +5,12 @@ import type {
   SandboxAdapter,
   SandboxHandle,
 } from "@bunny-agent/manager";
-import { Sandbox, type SandboxInfo } from "e2b";
+import {
+  ExecDiagnostics,
+  SandboxExecError,
+  validateExecInput,
+} from "@bunny-agent/manager";
+import { CommandExitError, Sandbox, type SandboxInfo } from "e2b";
 
 /**
  * Options for creating an E2BSandbox instance
@@ -485,39 +490,30 @@ class E2BHandle implements SandboxHandle {
     // Merge sandbox-level env with call-level env (call-level takes precedence)
     // Add NODE_PATH so Node can find packages, and PATH to find bin commands
     const envWithNodePath: Record<string, string> = {
-      ...this.sandboxEnv,
-      ...opts?.env,
       NODE_PATH: `${this.workdir}/node_modules`,
       PATH: `${this.workdir}/node_modules/.bin:/usr/local/bin:/usr/bin:/bin`,
+      ...this.sandboxEnv,
+      ...opts?.env,
     };
 
     // Build shell-safe command string with proper escaping
     const baseCommand = this.buildShellCommand(command);
 
-    // Build export statements for all env vars
-    const envExports = Object.entries(envWithNodePath)
-      .filter(([key]) => key === "NODE_PATH" || key === "PATH")
-      .map(([key, value]) => `export ${key}="${value.replace(/"/g, '\\"')}"`)
-      .join(" && ");
+    // Environment values travel only through the provider's native envs channel.
+    validateExecInput(command, envWithNodePath);
+    const diagnostics = new ExecDiagnostics(envWithNodePath);
 
     // Wrap command to capture PID for potential termination
     const pidFile = `/tmp/bunny-agent-${Date.now()}-${Math.random().toString(36).substring(7)}.pid`;
-    const shellCommand = `(${envExports} && ${baseCommand}) & echo $! > ${pidFile}; wait $!; EXIT_CODE=$?; rm -f ${pidFile}; exit $EXIT_CODE`;
+    const shellCommand = `(${baseCommand}) & echo $! > ${pidFile}; wait $!; EXIT_CODE=$?; rm -f ${pidFile}; exit $EXIT_CODE`;
 
     // Debug: log environment variables being passed to sandbox
-    console.log("[E2B] Executing command:", baseCommand);
     console.log("[E2B] PID file:", pidFile);
     console.log("[E2B] Environment variables:", Object.keys(envWithNodePath));
     console.log(
       "[E2B] ANTHROPIC_API_KEY present:",
       !!envWithNodePath.ANTHROPIC_API_KEY,
     );
-    if (envWithNodePath.ANTHROPIC_API_KEY) {
-      console.log(
-        "[E2B] ANTHROPIC_API_KEY prefix:",
-        envWithNodePath.ANTHROPIC_API_KEY.substring(0, 10) + "...",
-      );
-    }
 
     return {
       [Symbol.asyncIterator](): AsyncIterator<Uint8Array> {
@@ -525,6 +521,11 @@ class E2BHandle implements SandboxHandle {
         let finished = false;
         let error: Error | null = null;
         let resolveNext: (() => void) | null = null;
+
+        // stderr is diagnostics only — never yielded to the caller, which
+        // treats this iterable's output as the stdout protocol stream (AI
+        // SDK NDJSON for coding runs). Capped so a runaway command can't
+        // balloon the eventual SandboxExecError's stderr payload.
 
         // Monitor abort signal and kill the process
         const abortHandler = async () => {
@@ -551,11 +552,11 @@ class E2BHandle implements SandboxHandle {
                   console.log("[E2B] Kill command stderr:", result.stderr);
                 }
               })
-              .catch((err) => {
-                console.error("[E2B] Failed to execute kill command:", err);
+              .catch(() => {
+                console.error("[E2B] Failed to execute kill command");
               });
-          } catch (err) {
-            console.error("[E2B] Failed to send termination signal:", err);
+          } catch {
+            console.error("[E2B] Failed to send termination signal");
           }
 
           if (resolveNext) {
@@ -571,22 +572,24 @@ class E2BHandle implements SandboxHandle {
           console.log("[E2B] No signal provided");
         }
 
-        const commandPromise = self.instance.commands.run(shellCommand, {
-          cwd: opts?.cwd,
-          envs: envWithNodePath,
-          timeoutMs: 0, // 0 = no timeout for LLM operations
-          onStdout: (data: string) => {
-            const chunk = new TextEncoder().encode(data);
-            chunks.push(chunk);
-            if (resolveNext) {
-              resolveNext();
-              resolveNext = null;
-            }
-          },
-          onStderr: (data: string) => {
-            console.error(`[E2B stderr] ${data}`);
-          },
-        });
+        const commandPromise = Promise.resolve().then(() =>
+          self.instance.commands.run(shellCommand, {
+            cwd: opts?.cwd ?? self.workdir,
+            envs: envWithNodePath,
+            timeoutMs: 0, // 0 = no timeout for LLM operations
+            onStdout: (data: string) => {
+              const chunk = new TextEncoder().encode(data);
+              chunks.push(chunk);
+              if (resolveNext) {
+                resolveNext();
+                resolveNext = null;
+              }
+            },
+            onStderr: (data: string) => {
+              diagnostics.append(data);
+            },
+          }),
+        );
 
         commandPromise
           .then((result) => {
@@ -595,18 +598,44 @@ class E2BHandle implements SandboxHandle {
               result.exitCode,
             );
             finished = true;
+            if (result.exitCode !== 0)
+              error = new SandboxExecError(
+                "Command did not exit successfully",
+                {
+                  code: "nonzero_exit",
+                  exitCode: result.exitCode,
+                  stderr: diagnostics.text(),
+                },
+              );
             if (resolveNext) {
               resolveNext();
               resolveNext = null;
             }
           })
           .catch((err) => {
-            error = err instanceof Error ? err : new Error(String(err));
-            // Log AbortError appropriately
-            if (error.name === "AbortError") {
-              console.log("[E2B] Command execution aborted by user");
+            // `commands.run` rejects with CommandExitError on a nonzero
+            // exit (per E2B SDK docs) rather than resolving — classify
+            // that case into a SandboxExecError carrying the real exit
+            // code and captured stderr, instead of a generic Error that
+            // would look identical to a transport failure.
+            if (err instanceof CommandExitError) {
+              error = new SandboxExecError(
+                `Command exited with code ${err.exitCode}`,
+                {
+                  code: "nonzero_exit",
+                  exitCode: err.exitCode,
+                  stderr: diagnostics.text() || diagnostics.redact(err.stderr),
+                },
+              );
+              console.error("[E2B] Command exited non-zero:", err.exitCode);
             } else {
-              console.error("[E2B] Command execution error:", error.message);
+              error = diagnostics.failure(err);
+              // Log AbortError appropriately
+              if (error.name === "AbortError") {
+                console.log("[E2B] Command execution aborted by user");
+              } else {
+                console.error("[E2B] Command execution error:", error.message);
+              }
             }
             if (resolveNext) {
               resolveNext();
@@ -631,11 +660,11 @@ class E2BHandle implements SandboxHandle {
             if (chunks.length > 0) {
               return { value: chunks.shift()!, done: false };
             }
-            if (finished && chunks.length === 0) {
-              return { value: undefined, done: true };
-            }
             if (error) {
               throw error;
+            }
+            if (finished && chunks.length === 0) {
+              return { value: undefined, done: true };
             }
             await new Promise<void>((resolve) => {
               resolveNext = resolve;
