@@ -26,6 +26,10 @@ import {
   shouldEnableMcp,
 } from "./mcp-config.js";
 import {
+  assertImageInputSupported,
+  buildReadImageTool,
+} from "./read-image-tool.js";
+import {
   extractSessionContext,
   isSessionFileTooLarge,
   resolveSessionPathById,
@@ -564,6 +568,8 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           customTools.push(buildApplyPatchTool(cwd));
         }
 
+        customTools.push(buildReadImageTool(cwd, () => model, options.env));
+
         if (imageModelName) {
           const auth = await modelRuntime.getAuth(provider, {
             apiKey: inlineApiKey,
@@ -692,6 +698,9 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
             typeof userInput === "string"
               ? { text: userInput, images: [] }
               : compileAgentTurnInput(userInput);
+          if (compiled.images.length > 0) {
+            assertImageInputSupported(model);
+          }
           const images: ImageContent[] = compiled.images.map((image) => ({
             type: "image",
             data: image.data,

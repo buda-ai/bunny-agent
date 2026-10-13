@@ -1,0 +1,53 @@
+---
+title: ReadImage
+description: Inspect sandbox images with the Pi runner's native image tool
+---
+
+The Pi runner exposes `read_image`, labeled `ReadImage`, for inspecting image
+files in its working directory. It sends native image content to a model that
+declares image input support. OCR is not a prerequisite.
+
+## Input
+
+```json
+{
+  "file_path": "screenshots/result.png"
+}
+```
+
+The path may be relative to the runner working directory or absolute. The tool
+uses Pi's supported image formats and image resizing. Missing, unsupported,
+non-image, and damaged files return an error.
+
+## Permissions
+
+When supplying `allowedTools`, include `read_image` explicitly:
+
+```typescript
+const runner = createPiRunner({
+  model: "google:gemini-2.5-pro",
+  cwd: process.cwd(),
+  allowedTools: ["read", "read_image", "bash"],
+});
+```
+
+Allowing `read` alone does not enable `read_image`. Existing tool approval,
+cancellation, and text redaction apply to the new tool.
+
+## Models and Uploads
+
+The current Pi model must declare `image` in its input capabilities. Text-only
+models receive an explicit error for image reading and uploaded image prompts.
+Uploaded images keep their existing labels and ordering, and Pi session history
+retains native images for resumed conversations.
+
+Dynamically registered models retain their existing image capability declaration.
+That declaration does not verify that a custom remote endpoint understands
+images. Check the provider's actual capabilities before using it for vision.
+
+## OCR Tools
+
+Existing bash and MCP OCR tools remain available through their usual permissions
+and configuration. Use them when text extraction is preferable or the selected
+model cannot accept images. `read_image` does not install an OCR backend or
+automatically invoke OCR. AskUserQuestion behavior is unchanged.
