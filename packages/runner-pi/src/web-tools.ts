@@ -42,9 +42,14 @@ export interface WebSearchProvider {
   label: string;
   /** Env var names that hold the API key. Empty = no key required. */
   envKeys: string[];
+  /** Env var holding a full request-URL override. Falls back to {@link defaultUrl}. */
+  urlEnvKey: string;
+  /** Vendor endpoint used when {@link urlEnvKey} is unset. */
+  defaultUrl: string;
   /** Execute a search query. */
   search(params: {
     apiKey: string | undefined;
+    url: string;
     query: string;
     count: number;
     country?: string;
@@ -82,7 +87,9 @@ const braveProvider: WebSearchProvider = {
   id: "brave",
   label: "Brave Search",
   envKeys: ["BRAVE_API_KEY"],
-  async search({ apiKey, query, count, country, freshness, signal }) {
+  urlEnvKey: "BRAVE_SEARCH_URL",
+  defaultUrl: "https://api.search.brave.com/res/v1/web/search",
+  async search({ apiKey, url, query, count, country, freshness, signal }) {
     const params = new URLSearchParams({
       q: query,
       count: String(Math.min(count, 20)),
@@ -90,17 +97,14 @@ const braveProvider: WebSearchProvider = {
     if (country) params.set("country", country);
     if (freshness) params.set("freshness", freshness);
 
-    const res = await fetch(
-      `https://api.search.brave.com/res/v1/web/search?${params}`,
-      {
-        headers: {
-          Accept: "application/json",
-          "Accept-Encoding": "gzip",
-          "X-Subscription-Token": apiKey!,
-        },
-        signal,
+    const res = await fetch(`${url}?${params}`, {
+      headers: {
+        Accept: "application/json",
+        "Accept-Encoding": "gzip",
+        "X-Subscription-Token": apiKey!,
       },
-    );
+      signal,
+    });
     if (!res.ok) {
       const body = await res.text().catch(() => "");
       throw new Error(`Brave API ${res.status}: ${res.statusText}\n${body}`);
@@ -131,8 +135,10 @@ const tavilyProvider: WebSearchProvider = {
   id: "tavily",
   label: "Tavily",
   envKeys: ["TAVILY_API_KEY"],
-  async search({ apiKey, query, count, signal }) {
-    const res = await fetch("https://api.tavily.com/search", {
+  urlEnvKey: "TAVILY_SEARCH_URL",
+  defaultUrl: "https://api.tavily.com/search",
+  async search({ apiKey, url, query, count, signal }) {
+    const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -180,6 +186,8 @@ function getEnv(env: Record<string, string>, key: string): string | undefined {
 interface ResolvedProvider {
   provider: WebSearchProvider;
   apiKey: string;
+  /** Full request URL from env, or the provider default when unset. */
+  url: string;
 }
 
 /**
@@ -195,7 +203,11 @@ export function resolveSearchProviders(
     for (const key of p.envKeys) {
       const val = getEnv(env, key);
       if (val) {
-        available.push({ provider: p, apiKey: val });
+        available.push({
+          provider: p,
+          apiKey: val,
+          url: getEnv(env, p.urlEnvKey) ?? p.defaultUrl,
+        });
         break;
       }
     }
@@ -506,11 +518,15 @@ export function buildWebSearchTool(
       // Try each provider in order; fallback on rate-limit and network errors.
       let lastError: unknown;
       let lastProviderLabel = "unknown provider";
-      for (const [providerIndex, { provider, apiKey }] of providers.entries()) {
+      for (const [
+        providerIndex,
+        { provider, apiKey, url },
+      ] of providers.entries()) {
         lastProviderLabel = provider.label;
         try {
           const { results } = await provider.search({
             apiKey,
+            url,
             query,
             count,
             country,

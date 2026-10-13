@@ -65,6 +65,43 @@ describe("resolveSearchProviders", () => {
     const result = resolveSearchProviders({ BRAVE_API_KEY: "" });
     expect(result).toEqual([]);
   });
+
+  it("uses vendor default URLs when no override is set", () => {
+    const result = resolveSearchProviders({
+      BRAVE_API_KEY: "bsk-123",
+      TAVILY_API_KEY: "tvly-456",
+    });
+    expect(result[0].url).toBe(
+      "https://api.search.brave.com/res/v1/web/search",
+    );
+    expect(result[1].url).toBe("https://api.tavily.com/search");
+  });
+
+  it("honours BRAVE_SEARCH_URL override", () => {
+    const result = resolveSearchProviders({
+      BRAVE_API_KEY: "bsk-123",
+      BRAVE_SEARCH_URL: "https://search.internal.example/brave",
+    });
+    expect(result[0].url).toBe("https://search.internal.example/brave");
+  });
+
+  it("honours TAVILY_SEARCH_URL override", () => {
+    const result = resolveSearchProviders({
+      TAVILY_API_KEY: "tvly-456",
+      TAVILY_SEARCH_URL: "https://search.internal.example/tavily",
+    });
+    expect(result[0].url).toBe("https://search.internal.example/tavily");
+  });
+
+  it("ignores empty URL overrides and keeps the vendor default", () => {
+    const result = resolveSearchProviders({
+      BRAVE_API_KEY: "bsk-123",
+      BRAVE_SEARCH_URL: "",
+    });
+    expect(result[0].url).toBe(
+      "https://api.search.brave.com/res/v1/web/search",
+    );
+  });
 });
 
 describe("resolveSearchProvider", () => {
@@ -272,6 +309,68 @@ describe("buildWebSearchTool", () => {
     });
     expect(errorLog).toHaveBeenCalledWith(
       expect.stringContaining("Brave Search network error, trying Tavily"),
+    );
+  });
+
+  it("routes Brave requests through BRAVE_SEARCH_URL", async () => {
+    const fetchMock = vi.fn(
+      async (_input: string | URL | Request) =>
+        ({
+          ok: true,
+          status: 200,
+          statusText: "OK",
+          json: async () => ({ web: { results: [] } }),
+          text: async () => "",
+        }) as unknown as Response,
+    );
+    globalThis.fetch = fetchMock as typeof fetch;
+
+    const tool = buildWebSearchTool({
+      BRAVE_API_KEY: "bsk-test",
+      BRAVE_SEARCH_URL: "https://search.internal.example/brave",
+    });
+    await (tool.execute as (...args: unknown[]) => Promise<unknown>)(
+      "call_base",
+      { query: "override query" },
+      undefined,
+      undefined,
+      {},
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toBe(
+      "https://search.internal.example/brave?q=override+query&count=5&country=US",
+    );
+  });
+
+  it("routes Tavily requests through TAVILY_SEARCH_URL", async () => {
+    const fetchMock = vi.fn(
+      async (_input: string | URL | Request) =>
+        ({
+          ok: true,
+          status: 200,
+          statusText: "OK",
+          json: async () => ({ results: [] }),
+          text: async () => "",
+        }) as unknown as Response,
+    );
+    globalThis.fetch = fetchMock as typeof fetch;
+
+    const tool = buildWebSearchTool({
+      TAVILY_API_KEY: "tvly-test",
+      TAVILY_SEARCH_URL: "https://search.internal.example/tavily",
+    });
+    await (tool.execute as (...args: unknown[]) => Promise<unknown>)(
+      "call_base",
+      { query: "override query" },
+      undefined,
+      undefined,
+      {},
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toBe(
+      "https://search.internal.example/tavily",
     );
   });
 

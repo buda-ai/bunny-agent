@@ -34,6 +34,9 @@ export interface RunnerEnvParams {
   /** Web search (cross-runner) */
   BRAVE_API_KEY?: string;
   TAVILY_API_KEY?: string;
+  /** Web search endpoint overrides (gateways/proxies); vendor defaults when unset. */
+  BRAVE_SEARCH_URL?: string;
+  TAVILY_SEARCH_URL?: string;
   /** image generation */
   IMAGE_GENERATION_MODEL?: string;
   /**
@@ -182,6 +185,15 @@ export function buildRunnerEnv(
   const tavilyKey = params.TAVILY_API_KEY;
   if (braveKey) env.BRAVE_API_KEY = braveKey;
   if (tavilyKey) env.TAVILY_API_KEY = tavilyKey;
+
+  // Web search endpoint overrides are optional config (not secrets), so they
+  // also fall back to the host environment like IMAGE_GENERATION_MODEL.
+  const braveSearchUrl =
+    params.BRAVE_SEARCH_URL || process.env.BRAVE_SEARCH_URL;
+  const tavilySearchUrl =
+    params.TAVILY_SEARCH_URL || process.env.TAVILY_SEARCH_URL;
+  if (braveSearchUrl) env.BRAVE_SEARCH_URL = braveSearchUrl;
+  if (tavilySearchUrl) env.TAVILY_SEARCH_URL = tavilySearchUrl;
 
   const imageModel =
     params.IMAGE_GENERATION_MODEL || process.env.IMAGE_GENERATION_MODEL;

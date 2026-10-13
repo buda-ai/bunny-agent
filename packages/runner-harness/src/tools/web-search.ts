@@ -10,8 +10,13 @@ export interface WebSearchProvider {
   id: string;
   label: string;
   envKeys: string[];
+  /** Env var holding a full request-URL override. Falls back to `defaultUrl`. */
+  urlEnvKey: string;
+  /** Vendor endpoint used when `urlEnvKey` is unset. */
+  defaultUrl: string;
   search(params: {
     apiKey: string | undefined;
+    url: string;
     query: string;
     count: number;
     country?: string;
@@ -27,23 +32,22 @@ const braveProvider: WebSearchProvider = {
   id: "brave",
   label: "Brave Search",
   envKeys: ["BRAVE_API_KEY"],
-  async search({ apiKey, query, count, country, freshness }) {
+  urlEnvKey: "BRAVE_SEARCH_URL",
+  defaultUrl: "https://api.search.brave.com/res/v1/web/search",
+  async search({ apiKey, url, query, count, country, freshness }) {
     const params = new URLSearchParams({
       q: query,
       count: String(Math.min(count, 20)),
     });
     if (country) params.set("country", country);
     if (freshness) params.set("freshness", freshness);
-    const res = await fetch(
-      `https://api.search.brave.com/res/v1/web/search?${params}`,
-      {
-        headers: {
-          Accept: "application/json",
-          "Accept-Encoding": "gzip",
-          "X-Subscription-Token": apiKey!,
-        },
+    const res = await fetch(`${url}?${params}`, {
+      headers: {
+        Accept: "application/json",
+        "Accept-Encoding": "gzip",
+        "X-Subscription-Token": apiKey!,
       },
-    );
+    });
     if (!res.ok)
       throw new Error(
         `Brave API ${res.status}: ${await res.text().catch(() => "")}`,
@@ -68,8 +72,10 @@ const tavilyProvider: WebSearchProvider = {
   id: "tavily",
   label: "Tavily",
   envKeys: ["TAVILY_API_KEY"],
-  async search({ apiKey, query, count }) {
-    const res = await fetch("https://api.tavily.com/search", {
+  urlEnvKey: "TAVILY_SEARCH_URL",
+  defaultUrl: "https://api.tavily.com/search",
+  async search({ apiKey, url, query, count }) {
+    const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -144,6 +150,8 @@ async function duckduckgoSearch(
 interface ResolvedProvider {
   provider: WebSearchProvider;
   apiKey: string;
+  /** Full request URL from env, or the provider default when unset. */
+  url: string;
 }
 
 function getEnv(env: Record<string, string>, key: string): string | undefined {
@@ -159,7 +167,11 @@ export function resolveSearchProviders(
     for (const key of p.envKeys) {
       const val = getEnv(env, key);
       if (val) {
-        available.push({ provider: p, apiKey: val });
+        available.push({
+          provider: p,
+          apiKey: val,
+          url: getEnv(env, p.urlEnvKey) ?? p.defaultUrl,
+        });
         break;
       }
     }
@@ -292,10 +304,11 @@ export function buildWebSearchTool(
       const shouldFetch = (p.fetch_content as boolean) ?? false;
 
       let lastError: unknown;
-      for (const { provider, apiKey } of providers) {
+      for (const { provider, apiKey, url } of providers) {
         try {
           const results = await provider.search({
             apiKey,
+            url,
             query,
             count,
             country,
