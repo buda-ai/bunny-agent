@@ -178,7 +178,11 @@ describe("Pi MCP adapter integration", () => {
     await disposePiSession(session);
     sessionDisposed = true;
 
-    await expect(mcpTool!.execute("status-after-shutdown", {})).rejects.toThrow(
+    // pi-mcp-adapter 5.x reports a stale ctx as an init_failed tool result
+    // instead of throwing.
+    const afterShutdown = await mcpTool!.execute("status-after-shutdown", {});
+    expect(afterShutdown.details).toMatchObject({ error: "init_failed" });
+    expect(JSON.stringify(afterShutdown.content)).toMatch(
       /extension ctx is stale/,
     );
   }, 20_000);

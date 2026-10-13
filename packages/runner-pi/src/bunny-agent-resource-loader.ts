@@ -138,6 +138,14 @@ export class BunnyAgentResourceLoader implements ResourceLoader {
     return this.delegate.getSystemPrompt();
   }
 
+  getSystemPromptSource(): { path: string } | undefined {
+    return this.delegate.getSystemPromptSource();
+  }
+
+  getAppendSystemPromptSources(): Array<{ path: string }> {
+    return this.delegate.getAppendSystemPromptSources();
+  }
+
   getAppendSystemPrompt(): string[] {
     const base = this.delegate.getAppendSystemPrompt();
     if (this.extraAppendPrompt) {

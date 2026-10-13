@@ -1,0 +1,87 @@
+diff --git a/dist/core/agent-session.js b/dist/core/agent-session.js
+index c16f5da..fb98791 100644
+--- a/dist/core/agent-session.js
++++ b/dist/core/agent-session.js
+@@ -1419,14 +1419,16 @@ export class AgentSession {
+                 if (await this._handlePostAgentRun()) {
+                     if (this._agentRunAbortRequested)
+                         break;
+-                    await this.agent.continue();
++                    if (!(await this._continueAgentIfPossible()))
++                        break;
+                     continue;
+                 }
+                 if (this._agentRunAbortRequested || !(await this._runBeforeSettleBoundary()))
+                     break;
+                 if (this._agentRunAbortRequested)
+                     break;
+-                await this.agent.continue();
++                if (!(await this._continueAgentIfPossible()))
++                    break;
+             }
+         }
+         finally {
+@@ -1496,6 +1498,20 @@ export class AgentSession {
+             messages.unshift(updateMessage);
+         return messages;
+     }
++    /**
++     * Bunny patch: post-run retry/compaction/settle handlers can leave the transcript ending
++     * with an assistant message and empty queues; agent.continue() throws
++     * "Cannot continue from message role: assistant" in that state. Stop instead.
++     */
++    async _continueAgentIfPossible() {
++        const messages = this.agent.state.messages;
++        const lastMessage = messages[messages.length - 1];
++        if (!lastMessage || (lastMessage.role === "assistant" && !this.agent.hasQueuedMessages())) {
++            return false;
++        }
++        await this.agent.continue();
++        return true;
++    }
+     async _handlePostAgentRun() {
+         const message = this._lastAssistantMessage;
+         const toolResults = this._lastAssistantToolResults;
+diff --git a/dist/core/system-prompt.js b/dist/core/system-prompt.js
+index 83bf108..eb42d4d 100644
+--- a/dist/core/system-prompt.js
++++ b/dist/core/system-prompt.js
+@@ -75,11 +75,14 @@ export function buildSystemPromptSections(input) {
+     }
+     const declaredTools = selectedTools.filter((name) => !hiddenTools.includes(name));
+     const promptSections = {};
++    // Bunny patch: without a custom prompt, the caller's appendSystemPrompt becomes the opening
++    // identity instead of being appended after pi's default "operating inside pi" preamble.
++    const appendAsPreamble = !customPrompt && !!appendSystemPrompt;
+     if (customPrompt) {
+         promptSections.preamble = customPrompt;
+     }
+     else {
+-        promptSections.preamble =
++        promptSections.preamble = appendSystemPrompt ||
+             "You are an expert coding assistant operating inside pi, a coding agent harness. You help users by reading files, executing commands, editing code, and writing new files.";
+         const visibleTools = declaredTools.filter((name) => !!toolSnippets[name]);
+         const tools = visibleTools.length > 0 ? visibleTools.map((name) => `- ${name}: ${toolSnippets[name]}`).join("\n") : "(none)";
+@@ -94,7 +97,7 @@ export function buildSystemPromptSections(input) {
+ - When working on pi topics, read the docs and examples, and follow .md cross-references before implementing
+ - Always read pi .md files completely and follow links to related docs (e.g., tui.md for TUI API details)`;
+     }
+-    if (appendSystemPrompt)
++    if (appendSystemPrompt && !appendAsPreamble)
+         promptSections.addendum = appendSystemPrompt;
+     if (contextFiles.length > 0)
+         promptSections.project_context = renderProjectContext(contextFiles);
+diff --git a/package.json b/package.json
+index e6daaae..01c2736 100644
+--- a/package.json
++++ b/package.json
+@@ -4,7 +4,8 @@
+ 	"description": "Coding agent CLI with read, bash, edit, write tools and session management",
+ 	"type": "module",
+ 	"piConfig": {
+-		"configDir": ".pi"
++		"name": "bunny",
++		"configDir": ".bunny"
+ 	},
+ 	"bin": {
+ 		"pi": "dist/bundle/cli.js"
