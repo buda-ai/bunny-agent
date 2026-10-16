@@ -220,6 +220,7 @@ Use the SDK to embed Bunny Agent in any product — a **Next.js SaaS**, an **Ele
 |---------|----------|-------|
 | **Sandock** | ⭐ NVMe SSD · POSIX filesystem · coding-agent optimised · from $5/mo | API key from [sandock.ai](https://sandock.ai) |
 | **E2B** | Managed cloud sandboxes | API key from [e2b.dev](https://e2b.dev) |
+| **Smol Machines** | Isolated local microVMs or Smol Cloud with one adapter | No key locally; Smol Cloud login or token remotely |
 | **Daytona** | Enterprise / self-hosted | API key from [daytona.io](https://daytona.io) |
 | **Local** | Development, no cloud needed | No key required |
 
@@ -266,6 +267,7 @@ Options:
 | `GITHUB_TOKEN` or `GH_TOKEN` | GitHub Copilot runner (optional when already logged in) |
 | `SANDOCK_API_KEY` | Sandock remote sandbox |
 | `E2B_API_KEY` | E2B cloud sandbox |
+| `SMOL_CLOUD_TOKEN` | Smol Cloud sandbox (or use `smol auth login`) |
 | `BRAVE_API_KEY` | Brave web search |
 | `TAVILY_API_KEY` | Tavily web search (fallback) |
 
@@ -287,6 +289,7 @@ Options:
 | `@bunny-agent/server-acp` | Serves runners as an [Agent Client Protocol](https://agentclientprotocol.com) agent (HTTP + stdio), for editors like Zed and JetBrains |
 | `@bunny-agent/sandbox-sandock` | Sandock sandbox adapter |
 | `@bunny-agent/sandbox-e2b` | E2B sandbox adapter |
+| `@bunny-agent/sandbox-smol` | Smol Machines local and cloud microVM adapter |
 | `@bunny-agent/sandbox-daytona` | Daytona sandbox adapter |
 | `@bunny-agent/sandbox-local` | Local machine adapter (no isolation) |
 | `@bunny-agent/sandbox-srt` | Local isolated sandbox adapter (Anthropic sandbox runtime) |
