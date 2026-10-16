@@ -1,6 +1,10 @@
 export type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 export type { ImageToolDetails, ImageToolUsageDetails } from "./image-tools.js";
 export {
+  createPiLiveController,
+  type SteerableSession,
+} from "./live-control.js";
+export {
   createMcpExtension,
   type McpConfig,
   McpConfigValidationError,

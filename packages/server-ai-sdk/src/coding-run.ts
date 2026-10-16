@@ -1,11 +1,17 @@
 import type * as http from "node:http";
 import {
   createRunner,
+  type LiveRunController,
+  type RunControl,
   type RunnerCoreOptions,
 } from "@bunny-agent/runner-harness";
+import { ControlError, type LiveRunRegistry } from "./live-run-registry.js";
 
 type RunToolRefs = RunnerCoreOptions["toolRefs"];
 type RunMcpConfig = RunnerCoreOptions["mcpConfig"];
+
+/** Runners that currently wire a real {@link LiveRunController}. Keep in sync with runner-harness/runner-pi. */
+const LIVE_CONTROL_CAPABLE_RUNNERS = new Set(["pi"]);
 
 export interface RunRequest {
   runner?: string;
@@ -50,6 +56,16 @@ export interface RunRequest {
    * a timeout result to the model so the conversation can continue.
    */
   askUserQuestionTimeoutMs?: number;
+  /**
+   * Opt-in live steering control channel. When set, the host registers the
+   * run under `control.runId` (rejecting duplicate/reused ids before the
+   * model starts) so a caller holding `control.token` can later POST
+   * `/api/coding/control` to steer it. Only takes effect when `registry` is
+   * also passed to {@link codingRunChunks} / {@link bunnyAgentRun} /
+   * {@link codingRunStream} — hosts that don't pass a registry ignore this
+   * field entirely (no behavior change for existing callers).
+   */
+  control?: RunControl;
 }
 
 export const assertRunRequestInput = (req: RunRequest): void => {
@@ -84,21 +100,64 @@ const errorEnvelope = (err: unknown): string => {
   );
 };
 
+/** Default runner/model applied when the request omits them — kept in sync with {@link codingRunChunks}'s `createRunner` call. */
+const DEFAULT_RUNNER = "claude";
+const DEFAULT_MODEL = "claude-sonnet-4-20250514";
+
+/**
+ * Register `req.control` with `registry` BEFORE any provider call and
+ * before the HTTP response is committed, so a malformed/duplicate/reused
+ * `control.runId` fails the request as a plain 4xx instead of a 200 stream
+ * that errors out mid-flight. No-op (always succeeds) when either `req` or
+ * `registry` omits a control channel. Throws `ControlError` on failure;
+ * callers map that to an HTTP status the same way the control route does.
+ */
+export async function preflightControl(
+  req: RunRequest,
+  registry: LiveRunRegistry | undefined,
+): Promise<void> {
+  if (!registry || !req.control) return;
+  if (req.control.version !== 1 || !req.control.runId || !req.control.token) {
+    throw new ControlError(
+      "malformed",
+      "control.version, control.runId and control.token are required",
+    );
+  }
+  const runner = req.runner ?? DEFAULT_RUNNER;
+  await registry.registerRun(
+    req.control.runId,
+    req.control.token,
+    LIVE_CONTROL_CAPABLE_RUNNERS.has(runner),
+    { runner, model: req.model ?? DEFAULT_MODEL },
+  );
+}
+
 /**
  * Single source of truth for the AI SDK wire stream: validates the request,
  * drives `createRunner`, and terminates with the SSE error envelope on failure.
- * Both the Node and Web adapters below consume this.
+ * Both the Node and Web adapters below consume this. Callers that want the
+ * live-control channel must call {@link preflightControl} first (to fail
+ * fast with a plain HTTP error) and pass the same `registry` + the already-
+ * validated `req.control` here; this function always unregisters the run in
+ * its `finally` block (abort, error, or normal stream end).
  */
 export async function* codingRunChunks(
   req: RunRequest,
   env: Record<string, string>,
   abortController: AbortController,
+  registry?: LiveRunRegistry,
 ): AsyncIterable<string> {
+  const control = registry ? req.control : undefined;
   try {
     assertRunRequestInput(req);
+    const liveControl = control
+      ? (controller: LiveRunController) => {
+          registry!.markReady(control.runId, controller);
+        }
+      : undefined;
     const stream = createRunner({
-      runner: req.runner ?? "claude",
-      model: req.model ?? "claude-sonnet-4-20250514",
+      runner: req.runner ?? DEFAULT_RUNNER,
+      model: req.model ?? DEFAULT_MODEL,
       input: req.input,
       userInput: req.userInput,
       systemPrompt: req.systemPrompt,
@@ -116,6 +175,7 @@ export async function* codingRunChunks(
       mcpConfig: req.mcpConfig,
       effort: req.effort,
       askUserQuestionTimeoutMs: req.askUserQuestionTimeoutMs,
+      liveControl,
       // API: caller owns resume/session; do not read/write cwd/.bunny-agent or auto-load CLAUDE.md.
       autoInject: false,
     });
@@ -125,6 +185,10 @@ export async function* codingRunChunks(
     }
   } catch (err) {
     yield errorEnvelope(err);
+  } finally {
+    if (control && registry) {
+      await registry.unregisterRun(control.runId).catch(() => {});
+    }
   }
 }
 
@@ -135,7 +199,23 @@ export async function bunnyAgentRun(
   req: RunRequest,
   res: http.ServerResponse,
   env: Record<string, string>,
+  registry?: LiveRunRegistry,
 ): Promise<void> {
+  try {
+    await preflightControl(req, registry);
+  } catch (error) {
+    const status =
+      error instanceof ControlError
+        ? error.code === "malformed"
+          ? 400
+          : 409
+        : 500;
+    const message = error instanceof Error ? error.message : String(error);
+    res.writeHead(status, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: false, data: null, error: message }));
+    return;
+  }
+
   const abortController = new AbortController();
   res.on("close", () => abortController.abort());
 
@@ -154,7 +234,12 @@ export async function bunnyAgentRun(
   }, getHeartbeatIntervalMs());
 
   try {
-    for await (const chunk of codingRunChunks(req, env, abortController)) {
+    for await (const chunk of codingRunChunks(
+      req,
+      env,
+      abortController,
+      registry,
+    )) {
       res.write(chunk);
     }
   } finally {
@@ -167,16 +252,24 @@ export async function bunnyAgentRun(
  * POST /api/coding/run — Web Response version (Next.js embed)
  * Returns a streaming Response with NDJSON body.
  */
-export function codingRunStream(
+export async function codingRunStream(
   req: RunRequest,
   env: Record<string, string>,
-): Response {
+  registry?: LiveRunRegistry,
+): Promise<Response> {
   try {
     assertRunRequestInput(req);
+    await preflightControl(req, registry);
   } catch (error) {
+    const status =
+      error instanceof ControlError
+        ? error.code === "malformed"
+          ? 400
+          : 409
+        : 400;
     return Response.json(
       { error: error instanceof Error ? error.message : String(error) },
-      { status: 400 },
+      { status },
     );
   }
   const abortController = new AbortController();
@@ -196,7 +289,12 @@ export function codingRunStream(
       }, getHeartbeatIntervalMs());
 
       try {
-        for await (const chunk of codingRunChunks(req, env, abortController)) {
+        for await (const chunk of codingRunChunks(
+          req,
+          env,
+          abortController,
+          registry,
+        )) {
           controller.enqueue(encoder.encode(chunk));
         }
       } finally {

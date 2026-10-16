@@ -127,4 +127,34 @@ describe("createRunner dispatch", () => {
     expect(claudeRun).toHaveBeenCalledWith(input);
     expect(piRun).toHaveBeenCalledWith(input);
   });
+
+  it("forwards liveControl to the pi runner only", () => {
+    const liveControl = vi.fn();
+
+    createRunner({
+      runner: "pi",
+      model: "gpt-5",
+      userInput: "hi",
+      cwd: "/tmp",
+      autoInject: false,
+      liveControl,
+    });
+
+    expect(createPiRunner.mock.calls[0][0].liveControl).toBe(liveControl);
+  });
+
+  it("does not forward liveControl to runners that don't support it", () => {
+    const liveControl = vi.fn();
+
+    createRunner({
+      runner: "claude",
+      model: "claude-sonnet-4-20250514",
+      userInput: "hi",
+      cwd: "/tmp",
+      autoInject: false,
+      liveControl,
+    });
+
+    expect(createClaudeRunner.mock.calls[0][0].liveControl).toBeUndefined();
+  });
 });

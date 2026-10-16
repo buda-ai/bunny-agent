@@ -2,6 +2,7 @@ import type { LanguageModelV3StreamPart } from "@ai-sdk/provider";
 import type {
   BunnyAgentOptions,
   McpConfig,
+  RunControl,
   SandboxAdapter,
   ToolRef,
 } from "@bunny-agent/manager";
@@ -14,6 +15,7 @@ export type {
   McpServerOptions,
   McpSettings,
   McpStdioServerConfig,
+  RunControl,
   ToolRuntime,
 } from "@bunny-agent/manager";
 
@@ -194,6 +196,20 @@ export interface BunnyAgentProviderSettings
    * Ignored by runners other than `pi`.
    */
   systemEnv?: Record<string, string>;
+  /**
+   * Opt-in live steering control channel (PUL-355). When set, the host
+   * daemon registers the active run under `control.runId` so a caller
+   * holding `control.token` can later POST `/api/coding/control` against
+   * that same daemon to steer the live session at a safe tool/turn
+   * boundary. The token is caller-generated (never issued by the daemon)
+   * and must carry at least 32 bytes of entropy before encoding.
+   *
+   * Only takes effect on the `daemonUrl` HTTP transport, and only the `pi`
+   * runner currently wires it through to a real session — other runners'
+   * capabilities probe reports `supportedPiSteer: false`. Ignored entirely
+   * on the CLI fallback transport (no daemon to host the control channel).
+   */
+  control?: RunControl;
 }
 
 /**

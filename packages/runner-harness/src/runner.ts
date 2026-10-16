@@ -3,6 +3,7 @@ import {
   compileAgentTurnInput,
   createLegacyAgentTurnInput,
   parseAgentTurnInputV1,
+  type RegisterLiveRunController,
 } from "@bunny-agent/manager";
 import type { BaseRunnerOptions } from "@bunny-agent/runner-claude";
 import { createClaudeRunner } from "@bunny-agent/runner-claude";
@@ -84,6 +85,13 @@ export interface RunnerCoreOptions extends BaseRunnerOptions {
    * (SDK `forkSession`); other runners ignore it.
    */
   forkFrom?: string;
+  /**
+   * Host hook invoked once the run's live session exists and is ready to
+   * accept mid-run steering (after the initial prompt stream starts, never
+   * before). Currently only the `pi` runner invokes it; other runners ignore
+   * it.
+   */
+  liveControl?: RegisterLiveRunController;
 }
 
 export function createRunner(
@@ -188,6 +196,7 @@ function dispatchRunner(
         mcpConfig: options.mcpConfig,
         effort: options.effort,
         systemEnv: options.systemEnv,
+        liveControl: options.liveControl,
       }).run(hasStructuredInput ? input : compiled.text);
     }
     case "opencode":

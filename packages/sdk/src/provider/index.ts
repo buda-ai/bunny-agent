@@ -38,6 +38,7 @@ export type {
   McpSettings,
   McpStdioServerConfig,
   Question,
+  RunControl,
   StreamWriter,
   SubmitAnswerParams,
   ToolRuntime,

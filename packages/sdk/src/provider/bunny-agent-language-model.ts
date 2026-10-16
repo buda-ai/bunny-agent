@@ -593,6 +593,7 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
       ...(toolRefs && toolRefs.length > 0 ? { toolRefs } : {}),
       ...(this.options.mcpConfig ? { mcpConfig: this.options.mcpConfig } : {}),
       ...(this.options.effort ? { effort: this.options.effort } : {}),
+      ...(this.options.control ? { control: this.options.control } : {}),
     };
   }
 
