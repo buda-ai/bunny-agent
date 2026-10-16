@@ -621,11 +621,16 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
       async start(controller) {
         try {
           let buffer = "";
+          // One decoder per stream in streaming mode: a multi-byte UTF-8
+          // character (CJK, emoji) split across two network chunks must not be
+          // decoded half-and-half into U+FFFD replacement characters.
+          const decoder = new TextDecoder();
 
           while (true) {
             const { done, value } = await reader.read();
 
             if (done) {
+              buffer += decoder.decode();
               if (buffer.trim()) {
                 const parts = self.parseSSEBuffer(buffer);
                 for (const part of parts) {
@@ -641,8 +646,7 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
               break;
             }
 
-            const text = new TextDecoder().decode(value);
-            buffer += text;
+            buffer += decoder.decode(value, { stream: true });
 
             const lines = buffer.split("\n");
             buffer = lines.pop() ?? "";
