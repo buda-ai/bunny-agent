@@ -3,6 +3,7 @@ import { isAbsolute, join, resolve } from "node:path";
 import {
   type AgentTurnInputV1,
   compileAgentTurnInput,
+  type RegisterLiveRunController,
 } from "@bunny-agent/manager";
 import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
 import type { Api, ImageContent, Model } from "@earendil-works/pi-ai";
@@ -27,6 +28,7 @@ import {
   createCitationSessionRegistry,
 } from "./citation-session-cache.js";
 import { buildImageEditTool, buildImageGenerateTool } from "./image-tools.js";
+import { createPiLiveController } from "./live-control.js";
 import {
   createMcpExtension,
   type McpConfig,
@@ -185,6 +187,13 @@ export interface PiRunnerOptions {
    * text-only `web_search` tool output.
    */
   searchContractVersion?: 1;
+  /**
+   * Host hook invoked once this run's `AgentSession` exists and is ready to
+   * accept mid-run input — immediately before the initial prompt stream
+   * starts, never before. The host (daemon) uses this to register a live
+   * steering handle for the run; it is not called again for this run.
+   */
+  liveControl?: RegisterLiveRunController;
 }
 
 export interface PiRunner {
@@ -740,6 +749,24 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           wakeConsumer = null;
         };
 
+        // Install the live-control wrapper before the first prompt so its
+        // wrapped `streamFunction` is in place for the very first provider
+        // request too. The host is only told the run is steerable once that
+        // wrapped `streamFunction` has actually been invoked for the first
+        // time — i.e. at the first real provider-call boundary — never
+        // before: `agent_start` fires too early (before any `streamFunction`
+        // call), so registering there could hand the host a controller for
+        // a run that hasn't reached a safe steering point yet.
+        let liveControlRegistered = false;
+        const registerLiveControl = options.liveControl;
+        const liveController = registerLiveControl
+          ? createPiLiveController(session, () => {
+              if (liveControlRegistered) return;
+              liveControlRegistered = true;
+              registerLiveControl(liveController!);
+            })
+          : undefined;
+
         const unsubscribe = session.subscribe((e) => {
           eventQueue.push(e);
           notify();
@@ -863,6 +890,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           if (abortSignal) {
             abortSignal.removeEventListener("abort", abortHandler);
           }
+          liveController?.dispose();
           unsubscribe();
           await disposePiSession(session);
         }

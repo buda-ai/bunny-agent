@@ -9,16 +9,17 @@
  *   export const GET = handler;
  *   export const POST = handler;
  *
- * Requests to /api/daemon/healthz           → daemon /healthz
- * Requests to /api/daemon/api/fs/read       → daemon /api/fs/read
- * Requests to /api/daemon/api/fs/download   → daemon /api/fs/download (binary)
- * Requests to /api/daemon/api/coding/run    → daemon /api/coding/run (NDJSON stream)
+ * Requests to /api/daemon/healthz             → daemon /healthz
+ * Requests to /api/daemon/api/fs/read         → daemon /api/fs/read
+ * Requests to /api/daemon/api/fs/download     → daemon /api/fs/download (binary)
+ * Requests to /api/daemon/api/coding/run      → daemon /api/coding/run (NDJSON stream)
+ * Requests to /api/daemon/api/coding/control  → daemon /api/coding/control (live Pi steering, PUL-355)
  */
 
 import { createReadStream } from "node:fs";
 import { Readable } from "node:stream";
 import { createAcpHttpServer } from "@bunny-agent/server-acp";
-import { createAiSdkCodingRunServer } from "@bunny-agent/server-ai-sdk";
+import { createAiSdkCodingServers } from "@bunny-agent/server-ai-sdk";
 import {
   type CodingRunBodyWithEnv,
   prepareCodingRunEnv,
@@ -36,11 +37,17 @@ export function createNextHandler(opts: { root: string; prefix?: string }) {
     root: opts.root,
     volumesRoot: `${opts.root}/volumes`,
   };
-  const codingRunServers = [
-    createAiSdkCodingRunServer({
+  // `run` and `control` share one LiveRunRegistry instance so a
+  // `/api/coding/control` request always sees the exact run `/api/coding/run`
+  // just registered — see PUL-355 (docs/changelog/2026-10-16-pi-live-control-bridge.md).
+  const { run: aiSdkRunServer, control: aiSdkControlServer } =
+    createAiSdkCodingServers({
       prepareEnv: (body) =>
         prepareCodingRunEnv(env, body as CodingRunBodyWithEnv),
-    }),
+    });
+  const codingRunServers = [
+    aiSdkRunServer,
+    aiSdkControlServer,
     createAcpHttpServer({ defaultCwd: opts.root, env }),
   ];
 

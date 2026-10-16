@@ -3,6 +3,7 @@ import {
   compileAgentTurnInput,
   createLegacyAgentTurnInput,
   parseAgentTurnInputV1,
+  type RegisterLiveRunController,
 } from "@bunny-agent/manager";
 import {
   isSupportedSearchContractVersion,
@@ -97,6 +98,13 @@ export interface RunnerCoreOptions extends BaseRunnerOptions {
    * ignoring the request.
    */
   searchContractVersion?: number;
+  /**
+   * Host hook invoked once the run's live session exists and is ready to
+   * accept mid-run steering (after the initial prompt stream starts, never
+   * before). Currently only the `pi` runner invokes it; other runners ignore
+   * it.
+   */
+  liveControl?: RegisterLiveRunController;
 }
 
 /** Runners that accept an explicit `searchContractVersion` selection today. */
@@ -319,6 +327,7 @@ function dispatchRunner(
         effort: options.effort,
         systemEnv: options.systemEnv,
         searchContractVersion: options.searchContractVersion as 1 | undefined,
+        liveControl: options.liveControl,
       }).run(hasStructuredInput ? input : compiled.text);
     }
     case "opencode":
