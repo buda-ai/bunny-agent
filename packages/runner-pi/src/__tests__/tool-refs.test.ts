@@ -8,6 +8,13 @@ import { TOOL_OUTPUT_MAX_BYTES } from "@bunny-agent/manager";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildToolDefinitionsFromRefs, type PiToolRef } from "../tool-refs.js";
 
+vi.mock("node:os", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:os")>();
+  return { ...actual, tmpdir: vi.fn(actual.tmpdir) };
+});
+
+const systemTempDirectory = tmpdir();
+
 interface CapturedCall {
   authorization: string | undefined;
   contentType: string | undefined;
@@ -77,10 +84,13 @@ const sampleSpec: Omit<PiToolRef, "runtime"> = {
 
 describe("buildToolDefinitionsFromRefs", () => {
   let server: FakeBridgeServer;
-  let cwd: string;
+  let tempDirectory: string;
 
   beforeEach(async () => {
-    cwd = mkdtempSync(join(tmpdir(), "bunny-pi-tool-refs-"));
+    tempDirectory = mkdtempSync(
+      join(systemTempDirectory, "bunny-pi-tool-refs-"),
+    );
+    vi.mocked(tmpdir).mockReturnValue(tempDirectory);
     server = await startFakeBridge(({ body }) => ({
       body: { now: "2026-04-29T00:00:00.000Z", echoed: body },
     }));
@@ -89,7 +99,7 @@ describe("buildToolDefinitionsFromRefs", () => {
   afterEach(async () => {
     vi.restoreAllMocks();
     await server.close();
-    rmSync(cwd, { recursive: true, force: true });
+    rmSync(tempDirectory, { recursive: true, force: true });
   });
 
   it("posts direct HTTP runtime inputs with configured headers", async () => {
@@ -255,10 +265,9 @@ describe("buildToolDefinitionsFromRefs", () => {
     });
     await server.close();
     server = await startFakeBridge(() => ({ status, body }));
-    const [tool] = buildToolDefinitionsFromRefs(
-      [{ ...sampleSpec, runtime: { type: "http", url: server.url } }],
-      { cwd },
-    );
+    const [tool] = buildToolDefinitionsFromRefs([
+      { ...sampleSpec, runtime: { type: "http", url: server.url } },
+    ]);
     let text: string;
     if (status === 200) {
       const result = await tool.execute(
@@ -279,25 +288,22 @@ describe("buildToolDefinitionsFromRefs", () => {
     }
     expect(Buffer.byteLength(text)).toBeLessThanOrEqual(TOOL_OUTPUT_MAX_BYTES);
     const path = JSON.parse(text.match(/Full output saved to: (".*?")\./)![1]);
-    expect(path.startsWith(cwd)).toBe(true);
+    expect(path.startsWith(tempDirectory)).toBe(true);
     expect(readFileSync(path, "utf8")).toBe(body);
   });
 
   it("guards concurrent module results and oversized thrown errors", async () => {
-    const modulePath = join(cwd, "large.mjs");
+    const modulePath = join(tempDirectory, "large.mjs");
     writeFileSync(
       modulePath,
       'export function execute(input) { if (input.fail) throw new Error("failure".repeat(100000)); return input.id + ":" + "x".repeat(100000); }',
     );
-    const [tool] = buildToolDefinitionsFromRefs(
-      [
-        {
-          ...sampleSpec,
-          runtime: { type: "module", module: pathToFileURL(modulePath).href },
-        },
-      ],
-      { cwd },
-    );
+    const [tool] = buildToolDefinitionsFromRefs([
+      {
+        ...sampleSpec,
+        runtime: { type: "module", module: pathToFileURL(modulePath).href },
+      },
+    ]);
     const results = await Promise.all(
       Array.from({ length: 5 }, (_, id) =>
         tool.execute(

@@ -39,20 +39,21 @@ External `toolRefs` responses are limited to 50 KiB or 2,000 lines, including
 the truncation notice. This applies to successful responses, error responses,
 and transport exception text. Smaller responses are returned unchanged.
 
-Oversized responses are saved verbatim under `cwd/.bunny/tool-output/` in
-private files. The returned preview includes an absolute path and instructions
-to use `read` with `offset`/`limit`, or `bash` to extract a bounded fragment
+Oversized responses are saved verbatim in the OS temporary directory
+(`os.tmpdir()`, usually `/tmp`) in private files. The returned preview includes
+an absolute path and instructions to use `read` with `offset`/`limit`, or `bash`
+to extract a bounded fragment
 from a long JSON line. Enable those tools when the agent needs to inspect the
 full output. Pi also exposes the path and original size in `details.outputGuard`.
 
-Files are retained across session resume; remove unneeded output files as part
-of workspace maintenance. If saving fails, the preview remains bounded and
-explicitly reports that the full output could not be saved. This protection
+File retention follows Pi's native output files: cleanup depends on the OS or
+sandbox temporary-directory lifecycle, with no Bunny TTL or session-end cleanup.
+File availability across sandbox restarts or session resume is not guaranteed.
+If saving fails, the preview remains bounded and explicitly reports that the
+full output could not be saved. This protection
 does not rewrite existing session history or limit HTTP download memory.
 
-Direct users of `buildToolDefinitionsFromRefs(refs, { cwd })` can specify the
-workspace explicitly; it defaults to the process working directory. These
-limits apply per response; query filters and field selection still help keep
+Limits apply per response; query filters and field selection still help keep
 large tool batches within the model's total context budget.
 
 ## Request-Scoped MCP

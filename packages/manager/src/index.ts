@@ -27,7 +27,6 @@ export { posixShellQuote } from "./shell-escape.js";
 export type {
   GuardedToolOutput,
   ToolOutputGuardDetails,
-  ToolOutputGuardOptions,
 } from "./tool-output.js";
 export {
   guardToolOutput,

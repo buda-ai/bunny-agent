@@ -1,7 +1,4 @@
-import {
-  guardToolOutput,
-  type ToolOutputGuardOptions,
-} from "@bunny-agent/manager";
+import { guardToolOutput } from "@bunny-agent/manager";
 import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
 
@@ -47,15 +44,11 @@ export interface PiToolRef {
  */
 export function buildToolDefinitionsFromRefs(
   tools: PiToolRef[],
-  options: ToolOutputGuardOptions = {},
 ): ToolDefinition[] {
-  return tools.map((spec) => buildOne(spec, options));
+  return tools.map((spec) => buildOne(spec));
 }
 
-function buildOne(
-  spec: PiToolRef,
-  options: ToolOutputGuardOptions,
-): ToolDefinition {
+function buildOne(spec: PiToolRef): ToolDefinition {
   // Type.Unsafe wraps an arbitrary JSON-schema object as a TypeBox TSchema
   // without local validation. We pass it verbatim to the LLM; the selected
   // runtime is responsible for argument validation.
@@ -75,11 +68,10 @@ function buildOne(
       } catch (error) {
         const { text: message } = await guardToolOutput(
           `Tool "${spec.name}" transport error: ${formatTransportError(error)}`,
-          options,
         );
         throw new PiToolRefError(message, { toolName: spec.name });
       }
-      const output = await guardToolOutput(response.body, options);
+      const output = await guardToolOutput(response.body);
       if (response.status < 200 || response.status >= 300) {
         throw new PiToolRefError(
           formatToolRuntimeErrorMessage({ ...response, body: output.text }),

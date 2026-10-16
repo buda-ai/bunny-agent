@@ -1,13 +1,10 @@
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { randomBytes } from "node:crypto";
+import { writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 export const TOOL_OUTPUT_MAX_BYTES = 50 * 1024;
 export const TOOL_OUTPUT_MAX_LINES = 2_000;
-
-/** Workspace in which full external tool responses are preserved. */
-export interface ToolOutputGuardOptions {
-  cwd?: string;
-}
 
 /** Size and retrieval information for a truncated external tool response. */
 export interface ToolOutputGuardDetails {
@@ -50,13 +47,12 @@ function previewText(text: string, maxBytes: number, maxLines: number): string {
 
 /**
  * Bound external tool text to 50 KiB / 2,000 lines, including the retrieval notice.
- * Oversized responses are saved verbatim under cwd/.bunny/tool-output so they
- * remain available across session resume. Storage failures still return bounded
- * text and explicitly report that the full output could not be saved.
+ * Oversized responses are saved verbatim in the OS temporary directory, matching
+ * Pi's native output-file lifecycle. Storage failures still return bounded text
+ * and explicitly report that the full output could not be saved.
  */
 export async function guardToolOutput(
   text: string,
-  options: ToolOutputGuardOptions = {},
 ): Promise<GuardedToolOutput> {
   const originalBytes = Buffer.byteLength(text, "utf8");
   const originalLines = countLines(text);
@@ -69,14 +65,10 @@ export async function guardToolOutput(
 
   let fullOutputPath: string | undefined;
   try {
-    const directory = resolve(
-      options.cwd ?? process.cwd(),
-      ".bunny",
-      "tool-output",
+    const path = join(
+      tmpdir(),
+      `bunny-tool-output-${randomBytes(8).toString("hex")}.txt`,
     );
-    await mkdir(directory, { recursive: true, mode: 0o700 });
-    const responseDirectory = await mkdtemp(join(directory, "response-"));
-    const path = join(responseDirectory, "output.txt");
     await writeFile(path, text, { encoding: "utf8", mode: 0o600, flag: "wx" });
     fullOutputPath = path;
   } catch {

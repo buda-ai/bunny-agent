@@ -579,7 +579,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
         const allowedTools = normalizeAllowedTools(options.allowedTools);
         const toolRefDefinitions =
           options.toolRefs && options.toolRefs.length > 0
-            ? buildToolDefinitionsFromRefs(options.toolRefs, { cwd })
+            ? buildToolDefinitionsFromRefs(options.toolRefs)
             : [];
 
         // Keep Pi's tool execution semantics aligned with Claude: non-yolo,

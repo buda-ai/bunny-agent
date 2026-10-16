@@ -11,10 +11,7 @@
  * `@bunny-agent/runner-pi` (deliberately re-declared here so the packages
  * stay decoupled), and the execution semantics mirror pi's `tool-refs.ts`.
  */
-import {
-  guardToolOutput,
-  type ToolOutputGuardOptions,
-} from "@bunny-agent/manager";
+import { guardToolOutput } from "@bunny-agent/manager";
 import { z } from "zod";
 
 /** Where and how a tool ref executes. */
@@ -75,15 +72,11 @@ export interface ClaudeMcpToolDefinition {
  */
 export function buildMcpToolDefinitionsFromRefs(
   refs: ClaudeToolRef[],
-  options: ToolOutputGuardOptions = {},
 ): ClaudeMcpToolDefinition[] {
-  return refs.map((ref) => buildOne(ref, options));
+  return refs.map((ref) => buildOne(ref));
 }
 
-function buildOne(
-  ref: ClaudeToolRef,
-  options: ToolOutputGuardOptions,
-): ClaudeMcpToolDefinition {
+function buildOne(ref: ClaudeToolRef): ClaudeMcpToolDefinition {
   return {
     name: ref.name,
     description: ref.description,
@@ -96,11 +89,10 @@ function buildOne(
         const message = error instanceof Error ? error.message : String(error);
         const output = await guardToolOutput(
           `Tool "${ref.name}" transport error: ${message}`,
-          options,
         );
         return errorResult(output.text);
       }
-      const output = await guardToolOutput(response.body, options);
+      const output = await guardToolOutput(response.body);
       if (response.status < 200 || response.status >= 300) {
         const body = output.text.trim();
         return errorResult(

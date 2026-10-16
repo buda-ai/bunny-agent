@@ -1,3 +1,8 @@
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { TOOL_OUTPUT_MAX_BYTES } from "@bunny-agent/manager";
+
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   buildMcpToolDefinitionsFromRefs,
@@ -6,6 +11,13 @@ import {
   TOOL_REF_MCP_SERVER_NAME,
   toolRefMcpToolName,
 } from "../tool-refs.js";
+
+vi.mock("node:os", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:os")>();
+  return { ...actual, tmpdir: vi.fn(actual.tmpdir) };
+});
+
+const systemTempDirectory = tmpdir();
 
 const httpRef: ClaudeToolRef = {
   name: "get_weather",
@@ -49,16 +61,20 @@ describe("jsonSchemaToZodShape", () => {
 
 describe("buildMcpToolDefinitionsFromRefs", () => {
   const originalFetch = globalThis.fetch;
-  let cwd: string;
+  let tempDirectory: string;
 
   beforeEach(() => {
-    cwd = mkdtempSync(join(tmpdir(), "bunny-claude-tool-refs-"));
     vi.restoreAllMocks();
+    tempDirectory = mkdtempSync(
+      join(systemTempDirectory, "bunny-claude-tool-refs-"),
+    );
+    vi.mocked(tmpdir).mockReturnValue(tempDirectory);
   });
 
   afterEach(() => {
     globalThis.fetch = originalFetch;
-    rmSync(cwd, { recursive: true, force: true });
+    vi.restoreAllMocks();
+    rmSync(tempDirectory, { recursive: true, force: true });
   });
 
   it("converts refs preserving name and description", () => {
@@ -159,13 +175,13 @@ describe("buildMcpToolDefinitionsFromRefs", () => {
     globalThis.fetch = vi
       .fn()
       .mockResolvedValue(new Response(body, { status }));
-    const [def] = buildMcpToolDefinitionsFromRefs([httpRef], { cwd });
+    const [def] = buildMcpToolDefinitionsFromRefs([httpRef]);
     const result = await def.handler({}, {});
     expect(result.isError).toBe(status === 500 ? true : undefined);
     const text = result.content[0].text;
     expect(Buffer.byteLength(text)).toBeLessThanOrEqual(TOOL_OUTPUT_MAX_BYTES);
     const path = JSON.parse(text.match(/Full output saved to: (".*?")\./)![1]);
-    expect(path.startsWith(cwd)).toBe(true);
+    expect(path.startsWith(tempDirectory)).toBe(true);
     expect(readFileSync(path, "utf8")).toBe(body);
   });
 
@@ -173,7 +189,7 @@ describe("buildMcpToolDefinitionsFromRefs", () => {
     globalThis.fetch = vi
       .fn()
       .mockRejectedValue(new Error("failure".repeat(100_000)));
-    const [def] = buildMcpToolDefinitionsFromRefs([httpRef], { cwd });
+    const [def] = buildMcpToolDefinitionsFromRefs([httpRef]);
     const result = await def.handler({}, {});
     expect(result.isError).toBe(true);
     expect(Buffer.byteLength(result.content[0].text)).toBeLessThanOrEqual(
@@ -182,8 +198,3 @@ describe("buildMcpToolDefinitionsFromRefs", () => {
     expect(result.content[0].text).toContain("Full output saved to:");
   });
 });
-
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { TOOL_OUTPUT_MAX_BYTES } from "@bunny-agent/manager";
