@@ -11,6 +11,10 @@
  * `@bunny-agent/runner-pi` (deliberately re-declared here so the packages
  * stay decoupled), and the execution semantics mirror pi's `tool-refs.ts`.
  */
+import {
+  guardToolOutput,
+  type ToolOutputGuardOptions,
+} from "@bunny-agent/manager";
 import { z } from "zod";
 
 /** Where and how a tool ref executes. */
@@ -71,11 +75,15 @@ export interface ClaudeMcpToolDefinition {
  */
 export function buildMcpToolDefinitionsFromRefs(
   refs: ClaudeToolRef[],
+  options: ToolOutputGuardOptions = {},
 ): ClaudeMcpToolDefinition[] {
-  return refs.map((ref) => buildOne(ref));
+  return refs.map((ref) => buildOne(ref, options));
 }
 
-function buildOne(ref: ClaudeToolRef): ClaudeMcpToolDefinition {
+function buildOne(
+  ref: ClaudeToolRef,
+  options: ToolOutputGuardOptions,
+): ClaudeMcpToolDefinition {
   return {
     name: ref.name,
     description: ref.description,
@@ -86,17 +94,22 @@ function buildOne(ref: ClaudeToolRef): ClaudeMcpToolDefinition {
         response = await executeToolRef(ref, args, undefined);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        return errorResult(`Tool "${ref.name}" transport error: ${message}`);
+        const output = await guardToolOutput(
+          `Tool "${ref.name}" transport error: ${message}`,
+          options,
+        );
+        return errorResult(output.text);
       }
+      const output = await guardToolOutput(response.body, options);
       if (response.status < 200 || response.status >= 300) {
-        const body = response.body.trim();
+        const body = output.text.trim();
         return errorResult(
           body.length > 0
             ? body
             : `Tool execution failed with status ${response.status}`,
         );
       }
-      return { content: [{ type: "text", text: response.body }] };
+      return { content: [{ type: "text", text: output.text }] };
     },
   };
 }

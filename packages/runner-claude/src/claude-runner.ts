@@ -473,7 +473,7 @@ function buildToolRefServer(
   if (refs.length === 0 || !sdk?.createSdkMcpServer) {
     return { allowedToolNames: [] };
   }
-  const tools = buildMcpToolDefinitionsFromRefs(refs);
+  const tools = buildMcpToolDefinitionsFromRefs(refs, { cwd: options.cwd });
   const server = sdk.createSdkMcpServer({
     name: TOOL_REF_MCP_SERVER_NAME,
     tools: tools as unknown as Parameters<

@@ -49,13 +49,16 @@ describe("jsonSchemaToZodShape", () => {
 
 describe("buildMcpToolDefinitionsFromRefs", () => {
   const originalFetch = globalThis.fetch;
+  let cwd: string;
 
   beforeEach(() => {
+    cwd = mkdtempSync(join(tmpdir(), "bunny-claude-tool-refs-"));
     vi.restoreAllMocks();
   });
 
   afterEach(() => {
     globalThis.fetch = originalFetch;
+    rmSync(cwd, { recursive: true, force: true });
   });
 
   it("converts refs preserving name and description", () => {
@@ -148,4 +151,39 @@ describe("buildMcpToolDefinitionsFromRefs", () => {
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain("missing");
   });
+
+  it.each([
+    200, 500,
+  ])("bounds oversized HTTP responses while preserving status %i semantics", async (status) => {
+    const body = JSON.stringify({ report: "work log\\n".repeat(400_000) });
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValue(new Response(body, { status }));
+    const [def] = buildMcpToolDefinitionsFromRefs([httpRef], { cwd });
+    const result = await def.handler({}, {});
+    expect(result.isError).toBe(status === 500 ? true : undefined);
+    const text = result.content[0].text;
+    expect(Buffer.byteLength(text)).toBeLessThanOrEqual(TOOL_OUTPUT_MAX_BYTES);
+    const path = JSON.parse(text.match(/Full output saved to: (".*?")\./)![1]);
+    expect(path.startsWith(cwd)).toBe(true);
+    expect(readFileSync(path, "utf8")).toBe(body);
+  });
+
+  it("bounds oversized transport exceptions", async () => {
+    globalThis.fetch = vi
+      .fn()
+      .mockRejectedValue(new Error("failure".repeat(100_000)));
+    const [def] = buildMcpToolDefinitionsFromRefs([httpRef], { cwd });
+    const result = await def.handler({}, {});
+    expect(result.isError).toBe(true);
+    expect(Buffer.byteLength(result.content[0].text)).toBeLessThanOrEqual(
+      TOOL_OUTPUT_MAX_BYTES,
+    );
+    expect(result.content[0].text).toContain("Full output saved to:");
+  });
 });
+
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { TOOL_OUTPUT_MAX_BYTES } from "@bunny-agent/manager";
