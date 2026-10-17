@@ -456,6 +456,11 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
       const execOpts = {
         cwd: this.options.cwd ?? handle.getWorkdir(),
         signal: abortSignal,
+        // A coding run lasts as long as the agent works and ends via
+        // `abortSignal`. On exec-based sandboxes (LocalMachine), the daemon
+        // call would otherwise inherit the default command timeout (5 min)
+        // and kill every longer run. Sandock streams natively and ignores it.
+        timeout: 0,
       };
       const iterable = streamCodingRunFromSandbox(
         handle,
