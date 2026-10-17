@@ -74,8 +74,13 @@ let mcpAdapterModule: McpAdapterModule | undefined;
 
 function getMcpAdapterModule(): McpAdapterModule {
   if (!mcpAdapterModule) {
+    // pi-mcp-adapter ships TypeScript sources, so the first load transpiles
+    // them synchronously (~20s cold, blocking the daemon's event loop).
+    // Keep jiti's transpile cache (as Pi's own extension loader does) so later
+    // processes in the same sandbox load it in ~3s. jiti falls back to no
+    // cache when its cache directory is not writable.
     const jiti = createJiti(import.meta.url, {
-      fsCache: false,
+      fsCache: true,
       moduleCache: true,
     });
     mcpAdapterModule = jiti("pi-mcp-adapter") as McpAdapterModule;

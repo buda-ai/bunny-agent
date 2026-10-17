@@ -9,3 +9,7 @@ errors (including during compaction), rejects tool calls whose arguments are
 malformed JSON instead of running them with partial fields, no longer fails
 Anthropic requests when an error tool result carries images, and caps leaked
 codemode workers after repeated timeouts.
+
+The MCP adapter is now loaded with jiti's transpile cache enabled: its
+TypeScript sources took ~20s to compile on every new runner process, and now
+take ~3s once the sandbox has compiled them once.
