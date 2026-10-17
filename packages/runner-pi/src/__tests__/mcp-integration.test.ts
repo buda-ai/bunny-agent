@@ -48,6 +48,8 @@ describe("Pi MCP adapter integration", () => {
     );
   });
 
+  // A cold load transpiles pi-mcp-adapter's TypeScript sources through jiti,
+  // which alone takes ~20s on CI runners (19.4s on main before Pi 1.3).
   it("loads the real adapter, connects over Streamable HTTP, and calls a tool", async () => {
     const sessions = new Map<
       string,
@@ -185,5 +187,5 @@ describe("Pi MCP adapter integration", () => {
     expect(JSON.stringify(afterShutdown.content)).toMatch(
       /extension ctx is stale/,
     );
-  }, 20_000);
+  }, 60_000);
 });

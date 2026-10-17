@@ -1,8 +1,8 @@
 diff --git a/dist/core/agent-session.js b/dist/core/agent-session.js
-index c16f5da..fb98791 100644
+index 11ab140..3f1acfb 100644
 --- a/dist/core/agent-session.js
 +++ b/dist/core/agent-session.js
-@@ -1419,14 +1419,16 @@ export class AgentSession {
+@@ -1420,14 +1420,16 @@ export class AgentSession {
                  if (await this._handlePostAgentRun()) {
                      if (this._agentRunAbortRequested)
                          break;
@@ -21,7 +21,7 @@ index c16f5da..fb98791 100644
              }
          }
          finally {
-@@ -1496,6 +1498,20 @@ export class AgentSession {
+@@ -1497,6 +1499,20 @@ export class AgentSession {
              messages.unshift(updateMessage);
          return messages;
      }
@@ -72,7 +72,7 @@ index 83bf108..eb42d4d 100644
      if (contextFiles.length > 0)
          promptSections.project_context = renderProjectContext(contextFiles);
 diff --git a/package.json b/package.json
-index e6daaae..01c2736 100644
+index a23911c..7a1161a 100644
 --- a/package.json
 +++ b/package.json
 @@ -4,7 +4,8 @@

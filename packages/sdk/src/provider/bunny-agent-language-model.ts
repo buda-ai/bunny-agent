@@ -456,6 +456,11 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
       const execOpts = {
         cwd: this.options.cwd ?? handle.getWorkdir(),
         signal: abortSignal,
+        // A coding run lasts as long as the agent works and ends via
+        // `abortSignal`. On exec-based sandboxes (LocalMachine), the daemon
+        // call would otherwise inherit the default command timeout (5 min)
+        // and kill every longer run. Sandock streams natively and ignores it.
+        timeout: 0,
       };
       const iterable = streamCodingRunFromSandbox(
         handle,
@@ -621,11 +626,16 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
       async start(controller) {
         try {
           let buffer = "";
+          // One decoder per stream in streaming mode: a multi-byte UTF-8
+          // character (CJK, emoji) split across two network chunks must not be
+          // decoded half-and-half into U+FFFD replacement characters.
+          const decoder = new TextDecoder();
 
           while (true) {
             const { done, value } = await reader.read();
 
             if (done) {
+              buffer += decoder.decode();
               if (buffer.trim()) {
                 const parts = self.parseSSEBuffer(buffer);
                 for (const part of parts) {
@@ -641,8 +651,7 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
               break;
             }
 
-            const text = new TextDecoder().decode(value);
-            buffer += text;
+            buffer += decoder.decode(value, { stream: true });
 
             const lines = buffer.split("\n");
             buffer = lines.pop() ?? "";
