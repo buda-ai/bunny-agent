@@ -10,6 +10,18 @@
     ".": {
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
+    },
+    "./contracts": {
+      "import": "./dist/contracts/index.js",
+      "types": "./dist/contracts/index.d.ts"
+    },
+    "./contracts/source-id": {
+      "import": "./dist/contracts/source-id.js",
+      "types": "./dist/contracts/source-id.d.ts"
+    },
+    "./contracts/record": {
+      "import": "./dist/contracts/record.js",
+      "types": "./dist/contracts/record.d.ts"
     }
   },
   "files": [

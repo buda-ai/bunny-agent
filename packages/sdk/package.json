@@ -15,6 +15,10 @@
     "./react": {
       "types": "./src/react/index.ts",
       "import": "./src/react/index.ts"
+    },
+    "./contracts": {
+      "types": "./src/contracts.ts",
+      "import": "./src/contracts.ts"
     }
   },
   "publishConfig": {
@@ -30,6 +34,10 @@
       "./react": {
         "types": "./dist/react/index.d.ts",
         "import": "./dist/react/index.js"
+      },
+      "./contracts": {
+        "types": "./dist/contracts.d.ts",
+        "import": "./dist/contracts.js"
       }
     }
   },
@@ -71,12 +79,13 @@
   },
   "dependencies": {
     "@ai-sdk/provider": "^3.0.8",
-    "@ai-sdk/react": "^3.0.105",
+    "@ai-sdk/react": "^3.0.267",
     "@bunny-agent/manager": "workspace:*",
     "@bunny-agent/sandbox-local": "workspace:*",
     "@bunny-agent/sandbox-srt": "workspace:*"
   },
   "devDependencies": {
+    "ai": "6.0.264",
     "@types/node": "^20.10.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",

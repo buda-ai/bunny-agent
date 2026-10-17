@@ -1,7 +1,7 @@
 # Runner Integration Maturity
 
 > Living document — update this whenever a runner gains/loses a capability,
-> an SDK is upgraded, or a new runner lands. Last updated: 2026-07-27.
+> an SDK is upgraded, or a new runner lands. Last updated: 2026-10-16.
 
 Architecture recap:
 
@@ -147,6 +147,54 @@ Observable runners emit
 The SDK provider forwards this out of band through `onCompaction`; the web app
 uses a transient `data-compaction` part so the event is not persisted as
 assistant content.
+
+## Web search / citation contract (`searchContractVersion: 1`)
+
+Request-scoped, opt-in (never a process-global switch): omit
+`searchContractVersion` for unchanged legacy behavior. Set it to `1` to
+request the versioned retrieval/citation contract defined in
+`packages/manager/src/contracts/` (re-exported browser-safe as
+`@bunny-agent/sdk/contracts`). V1 requires stable `ai >=6.0.264 <7.0.0`
+(packaged React hooks use `@ai-sdk/react ^3.0.267`); unsupported consumer
+peers fail before execution. Legacy calls keep `ai: ^6.0.0` compatibility.
+An explicit `1` selection that the runner/daemon
+never acknowledges (older peer, or a stream that ends — including premature
+EOF — before any acknowledgement arrives) fails closed: the SDK surfaces a
+stream/generate error rather than silently falling back to legacy behavior or
+retrying automatically.
+
+See [`docs/search-citation-contract.md`](./search-citation-contract.md) for
+the full protocol: retrieval/citation JSON shapes, Unicode code-point offset
+units, source identity derivation, the explicit `[[cite:<source_id>]]`
+marker bridge, native-annotation ingestion boundary, processing limits, and
+Pi session resume/compaction/fork persistence — plus a validated illustrative
+fixture at
+[`docs/fixtures/search-citation-contract-handoff.json`](./fixtures/search-citation-contract-handoff.json).
+
+| Runner | structured_retrieval | native_annotations | explicit_source_marker_annotations |
+|---|---|---|---|
+| pi | ✅ `details.web_search` structured success/failure envelope on native Brave/Tavily and recognized canonical tool-ref results | ❌ (Pi/pi-ai do not natively ingest Responses-shaped annotations) | ✅ assistant-authored `[[cite:<source_id>]]` markers resolved into `[n]` + Responses-shaped `url_citation` annotations |
+| codex | ⚠️ query-only; Codex's own web-search tool is a provider-executed black box with no retrievable result payload — adapted to a truthful `source_details: "unavailable"` v1 envelope rather than inventing sources or zero-hit results | ❌ | ❌ (no bridge; Codex's SDK never surfaces assistant-visible search results to attach markers to) |
+| claude, gemini, opencode, copilot | ❌ unsupported runner for this version | ❌ | ❌ |
+
+Capabilities are never claimed speculatively: `native_annotations` is `false`
+for every runner today because the installed Pi/Codex SDK versions do not
+natively ingest or forward Responses-shaped annotations — this reflects the
+currently installed dependency versions, not a Bunny-side limitation, and is
+not expected to change without a dependency upgrade.
+
+The harness (`runner-harness/src/runner.ts`) is the sole enforcement point: it
+validates the requested version/runner pair before any runner is constructed,
+and on acceptance prepends a `message-metadata` SSE chunk carrying the
+runner's honest `SearchContractCapabilities` ahead of the runner's own stream.
+The SDK provider (`bunny-agent-language-model.ts`) requires this
+acknowledgement for any call that explicitly requested `searchContractVersion:
+1`, and treats a missing or structurally malformed acknowledgement identically
+(fail closed, no retry).
+
+Downstream UIMessage consumers must pass `{ sendSources: true }` to
+`toUIMessageStream()` to receive cited-source parts — the AI SDK does not
+forward them by default.
 
 ## Tool approval semantics
 

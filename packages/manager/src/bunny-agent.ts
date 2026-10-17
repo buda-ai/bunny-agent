@@ -90,6 +90,13 @@ export class BunnyAgent {
       cmd.push("--effort", this.runner.effort);
     }
 
+    if (this.runner.searchContractVersion !== undefined) {
+      cmd.push(
+        "--search-contract-version",
+        String(this.runner.searchContractVersion),
+      );
+    }
+
     // Add resume parameter for multi-turn conversation
     if (input.resume) {
       cmd.push("--resume", input.resume);

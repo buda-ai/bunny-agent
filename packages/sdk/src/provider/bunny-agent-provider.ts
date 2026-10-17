@@ -89,6 +89,9 @@ export function createBunnyAgent(
       runnerType: options.runnerType ?? defaultOptions.runnerType,
       outputFormat: "stream",
       maxTurns: options.maxTurns ?? defaultOptions.maxTurns,
+      ...((options.yolo ?? defaultOptions.yolo) !== undefined
+        ? { yolo: options.yolo ?? defaultOptions.yolo }
+        : {}),
       ...((options.systemPrompt ?? defaultOptions.systemPrompt)
         ? { systemPrompt: options.systemPrompt ?? defaultOptions.systemPrompt }
         : {}),
@@ -101,6 +104,14 @@ export function createBunnyAgent(
       ...((options.effort ?? defaultOptions.effort)
         ? {
             effort: options.effort ?? defaultOptions.effort,
+          }
+        : {}),
+      ...((options.searchContractVersion ??
+        defaultOptions.searchContractVersion) !== undefined
+        ? {
+            searchContractVersion:
+              options.searchContractVersion ??
+              defaultOptions.searchContractVersion,
           }
         : {}),
     };

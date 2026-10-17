@@ -50,6 +50,12 @@ export interface RunRequest {
    * a timeout result to the model so the conversation can continue.
    */
   askUserQuestionTimeoutMs?: number;
+  /**
+   * Explicit opt-in to the versioned web search / answer citation contract
+   * (see `@bunny-agent/manager/contracts`). Request-scoped; absent means
+   * legacy text-only search behavior.
+   */
+  searchContractVersion?: number;
 }
 
 export const assertRunRequestInput = (req: RunRequest): void => {
@@ -116,6 +122,7 @@ export async function* codingRunChunks(
       mcpConfig: req.mcpConfig,
       effort: req.effort,
       askUserQuestionTimeoutMs: req.askUserQuestionTimeoutMs,
+      searchContractVersion: req.searchContractVersion,
       // API: caller owns resume/session; do not read/write cwd/.bunny-agent or auto-load CLAUDE.md.
       autoInject: false,
     });

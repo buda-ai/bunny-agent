@@ -2,7 +2,16 @@
  * Web search tool — pluggable providers (Brave, Tavily).
  * Provider auto-detected from env keys; Brave preferred over Tavily.
  */
-import type { SearchResult, ToolDefinition } from "./types.js";
+import {
+  buildWebSearchCallRecord,
+  buildWebSearchFailureRecord,
+  classifyWebSearchError,
+} from "@bunny-agent/manager/contracts/record";
+import type {
+  SearchResult,
+  ToolDefinition,
+  WebSearchToolDetails,
+} from "./types.js";
 
 export type { SearchResult };
 
@@ -21,6 +30,7 @@ export interface WebSearchProvider {
     count: number;
     country?: string;
     freshness?: string;
+    searchContractVersion?: 1;
   }): Promise<SearchResult[]>;
 }
 
@@ -28,13 +38,56 @@ export interface WebSearchProvider {
 // Providers
 // ---------------------------------------------------------------------------
 
+/**
+ * A thrown provider-shape error that must classify as a safe, non-retryable
+ * `provider_error` rather than surface any raw body text. Distinct from an
+ * HTTP failure: the request succeeded, but the body cannot be trusted to
+ * mean "zero hits" because it does not match the provider's documented
+ * response shape.
+ */
+class MalformedProviderResponseError extends Error {
+  constructor(provider: string) {
+    super(
+      `${provider} returned a response that does not match the expected schema.`,
+    );
+    this.name = "MalformedProviderResponseError";
+  }
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function validateProviderResults(
+  data: unknown,
+  provider: "Brave" | "Tavily",
+): void {
+  if (!isPlainObject(data)) throw new MalformedProviderResponseError(provider);
+  const rows =
+    provider === "Brave"
+      ? isPlainObject(data.web)
+        ? data.web.results
+        : undefined
+      : data.results;
+  // Missing source details do not establish a confirmed zero-hit search.
+  if (!Array.isArray(rows)) throw new MalformedProviderResponseError(provider);
+}
+
 const braveProvider: WebSearchProvider = {
   id: "brave",
   label: "Brave Search",
   envKeys: ["BRAVE_API_KEY"],
   urlEnvKey: "BRAVE_SEARCH_URL",
   defaultUrl: "https://api.search.brave.com/res/v1/web/search",
-  async search({ apiKey, url, query, count, country, freshness }) {
+  async search({
+    apiKey,
+    url,
+    query,
+    count,
+    country,
+    freshness,
+    searchContractVersion,
+  }) {
     const params = new URLSearchParams({
       q: query,
       count: String(Math.min(count, 20)),
@@ -54,9 +107,14 @@ const braveProvider: WebSearchProvider = {
       );
     // biome-ignore lint/suspicious/noExplicitAny: Brave API response
     const data: any = await res.json();
+    if (searchContractVersion === 1) validateProviderResults(data, "Brave");
     const results: SearchResult[] = [];
     for (const r of data.web?.results ?? []) {
       if (results.length >= count) break;
+      if (searchContractVersion === 1 && !isPlainObject(r)) {
+        results.push({ title: "", link: "", snippet: "" });
+        continue;
+      }
       results.push({
         title: r.title ?? "",
         link: r.url ?? "",
@@ -74,7 +132,7 @@ const tavilyProvider: WebSearchProvider = {
   envKeys: ["TAVILY_API_KEY"],
   urlEnvKey: "TAVILY_SEARCH_URL",
   defaultUrl: "https://api.tavily.com/search",
-  async search({ apiKey, url, query, count }) {
+  async search({ apiKey, url, query, count, searchContractVersion }) {
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -91,12 +149,17 @@ const tavilyProvider: WebSearchProvider = {
       );
     // biome-ignore lint/suspicious/noExplicitAny: Tavily API response
     const data: any = await res.json();
+    if (searchContractVersion === 1) validateProviderResults(data, "Tavily");
     // biome-ignore lint/suspicious/noExplicitAny: Tavily API response item
-    return (data.results ?? []).map((r: any) => ({
-      title: r.title ?? "",
-      link: r.url ?? "",
-      snippet: r.content ?? "",
-    }));
+    return (data.results ?? []).map((r: any) => {
+      if (searchContractVersion === 1 && !isPlainObject(r))
+        return { title: "", link: "", snippet: "" };
+      return {
+        title: r.title ?? "",
+        link: r.url ?? "",
+        snippet: r.content ?? "",
+      };
+    });
   },
 };
 
@@ -242,17 +305,19 @@ export async function fetchPageContent(url: string): Promise<string> {
   }
 }
 
-function formatResults(results: SearchResult[], label: string): string {
+function formatResults(
+  results: SearchResult[],
+  label: string,
+  sourceIds?: string[],
+): string {
   if (results.length === 0) return "No results found.";
   return (
     `[${label}] ${results.length} result(s)\n` +
     results
       .map((r, i) => {
-        const lines = [
-          `--- Result ${i + 1} ---`,
-          `Title: ${r.title}`,
-          `Link: ${r.link}`,
-        ];
+        const lines = [`--- Result ${i + 1} ---`];
+        if (sourceIds?.[i]) lines.push(`Source ID: ${sourceIds[i]}`);
+        lines.push(`Title: ${r.title}`, `Link: ${r.link}`);
         if (r.age) lines.push(`Age: ${r.age}`);
         lines.push(`Snippet: ${r.snippet}`);
         if (r.content) lines.push(`Content:\n${r.content}`);
@@ -262,14 +327,26 @@ function formatResults(results: SearchResult[], label: string): string {
   );
 }
 
+/**
+ * Appended to v1-mode `web_search` results: instructs the model to use the
+ * explicit `[[cite:<source_id>]]` marker bridge immediately after a
+ * supported statement. Only included when `searchContractVersion: 1` is
+ * selected — legacy output is unaffected.
+ */
+const V1_CITATION_INSTRUCTION =
+  "\n\nTo cite a result above in your answer, write [[cite:<Source ID>]] " +
+  "immediately after the statement it supports, using the exact Source ID shown.";
+
 // ---------------------------------------------------------------------------
 // Tool builder
 // ---------------------------------------------------------------------------
 
 export function buildWebSearchTool(
   env: Record<string, string>,
+  searchContractVersion?: 1,
 ): ToolDefinition {
   const providers = resolveSearchProviders(env);
+  const v1 = searchContractVersion === 1;
 
   return {
     name: "web_search",
@@ -280,6 +357,11 @@ export function buildWebSearchTool(
     promptGuidelines: [
       "Use for current info, docs, or facts not available locally.",
       "Set fetch_content=true only when you need full page text — it is slower.",
+      ...(v1
+        ? [
+            "When citing a web_search result in your answer, write [[cite:<Source ID>]] immediately after the supported statement.",
+          ]
+        : []),
     ],
     parameters: {
       type: "object",
@@ -295,7 +377,7 @@ export function buildWebSearchTool(
         fetch_content: { type: "boolean" },
       },
     },
-    async execute(_id, params, _signal, _onUpdate) {
+    async execute(toolCallId, params, _signal, _onUpdate) {
       const p = params as Record<string, unknown>;
       const query = p.query as string;
       const count = (p.count as number) ?? 5;
@@ -304,7 +386,10 @@ export function buildWebSearchTool(
       const shouldFetch = (p.fetch_content as boolean) ?? false;
 
       let lastError: unknown;
+      let lastProviderLabel = "unknown provider";
+      let terminalFailureInV1 = false;
       for (const { provider, apiKey, url } of providers) {
+        lastProviderLabel = provider.label;
         try {
           const results = await provider.search({
             apiKey,
@@ -313,52 +398,130 @@ export function buildWebSearchTool(
             count,
             country,
             freshness,
+            ...(v1 ? { searchContractVersion: 1 as const } : {}),
           });
           if (shouldFetch)
             for (const r of results) r.content = await fetchPageContent(r.link);
-          return {
-            content: [
-              {
-                type: "text" as const,
-                text: formatResults(results, provider.label),
-              },
-            ],
-            details: undefined,
-          };
+
+          if (!v1) {
+            return {
+              content: [
+                {
+                  type: "text" as const,
+                  text: formatResults(results, provider.label),
+                },
+              ],
+              details: undefined,
+            };
+          }
+          return buildV1SuccessResult(toolCallId, query, provider.id, results);
         } catch (e) {
           lastError = e;
+          // Keep v1 authentication/schema failures visible. Legacy fallback
+          // and recoverable rate/network behavior retain their existing policy.
+          if (
+            v1 &&
+            (classifyWebSearchError(e).code === "authentication" ||
+              e instanceof MalformedProviderResponseError ||
+              e instanceof SyntaxError)
+          ) {
+            terminalFailureInV1 = true;
+            break;
+          }
           if (isRateLimitError(e) && providers.length > 1) continue;
           break;
         }
       }
 
-      // DDG zero-config fallback
-      try {
-        const results = await duckduckgoSearch(query, count);
-        if (shouldFetch)
-          for (const r of results) r.content = await fetchPageContent(r.link);
+      if (!terminalFailureInV1) {
+        // DDG zero-config fallback
+        lastProviderLabel = "DuckDuckGo";
+        try {
+          const results = await duckduckgoSearch(query, count);
+          if (shouldFetch)
+            for (const r of results) r.content = await fetchPageContent(r.link);
+
+          if (!v1) {
+            return {
+              content: [
+                {
+                  type: "text" as const,
+                  text: formatResults(results, "DuckDuckGo"),
+                },
+              ],
+              details: undefined,
+            };
+          }
+          return buildV1SuccessResult(toolCallId, query, "duckduckgo", results);
+        } catch (e) {
+          lastError = e;
+        }
+      }
+
+      if (!v1) {
+        const msg =
+          lastError instanceof Error ? lastError.message : String(lastError);
         return {
           content: [
-            {
-              type: "text" as const,
-              text: formatResults(results, "DuckDuckGo"),
-            },
+            { type: "text" as const, text: `Web search error: ${msg}` },
           ],
           details: undefined,
         };
-      } catch (e) {
-        lastError = e;
       }
 
+      // v1 diagnostics must never project raw provider body text (which may
+      // echo request/auth details); only the sanitized classifier message
+      // is safe to surface here.
+      const failureRecord = buildWebSearchFailureRecord({
+        id: toolCallId,
+        query,
+        provider: lastProviderLabel,
+        error: classifyWebSearchError(lastError),
+      });
+      const details: WebSearchToolDetails = { web_search: failureRecord };
       return {
         content: [
           {
             type: "text" as const,
-            text: `Web search error: ${lastError instanceof Error ? lastError.message : String(lastError)}`,
+            text: `Web search error: ${failureRecord.error?.message}`,
           },
         ],
-        details: undefined,
+        details,
       };
     },
   };
+}
+
+function buildV1SuccessResult(
+  toolCallId: string,
+  query: string,
+  providerId: string,
+  results: SearchResult[],
+): {
+  content: Array<{ type: "text"; text: string }>;
+  details: WebSearchToolDetails;
+} {
+  const record = buildWebSearchCallRecord({
+    id: toolCallId,
+    query,
+    provider: providerId,
+    results,
+  });
+  const readable = record.results.map((r) => ({
+    title: r.title ?? r.url,
+    link: r.url,
+    snippet: r.snippet ?? "",
+    age: r.age,
+    content: r.content,
+  }));
+  const text =
+    record.source_details === "unavailable"
+      ? "Search completed, but validated source details are unavailable."
+      : formatResults(
+          readable,
+          providerId,
+          record.results.map((r) => r.source_id),
+        ) + (record.results.length > 0 ? V1_CITATION_INSTRUCTION : "");
+  const details: WebSearchToolDetails = { web_search: record };
+  return { content: [{ type: "text" as const, text }], details };
 }

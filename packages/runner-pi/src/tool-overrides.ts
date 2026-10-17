@@ -229,6 +229,7 @@ export function buildSecretAwareTools(
   cwd: string,
   secrets: Record<string, string>,
   opts: BashToolOptions = {},
+  searchContractVersion?: 1,
 ): ToolDefinition[] {
   const tools: ToolDefinition[] = [
     buildEnvInjectedBashTool(cwd, secrets, opts),
@@ -237,7 +238,7 @@ export function buildSecretAwareTools(
   ];
 
   if (resolveSearchProvider(secrets)) {
-    tools.push(buildWebSearchTool(secrets));
+    tools.push(buildWebSearchTool(secrets, searchContractVersion));
   }
 
   // if (resolveImageProvider(secrets)) {

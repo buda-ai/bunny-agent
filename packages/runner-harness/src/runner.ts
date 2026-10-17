@@ -4,6 +4,10 @@ import {
   createLegacyAgentTurnInput,
   parseAgentTurnInputV1,
 } from "@bunny-agent/manager";
+import {
+  isSupportedSearchContractVersion,
+  type SearchContractCapabilities,
+} from "@bunny-agent/manager/contracts";
 import type { BaseRunnerOptions } from "@bunny-agent/runner-claude";
 import { createClaudeRunner } from "@bunny-agent/runner-claude";
 import { createCodexRunner } from "@bunny-agent/runner-codex";
@@ -84,11 +88,88 @@ export interface RunnerCoreOptions extends BaseRunnerOptions {
    * (SDK `forkSession`); other runners ignore it.
    */
   forkFrom?: string;
+  /**
+   * Explicit opt-in to the versioned web search / answer citation contract
+   * (see `@bunny-agent/manager/contracts`). Absent means legacy text-only
+   * search behavior. Only `pi` (structured retrieval + explicit citation
+   * bridge) and `codex` (unavailable-detail envelope) currently support an
+   * explicit v1 selection; other runners reject it rather than silently
+   * ignoring the request.
+   */
+  searchContractVersion?: number;
+}
+
+/** Runners that accept an explicit `searchContractVersion` selection today. */
+const SEARCH_CONTRACT_SUPPORTED_RUNNERS = new Set(["pi", "codex"]);
+
+/**
+ * Resolve the honest capability acknowledgement for a runner/version pair.
+ * Only called after the version itself has already been validated as
+ * supported by this release (see {@link isSupportedSearchContractVersion}).
+ */
+export function resolveSearchContractCapabilities(
+  runner: string,
+  version: 1,
+): SearchContractCapabilities {
+  if (runner === "pi") {
+    return {
+      version,
+      structured_retrieval: true,
+      // The installed Pi model adapter exposes text/text signatures with no
+      // annotation field (see design.md §5) — this must stay false until an
+      // upstream adapter release actually carries native annotations.
+      native_annotations: false,
+      explicit_source_marker_annotations: true,
+    };
+  }
+  if (runner === "codex") {
+    return {
+      version,
+      // Codex's web_search completion exposes only {query}; no result list
+      // or citation metadata is ever recoverable from it.
+      structured_retrieval: false,
+      native_annotations: false,
+      explicit_source_marker_annotations: false,
+    };
+  }
+  throw new Error(
+    `resolveSearchContractCapabilities: runner "${runner}" does not support an explicit search contract version`,
+  );
+}
+
+/** Build the structured `message-metadata` acknowledgement SSE chunk. */
+function searchContractAcknowledgementChunk(
+  capabilities: SearchContractCapabilities,
+): string {
+  return (
+    "data: " +
+    JSON.stringify({
+      type: "message-metadata",
+      messageMetadata: {
+        searchContract: capabilities,
+      },
+    }) +
+    "\n\n"
+  );
+}
+
+/** Build the SSE error+finish envelope used for a rejected request, matching `server-ai-sdk`'s errorEnvelope shape. */
+function unsupportedSearchContractEnvelope(message: string): string {
+  return (
+    `data: ${JSON.stringify({ type: "error", errorText: message })}\n\n` +
+    `data: ${JSON.stringify({ type: "finish", finishReason: "error" })}\n\n` +
+    `data: [DONE]\n\n`
+  );
 }
 
 export function createRunner(
   options: RunnerCoreOptions,
 ): AsyncIterable<string> {
+  if (options.searchContractVersion !== undefined) {
+    const rejection = rejectUnsupportedSearchContract(options);
+    if (rejection) return rejection;
+  }
+
   const cwd = options.cwd ?? process.cwd();
   const env = options.env ?? (process.env as Record<string, string>);
   const abortController = options.abortController ?? new AbortController();
@@ -118,7 +199,55 @@ export function createRunner(
     ? parseAgentTurnInputV1(options.input)
     : createLegacyAgentTurnInput(options.userInput ?? "");
   const rawStream = dispatchRunner(options.runner, base, cwd, options, input);
-  return autoInject ? captureSessionId(rawStream, cwd) : rawStream;
+  const stream =
+    options.searchContractVersion !== undefined
+      ? prependSearchContractAcknowledgement(
+          rawStream,
+          resolveSearchContractCapabilities(
+            options.runner,
+            options.searchContractVersion as 1,
+          ),
+        )
+      : rawStream;
+  return autoInject ? captureSessionId(stream, cwd) : stream;
+}
+
+/**
+ * Validate an explicitly selected `searchContractVersion` against both this
+ * release's supported versions and the target runner's declared support.
+ * Returns a one-shot AsyncIterable yielding the SSE error+finish envelope
+ * when the request must be rejected, or `undefined` when it is valid and
+ * dispatch should proceed. Rejecting here (before any runner work starts)
+ * ensures an unsupported selection is never silently treated as v1.
+ */
+function rejectUnsupportedSearchContract(
+  options: RunnerCoreOptions,
+): AsyncIterable<string> | undefined {
+  const version = options.searchContractVersion;
+  if (!isSupportedSearchContractVersion(version)) {
+    return (async function* () {
+      yield unsupportedSearchContractEnvelope(
+        `Unsupported searchContractVersion: ${JSON.stringify(version)}. This release supports version 1.`,
+      );
+    })();
+  }
+  if (!SEARCH_CONTRACT_SUPPORTED_RUNNERS.has(options.runner)) {
+    return (async function* () {
+      yield unsupportedSearchContractEnvelope(
+        `Runner "${options.runner}" does not support searchContractVersion 1.`,
+      );
+    })();
+  }
+  return undefined;
+}
+
+/** Prepend the capability acknowledgement chunk to a runner's raw SSE stream. */
+async function* prependSearchContractAcknowledgement(
+  stream: AsyncIterable<string>,
+  capabilities: SearchContractCapabilities,
+): AsyncIterable<string> {
+  yield searchContractAcknowledgementChunk(capabilities);
+  yield* stream;
 }
 
 function dispatchRunner(
@@ -160,6 +289,7 @@ function dispatchRunner(
                 options.effort as import("@bunny-agent/runner-codex").CodexRunnerOptions["modelReasoningEffort"],
             }
           : {}),
+        searchContractVersion: options.searchContractVersion as 1 | undefined,
       }).run(compiled.text);
     }
     case "gemini":
@@ -188,6 +318,7 @@ function dispatchRunner(
         mcpConfig: options.mcpConfig,
         effort: options.effort,
         systemEnv: options.systemEnv,
+        searchContractVersion: options.searchContractVersion as 1 | undefined,
       }).run(hasStructuredInput ? input : compiled.text);
     }
     case "opencode":

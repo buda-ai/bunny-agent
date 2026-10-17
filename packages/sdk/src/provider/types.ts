@@ -186,6 +186,20 @@ export interface BunnyAgentProviderSettings
   /** Reasoning effort / thinking level (e.g. "low", "medium", "high"). */
   effort?: string;
   /**
+   * Explicit opt-in to the versioned web search / answer citation contract
+   * (see `@bunny-agent/manager/contracts`, re-exported browser-safe as
+   * `@bunny-agent/sdk/contracts`). Absent means legacy text-only search
+   * behavior, unchanged; `1` requests the structured retrieval envelope and
+   * Responses-shaped answer annotations. V1 requires a stable AI SDK 6 peer
+   * at >=6.0.264 <7.0.0 to preserve tool-result metadata; older peers are
+   * rejected before execution. Request-scoped, never a
+   * process-global switch. The SDK rejects the call (surfaced as a stream
+   * error / rejected `generateText`/`streamText` result) if the runner/daemon
+   * never acknowledges support for the requested version rather than
+   * silently falling back to legacy behavior or retrying automatically.
+   */
+  searchContractVersion?: 1;
+  /**
    * Optional subset of `env` whose keys are safe to expose to the pi runner's
    * bash tool. When omitted, the runner classifies `env` via a built-in
    * whitelist so business credentials never leak into the shell. Use this to
