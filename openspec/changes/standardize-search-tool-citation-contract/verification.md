@@ -1,8 +1,8 @@
 # Verification and remaining acceptance
 
-Date: 2026-10-16
+Date: 2026-10-20
 Baseline: main@38c228c, v0.9.62
-Status: 30 of 31 tasks complete. Task 7.2 remains unchecked.
+Status: all 32 listed tasks complete, including fresh real Tavily acceptance and automatic negotiation. Published-package and cloud deployment gates remain separate.
 
 ## Scoped checks
 
@@ -119,10 +119,10 @@ overrides were used for these checks, and no new model/provider run is claimed.
 
 ## Remaining gates
 
-Task 7.2 requires a **new runtime-supplied Tavily credential** for a fresh
-real provider/model/daemon/SDK citation run. Earlier real Tavily source-card
-evidence does not satisfy this task, and its discarded credential is not
-reused. Controlled-provider success is not live Tavily acceptance.
+Task 7.2 passed in the fresh local run recorded below. This is real Tavily
+acceptance, separate from the earlier controlled-provider matrix. Publishing a
+release, validating its clean consumer build, and testing actual Sandock/cloud
+images remain release gates; this local run does not establish those results.
 
 Native ingestion has typed recorded-fixture coverage. Current Pi/Codex
 adapters still report `native_annotations: false`; a supported upstream
@@ -134,3 +134,39 @@ database persistence, reload/fork UI behavior, and hosted OpenAI search
 acceptance remain separate. The consumer checklist maps these to explicit
 follow-up tests. kapps PR #8009 implements retrieved-source cards and does
 not implement this answer annotation contract. This change remains opt-in.
+
+
+## Automatic negotiation and fresh provider acceptance (2026-10-20)
+
+The SDK now accepts `searchContractVersion: "auto"`. A Pi daemon is probed
+through a read-only sandbox-side `/healthz` GET before execution. V1 requires
+structured retrieval and the explicit-source-marker capability; other healthy
+versions use legacy. Errors are surfaced without a coding POST. Discovery and
+execution share the same attached handle. Healthy results are cached by
+handle, sandbox ID and daemon URL for at most 30 seconds; strict in-stream
+acknowledgement remains mandatory after v1 selection.
+
+A real `openai:gpt-4.1-mini` invocation against the pre-discovery local daemon
+returned `LEGACY_OK`. A recording HTTP proxy observed one health GET and one
+coding POST with no search contract version. No tool ran and no acknowledgement
+was required. The old daemon returned HTTP 200 without capability metadata.
+
+After restarting with the updated local daemon, a real Buda web conversation
+using Gemini 3.7 Flash performed one actual `web_search` call. Brave's exhausted
+quota triggered the existing Tavily fallback. Five real Tavily results yielded
+two model-authored answer annotations pointing to the official OpenAI web-search
+documentation. Both source IDs/URLs and tool-call bindings matched the executed
+search output. Unicode code-point ranges after an emoji selected the exact
+`[1]` substrings. JSON round-trip projections matched, and persisted Buda history
+retained both annotations. Inline title pills, click details, no trailing source
+summary, and full browser reload passed.
+
+[Sanitized live acceptance summary](https://pub-5d59c786708441b3a80620d87e7dee2b.r2.dev/tmp/2026-10-20/buda-citations-auto-evidence.json)
+contains the captured answer, annotations and verification boundary.
+
+The Buda consumer is reviewed separately in
+[kapps PR #8043](https://github.com/vikadata/kapps/pull/8043). Its local browser
+verification does not establish hosted OpenAI
+native annotations, live Brave success, clean published SDK installation,
+Sandock image acceptance, or dev/prod deployment. Current Pi/Codex
+`native_annotations` remains false.

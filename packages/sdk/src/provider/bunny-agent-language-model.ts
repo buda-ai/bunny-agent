@@ -19,6 +19,7 @@ import {
   type Message,
   type RunnerSpec,
   SandboxExecError,
+  type SandboxHandle,
   streamCodingRunFromSandbox,
   type ToolRef,
 } from "@bunny-agent/manager";
@@ -30,6 +31,10 @@ import {
 } from "../contracts";
 import { getProviderLogger } from "./logging";
 import { assertSearchContractAiSdkSupport } from "./search-contract-ai-sdk";
+import {
+  discoverPiSearchContract,
+  waitForSearchDiscovery,
+} from "./search-contract-discovery";
 import { compileToolRefsFromLanguageModelTools } from "./tool-refs";
 import type {
   BunnyAgentModelId,
@@ -541,15 +546,50 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
   ): Promise<LanguageModelV3StreamResult> {
     // A model may be reused by overlapping AI SDK calls. All mutable parser,
     // negotiation, identity, and artifact state belongs to this invocation.
+    let invocationOptions = this.options;
+    let discoveredHandle: SandboxHandle | undefined;
+    if (this.options.searchContractVersion === "auto") {
+      if (!this.options.sandbox) {
+        throw new Error(
+          "BunnyAgent language model requires a sandbox adapter (set `sandbox` on the provider).",
+        );
+      }
+      if (options.abortSignal?.aborted) {
+        throw new DOMException(
+          "Search capability discovery aborted.",
+          "AbortError",
+        );
+      }
+      let version: 1 | undefined;
+      if (this.options.runner.runnerType === "pi" && this.options.daemonUrl) {
+        discoveredHandle = await waitForSearchDiscovery(
+          this.options.sandbox.attach(),
+          options.abortSignal,
+        );
+        version = await discoverPiSearchContract(
+          discoveredHandle,
+          this.options.daemonUrl,
+          {
+            cwd: this.options.cwd,
+            signal: options.abortSignal,
+          },
+        );
+      }
+      invocationOptions = {
+        ...this.options,
+        runner: { ...this.options.runner, searchContractVersion: version },
+      };
+    }
     const invocation = new BunnyAgentLanguageModel({
       id: this.modelId,
-      options: this.options,
+      options: invocationOptions,
     });
-    return invocation.doStreamInvocation(options);
+    return invocation.doStreamInvocation(options, discoveredHandle);
   }
 
   private async doStreamInvocation(
     options: LanguageModelV3CallOptions,
+    discoveredHandle?: SandboxHandle,
   ): Promise<LanguageModelV3StreamResult> {
     if (this.requestedSearchContractVersion === 1) {
       await assertSearchContractAiSdkSupport();
@@ -574,7 +614,7 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
     const daemonUrl = this.options.daemonUrl;
 
     if (daemonUrl) {
-      const handle = await sandbox.attach();
+      const handle = discoveredHandle ?? (await sandbox.attach());
       const sandboxEnv = sandbox.getEnv?.() ?? {};
       const runnerEnv = { ...sandboxEnv, ...this.options.env };
       const body: BunnyAgentCodingRunBody = {

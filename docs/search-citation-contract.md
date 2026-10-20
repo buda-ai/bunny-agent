@@ -14,6 +14,69 @@ ranges, database persistence of annotations) is explicitly out of scope here
 
 ## Requesting the contract
 
+Product integrations can select `searchContractVersion: "auto"` in the SDK
+provider settings or per-model options. This setting is SDK-only: it is never
+sent to the runner, CLI, or coding-run request body. For a Pi daemon, the SDK
+first reads `/healthz` inside the attached sandbox using `SandboxHandle.exec`
+and bounded `curl`. Sandock uses its existing authenticated shell transport
+for this read, followed by its existing native coding-run stream for execution;
+there is no host-side loopback fetch and no extra coding-run request.
+
+The daemon advertises capabilities from the same runner resolver used for the
+stream acknowledgement:
+
+```json
+{
+  "ok": true,
+  "data": {
+    "status": "ok",
+    "capabilities": {
+      "searchContracts": {
+        "pi": {
+          "version": 1,
+          "structured_retrieval": true,
+          "native_annotations": false,
+          "explicit_source_marker_annotations": true
+        }
+      }
+    }
+  }
+}
+```
+
+Auto selects v1 only when Pi advertises both structured retrieval and explicit
+source-marker annotations. A valid healthy old daemon without this advertisement
+uses legacy behavior. Auto on non-Pi runners or without a daemon URL also uses
+legacy behavior. HTTP 401/403/404/500, network errors, malformed responses, and
+timeouts reject before coding execution; they do not prove an old runtime and
+are not cached as one. Every invocation executes at most one coding-run request,
+with no execute-and-retry fallback. Once auto selects v1, the normal strict
+stream acknowledgement checks still apply. The coding request uses the exact
+handle that was probed, even if a reconnecting adapter would attach elsewhere.
+
+Healthy positive and legacy discovery results have a 30-second cache, scoped
+to the handle object, its actual sandbox ID, and normalized daemon URL. Each
+handle retains at most 16 endpoint entries; concurrent subscribers share one
+probe. A canceled subscriber leaves other subscribers active; the transport is
+aborted when all subscribers leave or its four-second budget expires. A transport
+that ignores cancellation remains tracked until it actually settles so a second
+probe cannot overlap it. An in-place daemon restart under the same identity can
+remain cached for up to 30 seconds: auto does not promise instant discovery.
+
+```ts
+const provider = createBunnyAgent({
+  sandbox,
+  daemonUrl: "http://127.0.0.1:3080",
+  runnerType: "pi",
+  searchContractVersion: "auto",
+  env: runnerEnv,
+});
+```
+
+For a strict opt-in with no discovery or compatibility fallback, keep using
+`searchContractVersion: 1` as described below. Omitting the setting remains
+legacy and adds no capability probe.
+
 Set `searchContractVersion: 1` on the request. This is forwarded unchanged
 through every layer:
 
@@ -62,7 +125,7 @@ closed identically.
 
 | Runner | `structured_retrieval` | `native_annotations` | `explicit_source_marker_annotations` |
 |---|---|---|---|
-| pi | ✅ `details.web_search` structured success/failure envelope on Brave/Tavily/DuckDuckGo | ❌ | ✅ assistant-authored `[[cite:<source_id>]]` markers resolved into `[n]` + `url_citation` annotations |
+| pi | ✅ `details.web_search` structured success/failure envelope on Brave/Tavily/DuckDuckGo | ❌ | ✅ assistant-authored `[[cite:<Reference>]]` markers resolved into `[n]` + `url_citation` annotations |
 | codex | ⚠️ query-only; Codex's web-search tool is a provider-executed black box with no retrievable result payload — adapted into a truthful `source_details: "unavailable"` v1 envelope rather than inventing sources or a false zero-hit result | ❌ | ❌ (no bridge; Codex never surfaces assistant-visible search results to attach markers to) |
 | claude, gemini, opencode, copilot | ❌ unsupported runner for this version | ❌ | ❌ |
 
@@ -241,13 +304,36 @@ sliceByCodePointRange("A😀B [1]", 4, 7);      // => "[1]"
 For tools without native provider annotations, the model is instructed
 (guidance text from `citationSourceGuidance()` in
 `packages/runner-pi/src/citation-session-cache.ts`) to emit
-`[[cite:<source_id>]]` immediately after a supported statement. A bounded
+`[[cite:<Reference>]]` immediately after a supported statement. Search tool
+readable content and continuation guidance expose compact `ref_<12hex>`
+References derived from the first 12 lowercase hexadecimal characters of the
+canonical source digest. The model does not need to copy a full SHA-256 source
+ID. This alias is a model-facing convenience, not a new source identity: typed
+`details.web_search`, stored source caches, annotation bindings, and emitted
+`source-url` chunks retain the complete canonical `src_<sha256-hex>` ID.
+
+A bounded
 incremental tokenizer (`CitationTextProcessor` in
 `packages/runner-pi/src/citation-processor.ts`) resolves valid tokens into a
 visible `[n]` marker plus a flat annotation spanning exactly that emitted
 marker, plus a binding with `origin: "explicit_source_marker"`. Numbers are
 stable by first reference within one assistant message and shared across
 that message's text parts.
+
+Resolution accepts only an exact compact Reference or an exact legacy
+`[[cite:src_<sha256-hex>]]` marker. It never repairs a typo, uses approximate
+matching, or treats an arbitrary URL as evidence. A compact Reference is resolved
+against verified current sources and the request's captured reachable session
+ancestry. If multiple canonical IDs share an alias, the alias is rejected with
+an internal diagnostic and no annotation; exact canonical references remain
+available. The short alias never overrides canonical identity validation.
+
+References are deterministic, so multiple search calls and resumed, compacted,
+or forked sessions reconstruct the same alias from existing typed provenance.
+Only the captured ancestry is consulted, including sources older than the
+20-source prompt window; sibling branches and later session entries cannot
+introduce sources into the current request. No process-global alias map or
+separate numbering cache is used.
 
 Unknown source IDs, malformed tokens, and markers inside inline code spans or
 fenced code blocks are retained as literal text and produce no annotation —

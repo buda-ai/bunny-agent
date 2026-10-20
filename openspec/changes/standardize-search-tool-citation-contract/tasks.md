@@ -12,6 +12,8 @@
 - [x] 2.2 Parse and validate version selection in runner CLI, server-ai-sdk coding-run handling, daemon forwarding, and harness dispatch; verify unsupported versions/runners fail clearly and concurrent legacy/v1 requests remain isolated.
 - [x] 2.3 Emit and preserve effective-version/capability acknowledgements and reject missing acknowledgements in explicitly selected v1 SDK calls without automatic retry; verify older-peer, Pi native-unavailable/bridge-supported, and Codex query-only cases.
 
+- [x] 2.4 Add SDK opt-in automatic pre-execution Pi capability discovery through the actual sandbox handle; verify healthy legacy fallback, strict v1 acknowledgement, single execution, concurrent cancellation, bounded errors and cache identity/expiry.
+
 ## 3. Structured search tool results
 
 - [x] 3.1 Update Pi Brave/Tavily search tools to retain readable content with source IDs plus `details.web_search`, preserving `details.usage` and optional content; verify success, zero hits, age/content retention, fallback provider identity, and legacy-mode output using existing web-tools tests.
@@ -45,7 +47,7 @@
 ## 7. Cross-boundary verification
 
 - [x] 7.1 Run an integration matrix through actual local daemon coding-run and CLI fallback using controlled provider HTTP responses; verify version forwarding, successful/empty/429/authentication states, citation ranges, legacy parity, and capability acknowledgements across both transports.
-- [ ] 7.2 Run a fresh real Tavily/Pi/model -> daemon -> SDK -> UIMessage test with a runtime-supplied credential and explicit source-marker instructions; verify actual HTTP results match registered sources and emitted answer annotations resolve to exact substrings. Record model noncompliance as a failed acceptance run, never manufacture missing markers or reuse earlier source-card evidence.
+- [x] 7.2 Run a fresh real Tavily/Pi/model -> daemon -> SDK -> UIMessage test with a runtime-supplied credential and explicit source-marker instructions; verify actual HTTP results match registered sources and emitted answer annotations resolve to exact substrings. Record model noncompliance as a failed acceptance run, never manufacture missing markers or reuse earlier source-card evidence.
 - [x] 7.3 Run only affected package/file tests, scoped type checks, and formatting/diff checks; verify meaningful coverage for all three capability specs and separately report native fixture coverage, live Tavily coverage, and any downstream product gaps.
 
 ## 8. Documentation, handoff, and rollout

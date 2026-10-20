@@ -15,6 +15,11 @@ export interface RegisteredSource extends WebSearchSource {
   tool_call_ids: string[];
 }
 
+/** Model-facing alias only. Canonical source IDs remain unchanged on the wire. */
+export function sourceReference(sourceId: string): string {
+  return `ref_${sourceId.slice(4, 16)}`;
+}
+
 /** Bounded current-answer view; historical identity remains deterministic on disk. */
 export class SourceRegistry {
   private readonly sources = new Map<string, RegisteredSource>();
@@ -23,6 +28,9 @@ export class SourceRegistry {
   constructor(
     private readonly persist?: (source: RegisteredSource) => void,
     private readonly lookup?: (id: string) => RegisteredSource | undefined,
+    private readonly lookupReference?: (
+      reference: string,
+    ) => RegisteredSource[],
   ) {}
 
   diagnose(code: CitationDiagnostic["code"], message: string): void {
@@ -98,6 +106,25 @@ export class SourceRegistry {
   }
 
   resolve(id: string): RegisteredSource | undefined {
+    if (/^ref_[a-f0-9]{12}$/.test(id)) {
+      const candidates = new Map<string, RegisteredSource>();
+      for (const source of [
+        ...this.sources.values(),
+        ...(this.lookupReference?.(id) ?? []),
+      ]) {
+        if (sourceReference(source.source_id) === id)
+          candidates.set(source.source_id, source);
+      }
+      if (candidates.size > 1) {
+        this.diagnose(
+          "unknown_source",
+          "An ambiguous source reference was rejected.",
+        );
+        return undefined;
+      }
+      const candidate = candidates.values().next().value;
+      return candidate ? this.resolve(candidate.source_id) : undefined;
+    }
     const known = this.sources.get(id);
     if (known) return known;
     const historical = this.lookup?.(id);

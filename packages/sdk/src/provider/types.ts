@@ -117,8 +117,8 @@ export type BunnyAgentRunnerType =
 /**
  * AI Provider specific settings that extend BunnyAgentOptions.
  * Requires a `sandbox`. Optional `daemonUrl` streams via bunny-agent-daemon HTTP
- * (`POST /api/coding/run`) inside the sandbox. The SDK does **not** probe `/healthz`
- * on each request — call `isBunnyAgentDaemonHealthy` (re-exported from
+ * (`POST /api/coding/run`) inside the sandbox. Unless search contract `"auto"`
+ * is selected, the SDK does not probe `/healthz` — call `isBunnyAgentDaemonHealthy` (re-exported from
  * `@bunny-agent/sdk`) when you want to check readiness and omit `daemonUrl` to fall
  * back to the CLI runner, or set `daemonUrl` and handle HTTP errors yourself.
  */
@@ -129,7 +129,8 @@ export interface BunnyAgentProviderSettings
   /**
    * bunny-agent-daemon base URL **inside** the sandbox (e.g. BunnyAgent image:
    * `http://127.0.0.1:3080`). When set, the SDK uses HTTP streaming only (no
-   * automatic health probe or CLI fallback).
+   * automatic health probe or CLI fallback, except read-only capability discovery
+   * when `searchContractVersion: "auto"` is selected).
    */
   daemonUrl?: string;
   /**
@@ -197,8 +198,14 @@ export interface BunnyAgentProviderSettings
    * error / rejected `generateText`/`streamText` result) if the runner/daemon
    * never acknowledges support for the requested version rather than
    * silently falling back to legacy behavior or retrying automatically.
+   * `"auto"` discovers a Pi daemon's capabilities before coding execution and
+   * selects v1 only when advertised. An older healthy daemon without that
+   * advertisement uses legacy behavior. Other runners and CLI-only transports
+   * stay legacy in auto mode. Discovery failures reject instead of executing or
+   * downgrading. Successful discovery is cached per handle/sandbox ID/URL for
+   * 30 seconds; an in-place daemon restart can take that long to be rediscovered.
    */
-  searchContractVersion?: 1;
+  searchContractVersion?: 1 | "auto";
   /**
    * Optional subset of `env` whose keys are safe to expose to the pi runner's
    * bash tool. When omitted, the runner classifies `env` via a built-in

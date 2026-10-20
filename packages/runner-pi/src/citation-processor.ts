@@ -209,7 +209,9 @@ export class CitationTextProcessor {
       if (this.pending.endsWith("]]")) {
         const token = this.pending;
         this.pending = "";
-        const match = /^\[\[cite:(src_[a-f0-9]{64})\]\]$/.exec(token);
+        const match = /^\[\[cite:(ref_[a-f0-9]{12}|src_[a-f0-9]{64})\]\]$/.exec(
+          token,
+        );
         const source = match ? this.registry.resolve(match[1]) : undefined;
         if (!source || source.tool_call_ids.length === 0) {
           this.diagnose(

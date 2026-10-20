@@ -17,6 +17,7 @@ import {
 import { Type } from "@sinclair/typebox";
 import { describe, expect, it } from "vitest";
 import { createCitationSessionRegistry } from "../citation-session-cache.js";
+import { sourceReference } from "../source-registry.js";
 import {
   extractToolResultText,
   PiAISDKStreamConverter,
@@ -27,7 +28,8 @@ describe("real Pi session citation subscription", () => {
     const directory = mkdtempSync(join(tmpdir(), "pi-citation-subscription-"));
     const url = "https://example.com/fixture";
     const sourceId = deriveSourceId(url)!;
-    const token = `[[cite:${sourceId}]]`;
+    const reference = sourceReference(sourceId);
+    const token = `[[cite:${reference}]]`;
     const faux = createFauxCore({
       api: "faux-citation",
       provider: "faux-citation",
@@ -90,7 +92,7 @@ describe("real Pi session citation subscription", () => {
           description: "Offline citation fixture",
           parameters: Type.Object({}),
           execute: async (callId) => ({
-            content: [{ type: "text", text: `Fixture source: ${sourceId}` }],
+            content: [{ type: "text", text: `Reference: ${reference}` }],
             details: {
               web_search: {
                 schema_version: 1,
@@ -122,7 +124,7 @@ describe("real Pi session citation subscription", () => {
     });
     try {
       await session.prompt(
-        "Use the offline search fixture and cite its explicit source ID.",
+        "Use the offline search fixture and cite its explicit Reference.",
       );
       unsubscribe();
       const count = lines.length;
@@ -158,5 +160,6 @@ describe("real Pi session citation subscription", () => {
     );
     expect(restored.resolve(sourceId)?.tool_call_ids.length).toBe(1);
     expect(restored.resolve(sourceId)?.source_id).toBe(sourceId);
+    expect(restored.resolve(reference)?.source_id).toBe(sourceId);
   });
 });

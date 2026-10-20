@@ -12,7 +12,7 @@ import {
   citationSourceGuidance,
   createCitationSessionRegistry,
 } from "../citation-session-cache.js";
-import { SourceRegistry } from "../source-registry.js";
+import { SourceRegistry, sourceReference } from "../source-registry.js";
 
 const source = (path: string) => {
   const url = `https://example.com/${path}`;
@@ -65,6 +65,9 @@ describe("supported Pi citation session persistence", () => {
       ...source("docs"),
       tool_call_ids: ["search-1"],
     });
+    expect(
+      restored.resolve(sourceReference(source("docs").source_id))?.source_id,
+    ).toBe(source("docs").source_id);
     restored.register({ ...source("docs"), title: "New title" }, ["search-2"]);
     const again = createCitationSessionRegistry(
       SessionManager.open(reopened.getSessionFile()!),
@@ -124,7 +127,7 @@ describe("supported Pi citation session persistence", () => {
       '\nimport {SessionManager} from "@earendil-works/pi-coding-agent";\n' +
       `const snapshots = ${JSON.stringify([manager.getSessionFile(), fork.getSessionFile()])}.map(file => {\n` +
       `const restored = createCitationSessionRegistry(SessionManager.open(file), true);\n` +
-      `return { source: restored.resolve(${JSON.stringify(source("fresh-process").source_id)}), sibling: restored.resolve(${JSON.stringify(source("unrelated-sibling").source_id)}) ?? null }; });\n` +
+      `return { source: restored.resolve(${JSON.stringify(sourceReference(source("fresh-process").source_id))}), sibling: restored.resolve(${JSON.stringify(sourceReference(source("unrelated-sibling").source_id))}) ?? null }; });\n` +
       "console.log(JSON.stringify(snapshots));";
     const output = execFileSync(
       process.execPath,
@@ -163,6 +166,12 @@ describe("supported Pi citation session persistence", () => {
     branch.register(source("future"), ["future-search"]);
     expect(snapshot.resolve(source("future").source_id)).toBeUndefined();
     expect(snapshot.resolve(source("sibling").source_id)).toBeUndefined();
+    expect(
+      snapshot.resolve(sourceReference(source("future").source_id)),
+    ).toBeUndefined();
+    expect(
+      snapshot.resolve(sourceReference(source("sibling").source_id)),
+    ).toBeUndefined();
     const fork = SessionManager.forkFrom(
       manager.getSessionFile()!,
       directory,
@@ -182,6 +191,13 @@ describe("supported Pi citation session persistence", () => {
       source("future").source_id,
     );
     expect(freshFork.resolve(source("sibling").source_id)).toBeUndefined();
+    expect(
+      freshFork.resolve(sourceReference(source("sibling").source_id)),
+    ).toBeUndefined();
+    expect(
+      freshFork.resolve(sourceReference(source("selected").source_id))
+        ?.source_id,
+    ).toBe(source("selected").source_id);
     freshFork.register(source("inherited"), ["fork-search"]);
     expect(freshFork.resolve(source("inherited").source_id)?.source_id).toBe(
       source("inherited").source_id,
@@ -326,8 +342,14 @@ describe("supported Pi citation session persistence", () => {
     }
     const restored = createCitationSessionRegistry(manager, true);
     const guidance = citationSourceGuidance(true, restored)!;
-    expect(guidance.match(/"source_id"/g) ?? []).toHaveLength(20);
+    expect(guidance.match(/"reference"/g) ?? []).toHaveLength(20);
+    expect(guidance).not.toContain('"source_id"');
+    expect(guidance).not.toMatch(/src_[a-f0-9]{64}/);
     expect(guidance).not.toContain(source("history-0").source_id);
+    expect(
+      restored.resolve(sourceReference(source("history-0").source_id))
+        ?.source_id,
+    ).toBe(source("history-0").source_id);
     expect(restored.resolve(source("history-0").source_id)?.source_id).toBe(
       source("history-0").source_id,
     );

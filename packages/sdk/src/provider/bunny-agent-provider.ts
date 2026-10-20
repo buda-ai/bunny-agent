@@ -66,7 +66,7 @@ export function createBunnyAgent(
   if (!defaultOptions.sandbox) {
     throw new Error(
       "Provide a `sandbox` adapter (e.g. E2BSandbox, LocalMachine). " +
-        "Optional `daemonUrl` uses in-sandbox HTTP to bunny-agent-daemon (no automatic `/healthz` probe). Use `isBunnyAgentDaemonHealthy` from `@bunny-agent/sdk` if you want to probe and omit `daemonUrl` for CLI fallback. Omit `daemonUrl` to always use CLI.",
+        "Optional `daemonUrl` uses in-sandbox HTTP to bunny-agent-daemon (no automatic `/healthz` probe unless searchContractVersion is `auto`). Use `isBunnyAgentDaemonHealthy` from `@bunny-agent/sdk` if you want to probe and omit `daemonUrl` for CLI fallback. Omit `daemonUrl` to always use CLI.",
     );
   }
 
@@ -83,6 +83,8 @@ export function createBunnyAgent(
       options.allowedTools !== undefined
         ? options.allowedTools
         : defaultOptions.allowedTools;
+    const searchContractVersion =
+      options.searchContractVersion ?? defaultOptions.searchContractVersion;
 
     const runner: RunnerSpec = {
       model: modelId,
@@ -106,19 +108,15 @@ export function createBunnyAgent(
             effort: options.effort ?? defaultOptions.effort,
           }
         : {}),
-      ...((options.searchContractVersion ??
-        defaultOptions.searchContractVersion) !== undefined
-        ? {
-            searchContractVersion:
-              options.searchContractVersion ??
-              defaultOptions.searchContractVersion,
-          }
+      ...(searchContractVersion === 1
+        ? { searchContractVersion: 1 as const }
         : {}),
     };
 
     const mergedOptions = {
       ...defaultOptions,
       ...options,
+      searchContractVersion,
       runner,
       env: {
         ...defaultOptions.env,

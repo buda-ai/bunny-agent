@@ -19,6 +19,7 @@ import {
   classifyWebSearchError,
 } from "@bunny-agent/manager/contracts/record";
 import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
+import { sourceReference } from "./source-registry.js";
 import type { ToolUsageDetails } from "./tool-details.js";
 
 // ---------------------------------------------------------------------------
@@ -476,7 +477,7 @@ async function fetchPageContent(
 function formatSearchResults(
   results: SearchResult[],
   providerLabel: string,
-  sourceIds?: string[],
+  references?: string[],
 ): string {
   if (results.length === 0) return "No results found.";
   const header = `[${providerLabel}] ${results.length} result(s)\n`;
@@ -485,7 +486,7 @@ function formatSearchResults(
     results
       .map((r, i) => {
         const lines = [`--- Result ${i + 1} ---`];
-        if (sourceIds?.[i]) lines.push(`Source ID: ${sourceIds[i]}`);
+        if (references?.[i]) lines.push(`Reference: ${references[i]}`);
         lines.push(`Title: ${stripNullBytes(r.title)}`, `Link: ${r.link}`);
         if (r.age) lines.push(`Age: ${r.age}`);
         lines.push(`Snippet: ${stripNullBytes(r.snippet)}`);
@@ -498,13 +499,14 @@ function formatSearchResults(
 
 /**
  * Appended to v1-mode `web_search` results: instructs the model to use the
- * explicit `[[cite:<source_id>]]` marker bridge immediately after a
+ * explicit `[[cite:ref_<12hex>]]` marker bridge immediately after a
  * supported statement. Only included when `searchContractVersion: 1` is
  * selected — legacy output is unaffected.
  */
 const V1_CITATION_INSTRUCTION =
-  "\n\nTo cite a result above in your answer, write [[cite:<Source ID>]] " +
-  "immediately after the statement it supports, using the exact Source ID shown.";
+  "\n\nTo cite a result above in your answer, write [[cite:<Reference>]] " +
+  "immediately after the statement it supports, using the exact Reference shown. " +
+  "Do not invent or repair References.";
 
 // ---------------------------------------------------------------------------
 // JSON-Schema parameter definitions
@@ -563,7 +565,7 @@ const webFetchSchema = {
  *
  * When `searchContractVersion` is `1`, results also carry `details.web_search`
  * (a validated {@link WebSearchCallRecord}) and the readable content gains
- * source IDs plus citation-marker instructions. Omitted (legacy, default):
+ * short References plus citation-marker instructions. Omitted (legacy, default):
  * output is unchanged from pre-v1 behavior.
  */
 export function buildWebSearchTool(
@@ -592,7 +594,7 @@ export function buildWebSearchTool(
       "Prefer specific, focused queries over broad ones for better results.",
       ...(v1
         ? [
-            "When citing a web_search result in your answer, write [[cite:<Source ID>]] immediately after the supported statement.",
+            "When citing a web_search result in your answer, write [[cite:<Reference>]] immediately after the supported statement, using the exact short Reference shown.",
           ]
         : []),
     ],
@@ -674,7 +676,7 @@ export function buildWebSearchTool(
               : formatSearchResults(
                   readable,
                   provider.label,
-                  record.results.map((r) => r.source_id),
+                  record.results.map((r) => sourceReference(r.source_id)),
                 ) + (record.results.length > 0 ? V1_CITATION_INSTRUCTION : "");
 
           const details: WebSearchToolDetails = {

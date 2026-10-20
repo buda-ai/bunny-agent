@@ -8,7 +8,7 @@ import {
   CitationTextProcessor,
   type NativeCitationInput,
 } from "../citation-processor.js";
-import { SourceRegistry } from "../source-registry.js";
+import { SourceRegistry, sourceReference } from "../source-registry.js";
 
 const url = "https://example.com/docs";
 const id = deriveSourceId(url)!;
@@ -42,6 +42,39 @@ function render(parts: string[], partial = false) {
 }
 
 describe("explicit citation streaming", () => {
+  it("resolves compact References and legacy canonical markers to the same canonical binding across every split", () => {
+    const alias = `[[cite:${sourceReference(id)}]]`;
+    const input = `A😀B ${alias}${token} e\u0301`;
+    const expected = render([input]);
+    expect(expected.text).toBe("A😀B [1][1] e\u0301");
+    expect(
+      expected.metadata.bindings.map((binding) => binding.source_id),
+    ).toEqual([id, id]);
+    expect(
+      expected.metadata.annotations.map((a) => [a.start_index, a.end_index]),
+    ).toEqual([
+      [4, 7],
+      [7, 10],
+    ]);
+    for (let split = 0; split <= input.length; split++)
+      expect(render([input.slice(0, split), input.slice(split)])).toEqual(
+        expected,
+      );
+    expect(render(input.split(""))).toEqual(expected);
+  });
+
+  it("never repairs a mistyped canonical ID or a short Reference", () => {
+    const wrongId = `src_${id[4] === "0" ? "1" : "0"}${id.slice(5)}`;
+    const wrongAlias = sourceReference(wrongId);
+    const input = `[[cite:${wrongId}]] [[cite:${wrongAlias}]]`;
+    const result = render([...input]);
+    expect(result.text).toBe(input);
+    expect(result.metadata.annotations).toEqual([]);
+    expect(result.metadata.diagnostics).toContainEqual(
+      expect.objectContaining({ code: "unknown_source" }),
+    );
+  });
+
   it("has identical text and ranges for every UTF-16 split, including surrogate halves", () => {
     const input = `A😀B\r\ne\u0301 ${token}${token} end`;
     const expected = render([input]);

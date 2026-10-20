@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { sourceReference } from "../source-registry.js";
 import {
   buildWebFetchTool,
   buildWebSearchTool,
@@ -150,7 +151,10 @@ describe("buildWebSearchTool", () => {
       vi.restoreAllMocks();
     });
 
-    it("includes a validated details.web_search record alongside readable content with source IDs", async () => {
+    it.each([
+      "brave",
+      "tavily",
+    ] as const)("keeps canonical IDs in %s details and exposes only compact References in readable content", async (provider) => {
       globalThis.fetch = (async () =>
         ({
           ok: true,
@@ -167,11 +171,23 @@ describe("buildWebSearchTool", () => {
                 },
               ],
             },
+            results: [
+              {
+                title: "Example Docs",
+                url: "https://example.com/docs",
+                content: "A readable description.",
+              },
+            ],
           }),
           text: async () => "",
         }) as unknown as Response) as typeof fetch;
 
-      const tool = buildWebSearchTool({ BRAVE_API_KEY: "bsk-test" }, 1);
+      const tool = buildWebSearchTool(
+        provider === "brave"
+          ? { BRAVE_API_KEY: "fixture" }
+          : { TAVILY_API_KEY: "fixture" },
+        1,
+      );
       const result = await (
         tool.execute as (...args: unknown[]) => Promise<{
           content: Array<{ type: string; text?: string }>;
@@ -204,13 +220,17 @@ describe("buildWebSearchTool", () => {
       expect(record.results[0].source_id).toBe(
         record.action.sources[0].source_id,
       );
+      expect(record.results[0].source_id).toMatch(/^src_[a-f0-9]{64}$/);
 
       expect(result.content[0]?.text).toContain(
-        `Source ID: ${record.action.sources[0].source_id}`,
+        `Reference: ${sourceReference(record.action.sources[0].source_id)}`,
+      );
+      expect(result.content[0]?.text).not.toContain(
+        record.action.sources[0].source_id,
       );
       expect(result.content[0]?.text).toContain("[[cite:");
       expect(result.details?.usage).toMatchObject({
-        raw: { brave: { requests: 1, fetchedPages: 0 } },
+        raw: { [provider]: { requests: 1, fetchedPages: 0 } },
       });
     });
 
