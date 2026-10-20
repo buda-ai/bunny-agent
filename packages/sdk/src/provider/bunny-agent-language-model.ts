@@ -25,14 +25,16 @@ import {
 } from "@bunny-agent/manager";
 import type { SearchContractCapabilities } from "../contracts";
 import {
+  isDocumentCitationSource,
   isSafeHttpUrl,
   isSearchContractCapabilities,
   isValidCitationContractMetadata,
+  isValidDocumentCitationContractMetadata,
 } from "../contracts";
 import { getProviderLogger } from "./logging";
 import { assertSearchContractAiSdkSupport } from "./search-contract-ai-sdk";
 import {
-  discoverPiSearchContract,
+  discoverDaemonCapabilities,
   waitForSearchDiscovery,
 } from "./search-contract-discovery";
 import { compileToolRefsFromLanguageModelTools } from "./tool-refs";
@@ -279,6 +281,11 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
   private readonly textById = new Map<string, string>();
   private readonly textMetadata = new Map<string, SharedV3ProviderMetadata>();
   private readonly toolMetadata = new Map<string, SharedV3ProviderMetadata>();
+  private acknowledgedDocumentCitations = false;
+  private readonly pendingDocuments = new Map<
+    string,
+    Record<string, unknown>
+  >();
   private readonly pendingSources = new Map<string, Record<string, unknown>>();
   private readonly citedSources = new Map<
     string,
@@ -299,13 +306,25 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
         ? (raw as SharedV3ProviderMetadata)
         : undefined,
     );
-    const { searchContract: _untrustedAcknowledgement, ...bunnyMetadata } =
-      metadata["bunny-agent"] ?? {};
+    const {
+      searchContract: _untrustedAcknowledgement,
+      documentCitations: _untrustedDocuments,
+      document_citations: documentCitations,
+      ...bunnyMetadata
+    } = metadata["bunny-agent"] ?? {};
     const result: SharedV3ProviderMetadata = {
       ...metadata,
       "bunny-agent": {
         ...this.messageMetadata,
         ...bunnyMetadata,
+        ...(this.acknowledgedDocumentCitations
+          ? {
+              documentCitations: { version: 1 },
+              ...(documentCitations === undefined
+                ? {}
+                : { document_citations: documentCitations }),
+            }
+          : {}),
         ...(this.sessionId ? { sessionId: this.sessionId } : {}),
         ...(textPartId !== undefined ? { textPartId } : {}),
         ...(this.acknowledgedSearchContract
@@ -548,7 +567,10 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
     // negotiation, identity, and artifact state belongs to this invocation.
     let invocationOptions = this.options;
     let discoveredHandle: SandboxHandle | undefined;
-    if (this.options.searchContractVersion === "auto") {
+    const wantsDocuments = Object.values(
+      this.options.mcpConfig?.mcpServers ?? {},
+    ).some((server) => (server.documentReadTools?.length ?? 0) > 0);
+    if (this.options.searchContractVersion === "auto" || wantsDocuments) {
       if (!this.options.sandbox) {
         throw new Error(
           "BunnyAgent language model requires a sandbox adapter (set `sandbox` on the provider).",
@@ -560,13 +582,14 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
           "AbortError",
         );
       }
-      let version: 1 | undefined;
+      let version = this.options.runner.searchContractVersion;
+      let documentVersion: 1 | undefined;
       if (this.options.runner.runnerType === "pi" && this.options.daemonUrl) {
         discoveredHandle = await waitForSearchDiscovery(
           this.options.sandbox.attach(),
           options.abortSignal,
         );
-        version = await discoverPiSearchContract(
+        const capabilities = await discoverDaemonCapabilities(
           discoveredHandle,
           this.options.daemonUrl,
           {
@@ -574,9 +597,20 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
             signal: options.abortSignal,
           },
         );
+        if (this.options.searchContractVersion === "auto")
+          version = capabilities.searchContractVersion;
+        documentVersion = capabilities.documentCitationsVersion;
+      }
+      const mcpConfig = this.options.mcpConfig
+        ? structuredClone(this.options.mcpConfig)
+        : undefined;
+      if (mcpConfig && documentVersion !== 1) {
+        for (const server of Object.values(mcpConfig.mcpServers))
+          delete server.documentReadTools;
       }
       invocationOptions = {
         ...this.options,
+        mcpConfig,
         runner: { ...this.options.runner, searchContractVersion: version },
       };
     }
@@ -593,6 +627,12 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
   ): Promise<LanguageModelV3StreamResult> {
     if (this.requestedSearchContractVersion === 1) {
       await assertSearchContractAiSdkSupport();
+    } else if (
+      Object.values(this.options.mcpConfig?.mcpServers ?? {}).some(
+        (server) => (server.documentReadTools?.length ?? 0) > 0,
+      )
+    ) {
+      await assertSearchContractAiSdkSupport("Document citations v1");
     }
     const { prompt, abortSignal } = options;
     const messages = this.convertPromptToMessages(prompt);
@@ -1021,12 +1061,24 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
         if (this.seenMessageMetadata.has(key)) break;
         this.seenMessageMetadata.add(key);
         if (metadata && typeof metadata === "object") {
-          const { searchContract: _acknowledgement, ...fields } = metadata;
+          const {
+            searchContract: _acknowledgement,
+            documentCitations: _documents,
+            ...fields
+          } = metadata;
           this.messageMetadata = {
             ...this.messageMetadata,
             ...fields,
           } as Record<string, JSONValue>;
         }
+        if (
+          (metadata?.documentCitations as { version?: unknown } | undefined)
+            ?.version === 1 &&
+          Object.values(this.options.mcpConfig?.mcpServers ?? {}).some(
+            (server) => (server.documentReadTools?.length ?? 0) > 0,
+          )
+        )
+          this.acknowledgedDocumentCitations = true;
         if (
           metadata?.sessionId &&
           typeof metadata.sessionId === "string" &&
@@ -1167,6 +1219,41 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
             parts.push(...this.emitCitedSource(binding.source_id));
           }
         }
+        const documents = bunnyMetadata?.document_citations;
+        if (
+          this.acknowledgedDocumentCitations &&
+          isValidDocumentCitationContractMetadata(documents, {
+            text: this.textById.get(id) ?? "",
+          })
+        ) {
+          for (const source of documents.sources) {
+            const pending = this.pendingDocuments.get(source.source_id);
+            const pendingSource = (
+              pending?.providerMetadata as
+                | Record<string, Record<string, unknown>>
+                | undefined
+            )?.["bunny-agent"]?.document_source;
+            if (
+              !pending ||
+              !isDocumentCitationSource(pendingSource) ||
+              JSON.stringify(pendingSource) !== JSON.stringify(source) ||
+              !this.options.mcpConfig?.mcpServers[source.mcp_server]
+                ?.documentReadTools?.length ||
+              this.emittedSourceIds.has(source.source_id)
+            )
+              continue;
+            this.emittedSourceIds.add(source.source_id);
+            parts.push({
+              type: "source",
+              sourceType: "document",
+              id: source.source_id,
+              mediaType: source.document.media_type,
+              title: source.document.title,
+              filename: source.document.path.split("/").pop(),
+              providerMetadata: this.partMetadata(pending.providerMetadata),
+            });
+          }
+        }
         parts.push({
           type: "text-end",
           id: parsed.id as string,
@@ -1177,6 +1264,20 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
 
       // Terminal per-text citation marker bridge: one `source-url` chunk per
       // actually cited source (never per retrieved-but-uncited result).
+      case "source-document": {
+        const source = (
+          parsed.providerMetadata as
+            | Record<string, Record<string, unknown>>
+            | undefined
+        )?.["bunny-agent"]?.document_source;
+        if (
+          isDocumentCitationSource(source) &&
+          parsed.sourceId === source.source_id &&
+          this.acknowledgedDocumentCitations
+        )
+          this.pendingDocuments.set(source.source_id, parsed);
+        break;
+      }
       case "source-url": {
         const sourceId = parsed.sourceId as string;
         if (

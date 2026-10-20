@@ -8,6 +8,7 @@ export function healthHandler(state: AppState) {
     root: state.root,
     volumesRoot: state.volumesRoot,
     capabilities: {
+      documentCitations: { version: 1 },
       searchContracts: {
         pi: resolveSearchContractCapabilities("pi", 1),
         codex: resolveSearchContractCapabilities("codex", 1),

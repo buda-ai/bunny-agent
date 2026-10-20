@@ -10,11 +10,13 @@ export function supportsSearchContractUiMetadata(version: string): boolean {
 
 /**
  * Older AI SDK releases silently discard tool-result provider metadata. V1
- * fails before execution on those peers; version-unspecified calls keep their
- * existing peer range and never invoke this check. Resolve lazily from the
+ * fails before execution on those peers, as do negotiated document citations.
+ * Legacy calls keep their existing peer range. Resolve lazily from the
  * backend SDK module so builds do not depend on JSON import attributes.
  */
-export async function assertSearchContractAiSdkSupport(): Promise<void> {
+export async function assertSearchContractAiSdkSupport(
+  contract = "searchContractVersion: 1",
+): Promise<void> {
   let version: unknown;
   try {
     // Resolve the actual consumer peer without import attributes, which an
@@ -24,16 +26,14 @@ export async function assertSearchContractAiSdkSupport(): Promise<void> {
     };
     version = packageInfo.version;
   } catch {
-    throw new Error(
-      "Cannot verify the AI SDK peer required by searchContractVersion: 1.",
-    );
+    throw new Error(`Cannot verify the AI SDK peer required by ${contract}.`);
   }
   if (
     typeof version !== "string" ||
     !supportsSearchContractUiMetadata(version)
   ) {
     throw new Error(
-      `searchContractVersion: 1 requires ai >=${SEARCH_CONTRACT_AI_SDK_MINIMUM} <7.0.0 to preserve structured tool-result metadata; found ai@${String(version)}.`,
+      `${contract} requires ai >=${SEARCH_CONTRACT_AI_SDK_MINIMUM} <7.0.0 to preserve structured tool-result metadata; found ai@${String(version)}.`,
     );
   }
 }

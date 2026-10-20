@@ -6,16 +6,21 @@ const PROBE_TIMEOUT_MS = 4_000;
 const MAX_ENDPOINTS_PER_HANDLE = 16;
 const MAX_RESPONSE_BYTES = 16_384;
 
+export interface DaemonCapabilities {
+  searchContractVersion?: 1;
+  documentCitationsVersion?: 1;
+}
+
 interface Flight {
   controller: AbortController;
-  promise: Promise<1 | undefined>;
+  promise: Promise<DaemonCapabilities>;
   waiters: number;
   settled: boolean;
 }
 
 interface Entry {
   expiresAt: number;
-  version?: 1;
+  capabilities?: DaemonCapabilities;
   flight?: Flight;
 }
 
@@ -51,7 +56,7 @@ function object(value: unknown): Record<string, unknown> | undefined {
 }
 
 /** Only a successful, recognizable legacy health document proves old support. */
-function parseHealth(text: string): 1 | undefined {
+function parseHealth(text: string): DaemonCapabilities {
   const status = /\n(\d{3})$/.exec(text);
   if (!status || status[1] !== "200") {
     throw new Error(
@@ -69,29 +74,38 @@ function parseHealth(text: string): 1 | undefined {
   if (envelope?.ok !== true || data?.status !== "ok") {
     throw new Error("Invalid daemon health response during search discovery.");
   }
-  if (data.capabilities === undefined) return undefined;
+  if (data.capabilities === undefined) return {};
   const capabilities = object(data.capabilities);
   if (!capabilities)
     throw new Error("Invalid daemon capability advertisement.");
-  if (capabilities.searchContracts === undefined) return undefined;
+  const result: DaemonCapabilities = {};
+  if (capabilities.documentCitations !== undefined) {
+    const docs = object(capabilities.documentCitations);
+    if (!docs || docs.version !== 1)
+      throw new Error("Invalid document capability advertisement.");
+    result.documentCitationsVersion = 1;
+  }
+  if (capabilities.searchContracts === undefined) return result;
   const contracts = object(capabilities.searchContracts);
   if (!contracts)
     throw new Error("Invalid daemon search capability advertisement.");
-  if (contracts.pi === undefined) return undefined;
+  if (contracts.pi === undefined) return result;
   if (!isSearchContractCapabilities(contracts.pi)) {
     throw new Error("Invalid Pi search capability advertisement.");
   }
-  return contracts.pi.structured_retrieval &&
+  if (
+    contracts.pi.structured_retrieval &&
     contracts.pi.explicit_source_marker_annotations
-    ? 1
-    : undefined;
+  )
+    result.searchContractVersion = 1;
+  return result;
 }
 
 async function probe(
   handle: SandboxHandle,
   url: string,
   opts: ExecOptions,
-): Promise<1 | undefined> {
+): Promise<DaemonCapabilities> {
   const decoder = new TextDecoder();
   let text = "";
   let bytes = 0;
@@ -131,7 +145,7 @@ async function probe(
 async function join(
   flight: Flight,
   signal?: AbortSignal,
-): Promise<1 | undefined> {
+): Promise<DaemonCapabilities> {
   flight.waiters += 1;
   try {
     return await waitForSearchDiscovery(flight.promise, signal);
@@ -148,11 +162,11 @@ async function join(
  * In-flight operations stay tracked until actual transport settlement even if
  * an adapter ignores abort, preventing duplicate outstanding sandbox commands.
  */
-export async function discoverPiSearchContract(
+export async function discoverDaemonCapabilities(
   handle: SandboxHandle,
   daemonUrl: string,
   opts: Pick<ExecOptions, "cwd" | "signal"> = {},
-): Promise<1 | undefined> {
+): Promise<DaemonCapabilities> {
   if (opts.signal?.aborted) throw abortError();
   const parsed = new URL(daemonUrl);
   if (
@@ -174,7 +188,8 @@ export async function discoverPiSearchContract(
   }
   const previous = entries.get(key);
   if (previous?.flight) return join(previous.flight, opts.signal);
-  if (previous && previous.expiresAt > Date.now()) return previous.version;
+  if (previous && previous.expiresAt > Date.now())
+    return previous.capabilities!;
   entries.delete(key);
   for (const [entryKey, entry] of entries) {
     if (!entry.flight && entry.expiresAt <= Date.now())
@@ -191,7 +206,7 @@ export async function discoverPiSearchContract(
   const entry: Entry = { expiresAt: 0 };
   const flight: Flight = {
     controller,
-    promise: Promise.resolve(undefined),
+    promise: Promise.resolve({}),
     waiters: 0,
     settled: false,
   };
@@ -213,11 +228,15 @@ export async function discoverPiSearchContract(
   // Keep the entry until the real operation settles, not only until our bounded
   // wait ends. Non-cooperating adapters cannot cause duplicate remote probes.
   operation.then(
-    (version) => {
+    (capabilities) => {
       flight.settled = true;
       clearTimeout(timer);
       if (controller.signal.aborted) entries.delete(key);
-      else entries.set(key, { version, expiresAt: Date.now() + CACHE_TTL_MS });
+      else
+        entries.set(key, {
+          capabilities,
+          expiresAt: Date.now() + CACHE_TTL_MS,
+        });
     },
     () => {
       flight.settled = true;
@@ -225,7 +244,7 @@ export async function discoverPiSearchContract(
       entries.delete(key);
     },
   );
-  flight.promise = new Promise<1 | undefined>((resolve, reject) => {
+  flight.promise = new Promise<DaemonCapabilities>((resolve, reject) => {
     const onAbort = () => reject(controller.signal.reason ?? abortError());
     controller.signal.addEventListener("abort", onAbort, { once: true });
     operation.then(resolve, reject).finally(() => {
@@ -233,4 +252,14 @@ export async function discoverPiSearchContract(
     });
   });
   return join(flight, opts.signal);
+}
+
+/** Compatibility wrapper for the existing Pi search negotiation API. */
+export async function discoverPiSearchContract(
+  handle: SandboxHandle,
+  daemonUrl: string,
+  opts: Pick<ExecOptions, "cwd" | "signal"> = {},
+): Promise<1 | undefined> {
+  return (await discoverDaemonCapabilities(handle, daemonUrl, opts))
+    .searchContractVersion;
 }

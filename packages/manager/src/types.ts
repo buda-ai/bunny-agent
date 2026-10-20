@@ -64,6 +64,8 @@ export interface ToolRef {
 export type McpLifecycle = "lazy" | "eager" | "keep-alive";
 
 export interface McpServerOptions {
+  /** Trusted structured document-read producers on this configured server. */
+  documentReadTools?: string[];
   lifecycle?: McpLifecycle;
   requestTimeoutMs?: number;
   directTools?: boolean | string[];

@@ -289,6 +289,25 @@ message, including a resumed conversation, while an active turn keeps the
 configuration it started with. OAuth and active-turn hot replacement are not
 provided by this API.
 
+### Trusted document citations
+
+Configure `mcpServers.<server>.documentReadTools: ["read_document"]` for a
+trusted structured document-read producer. With a Pi daemon, the SDK discovers
+`/healthz` support automatically before execution and strips this new field for
+healthy older runtimes. No manual feature flag or extra coding-run request is
+needed. Negotiated citations require `ai >=6.0.264 <7.0.0` to preserve metadata;
+healthy old runtimes keep the legacy peer range. Keep any temporary-URL resolver in `excludeTools` so the model cannot
+persist download credentials in tool history.
+
+The runtime binds exact extracted lines to original asset/version identity,
+excerpt hashes, configured MCP server identity, and actual executed tool-call
+IDs. It emits independent `document_citations` text metadata and native AI SDK
+`source-document` parts. Pass `sendSources: true` to `toUIMessageStream` and
+retain complete message parts during persistence. Browser-safe validators and
+`projectUIMessageDocumentCitations` are available from
+`@bunny-agent/sdk/contracts`. Consumers own access checks and click-time source
+resolution. See [the producer envelope and protocol](../../docs/document-citation-contract.md).
+
 Public web routes should not accept this trusted shape directly. Convert a
 strict HTTPS-only input into `McpConfig`, reject localhost/private targets and
 unsafe headers, and enforce network egress policy at the sandbox boundary.
@@ -333,7 +352,7 @@ const model = bunnyAgent("claude-sonnet-4-20250514");
 
 #### Daemon HTTP transport (same provider)
 
-**With any sandbox adapter** (E2B, Sandock, `LocalMachine`, etc.): pass **`sandbox` + `daemonUrl`**. The URL is resolved **inside** the sandbox (the `vikadata/bunny-agent` image starts `bunny-agent-daemon` on port 3080). The SDK streams via `streamCodingRunFromSandbox` (`curl -N` in the sandbox, including `LocalMachine`), not `fetch` from your server. It does not call `/healthz` unless you select Pi search contract `"auto"`, as described below. Use `isBunnyAgentDaemonHealthy` from `@bunny-agent/sdk` for an explicit readiness probe before setting `daemonUrl` (e.g. to fall back to the CLI runner).
+**With any sandbox adapter** (E2B, Sandock, `LocalMachine`, etc.): pass **`sandbox` + `daemonUrl`**. The URL is resolved **inside** the sandbox (the `vikadata/bunny-agent` image starts `bunny-agent-daemon` on port 3080). The SDK streams via `streamCodingRunFromSandbox` (`curl -N` in the sandbox, including `LocalMachine`), not `fetch` from your server. It calls `/healthz` automatically for Pi search contract `"auto"` or configured document-read producers (`documentReadTools`), as described below. Other calls do not add a capability probe. Use `isBunnyAgentDaemonHealthy` from `@bunny-agent/sdk` for an explicit readiness probe before setting `daemonUrl` (e.g. to fall back to the CLI runner).
 
 ```typescript
 import { createBunnyAgent, DEFAULT_BUNNY_AGENT_DAEMON_URL } from "@bunny-agent/sdk";
