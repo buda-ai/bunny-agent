@@ -1,5 +1,4 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { sourceReference } from "../source-registry.js";
 import {
   buildWebFetchTool,
   buildWebSearchTool,
@@ -154,7 +153,7 @@ describe("buildWebSearchTool", () => {
     it.each([
       "brave",
       "tavily",
-    ] as const)("keeps canonical IDs in %s details and exposes only compact References in readable content", async (provider) => {
+    ] as const)("keeps canonical IDs in %s details and exposes OpenAI References in readable content", async (provider) => {
       globalThis.fetch = (async () =>
         ({
           ok: true,
@@ -222,13 +221,11 @@ describe("buildWebSearchTool", () => {
       );
       expect(record.results[0].source_id).toMatch(/^src_[a-f0-9]{64}$/);
 
-      expect(result.content[0]?.text).toContain(
-        `Reference: ${sourceReference(record.action.sources[0].source_id)}`,
-      );
+      expect(result.content[0]?.text).toContain("Reference: turn0url0");
       expect(result.content[0]?.text).not.toContain(
         record.action.sources[0].source_id,
       );
-      expect(result.content[0]?.text).toContain("[[cite:");
+      expect(result.content[0]?.text).toContain("\uE200cite\uE202");
       expect(result.details?.usage).toMatchObject({
         raw: { [provider]: { requests: 1, fetchedPages: 0 } },
       });
@@ -378,7 +375,7 @@ describe("buildWebSearchTool", () => {
 
       expect(result.details).not.toHaveProperty("web_search");
       expect(result.content[0]?.text).not.toContain("Source ID:");
-      expect(result.content[0]?.text).not.toContain("[[cite:");
+      expect(result.content[0]?.text).not.toContain("\uE200cite\uE202");
     });
 
     it("emits a structured failed record with code invalid_request on a 400 response with no fallback provider left", async () => {

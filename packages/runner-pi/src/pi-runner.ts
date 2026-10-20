@@ -568,6 +568,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
                   pathPrepend: applyPatchShimDir,
                 },
                 options.searchContractVersion,
+                sourceRegistry,
               )
             : applyPatchShimDir
               ? [

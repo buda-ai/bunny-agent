@@ -14,7 +14,7 @@ import {
 
 const url = "https://example.com/docs";
 const id = deriveSourceId(url)!;
-const token = `[[cite:${id}]]`;
+const token = `\uE200cite\uE202turn0url0\uE201`;
 const source: WebSearchSource = {
   type: "url",
   source_id: id,
@@ -419,7 +419,7 @@ describe("Pi runner citation stream boundary", () => {
   ])("flushes pending text and safe prior annotations on %s", (termination) => {
     const stream = converter();
     search(stream);
-    const visible = send(stream, update("text_delta", `${token} [[ci`));
+    const visible = send(stream, update("text_delta", `${token} \uE200ci`));
     const terminal =
       termination === "abort"
         ? parse(stream.forceError("Aborted"))
@@ -430,11 +430,11 @@ describe("Pi runner citation stream boundary", () => {
         .filter((e) => e.type === "text-delta")
         .map((e) => e.delta)
         .join(""),
-    ).toBe("[1] [[ci");
+    ).toBe("[1] \uE200ci");
     expect(metadata(events).processing).toBe("partial");
     expect(
       isValidCitationContractMetadata(metadata(events), {
-        text: "[1] [[ci",
+        text: "[1] \uE200ci",
         sources: [source],
       }),
     ).toBe(true);
@@ -447,7 +447,7 @@ describe("Pi runner citation stream boundary", () => {
   it("waits for the real message stop reason after provider text_end", () => {
     const stream = converter();
     search(stream);
-    send(stream, update("text_delta", `${token} [[ci`));
+    send(stream, update("text_delta", `${token} \uE200ci`));
     expect(send(stream, update("text_end"))).toEqual([]);
     expect(send(stream, update("text_delta", "late"))).toEqual([]);
     const terminal = send(stream, {
@@ -455,7 +455,9 @@ describe("Pi runner citation stream boundary", () => {
       message: { role: "assistant", stopReason: "length" },
     });
     expect(metadata(terminal).processing).toBe("partial");
-    expect(terminal.find((e) => e.type === "text-delta")!.delta).toBe("[[ci");
+    expect(terminal.find((e) => e.type === "text-delta")!.delta).toBe(
+      "\uE200ci",
+    );
     expect(send(stream, update("text_end"))).toEqual([]);
     expect(end(stream, "length").some((e) => e.type === "text-end")).toBe(
       false,

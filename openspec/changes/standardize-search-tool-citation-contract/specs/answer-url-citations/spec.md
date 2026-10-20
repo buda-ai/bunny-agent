@@ -35,10 +35,10 @@ When a provider adapter supplies native annotations and an identified offset con
 - **THEN** the system SHALL NOT claim that native annotations were preserved
 
 ### Requirement: Explicit source-reference bridge for non-native search tools
-For citation-enabled Pi tool answers without usable native annotations, the system SHALL expose known source IDs to the model and resolve only assistant-authored `[[cite:<source_id>]]` tokens against that source registry. A valid token SHALL become a visible numbered reference such as `[1]`, with a canonical URL annotation covering that reference. Unknown or malformed tokens, escaped tokens, and tokens inside literal Markdown code contexts SHALL remain ordinary text without annotations. Repeated references to the same source SHALL reuse its number within the assistant message. Generated annotations SHALL declare explicit-source-marker provenance rather than native-provider provenance.
+For citation-enabled Pi tool answers without usable native annotations, the system SHALL expose known source IDs to the model and resolve only assistant-authored `\uE200cite\uE202turn0url0\uE201` tokens against that source registry. A valid token SHALL become a visible numbered reference such as `[1]`, with a canonical URL annotation covering that reference. Unknown or malformed tokens, escaped tokens, and tokens inside literal Markdown code contexts SHALL remain ordinary text without annotations. Repeated references to the same source SHALL reuse its number within the assistant message. Generated annotations SHALL declare explicit-source-marker provenance rather than native-provider provenance.
 
 #### Scenario: Tavily result is explicitly cited
-- **WHEN** a search registers source `src_docs` and the assistant emits `The guide describes this.[[cite:src_docs]]`
+- **WHEN** a search registers source `src_docs` and the assistant emits `The guide describes this.\uE200cite\uE202turn0url0\uE201`
 - **THEN** the final text SHALL contain `The guide describes this.[1]`
 - **AND** a URL annotation SHALL cover exactly `[1]` and resolve to the registered source
 

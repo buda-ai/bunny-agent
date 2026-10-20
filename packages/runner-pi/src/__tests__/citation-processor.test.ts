@@ -8,11 +8,11 @@ import {
   CitationTextProcessor,
   type NativeCitationInput,
 } from "../citation-processor.js";
-import { SourceRegistry, sourceReference } from "../source-registry.js";
+import { SourceRegistry } from "../source-registry.js";
 
 const url = "https://example.com/docs";
 const id = deriveSourceId(url)!;
-const token = `[[cite:${id}]]`;
+const token = `\uE200cite\uE202turn0url0\uE201`;
 
 function registry() {
   const sources = new SourceRegistry();
@@ -42,20 +42,13 @@ function render(parts: string[], partial = false) {
 }
 
 describe("explicit citation streaming", () => {
-  it("resolves compact References and legacy canonical markers to the same canonical binding across every split", () => {
-    const alias = `[[cite:${sourceReference(id)}]]`;
-    const input = `A😀B ${alias}${token} e\u0301`;
+  it("resolves only official markers across every split", () => {
+    const input = `A😀B ${token}${token} e\u0301`;
     const expected = render([input]);
     expect(expected.text).toBe("A😀B [1][1] e\u0301");
     expect(
       expected.metadata.bindings.map((binding) => binding.source_id),
     ).toEqual([id, id]);
-    expect(
-      expected.metadata.annotations.map((a) => [a.start_index, a.end_index]),
-    ).toEqual([
-      [4, 7],
-      [7, 10],
-    ]);
     for (let split = 0; split <= input.length; split++)
       expect(render([input.slice(0, split), input.slice(split)])).toEqual(
         expected,
@@ -63,10 +56,8 @@ describe("explicit citation streaming", () => {
     expect(render(input.split(""))).toEqual(expected);
   });
 
-  it("never repairs a mistyped canonical ID or a short Reference", () => {
-    const wrongId = `src_${id[4] === "0" ? "1" : "0"}${id.slice(5)}`;
-    const wrongAlias = sourceReference(wrongId);
-    const input = `[[cite:${wrongId}]] [[cite:${wrongAlias}]]`;
+  it("never repairs unknown official references or accepts obsolete aliases", () => {
+    const input = `\uE200cite\uE202turn999url0\uE201 \uE200cite\uE202src_${"0".repeat(64)}\uE201`;
     const result = render([...input]);
     expect(result.text).toBe(input);
     expect(result.metadata.annotations).toEqual([]);
@@ -101,7 +92,7 @@ describe("explicit citation streaming", () => {
     `   \`\`\`\n${token}\n   \`\`\`\n`,
     `\`unterminated ${token}`,
     `\`\`\`\n${token}`,
-    `\\[\\[cite:${id}]]`,
+    `\\${token}`,
     `    ${token}`,
     `\t${token}`,
     `  \t${token}`,
@@ -168,9 +159,9 @@ describe("explicit citation streaming", () => {
   });
 
   it("tracks Markdown delimiters even inside malformed literal tokens", () => {
-    const input = `[[cite:bad\`]]${token}\` ${token}`;
+    const input = `\uE200cite\uE202bad\`\uE201${token}\` ${token}`;
     const expected = render([input]);
-    expect(expected.text).toBe(`[[cite:bad\`]]${token}\` [1]`);
+    expect(expected.text).toBe(`\uE200cite\uE202bad\`\uE201${token}\` [1]`);
     expect(expected.metadata.annotations).toHaveLength(1);
     for (let split = 0; split <= input.length; split++)
       expect(render([input.slice(0, split), input.slice(split)])).toEqual(
@@ -179,7 +170,7 @@ describe("explicit citation streaming", () => {
   });
 
   it("retains unknown, malformed and oversized markers without inferring links", () => {
-    const input = `[[cite:src_${"0".repeat(64)}]] [[cite:bad]] [[cite:${"x".repeat(200)}]] [Docs](${url})`;
+    const input = `\uE200cite\uE202turn999url0\uE201 \uE200cite\uE202bad\uE201 \uE200cite\uE202${"x".repeat(200)}\uE201 [Docs](${url})`;
     const result = render(input.split(""));
     expect(result.text).toBe(input);
     expect(result.metadata.annotations).toEqual([]);
@@ -187,8 +178,8 @@ describe("explicit citation streaming", () => {
   });
 
   it("flushes a partial marker on abort without changing earlier ranges", () => {
-    const result = render([token, " next [[ci"], true);
-    expect(result.text).toBe("[1] next [[ci");
+    const result = render([token, " next \uE200ci"], true);
+    expect(result.text).toBe("[1] next \uE200ci");
     expect(result.metadata.annotations).toHaveLength(1);
     expect(result.metadata.processing).toBe("partial");
   });
@@ -204,7 +195,7 @@ describe("explicit citation streaming", () => {
   });
 
   it("does not resolve embedded references inside an oversized malformed token", () => {
-    const literal = `[[cite:${"x".repeat(130)}${token}]]`;
+    const literal = `\uE200cite\uE202${"x".repeat(130)}${token}\uE201`;
     const input = `${literal} then ${token}`;
     const expected = render([input]);
     expect(expected.text).toBe(`${literal} then [1]`);
@@ -236,9 +227,9 @@ describe("explicit citation streaming", () => {
       numbers,
     );
     expect(first.push(token) + first.finish()).toBe("[1]");
-    expect(second.push(`[[cite:${otherId}]]${token}`) + second.finish()).toBe(
-      "[2][1]",
-    );
+    expect(
+      second.push(`\uE200cite\uE202turn1url0\uE201${token}`) + second.finish(),
+    ).toBe("[2][1]");
     expect(second.metadata.annotations.map((a) => a.start_index)).toEqual([
       0, 3,
     ]);

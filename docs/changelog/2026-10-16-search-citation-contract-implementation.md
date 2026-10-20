@@ -16,7 +16,7 @@ UIMessage boundaries. Unspecified requests retain legacy search behavior.
   confirmed empty results, unavailable details, discarded unsafe sources,
   and sanitized typed failures. Codex remains truthful about query-only
   output and unavailable citations.
-- Resolve model-authored `[[cite:<source_id>]]` references into visible
+- Resolve model-authored `\uE200cite\uE202turn0url0\uE201` references into visible
   `[n]` markers, code-point offsets, and separate provenance bindings.
   Bound processing state, preserve Markdown code/escape contexts, and
   retain emitted text on abort or limits. Native ingestion has fixture

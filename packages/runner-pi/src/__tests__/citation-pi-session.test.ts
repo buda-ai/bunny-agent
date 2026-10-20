@@ -17,7 +17,6 @@ import {
 import { Type } from "@sinclair/typebox";
 import { describe, expect, it } from "vitest";
 import { createCitationSessionRegistry } from "../citation-session-cache.js";
-import { sourceReference } from "../source-registry.js";
 import {
   extractToolResultText,
   PiAISDKStreamConverter,
@@ -28,8 +27,8 @@ describe("real Pi session citation subscription", () => {
     const directory = mkdtempSync(join(tmpdir(), "pi-citation-subscription-"));
     const url = "https://example.com/fixture";
     const sourceId = deriveSourceId(url)!;
-    const reference = sourceReference(sourceId);
-    const token = `[[cite:${reference}]]`;
+    const reference = "turn0url0";
+    const token = `\uE200cite\uE202${reference}\uE201`;
     const faux = createFauxCore({
       api: "faux-citation",
       provider: "faux-citation",

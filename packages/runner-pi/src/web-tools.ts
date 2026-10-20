@@ -19,7 +19,7 @@ import {
   classifyWebSearchError,
 } from "@bunny-agent/manager/contracts/record";
 import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
-import { sourceReference } from "./source-registry.js";
+import { SourceRegistry } from "./source-registry.js";
 import type { ToolUsageDetails } from "./tool-details.js";
 
 // ---------------------------------------------------------------------------
@@ -486,7 +486,11 @@ function formatSearchResults(
     results
       .map((r, i) => {
         const lines = [`--- Result ${i + 1} ---`];
-        if (references?.[i]) lines.push(`Reference: ${references[i]}`);
+        if (references?.[i])
+          lines.push(
+            `Reference: ${references[i]}`,
+            `Citation Marker: \uE200cite\uE202${references[i]}\uE201`,
+          );
         lines.push(`Title: ${stripNullBytes(r.title)}`, `Link: ${r.link}`);
         if (r.age) lines.push(`Age: ${r.age}`);
         lines.push(`Snippet: ${stripNullBytes(r.snippet)}`);
@@ -499,13 +503,13 @@ function formatSearchResults(
 
 /**
  * Appended to v1-mode `web_search` results: instructs the model to use the
- * explicit `[[cite:ref_<12hex>]]` marker bridge immediately after a
+ * OpenAI citation-formatting marker bridge immediately after a
  * supported statement. Only included when `searchContractVersion: 1` is
  * selected — legacy output is unaffected.
  */
 const V1_CITATION_INSTRUCTION =
-  "\n\nTo cite a result above in your answer, write [[cite:<Reference>]] " +
-  "immediately after the statement it supports, using the exact Reference shown. " +
+  "\n\nTo cite a result above in your answer, write \uE200cite\uE202turn0url0\uE201 " +
+  "immediately after the statement it supports, using the exact Reference shown instead of the example. Combine multiple References with \uE202 in one marker. Do not add line locators. " +
   "Do not invent or repair References.";
 
 // ---------------------------------------------------------------------------
@@ -571,6 +575,7 @@ const webFetchSchema = {
 export function buildWebSearchTool(
   env: Record<string, string>,
   searchContractVersion?: 1,
+  sourceRegistry = new SourceRegistry(),
 ): ToolDefinition {
   const providers = resolveSearchProviders(env);
   if (providers.length === 0) {
@@ -594,13 +599,14 @@ export function buildWebSearchTool(
       "Prefer specific, focused queries over broad ones for better results.",
       ...(v1
         ? [
-            "When citing a web_search result in your answer, write [[cite:<Reference>]] immediately after the supported statement, using the exact short Reference shown.",
+            "When citing a web_search result in your answer, write \uE200cite\uE202turn0url0\uE201 immediately after the supported statement, using the exact Reference shown instead of the example; combine multiple References with \uE202 and do not invent line locators.",
           ]
         : []),
     ],
     // biome-ignore lint/suspicious/noExplicitAny: plain JSON Schema compatible with TypeBox TSchema
     parameters: webSearchSchema as any,
     async execute(toolCallId, params, signal, _onUpdate) {
+      if (v1) sourceRegistry.reserveSearch(toolCallId);
       const p = params as Record<string, unknown>;
       const query = p.query as string;
       const count = (p.count as number) ?? 5;
@@ -663,6 +669,7 @@ export function buildWebSearchTool(
             provider: provider.id,
             results,
           });
+          sourceRegistry.registerSearch(record);
           const readable = record.results.map((r) => ({
             title: r.title ?? r.url,
             link: r.url,
@@ -676,7 +683,13 @@ export function buildWebSearchTool(
               : formatSearchResults(
                   readable,
                   provider.label,
-                  record.results.map((r) => sourceReference(r.source_id)),
+                  record.results.map(
+                    (r) =>
+                      sourceRegistry.referenceForSource(
+                        r.source_id,
+                        toolCallId,
+                      )!,
+                  ),
                 ) + (record.results.length > 0 ? V1_CITATION_INSTRUCTION : "");
 
           const details: WebSearchToolDetails = {

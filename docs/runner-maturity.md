@@ -165,7 +165,7 @@ retrying automatically.
 
 See [`docs/search-citation-contract.md`](./search-citation-contract.md) for
 the full protocol: retrieval/citation JSON shapes, Unicode code-point offset
-units, source identity derivation, the explicit `[[cite:<source_id>]]`
+units, source identity derivation, the explicit `\uE200cite\uE202turn0url0\uE201`
 marker bridge, native-annotation ingestion boundary, processing limits, and
 Pi session resume/compaction/fork persistence — plus a validated illustrative
 fixture at
@@ -173,7 +173,7 @@ fixture at
 
 | Runner | structured_retrieval | native_annotations | explicit_source_marker_annotations |
 |---|---|---|---|
-| pi | ✅ `details.web_search` structured success/failure envelope on native Brave/Tavily and recognized canonical tool-ref results | ❌ (Pi/pi-ai do not natively ingest Responses-shaped annotations) | ✅ assistant-authored `[[cite:<source_id>]]` markers resolved into `[n]` + Responses-shaped `url_citation` annotations |
+| pi | ✅ `details.web_search` structured success/failure envelope on native Brave/Tavily and recognized canonical tool-ref results | ❌ (Pi/pi-ai do not natively ingest Responses-shaped annotations) | ✅ assistant-authored `\uE200cite\uE202turn0url0\uE201` markers resolved into `[n]` + Responses-shaped `url_citation` annotations |
 | codex | ⚠️ query-only; Codex's own web-search tool is a provider-executed black box with no retrievable result payload — adapted to a truthful `source_details: "unavailable"` v1 envelope rather than inventing sources or zero-hit results | ❌ | ❌ (no bridge; Codex's SDK never surfaces assistant-visible search results to attach markers to) |
 | claude, gemini, opencode, copilot | ❌ unsupported runner for this version | ❌ | ❌ |
 

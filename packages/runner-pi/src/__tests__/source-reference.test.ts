@@ -1,134 +1,154 @@
 import type { WebSearchCallRecord } from "@bunny-agent/manager/contracts";
 import { deriveSourceId } from "@bunny-agent/manager/contracts/source-id";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { CitationTextProcessor } from "../citation-processor.js";
-import {
-  CITATION_CACHE_TYPE,
-  createCitationSessionRegistry,
-} from "../citation-session-cache.js";
-import { SourceRegistry, sourceReference } from "../source-registry.js";
-
-// Deliberately create a compact-alias collision without searching for SHA-256
-// preimages. Production identity validation continues to use the real digest.
-vi.mock("@bunny-agent/manager/contracts/source-id", async (importOriginal) => {
-  const actual =
-    await importOriginal<
-      typeof import("@bunny-agent/manager/contracts/source-id")
-    >();
-  return {
-    ...actual,
-    deriveSourceId: (url: string) =>
-      url === "https://example.com/collision-a"
-        ? `src_${"0".repeat(12)}${"a".repeat(52)}`
-        : url === "https://example.com/collision-b"
-          ? `src_${"0".repeat(12)}${"b".repeat(52)}`
-          : actual.deriveSourceId(url),
-  };
-});
+import { createCitationSessionRegistry } from "../citation-session-cache.js";
+import { SourceRegistry } from "../source-registry.js";
 
 function source(path: string) {
   const url = `https://example.com/${path}`;
   return { type: "url" as const, source_id: deriveSourceId(url)!, url };
 }
+function search(id: string, paths: string[]): WebSearchCallRecord {
+  const sources = paths.map(source);
+  return {
+    schema_version: 1,
+    type: "web_search_call",
+    id,
+    status: "completed",
+    action: { type: "search", query: "docs", sources },
+    results: sources.map(({ source_id, url }) => ({ source_id, url })),
+    source_details: "available",
+    provider: "fixture",
+    truncated: false,
+  };
+}
 
-describe("exact compact source References", () => {
-  it("keeps identities and tool provenance distinct across multiple search calls", () => {
+describe("OpenAI tool invocation references", () => {
+  it("increments the turn per invocation and the URL index per result, including repeated URLs", () => {
     const registry = new SourceRegistry();
-    const first = source("one");
-    const second = source("two");
-    for (const [id, sources] of [
-      ["search-1", [first]],
-      ["search-2", [second, first]],
-    ] as const) {
-      registry.registerSearch({
-        schema_version: 1,
-        type: "web_search_call",
-        id,
-        status: "completed",
-        action: { type: "search", query: "docs", sources: [...sources] },
-        results: sources.map(({ source_id, url }) => ({ source_id, url })),
-        source_details: "available",
-        provider: "fixture",
-        truncated: false,
-      } satisfies WebSearchCallRecord);
-    }
-    expect(registry.resolve(sourceReference(first.source_id))).toMatchObject({
-      ...first,
-      tool_call_ids: ["search-1", "search-2"],
-    });
-    expect(registry.resolve(sourceReference(second.source_id))).toMatchObject({
-      ...second,
-      tool_call_ids: ["search-2"],
-    });
+    registry.registerSearch(search("search-1", ["one", "two"]));
+    registry.registerSearch(search("search-2", ["two", "one"]));
+    expect(registry.resolve("turn0url0")?.url).toBe(source("one").url);
+    expect(registry.resolve("turn0url1")?.url).toBe(source("two").url);
+    expect(registry.resolve("turn1url0")?.url).toBe(source("two").url);
+    expect(registry.resolve("turn1url1")?.url).toBe(source("one").url);
+    expect(registry.resolve("turn0url0")?.tool_call_ids).toEqual([
+      "search-1",
+      "search-2",
+    ]);
+    expect(registry.resolve("TURN0URL0")).toBeUndefined();
+    expect(registry.resolve("turn9url0")).toBeUndefined();
     expect(
-      registry.resolve(sourceReference(first.source_id).toUpperCase()),
-    ).toBeUndefined();
-    expect(
-      registry.resolve(sourceReference(first.source_id).slice(0, -1)),
-    ).toBeUndefined();
-    expect(
-      new SourceRegistry().resolve(sourceReference(first.source_id)),
-    ).toBeUndefined();
+      registry.referenceForSource(source("two").source_id, "search-2"),
+    ).toBe("turn1url0");
   });
 
-  it("rejects a colliding compact Reference while preserving exact canonical compatibility", () => {
+  it("persists references and failed invocation turns across resume and selected fork ancestry", () => {
+    const entries: unknown[] = [];
+    const store = {
+      getLeafId: () => "leaf",
+      getBranch: () => [...entries],
+      appendCustomEntry: (customType: string, data: unknown) => {
+        entries.push({ type: "custom", customType, data });
+        return String(entries.length);
+      },
+    };
+    const first = createCitationSessionRegistry(store, true);
+    first.reserveSearch("failed-search");
+    first.registerSearch(search("success-search", ["one", "two"]));
+    const selected = [...entries];
+    first.registerSearch(search("sibling-search", ["sibling"]));
+    const resumed = createCitationSessionRegistry(
+      { ...store, getBranch: () => selected },
+      true,
+    );
+    expect(resumed.resolve("turn1url1")?.url).toBe(source("two").url);
+    expect(resumed.resolve("turn2url0")).toBeUndefined();
+    resumed.registerSearch(search("fork-search", ["fork"]));
+    expect(resumed.resolve("turn2url0")?.url).toBe(source("fork").url);
+  });
+
+  it("supports several references in one official marker with exact Unicode ranges", () => {
     const registry = new SourceRegistry();
-    const first = source("collision-a");
-    const second = source("collision-b");
-    registry.register(first, ["search-a"]);
-    registry.register(second, ["search-b"]);
-    const reference = sourceReference(first.source_id);
-    expect(reference).toBe(sourceReference(second.source_id));
-    expect(registry.resolve(reference)).toBeUndefined();
-    expect(registry.resolve(first.source_id)?.url).toBe(first.url);
-    expect(registry.resolve(second.source_id)?.url).toBe(second.url);
+    registry.registerSearch(search("call", ["one", "two"]));
+    const input = "A😀B \uE200cite\uE202turn0url0\uE202turn0url1\uE201";
+    for (let split = 0; split <= input.length; split++) {
+      const processor = new CitationTextProcessor(
+        "text",
+        "explicit-marker",
+        registry,
+        new Map(),
+      );
+      expect(
+        processor.push(input.slice(0, split)) +
+          processor.push(input.slice(split)) +
+          processor.finish(),
+      ).toBe("A😀B [1][2]");
+      expect(
+        processor.metadata.annotations.map(({ start_index, end_index }) => [
+          start_index,
+          end_index,
+        ]),
+      ).toEqual([
+        [4, 7],
+        [7, 10],
+      ]);
+    }
+  });
+
+  it("deduplicates references to the same canonical URL in a multi-source marker", () => {
+    const registry = new SourceRegistry();
+    registry.registerSearch(search("first", ["one"]));
+    registry.registerSearch(search("second", ["one"]));
     const processor = new CitationTextProcessor(
       "text",
       "explicit-marker",
       registry,
       new Map(),
     );
-    expect(processor.push(`[[cite:${reference}]]`) + processor.finish()).toBe(
-      `[[cite:${reference}]]`,
-    );
-    expect(processor.metadata.annotations).toEqual([]);
-    expect(registry.diagnostics).toContainEqual(
-      expect.objectContaining({
-        message: "An ambiguous source reference was rejected.",
-      }),
-    );
+    expect(
+      processor.push("\uE200cite\uE202turn0url0\uE202turn1url0\uE201") +
+        processor.finish(),
+    ).toBe("[1]");
+    expect(processor.metadata.annotations).toHaveLength(1);
   });
 
-  it("detects historical collisions beyond the 20-source prompt view and excludes unreachable records", () => {
-    const entries = [
-      source("collision-a"),
-      source("collision-b"),
-      ...Array.from({ length: 21 }, (_, i) => source(`recent-${i}`)),
-    ].map((entry) => ({
-      type: "custom",
-      customType: CITATION_CACHE_TYPE,
-      data: {
-        schema_version: 1,
-        sources: [{ ...entry, tool_call_ids: ["search"] }],
+  it("reconstructs exact per-call references from typed tool-result ancestry", () => {
+    const entries = ["first", "second"].map((id) => ({
+      type: "message",
+      message: {
+        role: "toolResult",
+        toolCallId: id,
+        details: { web_search: search(id, [id, "shared"]) },
       },
     }));
-    const store = {
-      getLeafId: () => "captured-leaf",
-      getBranch: (leaf?: string) => {
-        expect(leaf).toBe("captured-leaf");
-        return entries;
+    const registry = createCitationSessionRegistry(
+      {
+        getLeafId: () => "leaf",
+        getBranch: () => entries,
+        appendCustomEntry: () => "saved",
       },
-      appendCustomEntry: () => "new-entry",
-    };
-    const registry = createCitationSessionRegistry(store, true);
-    const first = source("collision-a");
-    const reference = sourceReference(first.source_id);
-    expect(registry.resolve(first.source_id)).toBeDefined();
-    expect(registry.resolve(reference)).toBeUndefined();
-    const isolated = createCitationSessionRegistry(
-      { ...store, getBranch: () => [entries[0]] },
       true,
     );
-    expect(isolated.resolve(reference)?.source_id).toBe(first.source_id);
+    expect(registry.resolve("turn0url1")?.url).toBe(source("shared").url);
+    expect(registry.resolve("turn1url0")?.url).toBe(source("second").url);
+    registry.registerSearch(search("third", ["third"]));
+    expect(registry.resolve("turn2url0")?.url).toBe(source("third").url);
+  });
+
+  it("does not promote obsolete custom markers or fabricated URL line locators", () => {
+    const registry = new SourceRegistry();
+    registry.registerSearch(search("call", ["one"]));
+    const input =
+      "[[cite:ref_000000000000]] \uE200cite\uE202turn0url0\uE202L1-L2\uE201";
+    const processor = new CitationTextProcessor(
+      "text",
+      "explicit-marker",
+      registry,
+      new Map(),
+    );
+    expect(processor.push(input) + processor.finish()).toBe(input);
+    expect(processor.metadata.annotations).toEqual([]);
   });
 });

@@ -29,7 +29,6 @@ export class CitationTextProcessor {
   };
   private pending = "";
   private oversizedMarker = false;
-  private oversizedPreviousBracket = false;
   private surrogate = "";
   private position = 0;
   private literal = false;
@@ -185,48 +184,57 @@ export class CitationTextProcessor {
   private consume(char: string, allowMarker = true): string {
     if (this.literal) return this.output(char);
     if (allowMarker && this.oversizedMarker) {
-      if (
-        (this.oversizedPreviousBracket && char === "]") ||
-        char === "\n" ||
-        char === "\r"
-      )
+      if (char === "\uE201" || char === "\n" || char === "\r")
         this.oversizedMarker = false;
-      this.oversizedPreviousBracket = char === "]";
       return this.consume(char, false);
     }
     if (this.pending) {
       this.pending += char;
-      if ("[[cite:".startsWith(this.pending)) return "";
-      if (!this.pending.startsWith("[[cite:")) {
-        const first = this.pending[0];
-        const rest = this.pending.slice(1);
+      if ("\uE200cite\uE202".startsWith(this.pending)) return "";
+      if (!this.pending.startsWith("\uE200cite\uE202")) {
+        const text = this.pending;
         this.pending = "";
-        let result = this.output(first);
-        this.lineSpaces = -1;
-        for (const next of rest) result += this.consume(next);
-        return result;
+        return this.emitLiteralToken(text);
       }
-      if (this.pending.endsWith("]]")) {
+      if (char === "\uE201") {
         const token = this.pending;
         this.pending = "";
-        const match = /^\[\[cite:(ref_[a-f0-9]{12}|src_[a-f0-9]{64})\]\]$/.exec(
-          token,
+        const match =
+          /^\uE200cite\uE202(turn\d+url\d+(?:\uE202turn\d+url\d+)*)\uE201$/.exec(
+            token,
+          );
+        const references = match ? [...new Set(match[1].split("\uE202"))] : [];
+        const sources = references.map((reference) =>
+          this.registry.resolve(reference),
         );
-        const source = match ? this.registry.resolve(match[1]) : undefined;
-        if (!source || source.tool_call_ids.length === 0) {
+        if (
+          !match ||
+          sources.some((source) => !source || source.tool_call_ids.length === 0)
+        ) {
           this.diagnose(
             match ? "unknown_source" : "malformed_token",
             "An unresolved citation marker was retained literally.",
           );
           return this.emitLiteralToken(token);
         }
-        const number =
-          this.numbering.get(source.source_id) ?? this.numbering.size + 1;
-        const marker = `[${number}]`;
+        const resolved = [
+          ...new Map(
+            sources
+              .filter((source) => source !== undefined)
+              .map((source) => [source.source_id, source]),
+          ).values(),
+        ];
+        const proposed = new Map(this.numbering);
+        const markers = resolved.map((source) => {
+          const number = proposed.get(source.source_id) ?? proposed.size + 1;
+          proposed.set(source.source_id, number);
+          return `[${number}]`;
+        });
         if (
-          this.metadata.annotations.length >=
+          this.metadata.annotations.length + resolved.length >
             LIMITS.maxAnnotationsPerTextPart ||
-          this.position + marker.length > LIMITS.maxCodePointsPerTextPart
+          this.position + markers.join("").length >
+            LIMITS.maxCodePointsPerTextPart
         ) {
           this.literal = true;
           this.diagnose(
@@ -235,21 +243,26 @@ export class CitationTextProcessor {
           );
           return this.output(token);
         }
-        this.numbering.set(source.source_id, number);
-        this.metadata.bindings.push({
-          annotation_index: this.metadata.annotations.length,
-          source_id: source.source_id,
-          origin: "explicit_source_marker",
-          tool_call_ids: [...source.tool_call_ids],
-        });
-        this.metadata.annotations.push({
-          type: "url_citation",
-          start_index: this.position,
-          end_index: this.position + marker.length,
-          url: source.url,
-          title: source.title ?? source.url,
-        });
-        return this.output(marker);
+        let output = "";
+        for (const [index, source] of resolved.entries()) {
+          const marker = markers[index];
+          this.numbering.set(source.source_id, proposed.get(source.source_id)!);
+          this.metadata.bindings.push({
+            annotation_index: this.metadata.annotations.length,
+            source_id: source.source_id,
+            origin: "explicit_source_marker",
+            tool_call_ids: [...source.tool_call_ids],
+          });
+          this.metadata.annotations.push({
+            type: "url_citation",
+            start_index: this.position,
+            end_index: this.position + marker.length,
+            url: source.url,
+            title: source.title ?? source.url,
+          });
+          output += this.output(marker);
+        }
+        return output;
       }
       if (
         this.pending.length >= LIMITS.maxPendingMarkerSuffixChars ||
@@ -263,7 +276,6 @@ export class CitationTextProcessor {
           "An incomplete or oversized citation marker was retained literally.",
         );
         this.oversizedMarker = char !== "\n" && char !== "\r";
-        this.oversizedPreviousBracket = char === "]";
         return this.emitLiteralToken(text);
       }
       return "";
@@ -330,7 +342,7 @@ export class CitationTextProcessor {
     }
     if (this.fenceChar || this.inlineTicks) return this.output(char);
     if (!escaped && char === "\\") this.escaped = true;
-    if (allowMarker && !escaped && char === "[") {
+    if (allowMarker && !escaped && char === "\uE200") {
       this.pending = char;
       return "";
     }

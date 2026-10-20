@@ -316,7 +316,11 @@ function formatResults(
     results
       .map((r, i) => {
         const lines = [`--- Result ${i + 1} ---`];
-        if (sourceIds?.[i]) lines.push(`Source ID: ${sourceIds[i]}`);
+        if (sourceIds?.[i])
+          lines.push(
+            `Reference: ${sourceIds[i]}`,
+            `Citation Marker: \uE200cite\uE202${sourceIds[i]}\uE201`,
+          );
         lines.push(`Title: ${r.title}`, `Link: ${r.link}`);
         if (r.age) lines.push(`Age: ${r.age}`);
         lines.push(`Snippet: ${r.snippet}`);
@@ -329,13 +333,13 @@ function formatResults(
 
 /**
  * Appended to v1-mode `web_search` results: instructs the model to use the
- * explicit `[[cite:<source_id>]]` marker bridge immediately after a
+ * OpenAI citation-formatting marker bridge immediately after a
  * supported statement. Only included when `searchContractVersion: 1` is
  * selected — legacy output is unaffected.
  */
 const V1_CITATION_INSTRUCTION =
-  "\n\nTo cite a result above in your answer, write [[cite:<Source ID>]] " +
-  "immediately after the statement it supports, using the exact Source ID shown.";
+  "\n\nTo cite a result above in your answer, write \uE200cite\uE202turn0url0\uE201 " +
+  "immediately after the statement it supports, using the exact Reference shown instead of the example. Combine multiple References with \uE202. Do not add line locators.";
 
 // ---------------------------------------------------------------------------
 // Tool builder
@@ -347,6 +351,7 @@ export function buildWebSearchTool(
 ): ToolDefinition {
   const providers = resolveSearchProviders(env);
   const v1 = searchContractVersion === 1;
+  const invocationTurns = new Map<string, number>();
 
   return {
     name: "web_search",
@@ -359,7 +364,7 @@ export function buildWebSearchTool(
       "Set fetch_content=true only when you need full page text — it is slower.",
       ...(v1
         ? [
-            "When citing a web_search result in your answer, write [[cite:<Source ID>]] immediately after the supported statement.",
+            "When citing a web_search result in your answer, write \uE200cite\uE202turn0url0\uE201 immediately after the supported statement.",
           ]
         : []),
     ],
@@ -378,6 +383,8 @@ export function buildWebSearchTool(
       },
     },
     async execute(toolCallId, params, _signal, _onUpdate) {
+      const turn = invocationTurns.get(toolCallId) ?? invocationTurns.size;
+      invocationTurns.set(toolCallId, turn);
       const p = params as Record<string, unknown>;
       const query = p.query as string;
       const count = (p.count as number) ?? 5;
@@ -414,7 +421,13 @@ export function buildWebSearchTool(
               details: undefined,
             };
           }
-          return buildV1SuccessResult(toolCallId, query, provider.id, results);
+          return buildV1SuccessResult(
+            toolCallId,
+            query,
+            provider.id,
+            results,
+            turn,
+          );
         } catch (e) {
           lastError = e;
           // Keep v1 authentication/schema failures visible. Legacy fallback
@@ -452,7 +465,13 @@ export function buildWebSearchTool(
               details: undefined,
             };
           }
-          return buildV1SuccessResult(toolCallId, query, "duckduckgo", results);
+          return buildV1SuccessResult(
+            toolCallId,
+            query,
+            "duckduckgo",
+            results,
+            turn,
+          );
         } catch (e) {
           lastError = e;
         }
@@ -497,6 +516,7 @@ function buildV1SuccessResult(
   query: string,
   providerId: string,
   results: SearchResult[],
+  turn: number,
 ): {
   content: Array<{ type: "text"; text: string }>;
   details: WebSearchToolDetails;
@@ -520,7 +540,7 @@ function buildV1SuccessResult(
       : formatResults(
           readable,
           providerId,
-          record.results.map((r) => r.source_id),
+          record.results.map((_, index) => `turn${turn}url${index}`),
         ) + (record.results.length > 0 ? V1_CITATION_INSTRUCTION : "");
   const details: WebSearchToolDetails = { web_search: record };
   return { content: [{ type: "text" as const, text }], details };

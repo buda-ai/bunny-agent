@@ -136,7 +136,7 @@ Alternative: synthesize annotations by scanning Markdown links. Rejected because
 
 ### 6. Bridge non-native tools using explicit source markers
 
-For Pi's supported v1 tool path, instruct the model to emit `[[cite:<source_id>]]` immediately following a supported statement. A bounded incremental tokenizer operates only on assistant answer text, never tool output or reasoning. Resolve valid IDs to the source registry, replace each token with a visible `[n]`, and produce an annotation spanning exactly that emitted marker. Numbers are stable by first reference within the assistant message and reused across that message's text parts.
+For Pi's supported v1 tool path, instruct the model to emit `\uE200cite\uE202turn0url0\uE201` immediately following a supported statement. A bounded incremental tokenizer operates only on assistant answer text, never tool output or reasoning. Resolve valid IDs to the source registry, replace each token with a visible `[n]`, and produce an annotation spanning exactly that emitted marker. Numbers are stable by first reference within the assistant message and reused across that message's text parts.
 
 Unknown/malformed tokens and escaped or literal-code examples remain literal text and create no annotation. Track Markdown code/escape state across chunk boundaries conservatively; an unterminated code delimiter does not justify converting literal examples into citations. Duplicate complete events are ignored by text identity and terminal state. The marker protocol is an internal model-facing mechanism; clients receive the standard annotation object plus `origin: "explicit_source_marker"`. The bridge is not semantic fact checking. A model that emits no valid references produces no annotations, even if it used web search.
 

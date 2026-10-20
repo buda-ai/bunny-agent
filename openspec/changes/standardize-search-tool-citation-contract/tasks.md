@@ -26,7 +26,7 @@
 
 - [x] 4.1 Implement a request/session source registry and versioned Pi custom session entries; verify source IDs and provenance reconstruct after a fresh-process resume, compaction, and fork without importing sibling/future branch records.
 - [x] 4.2 Add v1-only model-facing source reference guidance and bounded relevant-source exposure; verify legacy prompts remain unchanged and source content cannot inject trusted registry entries.
-- [x] 4.3 Implement bounded incremental resolution of assistant-authored `[[cite:<source_id>]]` tokens into `[n]` and Responses-shaped annotations; verify valid, repeated, unknown, malformed, adjacent, escaped, inline-code, and fenced-code references and stable numbering across text parts.
+- [x] 4.3 Implement bounded incremental resolution of assistant-authored `\uE200cite\uE202turn0url0\uE201` tokens into `[n]` and Responses-shaped annotations; verify valid, repeated, unknown, malformed, adjacent, escaped, inline-code, and fenced-code references and stable numbering across text parts.
 - [x] 4.4 Verify marker resolution for every split position of representative tokens, Unicode/CRLF prefixes (including a surrogate pair split between input chunks), tools/reasoning boundaries, partial-token abort, and processing budgets; completion requires identical final text/ranges for unsplit and partitioned inputs.
 
 ## 5. Native ingestion and runner stream finalization

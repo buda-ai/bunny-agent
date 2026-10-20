@@ -22,7 +22,7 @@ function message(bunny: unknown = metadata, answer = text) {
 describe("browser-safe durable UIMessage projection", () => {
   it("never infers citations from Markdown links, snippets, source cards, or legacy raw metadata", () => {
     const answer =
-      "[Documentation](https://example.com/docs) [[cite:src_untrusted]]";
+      "[Documentation](https://example.com/docs) \uE200cite\uE202turn999url0\uE201";
     const input = {
       parts: [
         {
