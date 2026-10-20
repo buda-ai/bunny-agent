@@ -1,10 +1,10 @@
 /**
- * Browser-safe re-export of the web search / answer citation contract
+ * Browser-safe re-export of web search and document answer citation contract
  * types and helpers from `@bunny-agent/manager/contracts`, published as
  * `@bunny-agent/sdk/contracts` for product (Buda Cloud/OpenBuda) consumers.
  *
  * This file intentionally re-exports only the browser-safe manager barrel —
- * never `@bunny-agent/manager/contracts/source-id`, which uses `node:crypto`
+ * never the `source-id` or `document-id` entrypoints, which use `node:crypto`
  * and must stay server-only.
  */
 export type {
@@ -15,6 +15,13 @@ export type {
   CitationOrigin,
   CitationProcessingState,
   CitationValidationContext,
+  DocumentCitationAnnotation,
+  DocumentCitationContractMetadata,
+  DocumentCitationSource,
+  DocumentExcerpt,
+  DocumentIdentity,
+  DocumentLineLocator,
+  DocumentReadResult,
   OutputTextContent,
   SearchContractCapabilities,
   SearchContractLimits,
@@ -32,14 +39,20 @@ export type {
 export {
   codePointLength,
   codePointOffsetToUtf16Index,
+  DOCUMENT_CITATION_LIMITS,
   enforceSourceLimit,
   isAnnotationRangeValidForText,
   isCitationBinding,
+  isDocumentCitationSource,
+  isDocumentIdentity,
+  isDocumentLineLocator,
+  isDocumentReadResult,
   isSafeHttpUrl,
   isSupportedSearchContractVersion,
   isUrlCitationAnnotation,
   isValidCitationContractMetadata,
   isValidCodePointRange,
+  isValidDocumentCitationContractMetadata,
   isValidWebSearchCallRecord,
   isWebSearchAction,
   isWebSearchError,
@@ -55,5 +68,6 @@ export {
 export type { UIMessageOutputText } from "./ui-message-projection";
 export {
   isSearchContractCapabilities,
+  projectUIMessageDocumentCitations,
   projectUIMessageOutputText,
 } from "./ui-message-projection";

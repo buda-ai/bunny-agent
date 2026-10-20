@@ -105,6 +105,15 @@ export class SourceRegistry {
       this.register(source, [record.id]);
   }
 
+  hasReference(id: string): boolean {
+    return (
+      [...this.sources.values(), ...(this.lookupReference?.(id) ?? [])].some(
+        (source) =>
+          source.source_id === id || sourceReference(source.source_id) === id,
+      ) || Boolean(this.lookup?.(id))
+    );
+  }
+
   resolve(id: string): RegisteredSource | undefined {
     if (/^ref_[a-f0-9]{12}$/.test(id)) {
       const candidates = new Map<string, RegisteredSource>();

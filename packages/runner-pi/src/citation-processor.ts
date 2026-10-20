@@ -1,12 +1,14 @@
 import {
   type CitationContractMetadata,
   type CitationDiagnostic,
+  type DocumentCitationContractMetadata,
   isSafeHttpUrl,
   SEARCH_CONTRACT_LIMITS as LIMITS,
   type UrlCitationAnnotation,
   utf16RangeToCodePointRange,
 } from "@bunny-agent/manager/contracts";
 import { deriveSourceId } from "@bunny-agent/manager/contracts/source-id";
+import type { DocumentSourceRegistry } from "./document-registry.js";
 import type { SourceRegistry } from "./source-registry.js";
 
 /** Explicit supported adapter boundary. Unknown offset units are rejected at runtime. */
@@ -25,6 +27,14 @@ export class CitationTextProcessor {
     offset_unit: "unicode-code-points",
     annotations: [],
     bindings: [],
+    processing: "complete",
+  };
+  readonly documentMetadata: DocumentCitationContractMetadata = {
+    schema_version: 1,
+    offset_unit: "unicode-code-points",
+    annotations: [],
+    bindings: [],
+    sources: [],
     processing: "complete",
   };
   private pending = "";
@@ -55,10 +65,13 @@ export class CitationTextProcessor {
     readonly mode: CitationMode,
     private readonly registry: SourceRegistry,
     private readonly numbering: Map<string, number>,
+    private readonly documents?: DocumentSourceRegistry,
+    private readonly webEnabled = true,
   ) {}
 
   diagnose(code: CitationDiagnostic["code"], message: string): void {
     this.metadata.processing = "partial";
+    this.documentMetadata.processing = "partial";
     this.metadata.diagnostics ??= [];
     const diagnostics = this.metadata.diagnostics;
     if (
@@ -212,19 +225,30 @@ export class CitationTextProcessor {
         const match = /^\[\[cite:(ref_[a-f0-9]{12}|src_[a-f0-9]{64})\]\]$/.exec(
           token,
         );
-        const source = match ? this.registry.resolve(match[1]) : undefined;
-        if (!source || source.tool_call_ids.length === 0) {
+        const source =
+          match && this.webEnabled
+            ? this.registry.resolve(match[1])
+            : undefined;
+        const document = match ? this.documents?.resolve(match[1]) : undefined;
+        const ambiguousAcrossKinds =
+          match &&
+          this.webEnabled &&
+          this.documents?.hasReference(match[1]) &&
+          this.registry.hasReference(match[1]);
+        if (ambiguousAcrossKinds || (!source && !document)) {
           this.diagnose(
             match ? "unknown_source" : "malformed_token",
             "An unresolved citation marker was retained literally.",
           );
           return this.emitLiteralToken(token);
         }
+        const resolved = document ?? source!;
         const number =
-          this.numbering.get(source.source_id) ?? this.numbering.size + 1;
+          this.numbering.get(resolved.source_id) ?? this.numbering.size + 1;
         const marker = `[${number}]`;
         if (
-          this.metadata.annotations.length >=
+          this.metadata.annotations.length +
+            this.documentMetadata.annotations.length >=
             LIMITS.maxAnnotationsPerTextPart ||
           this.position + marker.length > LIMITS.maxCodePointsPerTextPart
         ) {
@@ -235,7 +259,33 @@ export class CitationTextProcessor {
           );
           return this.output(token);
         }
-        this.numbering.set(source.source_id, number);
+        this.numbering.set(resolved.source_id, number);
+        if (document) {
+          this.documentMetadata.bindings.push({
+            annotation_index: this.documentMetadata.annotations.length,
+            source_id: document.source_id,
+            origin: "explicit_source_marker",
+            tool_call_ids: [...document.tool_call_ids],
+          });
+          this.documentMetadata.annotations.push({
+            type: "document_citation",
+            start_index: this.position,
+            end_index: this.position + marker.length,
+            source_id: document.source_id,
+            title: document.document.title,
+          });
+          if (
+            !this.documentMetadata.sources.some(
+              (item) => item.source_id === document.source_id,
+            )
+          ) {
+            const { tool_call_ids: _provenance, ...receipt } = document;
+            this.documentMetadata.sources.push(receipt);
+          }
+          return this.output(marker);
+        }
+        if (!source || source.tool_call_ids.length === 0)
+          return this.emitLiteralToken(token);
         this.metadata.bindings.push({
           annotation_index: this.metadata.annotations.length,
           source_id: source.source_id,
@@ -479,6 +529,10 @@ export class CitationTextProcessor {
     const output = this.output(suffix);
     for (const diagnostic of this.registry.diagnostics)
       this.diagnose(diagnostic.code, diagnostic.message);
+    if (this.documentMetadata.processing === "partial")
+      this.documentMetadata.diagnostics = this.metadata.diagnostics?.map(
+        (item) => ({ ...item }),
+      );
     this.finalized = true;
     return output;
   }

@@ -22,6 +22,10 @@
     "./contracts/record": {
       "import": "./dist/contracts/record.js",
       "types": "./dist/contracts/record.d.ts"
+    },
+    "./contracts/document-id": {
+      "import": "./dist/contracts/document-id.js",
+      "types": "./dist/contracts/document-id.d.ts"
     }
   },
   "files": [

@@ -1,6 +1,7 @@
 import {
   type CitationBinding,
   isValidCitationContractMetadata,
+  isValidDocumentCitationContractMetadata,
   type OutputTextContent,
   projectOutputText,
   type SearchContractCapabilities,
@@ -94,6 +95,39 @@ export function projectUIMessageOutputText(message: {
         output_text: projectOutputText(part.text, []),
         bindings: [],
         ...(acknowledgement ? { searchContract: { ...acknowledgement } } : {}),
+      },
+    ];
+  });
+}
+
+/** Project independently versioned document citations from durable UI messages. */
+export function projectUIMessageDocumentCitations(message: {
+  parts: readonly unknown[];
+}): Array<{
+  textPartId: string;
+  text: string;
+  document_citations: import("@bunny-agent/manager/contracts").DocumentCitationContractMetadata;
+}> {
+  return message.parts.flatMap((value) => {
+    const part = record(value);
+    if (part?.type !== "text" || typeof part.text !== "string") return [];
+    const bunny = record(record(part.providerMetadata)?.["bunny-agent"]);
+    const document = record(bunny?.document_citations);
+    if (document?.schema_version !== 1) return [];
+    if (
+      typeof bunny?.textPartId !== "string" ||
+      bunny.textPartId.length === 0 ||
+      record(bunny.documentCitations)?.version !== 1 ||
+      !isValidDocumentCitationContractMetadata(document, { text: part.text })
+    )
+      throw new TypeError(
+        "Invalid durable Bunny document citation contract v1 text part",
+      );
+    return [
+      {
+        textPartId: bunny.textPartId,
+        text: part.text,
+        document_citations: structuredClone(document),
       },
     ];
   });

@@ -31,20 +31,34 @@ beforeEach(() => {
   installed.version = "6.0.264";
 });
 
-function sandbox() {
+function sandbox(documentSupport?: boolean) {
+  const coding = vi.fn(async function* (_body: unknown) {
+    yield new TextEncoder().encode(
+      'data: {"type":"finish","finishReason":"stop"}\n\ndata: [DONE]\n\n',
+    );
+  });
   const handle: SandboxHandle = {
     getSandboxId: () => null,
     getVolumes: () => null,
     getWorkdir: () => "/workspace",
-    exec: async function* () {},
+    exec: async function* () {
+      if (documentSupport !== undefined)
+        yield new TextEncoder().encode(
+          JSON.stringify({
+            ok: true,
+            data: {
+              status: "ok",
+              ...(documentSupport
+                ? { capabilities: { documentCitations: { version: 1 } } }
+                : {}),
+            },
+          }) + "\n200",
+        );
+    },
     upload: async () => {},
     readFile: async () => "",
     destroy: async () => {},
-    streamCodingRun: async function* () {
-      yield new TextEncoder().encode(
-        'data: {"type":"finish","finishReason":"stop"}\n\ndata: [DONE]\n\n',
-      );
-    },
+    streamCodingRun: coding,
   };
   const attach = vi.fn(async () => handle);
   return {
@@ -54,6 +68,7 @@ function sandbox() {
       getWorkdir: () => "/workspace",
     } satisfies SandboxAdapter,
     attach,
+    coding,
   };
 }
 const prompt = [
@@ -151,6 +166,49 @@ describe("AI SDK compatibility for opt-in citations", () => {
     const reader = response.stream.getReader();
     while (!(await reader.read()).done) {
       /* Drain the local fixture. */
+    }
+    expect(test.attach).toHaveBeenCalledOnce();
+  });
+  it.each([
+    true,
+    false,
+  ])("checks the peer only after document capability negotiation (supported=%s)", async (supported) => {
+    installed.version = "6.0.105";
+    const test = sandbox(supported);
+    const model = createBunnyAgent({
+      sandbox: test.adapter,
+      daemonUrl: "http://127.0.0.1:3080",
+      runnerType: "pi",
+      mcpConfig: {
+        mcpServers: {
+          documents: {
+            url: "https://mcp.example.com/rpc",
+            documentReadTools: ["read_document"],
+          },
+        },
+      },
+      logger: false,
+    })("gpt-5");
+    if (supported) {
+      await expect(model.doStream({ prompt })).rejects.toThrow(
+        "Document citations v1 requires ai >=6.0.264",
+      );
+      expect(test.coding).not.toHaveBeenCalled();
+    } else {
+      const response = await model.doStream({ prompt });
+      const reader = response.stream.getReader();
+      while (!(await reader.read()).done) {
+        /* Drain the fixture. */
+      }
+      expect(test.coding).toHaveBeenCalledOnce();
+      expect(test.coding.mock.calls[0][0]).toMatchObject({
+        mcpConfig: {
+          mcpServers: { documents: { url: "https://mcp.example.com/rpc" } },
+        },
+      });
+      expect(JSON.stringify(test.coding.mock.calls[0][0])).not.toContain(
+        "documentReadTools",
+      );
     }
     expect(test.attach).toHaveBeenCalledOnce();
   });

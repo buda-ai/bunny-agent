@@ -7,6 +7,7 @@
  * `@bunny-agent/manager/contracts/source-id` in server code.
  */
 
+export * from "./document.js";
 export {
   codePointLength,
   codePointOffsetToUtf16Index,
@@ -38,7 +39,6 @@ export type {
   WebSearchSource,
 } from "./types.js";
 export { SEARCH_CONTRACT_LIMITS, SEARCH_CONTRACT_VERSION_1 } from "./types.js";
-
 export type { CitationValidationContext } from "./validators.js";
 export {
   enforceSourceLimit,

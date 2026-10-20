@@ -3,6 +3,8 @@ import type {
   InlineExtension,
 } from "@earendil-works/pi-coding-agent";
 import { createJiti } from "jiti";
+import { withDocumentReadBridge } from "./document-mcp-bridge.js";
+import type { DocumentSourceRegistry } from "./document-registry.js";
 
 const MAX_SERVERS = 50;
 const MAX_MAP_ENTRIES = 100;
@@ -15,6 +17,8 @@ const MAX_TIMEOUT_MS = 300_000;
 export type McpLifecycle = "lazy" | "eager" | "keep-alive";
 
 export interface McpServerOptions {
+  /** Trusted document-read producers; only executed structured results are accepted. */
+  documentReadTools?: string[];
   lifecycle?: McpLifecycle;
   requestTimeoutMs?: number;
   directTools?: boolean | string[];
@@ -211,6 +215,7 @@ function assertStringMap(candidate: unknown, path: string): void {
 }
 
 const COMMON_SERVER_KEYS = new Set([
+  "documentReadTools",
   "lifecycle",
   "requestTimeoutMs",
   "directTools",
@@ -240,6 +245,7 @@ function validateCommonServerOptions(
   server: Record<string, unknown>,
   path: string,
 ): void {
+  assertOptionalStringArray(server, "documentReadTools", path);
   const lifecycle = server.lifecycle;
   if (
     lifecycle !== undefined &&
@@ -470,11 +476,26 @@ export function shouldEnableMcp(
   );
 }
 
-export function createMcpExtension(config: McpConfig): InlineExtension {
+export function createMcpExtension(
+  config: McpConfig,
+  documents?: DocumentSourceRegistry,
+): InlineExtension {
   const validated = validateMcpConfig(config);
   const { createMcpAdapter } = getMcpAdapterModule();
+  const adapterConfig = structuredClone(validated);
+  for (const server of Object.values(adapterConfig.mcpServers))
+    delete server.documentReadTools;
+  if (documents) {
+    adapterConfig.settings = {
+      ...adapterConfig.settings,
+      ...({ directToolResultDetails: "bounded" } as object),
+    };
+  }
+  const factory = createMcpAdapter({ config: adapterConfig });
   return {
     name: "bunny-agent-mcp",
-    factory: createMcpAdapter({ config: validated }),
+    factory: documents
+      ? withDocumentReadBridge(factory, validated, documents)
+      : factory,
   };
 }

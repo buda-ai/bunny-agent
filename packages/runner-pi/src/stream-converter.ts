@@ -8,6 +8,7 @@ import {
   CitationTextProcessor,
   type NativeCitationInput,
 } from "./citation-processor.js";
+import type { DocumentSourceRegistry } from "./document-registry.js";
 import { SourceRegistry } from "./source-registry.js";
 import type { ToolDetailsWithUsage } from "./tool-details.js";
 import {
@@ -19,6 +20,7 @@ import {
 interface PiAISDKStreamConverterOptions {
   searchContractVersion?: 1;
   sourceRegistry?: SourceRegistry;
+  documentRegistry?: DocumentSourceRegistry;
   /** Supported adapter/fixture boundary only; current Pi always uses explicit-marker. */
   citationMode?: CitationMode;
   sessionId: string;
@@ -268,7 +270,8 @@ export class PiAISDKStreamConverter {
     }
     if (event.type === "message_end") {
       if (
-        this.options.searchContractVersion === 1 &&
+        (this.options.searchContractVersion === 1 ||
+          this.options.documentRegistry) &&
         event.message.role === "assistant"
       ) {
         chunks.push(
@@ -318,7 +321,10 @@ export class PiAISDKStreamConverter {
           return chunks;
         // The provider's final stop reason arrives at message_end. Keep the
         // terminal metadata open until then so length/abort can be reported.
-        if (this.options.searchContractVersion === 1)
+        if (
+          this.options.searchContractVersion === 1 ||
+          this.options.documentRegistry
+        )
           this.textInputEnded = true;
       } else if (sub.type === "toolcall_start" || sub.type === "thinking_start")
         chunks.push(...this.endTextStreamIfOpen());
@@ -463,6 +469,9 @@ export class PiAISDKStreamConverter {
         type: "message-metadata",
         messageMetadata: {
           sessionId: this.options.sessionId,
+          ...(this.options.documentRegistry
+            ? { documentCitations: { version: 1 } }
+            : {}),
           ...(this.options.searchContractVersion === 1
             ? {
                 searchContract: {
@@ -492,12 +501,17 @@ export class PiAISDKStreamConverter {
   private openTextStream(): string[] {
     this.textInputEnded = false;
     this.activeTextPartId = this.newTextPartId();
-    if (this.options.searchContractVersion === 1) {
+    if (
+      this.options.searchContractVersion === 1 ||
+      this.options.documentRegistry
+    ) {
       this.textProcessor = new CitationTextProcessor(
         this.activeTextPartId,
         this.options.citationMode ?? "explicit-marker",
         this.registry,
         this.numbering,
+        this.options.documentRegistry,
+        this.options.searchContractVersion === 1,
       );
     }
     return [sseData({ type: "text-start", id: this.activeTextPartId })];
@@ -531,6 +545,20 @@ export class PiAISDKStreamConverter {
       const suffix = processor.finish(partial);
       if (suffix)
         chunks.push(sseData({ type: "text-delta", id, delta: suffix }));
+      for (const source of processor.documentMetadata.sources) {
+        if (this.emittedSources.has(source.source_id)) continue;
+        this.emittedSources.add(source.source_id);
+        chunks.push(
+          sseData({
+            type: "source-document",
+            sourceId: source.source_id,
+            mediaType: source.document.media_type,
+            title: source.document.title,
+            filename: source.document.path.split("/").pop(),
+            providerMetadata: { "bunny-agent": { document_source: source } },
+          }),
+        );
+      }
       for (const binding of processor.metadata.bindings) {
         if (this.emittedSources.has(binding.source_id)) continue;
         const annotation =
@@ -564,7 +592,12 @@ export class PiAISDKStreamConverter {
               providerMetadata: {
                 "bunny-agent": {
                   sessionId: this.options.sessionId,
-                  citation_contract: processor.metadata,
+                  ...(this.options.searchContractVersion === 1
+                    ? { citation_contract: processor.metadata }
+                    : {}),
+                  ...(this.options.documentRegistry
+                    ? { document_citations: processor.documentMetadata }
+                    : {}),
                 },
               },
             }

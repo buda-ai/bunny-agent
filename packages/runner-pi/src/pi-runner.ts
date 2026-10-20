@@ -23,6 +23,7 @@ import {
   citationSourceGuidance,
   createCitationSessionRegistry,
 } from "./citation-session-cache.js";
+import { DocumentSourceRegistry } from "./document-registry.js";
 import { buildImageEditTool, buildImageGenerateTool } from "./image-tools.js";
 import {
   createMcpExtension,
@@ -405,9 +406,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
 
   // Unified image model for both generate_image and edit_image.
   const imageModelName = resolveImageModelName(provider, options.env);
-  const mcpExtension = shouldEnableMcp(options.mcpConfig, options.allowedTools)
-    ? createMcpExtension(options.mcpConfig!)
-    : undefined;
+  const mcpEnabled = shouldEnableMcp(options.mcpConfig, options.allowedTools);
 
   return {
     async *run(userInput: string | AgentTurnInputV1): AsyncIterable<string> {
@@ -518,12 +517,27 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           sessionManager,
           options.searchContractVersion === 1,
         );
+        const documentServers = new Set(
+          Object.entries(options.mcpConfig?.mcpServers ?? {})
+            .filter(
+              ([, server]) =>
+                !server.disabled && (server.documentReadTools?.length ?? 0) > 0,
+            )
+            .map(([name]) => name),
+        );
+        const documentRegistry =
+          mcpEnabled && documentServers.size
+            ? new DocumentSourceRegistry(sessionManager, documentServers)
+            : undefined;
+        const mcpExtension = mcpEnabled
+          ? createMcpExtension(options.mcpConfig!, documentRegistry)
+          : undefined;
         const citationGuidance = citationSourceGuidance(
           options.searchContractVersion === 1,
           sourceRegistry,
         );
         const appendSystemPrompt =
-          [options.systemPrompt, citationGuidance]
+          [options.systemPrompt, citationGuidance, documentRegistry?.guidance()]
             .filter(Boolean)
             .join("\n\n") || undefined;
         // Create the loader whenever either input is present: systemPrompt is
@@ -741,6 +755,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           const streamConverter = new PiAISDKStreamConverter({
             searchContractVersion: options.searchContractVersion,
             sourceRegistry,
+            documentRegistry,
             sessionId: session.sessionId,
             model,
             normalizeToolOutput: extractToolResultText,
