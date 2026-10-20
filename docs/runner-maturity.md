@@ -53,7 +53,7 @@ Absent `_meta`, the server falls back to its configured default runner/model
 | Runner | Underlying SDK | Version |
 |---|---|---|
 | runner-claude | `@anthropic-ai/claude-agent-sdk` (in-process) | 0.3.215 |
-| runner-pi | `@earendil-works/pi-coding-agent` / `pi-agent-core` / `pi-ai` | 1.2.0 |
+| runner-pi | `@earendil-works/pi-coding-agent` / `pi-agent-core` / `pi-ai` | 1.3.0 |
 | runner-codex | `@openai/codex-sdk` (official, in-process) | 0.144.6 |
 | runner-gemini | `@agentclientprotocol/sdk` (Gemini CLI subprocess) | 1.2.1 |
 | runner-opencode | `@agentclientprotocol/sdk` (OpenCode CLI subprocess) | 1.2.1 |

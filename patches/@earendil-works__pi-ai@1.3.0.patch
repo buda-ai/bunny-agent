@@ -1,10 +1,11 @@
 diff --git a/dist/api/transform-messages.js b/dist/api/transform-messages.js
-index 1e7873e..483f612 100644
+index 6a364cb..db60f71 100644
 --- a/dist/api/transform-messages.js
 +++ b/dist/api/transform-messages.js
-@@ -1,5 +1,40 @@
+@@ -1,6 +1,41 @@
  const NON_VISION_USER_IMAGE_PLACEHOLDER = "(image omitted: model does not support images)";
  const NON_VISION_TOOL_IMAGE_PLACEHOLDER = "(tool image omitted: model does not support images)";
+ const ERROR_TOOL_IMAGE_PLACEHOLDER = "(image attached after the tool results)";
 +const LLM_THOUGHT_SIGNATURE_SEPARATOR = "__thought__";
 +const OPENAI_TOOL_CALL_ID_LIMIT = 40;
 +function stripLLMThoughtSignatureFromId(id) {
@@ -40,10 +41,10 @@ index 1e7873e..483f612 100644
 +    });
 +    return changed ? { ...message, content } : message;
 +}
- function replaceImagesWithPlaceholder(content, placeholder) {
-     const result = [];
-     let previousWasPlaceholder = false;
-@@ -64,7 +99,12 @@ export function transformMessages(messages, model, normalizeToolCallId) {
+ /**
+  * Split the images out of an error tool result, for APIs that reject images in error results
+  * (Anthropic, and Claude on Bedrock). Send the returned content as the tool result and the caption and
+@@ -83,7 +118,12 @@ export function transformMessages(messages, model, normalizeToolCallId) {
          }
          // Assistant messages need transformation check
          if (msg.role === "assistant") {
@@ -58,7 +59,7 @@ index 1e7873e..483f612 100644
                  assistantMsg.api === model.api &&
                  assistantMsg.model === model.id;
 diff --git a/dist/utils/overflow.js b/dist/utils/overflow.js
-index 2878759..06acda9 100644
+index 2878759..2dcfe41 100644
 --- a/dist/utils/overflow.js
 +++ b/dist/utils/overflow.js
 @@ -55,6 +55,7 @@ const OVERFLOW_PATTERNS = [
