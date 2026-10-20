@@ -158,3 +158,10 @@ Claude and Pi share a file-based approval bridge at
   root, matching Claude's permission bypass behavior.
 - Claude and Pi wait until the user answers or the run aborts. The web app
   still needs a generic approval UI for tools other than `AskUserQuestion`.
+- Pi gates calls through its `tool_call` hook, so built-in, custom, tool-ref and
+  extension tools (MCP) are all covered. Calls a codemode script makes are not
+  asked again: the script was approved as one call. Pi asks for one call at a
+  time, so a batch of parallel calls is approved call by call and then runs.
+- Pi redacts the runner `env` values from every tool result through its
+  `tool_result` hook, and blocks bash commands that dump the environment
+  before asking for approval.

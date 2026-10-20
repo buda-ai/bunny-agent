@@ -25,12 +25,11 @@ export {
   ASK_USER_QUESTION_TIMEOUT_MESSAGE,
   ASK_USER_QUESTION_TOOL_NAME,
   buildAskUserQuestionTool,
+  createToolApprovalExtension,
   DEFAULT_ASK_USER_QUESTION_TIMEOUT_MS,
-  gateToolsForApproval,
   MAX_ASK_USER_QUESTIONS,
   type WaitForApprovalOptions,
   waitForApproval,
-  wrapToolWithApproval,
 } from "./tool-approval.js";
 export type { ToolDetailsWithUsage, ToolUsageDetails } from "./tool-details.js";
 export {

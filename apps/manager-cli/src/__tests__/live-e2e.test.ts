@@ -129,8 +129,8 @@ describe.skipIf(!LIVE)("live e2e: BunnyAgent × mock LLM", () => {
             // all also proves the srt allowlist lets the LLM call through.
             allowedDomains: [MOCK_HOST],
             // pi/runner session + config writes outside the workdir
-            // (pi stores sessions under ~/.bunny/agent/sessions)
-            allowWrite: ["~/.bunny", "~/.config", "~/.cache"],
+            // (pi stores sessions under ~/.pi/agent/sessions)
+            allowWrite: ["~/.pi", "~/.config", "~/.cache"],
           },
         }),
         runner: RUNNER,

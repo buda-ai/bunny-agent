@@ -247,9 +247,6 @@ let nextSessionBehavior:
 const mockPiAgentState = vi.hoisted(() => ({
   baseSystemPrompt: undefined as string | undefined,
 }));
-const mockCreateCodingToolsState = vi.hoisted(() => ({
-  lastOptions: undefined as unknown,
-}));
 
 vi.mock("@earendil-works/pi-coding-agent", () => {
   const mockModelRuntime = {
@@ -277,7 +274,9 @@ vi.mock("@earendil-works/pi-coding-agent", () => {
       getPathMetadata: vi.fn().mockReturnValue(new Map()),
       extendResources: vi.fn(),
     })),
-    loadSkills: vi.fn().mockReturnValue({ skills: [], diagnostics: [] }),
+    CONFIG_DIR_NAME: ".pi",
+    getAgentDir: vi.fn().mockReturnValue("/tmp/pi-runner-mock-agent"),
+    SettingsManager: { create: vi.fn().mockReturnValue({}) },
     readTool: { name: "read" },
     bashTool: { name: "bash" },
     editTool: { name: "edit" },
@@ -305,16 +304,7 @@ vi.mock("@earendil-works/pi-coding-agent", () => {
       createdSessions.push(session);
       return { session };
     }),
-    createCodingTools: vi.fn().mockImplementation((_cwd: string, options) => {
-      mockCreateCodingToolsState.lastOptions = options;
-      return [
-        { name: "read", execute: vi.fn() },
-        { name: "bash", execute: vi.fn() },
-        { name: "edit", execute: vi.fn() },
-        { name: "write", execute: vi.fn() },
-      ];
-    }),
-    createBashTool: vi.fn().mockReturnValue({
+    createBashToolDefinition: vi.fn().mockReturnValue({
       name: "bash",
       label: "bash",
       description: "Execute a bash command",
@@ -325,20 +315,6 @@ vi.mock("@earendil-works/pi-coding-agent", () => {
       },
       execute: vi.fn().mockResolvedValue({
         content: [{ type: "text", text: "ok" }],
-        details: {},
-      }),
-    }),
-    createReadTool: vi.fn().mockReturnValue({
-      name: "read",
-      label: "read",
-      description: "Read a file",
-      parameters: {
-        type: "object",
-        properties: { path: { type: "string" } },
-        required: ["path"],
-      },
-      execute: vi.fn().mockResolvedValue({
-        content: [{ type: "text", text: "file content" }],
         details: {},
       }),
     }),
@@ -440,7 +416,6 @@ describe("createPiRunner", () => {
     createdSessions.length = 0;
     nextSessionBehavior = "normal";
     mockPiAgentState.baseSystemPrompt = undefined;
-    mockCreateCodingToolsState.lastOptions = undefined;
     const { createAgentSession: createSession } = await import(
       "@earendil-works/pi-coding-agent"
     );
@@ -612,9 +587,16 @@ describe("createPiRunner", () => {
     for await (const _ of runner.run("hi")) {
       break;
     }
-    // systemPrompt is now injected via BunnyAgentResourceLoader.getAppendSystemPrompt(),
-    // not via session.agent.setSystemPrompt(). Verify session was created.
-    expect(createdSessions.length).toBeGreaterThan(0);
+    // Appended after any APPEND_SYSTEM.md, like pi's --append-system-prompt.
+    const { DefaultResourceLoader } = await import(
+      "@earendil-works/pi-coding-agent"
+    );
+    const loaderOptions = vi
+      .mocked(DefaultResourceLoader)
+      .mock.calls.at(-1)?.[0];
+    expect(
+      loaderOptions?.appendSystemPromptOverride?.(["APPEND_SYSTEM.md rules"]),
+    ).toEqual(["APPEND_SYSTEM.md rules", "HOST_APP_RULES"]);
   });
 
   it("creates session without error when systemPrompt is empty", async () => {

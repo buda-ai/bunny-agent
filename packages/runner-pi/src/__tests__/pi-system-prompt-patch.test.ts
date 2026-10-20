@@ -7,7 +7,7 @@ import {
   SettingsManager,
 } from "@earendil-works/pi-coding-agent";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { BunnyAgentResourceLoader } from "../bunny-agent-resource-loader.js";
+import { createPiResourceLoader } from "../pi-runner.js";
 
 // Bunny patch: patches/@earendil-works__pi-coding-agent@*.patch
 // The caller's appendSystemPrompt replaces pi's default "operating inside pi"
@@ -25,12 +25,11 @@ describe("Pi system prompt patch", () => {
   });
 
   async function buildPrompt(appendSystemPrompt?: string): Promise<string> {
-    const resourceLoader = new BunnyAgentResourceLoader({
+    const resourceLoader = await createPiResourceLoader({
       cwd: dir,
       agentDir: join(dir, "agent"),
-      appendSystemPrompt,
+      systemPrompt: appendSystemPrompt,
     });
-    await resourceLoader.reload();
     const { session } = await createAgentSession({
       cwd: dir,
       agentDir: join(dir, "agent"),
