@@ -1,5 +1,5 @@
 import { appendFileSync, existsSync, unlinkSync } from "node:fs";
-import { join } from "node:path";
+import { isAbsolute, join, resolve } from "node:path";
 import {
   type AgentTurnInputV1,
   compileAgentTurnInput,
@@ -10,15 +10,18 @@ import { getBuiltinModel } from "@earendil-works/pi-ai/providers/all";
 import {
   type AgentSession,
   type AgentSessionEvent,
+  CONFIG_DIR_NAME,
   createAgentSession,
-  createCodingTools,
+  DefaultResourceLoader,
+  getAgentDir,
+  type InlineExtension,
   ModelRuntime,
   SessionManager,
+  SettingsManager,
   type ToolDefinition,
 } from "@earendil-works/pi-coding-agent";
 import { ensureApplyPatchShim } from "./apply-patch-shim.js";
 import { buildApplyPatchTool } from "./apply-patch-tool.js";
-import { BunnyAgentResourceLoader } from "./bunny-agent-resource-loader.js";
 import { buildImageEditTool, buildImageGenerateTool } from "./image-tools.js";
 import {
   createMcpExtension,
@@ -38,13 +41,14 @@ import {
   type ApprovalGateOptions,
   ASK_USER_QUESTION_TOOL_NAME,
   buildAskUserQuestionTool,
+  createToolApprovalExtension,
   DEFAULT_ASK_USER_QUESTION_TIMEOUT_MS,
-  gateToolsForApproval,
   LEGACY_ASK_USER_QUESTION_TOOL_NAME,
 } from "./tool-approval.js";
 import {
   buildEnvInjectedBashTool,
   buildSecretAwareTools,
+  createSecretGuardExtension,
 } from "./tool-overrides.js";
 import { buildToolDefinitionsFromRefs, type PiToolRef } from "./tool-refs.js";
 import { getUsageFromAgentEndMessages } from "./usage-metadata.js";
@@ -124,7 +128,8 @@ export interface PiRunnerOptions {
    * if the value contains '/', it is treated as a session file path and opened directly.
    * When NOT set, a brand-new session is created each time so no stale context
    * is loaded from previous runs.
-   * Sessions use Bunny's patched pi config directory (~/.bunny/agent/sessions/...) so workspace is not used.
+   * Sessions live under pi's agent directory (`getAgentDir()`, default
+   * ~/.pi/agent/sessions/...; override with PI_CODING_AGENT_DIR) so the workspace is not used.
    */
   sessionId?: string;
   /**
@@ -370,10 +375,74 @@ function traceRawMessage(
   }
 }
 
+export interface PiResourceLoaderOptions {
+  cwd: string;
+  agentDir: string;
+  settingsManager?: SettingsManager;
+  /** Extra skill files or directories, loaded with the agent dir and project `.pi` skills. */
+  skillPaths?: string[];
+  /** Caller system prompt, appended after any APPEND_SYSTEM.md like pi's --append-system-prompt. */
+  systemPrompt?: string;
+  extensionFactories?: InlineExtension[];
+}
+
+/** Build pi's DefaultResourceLoader with the runner's skills, prompt and extensions. */
+export async function createPiResourceLoader(
+  options: PiResourceLoaderOptions,
+): Promise<DefaultResourceLoader> {
+  const { systemPrompt } = options;
+  // Skills come from the agent dir, the project's .pi dir and the caller's
+  // paths. pi's own discovery of ~/.agents/skills and ancestor .agents/skills
+  // stays off: it would pull a user's personal skills into local-mode agents.
+  const defaultSkillDirs = [
+    join(options.agentDir, "skills"),
+    join(options.cwd, CONFIG_DIR_NAME, "skills"),
+  ].filter((dir) => existsSync(dir));
+  const loader = new DefaultResourceLoader({
+    cwd: options.cwd,
+    agentDir: options.agentDir,
+    settingsManager: options.settingsManager,
+    noSkills: true,
+    additionalSkillPaths: [...defaultSkillDirs, ...(options.skillPaths ?? [])],
+    appendSystemPromptOverride: systemPrompt
+      ? (base) => [...base, systemPrompt]
+      : undefined,
+    extensionFactories: options.extensionFactories,
+  });
+  await loader.reload();
+  if (options.skillPaths && options.skillPaths.length > 0) {
+    logSkillLoad(options.cwd, options.skillPaths, loader.getSkills());
+  }
+  return loader;
+}
+
+function logSkillLoad(
+  cwd: string,
+  skillPaths: string[],
+  result: ReturnType<DefaultResourceLoader["getSkills"]>,
+): void {
+  const lines = [`${LOG_PREFIX} loadSkills cwd=${cwd}`];
+  for (const raw of skillPaths) {
+    const abs = isAbsolute(raw) ? raw : resolve(cwd, raw);
+    lines.push(
+      `  ${raw} -> ${abs} (exists: ${existsSync(abs) ? "yes" : "no"})`,
+    );
+  }
+  lines.push(
+    `  loaded skills (${result.skills.length}): ${result.skills.map((s) => s.name).join(", ")}`,
+  );
+  for (const d of result.diagnostics) {
+    lines.push(
+      `  [${d.type}] ${d.message}${d.path !== undefined ? ` path=${d.path}` : ""}`,
+    );
+  }
+  console.error(lines.join("\n"));
+}
+
 /**
  * Create a Pi agent runner that outputs SSE format (Data Stream Protocol).
- * Uses pi-coding-agent's AgentSession + SessionManager with Bunny's patched
- * default session dir (~/.bunny/agent/sessions/...).
+ * Uses pi-coding-agent's AgentSession + SessionManager with pi's default
+ * session dir under `getAgentDir()` (~/.pi/agent/sessions/...).
  * Resume: pass previous run's message-metadata.sessionFile as options.sessionId (--resume).
  */
 export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
@@ -401,6 +470,10 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
 
   return {
     async *run(userInput: string | AgentTurnInputV1): AsyncIterable<string> {
+      // One agent dir and settings instance for sessions, resources and the
+      // session itself (PI_CODING_AGENT_DIR overrides the ~/.pi/agent default).
+      const agentDir = getAgentDir();
+      const settingsManager = SettingsManager.create(cwd, agentDir);
       const modelRuntime = await ModelRuntime.create({
         modelsPath: null,
         allowModelNetwork: false,
@@ -505,32 +578,6 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           }
           return SessionManager.create(cwd);
         })();
-        // Create the loader whenever either input is present: systemPrompt is
-        // delivered via appendSystemPrompt, so it must not depend on skillPaths.
-        const resourceLoader =
-          options.skillPaths || options.systemPrompt || mcpExtension
-            ? new BunnyAgentResourceLoader({
-                cwd,
-                skillPaths: options.skillPaths,
-                appendSystemPrompt: options.systemPrompt,
-                extensionFactories: mcpExtension ? [mcpExtension] : undefined,
-              })
-            : undefined;
-
-        if (options.skillPaths && options.skillPaths.length > 0) {
-          console.error(
-            `${LOG_PREFIX} runner: cwd=${cwd} skillPaths=${JSON.stringify(options.skillPaths)}`,
-          );
-        }
-
-        // createAgentSession only calls reload() when it creates its own
-        // DefaultResourceLoader.  When we supply our own BunnyAgentResourceLoader
-        // we must reload it ourselves so that skills and extensions on disk are
-        // picked up before the session is built.
-        if (resourceLoader) {
-          await resourceLoader.reload();
-        }
-
         // Make `apply_patch` resolvable as a real shell command in bash
         // children. GPT-5.x chains it after other commands
         // (`cd x && apply_patch <<'PATCH'`), which the native tool below
@@ -545,11 +592,9 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
               })
             : applyPatchShimDir
               ? [
-                  buildEnvInjectedBashTool(
-                    cwd,
-                    {},
-                    { pathPrepend: applyPatchShimDir },
-                  ),
+                  buildEnvInjectedBashTool(cwd, {
+                    pathPrepend: applyPatchShimDir,
+                  }),
                 ]
               : [];
 
@@ -592,25 +637,6 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           cwd,
           fallbackSignal: options.abortController?.signal,
         };
-        let regularTools: ToolDefinition[] = [
-          ...applyAllowedTools(customTools, allowedTools),
-          ...toolRefDefinitions,
-        ];
-        if (!bypassApproval) {
-          const overriddenNames = new Set(
-            regularTools.map((tool) => tool.name),
-          );
-          const builtinTools = applyAllowedTools(
-            createCodingTools(cwd) as unknown as ToolDefinition[],
-            allowedTools,
-          ).filter((tool) => !overriddenNames.has(tool.name));
-          regularTools = [...regularTools, ...builtinTools];
-        }
-        const gatedTools = gateToolsForApproval(
-          regularTools,
-          bypassApproval,
-          approvalGate,
-        );
         const askUserQuestionEnabled =
           allowedTools === undefined ||
           allowedTools.includes(ASK_USER_QUESTION_TOOL_NAME);
@@ -622,16 +648,37 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           model,
         );
 
+        // Pi hooks rather than per-tool wrappers, so extension (MCP) tools are
+        // covered too. The secret guard goes first so a blocked env dump never
+        // asks the user for approval.
+        const resourceLoader = await createPiResourceLoader({
+          cwd,
+          agentDir,
+          settingsManager,
+          skillPaths: options.skillPaths,
+          systemPrompt: options.systemPrompt,
+          extensionFactories: [
+            createSecretGuardExtension(options.env ?? {}),
+            ...(bypassApproval
+              ? []
+              : [createToolApprovalExtension(approvalGate)]),
+            ...(mcpExtension ? [mcpExtension] : []),
+          ],
+        });
+
         const { session } = await createAgentSession({
           cwd,
+          agentDir,
           model,
           sessionManager,
+          settingsManager,
           modelRuntime,
           resourceLoader,
           thinkingLevel,
           tools: allowedTools,
           customTools: [
-            ...gatedTools,
+            ...applyAllowedTools(customTools, allowedTools),
+            ...toolRefDefinitions,
             ...(askUserQuestionEnabled
               ? [
                   buildAskUserQuestionTool({

@@ -2,18 +2,26 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { approvalFileName } from "@bunny-agent/manager";
+import {
+  defineTool,
+  type InlineExtension,
+  type ToolDefinition,
+} from "@earendil-works/pi-coding-agent";
+import { Type } from "@sinclair/typebox";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
+  type ApprovalGateOptions,
   ASK_USER_QUESTION_TIMEOUT_ANSWER_KEY,
   ASK_USER_QUESTION_TIMEOUT_MESSAGE,
   ASK_USER_QUESTION_TOOL_NAME,
   buildAskUserQuestionTool,
+  createToolApprovalExtension,
   DEFAULT_ASK_USER_QUESTION_TIMEOUT_MS,
   LEGACY_ASK_USER_QUESTION_TOOL_NAME,
   MAX_ASK_USER_QUESTIONS,
   waitForApproval,
-  wrapToolWithApproval,
 } from "../tool-approval.js";
+import { runFauxToolCall } from "./faux-session.js";
 
 let cwd: string;
 
@@ -360,93 +368,234 @@ describe("buildAskUserQuestionTool", () => {
   });
 });
 
-describe("wrapToolWithApproval", () => {
-  const makeInnerTool = () => {
-    const calls: unknown[][] = [];
+describe("createToolApprovalExtension (real pi session)", () => {
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+  /** Answer every pending approval file as the web layer would; records what was asked. */
+  function startApprover() {
+    const asked: string[] = [];
+    const dir = path.join(cwd, ".bunny-agent", "approvals");
+    let stopped = false;
+    const loop = (async () => {
+      while (!stopped) {
+        for (const name of fs.existsSync(dir) ? fs.readdirSync(dir) : []) {
+          const file = path.join(dir, name);
+          try {
+            const data = JSON.parse(fs.readFileSync(file, "utf-8"));
+            if (data.status !== "pending") continue;
+            asked.push(data.toolName);
+            fs.writeFileSync(
+              file,
+              JSON.stringify({
+                ...data,
+                status: "completed",
+                answers: { "Proceed?": "yes" },
+              }),
+            );
+          } catch {
+            // Mid-write or already cleaned up; next poll picks it up.
+          }
+        }
+        await sleep(10);
+      }
+    })();
     return {
-      calls,
-      tool: {
-        name: "bash",
-        label: "bash",
-        description: "run a command",
-        parameters: {},
-        async execute(...args: unknown[]) {
-          calls.push(args);
+      asked,
+      stop: async () => {
+        stopped = true;
+        await loop;
+      },
+    };
+  }
+
+  /** Run one prompt where the model calls `toolName`, then finishes. */
+  const runToolCall = (options: {
+    toolName: string;
+    args?: Parameters<typeof runFauxToolCall>[0]["args"];
+    alsoCall?: string[];
+    gate?: Partial<ApprovalGateOptions>;
+    customTools?: ToolDefinition[];
+    extensions?: InlineExtension[];
+    abortAfterMs?: number;
+  }) =>
+    runFauxToolCall({
+      ...options,
+      cwd,
+      extensions: [
+        createToolApprovalExtension({
+          cwd,
+          pollIntervalMs: 10,
+          ...options.gate,
+        }),
+        ...(options.extensions ?? []),
+      ],
+    });
+
+  const countingTool = (name: string, calls: string[]) =>
+    defineTool({
+      name,
+      label: name,
+      description: `${name} tool`,
+      parameters: Type.Object({}),
+      execute: async () => {
+        calls.push(name);
+        return {
+          content: [{ type: "text", text: `${name} ran` }],
+          details: undefined,
+        };
+      },
+    });
+
+  it("gates tools registered by extensions, such as MCP adapters", async () => {
+    const calls: string[] = [];
+    const approver = startApprover();
+    try {
+      const { seenResult } = await runToolCall({
+        toolName: "ext_tool",
+        extensions: [
+          {
+            name: "test-ext",
+            factory: (pi) => pi.registerTool(countingTool("ext_tool", calls)),
+          },
+        ],
+      });
+      expect(seenResult).toContain("ext_tool ran");
+    } finally {
+      await approver.stop();
+    }
+    expect(approver.asked).toEqual(["ext_tool"]);
+    expect(calls).toEqual(["ext_tool"]);
+  });
+
+  it("blocks the call and tells the model when approval times out", async () => {
+    const calls: string[] = [];
+    const { seenResult } = await runToolCall({
+      toolName: "bash_like",
+      gate: { timeoutMs: 50 },
+      customTools: [countingTool("bash_like", calls)],
+    });
+    expect(calls).toEqual([]);
+    expect(seenResult).toContain(
+      'Tool \\"bash_like\\" was not approved: Timeout waiting for user input',
+    );
+  });
+
+  it("stops waiting and skips the call when the run is aborted", async () => {
+    const calls: string[] = [];
+    await runToolCall({
+      toolName: "bash_like",
+      abortAfterMs: 50,
+      customTools: [countingTool("bash_like", calls)],
+    });
+    expect(calls).toEqual([]);
+    expect(fs.existsSync(approvalFile("call-1"))).toBe(false);
+  });
+
+  it("does not ask again for calls a tool makes on behalf of an approved call", async () => {
+    const calls: string[] = [];
+    const outer = defineTool({
+      name: "outer",
+      label: "outer",
+      description: "calls inner",
+      parameters: Type.Object({}),
+      execute: async (_id, _params, signal, _onUpdate, ctx) => {
+        calls.push("outer");
+        await ctx.executeTool("inner", {}, { signal });
+        return {
+          content: [{ type: "text", text: "outer ran" }],
+          details: undefined,
+        };
+      },
+    });
+    const approver = startApprover();
+    try {
+      await runToolCall({
+        toolName: "outer",
+        customTools: [outer, countingTool("inner", calls)],
+      });
+    } finally {
+      await approver.stop();
+    }
+    expect(approver.asked).toEqual(["outer"]);
+    expect(calls).toEqual(["outer", "inner"]);
+  });
+
+  it("asks for parallel calls one at a time, then runs them", async () => {
+    const log: string[] = [];
+    const loggingTool = (name: string) =>
+      defineTool({
+        name,
+        label: name,
+        description: `${name} tool`,
+        parameters: Type.Object({}),
+        execute: async () => {
+          log.push(`ran ${name}`);
           return {
-            content: [{ type: "text", text: "ok" }],
+            content: [{ type: "text", text: `${name} ran` }],
             details: undefined,
           };
         },
-      },
-    };
-  };
-
-  it("executes the wrapped tool with original params after approval", async () => {
-    const { tool, calls } = makeInnerTool();
-    const wrapped = wrapToolWithApproval(tool, {
-      cwd,
-      pollIntervalMs: 10,
-      timeoutMs: 5_000,
-    });
-    const promise = wrapped.execute(
-      "wrap-1",
-      { command: "ls" },
-      undefined,
-      undefined,
-      // biome-ignore lint/suspicious/noExplicitAny: ExtensionContext unused in execute
-      undefined as any,
-    );
-    await new Promise((r) => setTimeout(r, 30));
-    completeApproval("wrap-1", undefined, { approved: "yes" });
-
-    const result = await promise;
-    expect(result.content).toEqual([{ type: "text", text: "ok" }]);
-    expect(calls).toHaveLength(1);
-    expect(calls[0][0]).toBe("wrap-1");
-    expect(calls[0][1]).toEqual({ command: "ls" });
+      });
+    // Answer each request 100ms after it appears, so overlapping asks would show.
+    const dir = path.join(cwd, ".bunny-agent", "approvals");
+    let stopped = false;
+    const answered = new Set<string>();
+    const approver = (async () => {
+      while (!stopped) {
+        for (const name of fs.existsSync(dir) ? fs.readdirSync(dir) : []) {
+          const file = path.join(dir, name);
+          try {
+            const data = JSON.parse(fs.readFileSync(file, "utf-8"));
+            if (data.status !== "pending" || answered.has(name)) continue;
+            answered.add(name);
+            log.push(`asked ${data.toolName}`);
+            setTimeout(() => {
+              log.push(`approved ${data.toolName}`);
+              fs.writeFileSync(
+                file,
+                JSON.stringify({ ...data, status: "completed" }),
+              );
+            }, 100);
+          } catch {
+            // Mid-write; next poll picks it up.
+          }
+        }
+        await sleep(10);
+      }
+    })();
+    try {
+      await runToolCall({
+        toolName: "first",
+        alsoCall: ["second"],
+        customTools: [loggingTool("first"), loggingTool("second")],
+      });
+    } finally {
+      stopped = true;
+      await approver;
+    }
+    expect(log.slice(0, 4)).toEqual([
+      "asked first",
+      "approved first",
+      "asked second",
+      "approved second",
+    ]);
+    expect(log.slice(4).sort()).toEqual(["ran first", "ran second"]);
   });
 
-  it("does not execute the wrapped tool when approval times out", async () => {
-    const { tool, calls } = makeInnerTool();
-    const wrapped = wrapToolWithApproval(tool, {
-      cwd,
-      pollIntervalMs: 10,
-      timeoutMs: 50,
-    });
-    await expect(
-      wrapped.execute(
-        "wrap-2",
-        { command: "rm -rf /" },
-        undefined,
-        undefined,
-        // biome-ignore lint/suspicious/noExplicitAny: ExtensionContext unused in execute
-        undefined as any,
-      ),
-    ).rejects.toThrow('Tool "bash" was not approved');
-    expect(calls).toHaveLength(0);
-  });
-
-  it("denies when aborted while waiting", async () => {
-    const { tool, calls } = makeInnerTool();
-    const controller = new AbortController();
-    const wrapped = wrapToolWithApproval(tool, {
-      cwd,
-      fallbackSignal: controller.signal,
-      pollIntervalMs: 50,
-      timeoutMs: 60_000,
-    });
-    const promise = wrapped.execute(
-      "wrap-3",
-      { command: "ls" },
-      undefined,
-      undefined,
-      // biome-ignore lint/suspicious/noExplicitAny: ExtensionContext unused in execute
-      undefined as any,
-    );
-    setTimeout(() => controller.abort(), 30);
-    await expect(promise).rejects.toThrow(
-      "Aborted while waiting for user approval",
-    );
-    expect(calls).toHaveLength(0);
+  it("leaves ask_user_question to its own approval round", async () => {
+    const approver = startApprover();
+    try {
+      const { seenResult } = await runToolCall({
+        toolName: ASK_USER_QUESTION_TOOL_NAME,
+        args: { questions: [{ question: "Proceed?" }] },
+        customTools: [buildAskUserQuestionTool({ cwd, pollIntervalMs: 10 })],
+      });
+      expect(seenResult).toContain(
+        "The user answered the interactive questions.",
+      );
+    } finally {
+      await approver.stop();
+    }
+    expect(approver.asked).toEqual([ASK_USER_QUESTION_TOOL_NAME]);
   });
 });

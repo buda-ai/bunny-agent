@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { redactSecrets } from "../tool-overrides.js";
+import { isEnvDumpCommand, redactSecrets } from "../tool-overrides.js";
 
 // ---------------------------------------------------------------------------
 // redactSecrets
@@ -61,11 +61,40 @@ describe("redactSecrets", () => {
     expect(result).not.toContain("ghp-xyzxyzxyzxyz");
   });
 
-  it("collapses excessive blank lines", () => {
-    const text = "line1\n\n\n\n\nline2";
-    // needs at least one secret to pass through the full function body
+  it("leaves text without any secret byte-identical", () => {
+    const text = "  line1\n\n\n\n\nline2\n";
     const result = redactSecrets(text, { DUMMY_SECRET: "notpresent_here" });
+    expect(result).toBe(text);
+  });
+
+  it("collapses the blank lines left by removed secret lines", () => {
+    const text = "line1\n\nAPI_KEY=sk-abcdefgh1234\n\n\nline2";
+    const result = redactSecrets(text, { API_KEY: "sk-abcdefgh1234" });
     expect(result).toBe("line1\n\nline2");
+  });
+
+  it("removes KEY: 'VALUE' entries (JS object style)", () => {
+    const text = "{\n  OPENAI_API_KEY: 'sk-abcdefgh1234',\n  HOME: '/root',\n}";
+    const result = redactSecrets(text, { OPENAI_API_KEY: "sk-abcdefgh1234" });
+    expect(result).toContain("HOME");
+    expect(result).not.toContain("sk-abcdefgh1234");
+  });
+
+  it("handles single-line JS object output", () => {
+    const text = "{OPENAI_API_KEY: 'sk-abcdefgh1234', HOME: '/root'}";
+    const result = redactSecrets(text, { OPENAI_API_KEY: "sk-abcdefgh1234" });
+    expect(result).toContain("HOME");
+    expect(result).not.toContain("sk-abcdefgh1234");
+  });
+
+  it("does not strip underscores from other keys when _ is a secret key", () => {
+    const text = "OPENAI_API_KEY: 'sk-abcdefgh1234', HOME: '/root'";
+    const result = redactSecrets(text, {
+      OPENAI_API_KEY: "sk-abcdefgh1234",
+      _: "/usr/local/bin/node",
+    });
+    expect(result).not.toContain("OPENAIAPIKEY");
+    expect(result).toContain("HOME");
   });
 
   it("handles env dump output — removes secret lines, keeps others", () => {
@@ -88,6 +117,38 @@ describe("redactSecrets", () => {
   });
 });
 
+describe("isEnvDumpCommand", () => {
+  it.each([
+    "env",
+    "env | sort",
+    "env > /tmp/vars",
+    "printenv",
+    "printenv OPENAI_API_KEY",
+    "export -p",
+    "declare -x",
+    "cd /tmp && env",
+    "echo start; printenv | grep KEY",
+    "env -u DEBUG",
+    "env FOO=1 printenv",
+    "env -i FOO=1 env",
+  ])("blocks %j", (command) => {
+    expect(isEnvDumpCommand(command)).toBe(true);
+  });
+
+  it.each([
+    "echo $HOME",
+    "cat .env.example",
+    "npm run env:check",
+    "envsubst < template.txt",
+    "node -e 'console.log(1)'",
+    "git log --oneline",
+    "env NODE_ENV=production node app.js",
+    "env -u DEBUG node app.js",
+  ])("allows %j", (command) => {
+    expect(isEnvDumpCommand(command)).toBe(false);
+  });
+});
+
 // ---------------------------------------------------------------------------
 // buildEnvInjectedBashTool — caller-declared systemEnv only
 // ---------------------------------------------------------------------------
@@ -100,40 +161,22 @@ type SpawnHook = (ctx: { env: Record<string, string>; command?: string }) => {
 let capturedSpawnHook: SpawnHook | null = null;
 
 vi.mock("@earendil-works/pi-coding-agent", () => ({
-  createBashTool: vi.fn((_cwd: string, opts: { spawnHook: SpawnHook }) => {
-    capturedSpawnHook = opts.spawnHook;
-    return {
-      name: "bash",
-      label: "bash",
-      description: "stub",
-      parameters: { type: "object", properties: {}, required: [] },
-      execute: vi.fn().mockResolvedValue({
-        content: [{ type: "text", text: "ok" }],
-        details: undefined,
-      }),
-    };
-  }),
-  createReadTool: vi.fn(() => ({
-    name: "read",
-    label: "read",
-    description: "stub",
-    parameters: { type: "object", properties: {}, required: [] },
-    execute: vi.fn().mockResolvedValue({
-      content: [{ type: "text", text: "" }],
-      details: undefined,
-    }),
-  })),
+  createBashToolDefinition: vi.fn(
+    (_cwd: string, opts: { spawnHook: SpawnHook }) => {
+      capturedSpawnHook = opts.spawnHook;
+      return { name: "bash" };
+    },
+  ),
 }));
 
 describe("buildEnvInjectedBashTool spawnHook", () => {
   async function build(
-    extraEnv: Record<string, string>,
     systemEnv?: Record<string, string>,
     pathPrepend?: string,
   ): Promise<SpawnHook> {
     capturedSpawnHook = null;
     const { buildEnvInjectedBashTool } = await import("../tool-overrides.js");
-    buildEnvInjectedBashTool("/tmp", extraEnv, {
+    buildEnvInjectedBashTool("/tmp", {
       ...(systemEnv ? { systemEnv } : {}),
       ...(pathPrepend ? { pathPrepend } : {}),
     });
@@ -143,47 +186,28 @@ describe("buildEnvInjectedBashTool spawnHook", () => {
   }
 
   it("injects nothing extra when systemEnv is omitted", async () => {
-    const hook = await build({
-      ANTHROPIC_API_KEY: "sk-y",
-      MY_PRODUCT_KEY: "x",
-    });
+    const hook = await build();
     const { env } = hook({ env: { PATH: "/usr/bin", HOME: "/root" } });
     expect(env).toEqual({ PATH: "/usr/bin", HOME: "/root" });
-    expect(env.ANTHROPIC_API_KEY).toBeUndefined();
-    expect(env.MY_PRODUCT_KEY).toBeUndefined();
   });
 
   it("injects exactly the keys in systemEnv (daemon use case)", async () => {
-    const hook = await build(
-      {
-        ANTHROPIC_API_KEY: "sk-y",
-        BRAVE_API_KEY: "bsk-1",
-        TAVILY_API_KEY: "tvly-2",
-        MY_PRODUCT_KEY: "x",
-      },
-      { MY_PRODUCT_KEY: "x" },
-    );
+    const hook = await build({ MY_PRODUCT_KEY: "x" });
     const { env } = hook({ env: { PATH: "/usr/bin" } });
     expect(env).toEqual({ PATH: "/usr/bin", MY_PRODUCT_KEY: "x" });
-    expect(env.ANTHROPIC_API_KEY).toBeUndefined();
-    expect(env.BRAVE_API_KEY).toBeUndefined();
-    expect(env.TAVILY_API_KEY).toBeUndefined();
   });
 
   it("no policy: a key declared in systemEnv reaches bash even if it looks like an auth key", async () => {
     // The runner has zero opinion on what counts as "system" — caller's
     // responsibility. Pinned by this test so a future regression that
     // re-adds a blocklist gets caught.
-    const hook = await build(
-      { ANTHROPIC_API_KEY: "sk-y" },
-      { ANTHROPIC_API_KEY: "sk-y" },
-    );
+    const hook = await build({ ANTHROPIC_API_KEY: "sk-y" });
     const { env } = hook({ env: { PATH: "/usr/bin" } });
     expect(env.ANTHROPIC_API_KEY).toBe("sk-y");
   });
 
   it("ctx.env is preserved (default OS env still reaches bash)", async () => {
-    const hook = await build({}, { MY_KEY: "v" });
+    const hook = await build({ MY_KEY: "v" });
     const { env } = hook({
       env: { PATH: "/usr/bin", HOME: "/root", LANG: "en_US.UTF-8" },
     });
@@ -194,25 +218,25 @@ describe("buildEnvInjectedBashTool spawnHook", () => {
   });
 
   it("systemEnv overrides ctx.env on key collision", async () => {
-    const hook = await build({}, { PATH: "/custom/bin" });
+    const hook = await build({ PATH: "/custom/bin" });
     const { env } = hook({ env: { PATH: "/usr/bin" } });
     expect(env.PATH).toBe("/custom/bin");
   });
 
   it("pathPrepend goes in front of the ctx.env PATH", async () => {
-    const hook = await build({}, undefined, "/shim/bin");
+    const hook = await build(undefined, "/shim/bin");
     const { env } = hook({ env: { PATH: "/usr/bin:/bin" } });
     expect(env.PATH).toBe("/shim/bin:/usr/bin:/bin");
   });
 
   it("pathPrepend falls back to process.env.PATH when ctx has none", async () => {
-    const hook = await build({}, undefined, "/shim/bin");
+    const hook = await build(undefined, "/shim/bin");
     const { env } = hook({ env: {} });
     expect(env.PATH).toBe(`/shim/bin:${process.env.PATH}`);
   });
 
   it("pathPrepend applies on top of a systemEnv-provided PATH", async () => {
-    const hook = await build({}, { PATH: "/custom/bin" }, "/shim/bin");
+    const hook = await build({ PATH: "/custom/bin" }, "/shim/bin");
     const { env } = hook({ env: { PATH: "/usr/bin" } });
     expect(env.PATH).toBe("/shim/bin:/custom/bin");
   });

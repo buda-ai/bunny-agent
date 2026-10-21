@@ -1,22 +1,29 @@
 /**
- * Tool overrides for bunny-agent pi runner.
+ * Tool overrides and secret guarding for bunny-agent pi runner.
  *
- * Builds custom bash and read ToolDefinitions that:
- * - Inject only caller-declared env vars into bash via spawnHook (`systemEnv`).
- *   Anything in the runner's `env` map (model auth, business credentials,
- *   native-tool API keys) stays in the runner process — it never reaches bash.
- * - Redact secret values from both bash and read tool output before the LLM
- *   sees them, using the full env map as the secret set.
+ * - The bash override injects only caller-declared env vars via spawnHook
+ *   (`systemEnv`). Anything in the runner's `env` map (model auth, business
+ *   credentials, native-tool API keys) stays in the runner process — it never
+ *   reaches bash.
+ * - {@link createSecretGuardExtension} uses pi's `tool_call` / `tool_result`
+ *   hooks to block env-dump commands and to redact secret values from every
+ *   tool result before the LLM sees it, using the full env map as the secret
+ *   set.
  *
- * Registered via customTools so they override the built-in tools in
- * AgentSession._refreshToolRegistry's Map.set loop.
+ * The bash override is registered via customTools so it replaces the built-in
+ * tool of the same name.
  */
 
 import {
-  createBashTool,
-  createReadTool,
+  createBashToolDefinition,
+  type InlineExtension,
   type ToolDefinition,
 } from "@earendil-works/pi-coding-agent";
+import {
+  buildWebFetchTool,
+  buildWebSearchTool,
+  resolveSearchProvider,
+} from "./web-tools.js";
 
 /**
  * Scrub secret values from text.
@@ -24,21 +31,18 @@ import {
  * - Removes entire KEY=VALUE lines where a secret value appears (env/printenv output)
  * - Removes KEY: 'VALUE' / "KEY": "VALUE" entries (JSON/JS objects)
  * - Replaces any remaining bare occurrences with "***"
- * - Only values >= 4 chars are considered to avoid false positives
+ * - Only values >= 8 chars are considered to avoid false positives
  */
 export function redactSecrets(
   text: string,
   secrets: Record<string, string>,
 ): string {
-  if (Object.keys(secrets).length === 0) return text;
+  const values = secretValues(secrets).filter((v) => text.includes(v));
+  // Leave text without secrets byte-identical; this runs on every tool result.
+  if (values.length === 0) return text;
+
   let result = text;
-
   const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-  const values = Object.values(secrets)
-    .filter((v) => v.length >= 8)
-    .filter((v) => !/^\//.test(v) && !/^[A-Za-z]:[/\\]/.test(v)) // exclude filesystem paths
-    .sort((a, b) => b.length - a.length);
 
   for (const v of values) {
     const ev = escapeRegex(v);
@@ -57,33 +61,80 @@ export function redactSecrets(
   return result.trim();
 }
 
-/**
- * Redact secret values from tool output content arrays.
- * Mutates in place so the LLM never sees raw secrets.
- */
-function redactResultContent(
-  // biome-ignore lint/suspicious/noExplicitAny: pi ToolResult shape
-  result: any,
-  secrets: Record<string, string>,
-): void {
-  if (result?.content && Array.isArray(result.content)) {
-    result.content = result.content.map((c: { type: string; text?: string }) =>
-      c.type === "text" && typeof c.text === "string"
-        ? { ...c, text: redactSecrets(c.text, secrets) }
-        : c,
-    );
-  }
+/** Secret values worth redacting, longest first so overlaps mask fully. */
+function secretValues(secrets: Record<string, string>): string[] {
+  return Object.values(secrets)
+    .filter((v) => v.length >= 8)
+    .filter((v) => !/^\//.test(v) && !/^[A-Za-z]:[/\\]/.test(v)) // exclude filesystem paths
+    .sort((a, b) => b.length - a.length);
 }
+
+/**
+ * Replace secret values inside every string of a JSON-like value. Returns the
+ * same reference when nothing matched, so callers can tell whether it changed.
+ */
+function maskSecrets<T>(value: T, values: string[]): T {
+  if (typeof value === "string") {
+    let masked: string = value;
+    for (const v of values) masked = masked.split(v).join("***");
+    return masked as T;
+  }
+  if (Array.isArray(value)) {
+    const next = value.map((item) => maskSecrets(item, values));
+    return next.some((item, i) => item !== value[i]) ? (next as T) : value;
+  }
+  if (value !== null && typeof value === "object") {
+    let changed = false;
+    const next: Record<string, unknown> = {};
+    for (const [key, item] of Object.entries(value)) {
+      next[key] = maskSecrets(item, values);
+      if (next[key] !== item) changed = true;
+    }
+    return changed ? (next as T) : value;
+  }
+  return value;
+}
+
+/** `env` options that take the next word as their value. */
+const ENV_OPTIONS_WITH_VALUE = new Set([
+  "-u",
+  "--unset",
+  "-C",
+  "--chdir",
+  "-S",
+  "--split-string",
+]);
 
 /**
  * Detect commands that would dump environment variables to stdout or a file.
  * These are blocked to prevent secret exfiltration via env dump + file read.
+ * `env NAME=value cmd` only runs `cmd` with a changed environment, so it is
+ * allowed unless `cmd` is itself a dump.
  */
-function isEnvDumpCommand(command: string): boolean {
+export function isEnvDumpCommand(command: string): boolean {
   // Normalize: collapse whitespace, strip leading/trailing
   const cmd = command.replace(/\s+/g, " ").trim();
-  // Match: env, printenv, export -p, `declare -x` — optionally piped or redirected
-  return /(?:^|[|;&])\s*(?:env|printenv|export\s+-p|declare\s+-x)\b/.test(cmd);
+  // Match: printenv, export -p, `declare -x` — optionally piped or redirected
+  if (/(?:^|[|;&])\s*(?:printenv|export\s+-p|declare\s+-x)\b/.test(cmd)) {
+    return true;
+  }
+  for (const match of cmd.matchAll(
+    /(?:^|[|;&])\s*env(?=$|[\s|;&>])([^|;&>]*)/g,
+  )) {
+    const words = match[1].trim().split(" ").filter(Boolean);
+    let i = 0;
+    while (
+      i < words.length &&
+      (words[i].startsWith("-") || /^[A-Za-z_]\w*=/.test(words[i]))
+    ) {
+      i += ENV_OPTIONS_WITH_VALUE.has(words[i]) ? 2 : 1;
+    }
+    // No command after the options and assignments: `env` prints the environment.
+    if (i >= words.length || isEnvDumpCommand(words.slice(i).join(" "))) {
+      return true;
+    }
+  }
+  return false;
 }
 
 export interface BashToolOptions {
@@ -105,25 +156,20 @@ export interface BashToolOptions {
 }
 
 /**
- * Build a custom "bash" ToolDefinition that:
- * 1. Injects caller-declared env vars via spawnHook (off the command line).
- * 2. Redacts secrets from output before the LLM sees them.
- * 3. Delegates execution to pi's createBashTool for full built-in behavior.
- *
- * Only `opts.systemEnv` is forwarded to bash. The `extraEnv` map (model auth,
- * business credentials, etc.) is used **only** to redact those values from
- * any bash output that happens to contain them. Routing is the caller's
- * decision: keys that bash should see go into `systemEnv`, everything else
- * stays in `extraEnv` and never reaches the shell.
+ * Build a custom "bash" ToolDefinition that injects caller-declared env vars
+ * (and the harness PATH shims) via spawnHook, keeping them off the command
+ * line. Only `opts.systemEnv` is forwarded to bash; the runner's `env` map is
+ * never injected and is redacted from output by
+ * {@link createSecretGuardExtension}.
  */
 export function buildEnvInjectedBashTool(
   cwd: string,
-  extraEnv: Record<string, string>,
   opts: BashToolOptions = {},
 ): ToolDefinition {
   const safeEnv = opts.systemEnv ?? {};
   const pathPrepend = opts.pathPrepend;
-  const bashAgentTool = createBashTool(cwd, {
+  // Typed renderer generics do not widen to the untyped ToolDefinition.
+  return createBashToolDefinition(cwd, {
     spawnHook: (ctx) => {
       const env: Record<string, string | undefined> = {
         ...ctx.env,
@@ -135,94 +181,77 @@ export function buildEnvInjectedBashTool(
       }
       return { ...ctx, env };
     },
-  });
-
-  return {
-    name: bashAgentTool.name,
-    label: bashAgentTool.label ?? "bash",
-    description: bashAgentTool.description,
-    // biome-ignore lint/suspicious/noExplicitAny: TypeBox schema from pi internals
-    parameters: (bashAgentTool as any).parameters,
-    async execute(toolCallId, params, signal, onUpdate) {
-      const command =
-        ((params as Record<string, unknown>).command as string) ?? "";
-      if (isEnvDumpCommand(command)) {
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: "Command blocked: printing or redirecting environment variables is not allowed.",
-            },
-          ],
-          details: undefined,
-        };
-      }
-      // biome-ignore lint/suspicious/noExplicitAny: delegate to pi's AgentTool execute
-      const result = await (bashAgentTool as any).execute(
-        toolCallId,
-        params,
-        signal,
-        onUpdate,
-      );
-      redactResultContent(result, extraEnv);
-      return result;
-    },
-  };
+  }) as ToolDefinition;
 }
 
+export const ENV_DUMP_BLOCKED_MESSAGE =
+  "Command blocked: printing or redirecting environment variables is not allowed.";
+
 /**
- * Build a custom "read" ToolDefinition that:
- * 1. Delegates file reading to pi's createReadTool (truncation, images, etc.).
- * 2. Redacts secrets from the returned file content before the LLM sees them.
- *
- * This prevents the agent from leaking secrets that happen to be stored in
- * files inside the workspace (e.g. .env copies, config dumps).
+ * Guard secrets through pi's tool hooks instead of wrapping individual tools,
+ * so built-in, custom, toolRef and extension (MCP) tools are all covered —
+ * including calls a codemode script makes:
+ * - `tool_call`: block bash commands that dump the environment.
+ * - `tool_result`: redact `secrets` values before the LLM sees the result and
+ *   before pi stores it in the session file — the text content, plus `details`
+ *   (where the MCP adapter keeps the raw server result) and
+ *   `structuredContent` (what codemode scripts receive), masked in place.
  */
-export function buildSecretRedactingReadTool(
-  cwd: string,
+export function createSecretGuardExtension(
   secrets: Record<string, string>,
-): ToolDefinition {
-  const readAgentTool = createReadTool(cwd);
-
+): InlineExtension {
   return {
-    name: readAgentTool.name,
-    label: readAgentTool.label ?? "read",
-    description: readAgentTool.description,
-    // biome-ignore lint/suspicious/noExplicitAny: TypeBox schema from pi internals
-    parameters: (readAgentTool as any).parameters,
-    async execute(toolCallId, params, signal, onUpdate) {
-      // biome-ignore lint/suspicious/noExplicitAny: delegate to pi's AgentTool execute
-      const result = await (readAgentTool as any).execute(
-        toolCallId,
-        params,
-        signal,
-        onUpdate,
-      );
-      redactResultContent(result, secrets);
-      return result;
+    name: "bunny-agent-secret-guard",
+    factory: (pi) => {
+      pi.on("tool_call", (event) => {
+        if (
+          event.toolName === "bash" &&
+          typeof event.input.command === "string" &&
+          isEnvDumpCommand(event.input.command)
+        ) {
+          return { block: true, reason: ENV_DUMP_BLOCKED_MESSAGE };
+        }
+        return undefined;
+      });
+      const values = secretValues(secrets);
+      pi.on("tool_result", (event) => {
+        if (values.length === 0) return undefined;
+        let contentChanged = false;
+        const content = event.content.map((part) => {
+          if (part.type !== "text") return part;
+          const text = redactSecrets(part.text, secrets);
+          if (text === part.text) return part;
+          contentChanged = true;
+          return { ...part, text };
+        });
+        const details = maskSecrets(event.details, values);
+        const structuredContent = maskSecrets(event.structuredContent, values);
+        if (
+          !contentChanged &&
+          details === event.details &&
+          structuredContent === event.structuredContent
+        ) {
+          return undefined;
+        }
+        // Returning content without structuredContent would drop the latter.
+        return { content, details, structuredContent };
+      });
     },
   };
 }
 
-import {
-  buildWebFetchTool,
-  buildWebSearchTool,
-  resolveSearchProvider,
-} from "./web-tools.js";
-
 /**
- * Build all secret-aware tool overrides for the given env map.
+ * Build the tool overrides for the given env map.
  * Returns an array of ToolDefinitions to pass as customTools.
  *
  * Includes:
- * - bash: caller-declared `opts.systemEnv` injection + secret redaction
- * - read: secret redaction on file content
+ * - bash: caller-declared `opts.systemEnv` injection
  * - web_search: auto-detected provider (Brave > Tavily), only if API key available
  * - web_fetch: URL content extraction (always available)
  *
  * `opts.systemEnv` (optional) is the only env that reaches bash. When
  * omitted, bash runs with just its default `ctx.env` (the runner host's
- * `process.env`). The `secrets` map is used for redaction only and is
+ * `process.env`). The `secrets` map only selects the search provider; it is
  * never injected into bash.
  */
 export function buildSecretAwareTools(
@@ -231,18 +260,13 @@ export function buildSecretAwareTools(
   opts: BashToolOptions = {},
 ): ToolDefinition[] {
   const tools: ToolDefinition[] = [
-    buildEnvInjectedBashTool(cwd, secrets, opts),
-    buildSecretRedactingReadTool(cwd, secrets),
+    buildEnvInjectedBashTool(cwd, opts),
     buildWebFetchTool(),
   ];
 
   if (resolveSearchProvider(secrets)) {
     tools.push(buildWebSearchTool(secrets));
   }
-
-  // if (resolveImageProvider(secrets)) {
-  //   tools.push(buildImageGenerateTool(cwd, secrets));
-  // }
 
   return tools;
 }
