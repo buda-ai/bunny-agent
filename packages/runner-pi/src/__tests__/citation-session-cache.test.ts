@@ -3,6 +3,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { WEB_SEARCH_CITATION_SYSTEM_GUIDANCE } from "@bunny-agent/manager/citation-guidance";
 import { deriveSourceId } from "@bunny-agent/manager/contracts/source-id";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 import { buildSync } from "esbuild";
@@ -51,6 +52,7 @@ function session() {
 describe("supported Pi citation session persistence", () => {
   it("places citations after complete items without duplicate links or manual references", () => {
     const guidance = citationSourceGuidance(true)!;
+    expect(guidance).toBe(WEB_SEARCH_CITATION_SYSTEM_GUIDANCE);
     expect(guidance).toContain(
       "after the final punctuation of a complete supported sentence, bullet item, or paragraph",
     );

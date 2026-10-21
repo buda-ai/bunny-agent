@@ -474,9 +474,8 @@ not imply:
 - Live native-provider annotation support (`native_annotations` is `false`
   for every runner today, for the dependency reasons above).
 - Any Buda Cloud / OpenBuda UI rendering of inline citation ranges or source
-  cards, or any database schema/persistence change for citation data. PR
-  #8009 (Buda's existing search-card UI) does not implement this annotation
-  protocol and is not being relabeled as doing so here.
+  cards, or any database schema/persistence change for citation data. Existing
+  search-card interfaces need separate answer-annotation support.
 - That the fixture reflects a real captured provider response. It is
   hand-constructed and validated against the real public contract helpers
   (see the fixture file's own `_meta` block), not recorded from a live

@@ -1,5 +1,8 @@
 import { randomUUID } from "node:crypto";
+import { mkdtempSync, rmSync } from "node:fs";
 import { createServer, type Server } from "node:http";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
   createAgentSession,
   SessionManager,
@@ -8,9 +11,8 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
-import { BunnyAgentResourceLoader } from "../bunny-agent-resource-loader.js";
 import { createMcpExtension } from "../mcp-config.js";
-import { disposePiSession } from "../pi-runner.js";
+import { createPiResourceLoader, disposePiSession } from "../pi-runner.js";
 
 function listen(server: Server): Promise<number> {
   return new Promise((resolve, reject) => {
@@ -108,8 +110,13 @@ describe("Pi MCP adapter integration", () => {
       sessions.clear();
     });
 
-    const loader = new BunnyAgentResourceLoader({
+    const agentDir = mkdtempSync(join(tmpdir(), "pi-mcp-agent-"));
+    cleanup.push(async () =>
+      rmSync(agentDir, { recursive: true, force: true }),
+    );
+    const loader = await createPiResourceLoader({
       cwd: process.cwd(),
+      agentDir,
       extensionFactories: [
         createMcpExtension({
           mcpServers: {
@@ -128,10 +135,10 @@ describe("Pi MCP adapter integration", () => {
         }),
       ],
     });
-    await loader.reload();
 
     const { session } = await createAgentSession({
       cwd: process.cwd(),
+      agentDir,
       resourceLoader: loader,
       sessionManager: SessionManager.inMemory(process.cwd()),
       tools: ["mcp"],

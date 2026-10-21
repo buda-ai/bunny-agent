@@ -1,3 +1,4 @@
+import { WEB_SEARCH_CITATION_INSTRUCTION } from "@bunny-agent/manager/citation-guidance";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildWebSearchTool, resolveSearchProviders } from "./web-search.js";
 
@@ -90,6 +91,9 @@ describe("buildWebSearchTool searchContractVersion: 1", () => {
     expect(record?.status).toBe("completed");
     expect(record?.action.sources[0]?.url).toBe("https://example.com/docs");
     expect(result.content[0]?.text).toContain("Reference: turn0url0");
+    expect(tool.description).toContain(WEB_SEARCH_CITATION_INSTRUCTION);
+    expect(tool.promptGuidelines).toContain(WEB_SEARCH_CITATION_INSTRUCTION);
+    expect(result.content[0]?.text).toContain(WEB_SEARCH_CITATION_INSTRUCTION);
     for (const guidance of [
       tool.description,
       ...(tool.promptGuidelines ?? []),

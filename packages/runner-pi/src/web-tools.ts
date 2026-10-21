@@ -12,6 +12,7 @@
  * as a zero-config fallback.
  */
 
+import { WEB_SEARCH_CITATION_INSTRUCTION } from "@bunny-agent/manager/citation-guidance";
 import type { WebSearchCallRecord } from "@bunny-agent/manager/contracts";
 import {
   buildWebSearchCallRecord,
@@ -501,15 +502,6 @@ function formatSearchResults(
   );
 }
 
-/**
- * Appended to v1-mode `web_search` results: instructs the model to use the
- * OpenAI citation-formatting marker bridge after complete supported sentences
- * or items. Only included when `searchContractVersion: 1` is
- * selected — legacy output is unaffected.
- */
-const V1_CITATION_INSTRUCTION =
-  "\n\nTo cite web_search evidence, use \uE200cite\uE202turn0url0\uE201 with the exact Reference supplied instead of the example. Multiple sources use \uE200cite\uE202turn0url0\uE202turn1url0\uE201. Do not invent or repair References or add line locators. Follow explicit user requests for citation placement. Otherwise, prefer shorter complete sentences instead of interleaving citations between clauses. Place one citation marker after the final punctuation of a complete supported sentence, bullet item, or paragraph. Do not insert citations between clauses, inside headings, immediately after an already linked source title, or at physical screen line wraps. Group distinct supporting References in one marker at the end of the item; do not repeat the same source within that item. Never write manual numbered references such as [1]. Prefer structured citations over duplicate Markdown links to supporting sources. If the user explicitly requests direct links, provide those links and avoid redundant citations for the same source in that item. ";
-
 // ---------------------------------------------------------------------------
 // JSON-Schema parameter definitions
 // ---------------------------------------------------------------------------
@@ -589,14 +581,14 @@ export function buildWebSearchTool(
     description:
       "Search the web for information. Returns titles, URLs, and snippets. " +
       "Use for documentation lookups, fact-checking, current events, or any query requiring web results." +
-      (v1 ? ` ${V1_CITATION_INSTRUCTION.trim()}` : ""),
+      (v1 ? ` ${WEB_SEARCH_CITATION_INSTRUCTION}` : ""),
     promptSnippet:
       "web_search(query, count?, freshness?, country?, fetch_content?) - search the web",
     promptGuidelines: [
       "Use web_search when you need current information, documentation, or facts not available locally.",
       "Set fetch_content=true only when you need the actual page text, not just snippets — it is slower.",
       "Prefer specific, focused queries over broad ones for better results.",
-      ...(v1 ? [V1_CITATION_INSTRUCTION.trim()] : []),
+      ...(v1 ? [WEB_SEARCH_CITATION_INSTRUCTION] : []),
     ],
     // biome-ignore lint/suspicious/noExplicitAny: plain JSON Schema compatible with TypeBox TSchema
     parameters: webSearchSchema as any,
@@ -685,7 +677,10 @@ export function buildWebSearchTool(
                         toolCallId,
                       )!,
                   ),
-                ) + (record.results.length > 0 ? V1_CITATION_INSTRUCTION : "");
+                ) +
+                (record.results.length > 0
+                  ? `\n\n${WEB_SEARCH_CITATION_INSTRUCTION}`
+                  : "");
 
           const details: WebSearchToolDetails = {
             usage,

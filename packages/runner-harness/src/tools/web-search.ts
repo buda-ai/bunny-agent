@@ -2,6 +2,7 @@
  * Web search tool — pluggable providers (Brave, Tavily).
  * Provider auto-detected from env keys; Brave preferred over Tavily.
  */
+import { WEB_SEARCH_CITATION_INSTRUCTION } from "@bunny-agent/manager/citation-guidance";
 import {
   buildWebSearchCallRecord,
   buildWebSearchFailureRecord,
@@ -308,7 +309,7 @@ export async function fetchPageContent(url: string): Promise<string> {
 function formatResults(
   results: SearchResult[],
   label: string,
-  sourceIds?: string[],
+  references?: (string | undefined)[],
 ): string {
   if (results.length === 0) return "No results found.";
   return (
@@ -316,10 +317,10 @@ function formatResults(
     results
       .map((r, i) => {
         const lines = [`--- Result ${i + 1} ---`];
-        if (sourceIds?.[i])
+        if (references?.[i])
           lines.push(
-            `Reference: ${sourceIds[i]}`,
-            `Citation Marker: \uE200cite\uE202${sourceIds[i]}\uE201`,
+            `Reference: ${references[i]}`,
+            `Citation Marker: \uE200cite\uE202${references[i]}\uE201`,
           );
         lines.push(`Title: ${r.title}`, `Link: ${r.link}`);
         if (r.age) lines.push(`Age: ${r.age}`);
@@ -330,15 +331,6 @@ function formatResults(
       .join("\n\n")
   );
 }
-
-/**
- * Appended to v1-mode `web_search` results: instructs the model to use the
- * OpenAI citation-formatting marker bridge after complete supported sentences
- * or items. Only included when `searchContractVersion: 1` is
- * selected — legacy output is unaffected.
- */
-const V1_CITATION_INSTRUCTION =
-  "\n\nTo cite web_search evidence, use \uE200cite\uE202turn0url0\uE201 with the exact Reference supplied instead of the example. Multiple sources use \uE200cite\uE202turn0url0\uE202turn1url0\uE201. Do not invent or repair References or add line locators. Follow explicit user requests for citation placement. Otherwise, prefer shorter complete sentences instead of interleaving citations between clauses. Place one citation marker after the final punctuation of a complete supported sentence, bullet item, or paragraph. Do not insert citations between clauses, inside headings, immediately after an already linked source title, or at physical screen line wraps. Group distinct supporting References in one marker at the end of the item; do not repeat the same source within that item. Never write manual numbered references such as [1]. Prefer structured citations over duplicate Markdown links to supporting sources. If the user explicitly requests direct links, provide those links and avoid redundant citations for the same source in that item. ";
 
 // ---------------------------------------------------------------------------
 // Tool builder
@@ -357,13 +349,13 @@ export function buildWebSearchTool(
     label: "web search",
     description:
       "Search the web. Returns titles, URLs, and snippets." +
-      (v1 ? ` ${V1_CITATION_INSTRUCTION.trim()}` : ""),
+      (v1 ? ` ${WEB_SEARCH_CITATION_INSTRUCTION}` : ""),
     promptSnippet:
       "web_search(query, count?, freshness?, country?, fetch_content?)",
     promptGuidelines: [
       "Use for current info, docs, or facts not available locally.",
       "Set fetch_content=true only when you need full page text — it is slower.",
-      ...(v1 ? [V1_CITATION_INSTRUCTION.trim()] : []),
+      ...(v1 ? [WEB_SEARCH_CITATION_INSTRUCTION] : []),
     ],
     parameters: {
       type: "object",
@@ -524,6 +516,14 @@ function buildV1SuccessResult(
     provider: providerId,
     results,
   });
+  // The registry numbers distinct sources, not result rows. Duplicate URLs
+  // (including normalized aliases) must expose the same Reference.
+  const references = new Map(
+    record.action.sources.map((source, index) => [
+      source.source_id,
+      `turn${turn}url${index}`,
+    ]),
+  );
   const readable = record.results.map((r) => ({
     title: r.title ?? r.url,
     link: r.url,
@@ -537,8 +537,11 @@ function buildV1SuccessResult(
       : formatResults(
           readable,
           providerId,
-          record.results.map((_, index) => `turn${turn}url${index}`),
-        ) + (record.results.length > 0 ? V1_CITATION_INSTRUCTION : "");
+          record.results.map((result) => references.get(result.source_id)),
+        ) +
+        (record.results.length > 0
+          ? `\n\n${WEB_SEARCH_CITATION_INSTRUCTION}`
+          : "");
   const details: WebSearchToolDetails = { web_search: record };
   return { content: [{ type: "text" as const, text }], details };
 }

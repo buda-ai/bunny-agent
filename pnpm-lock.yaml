@@ -9,7 +9,7 @@ patchedDependencies:
     hash: 8c979aae73f93afabce263ff4dcd3ca6f549abcd50ad2340bb0595bc92f8fadf
     path: patches/@earendil-works__pi-ai@1.3.0.patch
   '@earendil-works/pi-coding-agent@1.3.0':
-    hash: a455cd46d9039ed8b6837e2f3cdb62cadab3397a8b6d6096186569d6b9f79222
+    hash: b561e9af3e12ddcd633fc726251638bc960518889c734562f3ff53ed80800c1b
     path: patches/@earendil-works__pi-coding-agent@1.3.0.patch
 
 importers:
@@ -39,7 +39,7 @@ importers:
         version: link:../../packages/runner-harness
       '@earendil-works/pi-coding-agent':
         specifier: 1.3.0
-        version: 1.3.0(patch_hash=a455cd46d9039ed8b6837e2f3cdb62cadab3397a8b6d6096186569d6b9f79222)
+        version: 1.3.0(patch_hash=b561e9af3e12ddcd633fc726251638bc960518889c734562f3ff53ed80800c1b)
     devDependencies:
       '@types/node':
         specifier: ^20.10.0
@@ -181,7 +181,7 @@ importers:
         version: 1.3.0(patch_hash=8c979aae73f93afabce263ff4dcd3ca6f549abcd50ad2340bb0595bc92f8fadf)(@aws-sdk/credential-provider-node@3.972.86)(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(@smithy/signature-v4@5.7.4)(undici@8.10.2)(zod@4.3.6)
       '@earendil-works/pi-coding-agent':
         specifier: 1.3.0
-        version: 1.3.0(patch_hash=a455cd46d9039ed8b6837e2f3cdb62cadab3397a8b6d6096186569d6b9f79222)(@aws-sdk/credential-provider-node@3.972.86)(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(@smithy/signature-v4@5.7.4)(zod@4.3.6)
+        version: 1.3.0(patch_hash=b561e9af3e12ddcd633fc726251638bc960518889c734562f3ff53ed80800c1b)(@aws-sdk/credential-provider-node@3.972.86)(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(@smithy/signature-v4@5.7.4)(zod@4.3.6)
       '@earendil-works/pi-tui':
         specifier: 1.3.0
         version: 1.3.0
@@ -732,7 +732,7 @@ importers:
         version: 1.3.0(patch_hash=8c979aae73f93afabce263ff4dcd3ca6f549abcd50ad2340bb0595bc92f8fadf)(@aws-sdk/credential-provider-node@3.972.86)(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(@smithy/signature-v4@5.7.4)(undici@8.10.2)(zod@4.3.6)
       '@earendil-works/pi-coding-agent':
         specifier: 1.3.0
-        version: 1.3.0(patch_hash=a455cd46d9039ed8b6837e2f3cdb62cadab3397a8b6d6096186569d6b9f79222)(@aws-sdk/credential-provider-node@3.972.86)(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(@smithy/signature-v4@5.7.4)(zod@4.3.6)
+        version: 1.3.0(patch_hash=b561e9af3e12ddcd633fc726251638bc960518889c734562f3ff53ed80800c1b)(@aws-sdk/credential-provider-node@3.972.86)(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(@smithy/signature-v4@5.7.4)(zod@4.3.6)
       '@earendil-works/pi-tui':
         specifier: 1.3.0
         version: 1.3.0
@@ -8758,7 +8758,7 @@ snapshots:
     dependencies:
       quickjs-wasi: 3.6.2
 
-  '@earendil-works/pi-coding-agent@1.3.0(patch_hash=a455cd46d9039ed8b6837e2f3cdb62cadab3397a8b6d6096186569d6b9f79222)':
+  '@earendil-works/pi-coding-agent@1.3.0(patch_hash=b561e9af3e12ddcd633fc726251638bc960518889c734562f3ff53ed80800c1b)':
     dependencies:
       '@earendil-works/pi-agent-core': 1.3.0(undici@8.10.2)
       '@earendil-works/pi-ai': 1.3.0(patch_hash=8c979aae73f93afabce263ff4dcd3ca6f549abcd50ad2340bb0595bc92f8fadf)(undici@8.10.2)
@@ -8794,7 +8794,7 @@ snapshots:
       - ws
       - zod
 
-  '@earendil-works/pi-coding-agent@1.3.0(patch_hash=a455cd46d9039ed8b6837e2f3cdb62cadab3397a8b6d6096186569d6b9f79222)(@aws-sdk/credential-provider-node@3.972.86)(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(@smithy/signature-v4@5.7.4)(zod@4.3.6)':
+  '@earendil-works/pi-coding-agent@1.3.0(patch_hash=b561e9af3e12ddcd633fc726251638bc960518889c734562f3ff53ed80800c1b)(@aws-sdk/credential-provider-node@3.972.86)(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(@smithy/signature-v4@5.7.4)(zod@4.3.6)':
     dependencies:
       '@earendil-works/pi-agent-core': 1.3.0(@aws-sdk/credential-provider-node@3.972.86)(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(@smithy/signature-v4@5.7.4)(undici@8.10.2)(zod@4.3.6)
       '@earendil-works/pi-ai': 1.3.0(patch_hash=8c979aae73f93afabce263ff4dcd3ca6f549abcd50ad2340bb0595bc92f8fadf)(@aws-sdk/credential-provider-node@3.972.86)(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(@smithy/signature-v4@5.7.4)(undici@8.10.2)(zod@4.3.6)

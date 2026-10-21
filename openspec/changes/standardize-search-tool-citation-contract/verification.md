@@ -132,8 +132,8 @@ capability. This is the intended scope of tasks 5.1/5.2.
 Downstream Buda inline citation rendering, structured-first card parsing,
 database persistence, reload/fork UI behavior, and hosted OpenAI search
 acceptance remain separate. The consumer checklist maps these to explicit
-follow-up tests. kapps PR #8009 implements retrieved-source cards and does
-not implement this answer annotation contract. This change remains opt-in.
+follow-up tests. Existing retrieved-source cards do not implement this
+answer annotation contract. This change remains opt-in.
 
 
 ## Automatic negotiation and fresh provider acceptance (2026-10-20)
@@ -164,9 +164,8 @@ summary, and full browser reload passed.
 [Sanitized live acceptance summary](https://pub-5d59c786708441b3a80620d87e7dee2b.r2.dev/tmp/2026-10-20/buda-citations-auto-evidence.json)
 contains the captured answer, annotations and verification boundary.
 
-The Buda consumer is reviewed separately in
-[kapps PR #8043](https://github.com/vikadata/kapps/pull/8043). Its local browser
-verification does not establish hosted OpenAI
+The Buda consumer is reviewed separately. Its local browser verification
+does not establish hosted OpenAI
 native annotations, live Brave success, clean published SDK installation,
 Sandock image acceptance, or dev/prod deployment. Current Pi/Codex
 `native_annotations` remains false.

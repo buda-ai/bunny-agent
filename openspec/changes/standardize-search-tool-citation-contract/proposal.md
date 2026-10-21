@@ -9,7 +9,7 @@ BunnyAgent currently flattens web search results into provider-formatted text an
 - Prefer validated native provider annotations. Add an explicit, source-ID-based citation marker bridge for Pi tools backed by Tavily/Brave/DuckDuckGo; resolve only model-authored references to known sources and never infer citations from arbitrary Markdown links or search snippets.
 - Preserve structured output, URL sources, text identity, citation ranges, provenance, and capability information across runner SSE, daemon, SDK LanguageModelV3, and AI SDK UIMessage serialization. Unsupported runners must report limitations rather than invent citations.
 - Introduce an opt-in versioned rollout, keeping current text-only clients operational until a consumer migration explicitly enables the new contract. The public default does not change in this phase.
-- Publish protocol examples, regression fixtures, migration guidance, and a Buda consumer handoff. Existing kapps PR #8009 remains a search-source-card change; this proposal does not reclassify it as answer citation implementation.
+- Publish protocol examples, regression fixtures, migration guidance, and a Buda consumer handoff. Existing search-source cards remain distinct from answer citations.
 
 ## Capabilities
 
@@ -28,5 +28,5 @@ None. This OpenSpec root was initialized for this proposal and has no existing c
 - Primary repository: `buda-ai/bunny-agent`, baseline `main@38c228c` (v0.9.62).
 - Likely implementation areas: shared public contract types in `packages/manager`; search tools and structured result extraction in `packages/runner-harness` and `packages/runner-pi`; Pi stream conversion and citation bridge; Codex capability/fallback handling; SDK stream and generate mappings; coding-run configuration in `packages/server-ai-sdk`, daemon, and runner CLI.
 - The installed `@earendil-works/pi-ai` adapter currently exposes text/text signatures without annotations. Native Responses support requires a supported provider adapter hook or upstream change; this dependency is an explicit acceptance gate, not assumed to exist.
-- Downstream dependency: Buda Cloud/OpenBuda must separately consume the structured contract, persist text metadata/source IDs, and render clickable inline citations against original Markdown text. Those product UI/database changes belong to a follow-up kapps change outside this repository's apply scope.
+- Downstream dependency: Buda Cloud/OpenBuda must separately consume the structured contract, persist text metadata/source IDs, and render clickable inline citations against original Markdown text. Those product UI/database changes belong to a follow-up consumer change outside this repository's apply scope.
 - No search provider replacement, hosted-search backend addition, document-citation invention, KUI changes, deployment, or secret persistence. No immediate breaking change; removing legacy output or changing the default requires a separate versioned migration.

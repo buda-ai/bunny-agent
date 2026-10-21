@@ -11,6 +11,10 @@
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
     },
+    "./citation-guidance": {
+      "import": "./dist/citation-guidance.js",
+      "types": "./dist/citation-guidance.d.ts"
+    },
     "./contracts": {
       "import": "./dist/contracts/index.js",
       "types": "./dist/contracts/index.d.ts"

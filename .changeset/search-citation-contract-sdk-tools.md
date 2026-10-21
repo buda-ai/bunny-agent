@@ -34,7 +34,8 @@ and Codex runners:
 - Pi: registers a deterministic, URL-derived source identity for each search
   result, persists it across session resume/compaction/fork, and bridges
   non-native citation support by instructing the model to emit
-  `[[cite:<source_id>]]` markers, resolved into visible `[n]` references plus
+  OpenAI citation-formatting markers such as `citeturn0url0`, resolved
+  into visible `[n]` references plus
   flat `url_citation` annotations.
 
 V1 requires a stable `ai >=6.0.264 <7.0.0` peer. Unsupported peers fail

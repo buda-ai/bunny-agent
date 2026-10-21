@@ -70,7 +70,7 @@ supported upstream adapter and separate live verification.
 `docs/search-citation-contract.md` documents migration and a Buda consumer
 checklist. `docs/fixtures/search-citation-contract-handoff.json` is a
 validated illustrative fixture, explicitly separate from captured live
-responses. The downstream kapps change still owns inline citation UI,
+responses. The downstream consumer change still owns inline citation UI,
 structured-first cards, database persistence, reload, and fork acceptance.
-PR #8009 implements retrieved-source cards and does not implement this
-answer annotation contract.
+Existing retrieved-source cards are distinct from this answer annotation
+contract.

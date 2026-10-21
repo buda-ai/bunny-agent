@@ -71,17 +71,3 @@ index 83bf108..eb42d4d 100644
          promptSections.addendum = appendSystemPrompt;
      if (contextFiles.length > 0)
          promptSections.project_context = renderProjectContext(contextFiles);
-diff --git a/package.json b/package.json
-index a23911c..7a1161a 100644
---- a/package.json
-+++ b/package.json
-@@ -4,7 +4,8 @@
- 	"description": "Coding agent CLI with read, bash, edit, write tools and session management",
- 	"type": "module",
- 	"piConfig": {
--		"configDir": ".pi"
-+		"name": "bunny",
-+		"configDir": ".bunny"
- 	},
- 	"bin": {
- 		"pi": "dist/bundle/cli.js"

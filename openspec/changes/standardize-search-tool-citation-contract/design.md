@@ -1,6 +1,6 @@
 ## Context
 
-See `proposal.md` for motivation and scope. The planning baseline is BunnyAgent `main@38c228c`, v0.9.62, with downstream inspection of kapps PR #8009 at `8d4ac7f921`.
+See `proposal.md` for motivation and scope. The planning baseline is BunnyAgent `main@38c228c`, v0.9.62, with a separate downstream search-card consumer.
 
 Observed boundaries:
 
@@ -12,8 +12,8 @@ Observed boundaries:
 | `packages/runner-codex/src/codex-runner.ts` | Completed web search exposes only `{query}` | No source list or answer ranges can be reconstructed honestly |
 | Installed `@earendil-works/pi-ai` | `TextContent` has text/textSignature, no annotations; `api/openai-responses-shared.js` copies output text and signatures without carrying annotations | The current Pi runtime cannot advertise native Responses annotation support |
 | `packages/sdk/src/provider/bunny-agent-language-model.ts` | Text-end metadata and source events are not mapped; `doGenerate` accumulates text without per-part metadata and omits source/tool-result collection | Streaming and generate mappings both require explicit preservation |
-| kapps `SandAgentProvider` | Already calls `toUIMessageStream({sendSources:true})` | The SDK can use existing AI SDK source transport |
-| kapps `content-part-renderer.tsx` | Source URL/document parts render as text labels, with no answer-range handling | Backend protocol delivery alone does not complete clickable inline citation UX |
+| Downstream `SandAgentProvider` | Already calls `toUIMessageStream({sendSources:true})` | The SDK can use existing AI SDK source transport |
+| Downstream `content-part-renderer.tsx` | Source URL/document parts render as text labels, with no answer-range handling | Backend protocol delivery alone does not complete clickable inline citation UX |
 
 The reference is the [OpenAI Responses web search guide](https://developers.openai.com/api/docs/guides/tools-web-search?api-mode=responses), particularly its separate `web_search_call.action.sources` and `message.content[].annotations` outputs. Its character-position description does not establish a universal JavaScript UTF-16 convention; Bunny therefore documents its own offset unit rather than guessing.
 
@@ -31,7 +31,7 @@ The reference is the [OpenAI Responses web search guide](https://developers.open
 
 - Add OpenAI hosted search, replace current search providers, or claim that Tavily itself generates answer annotations.
 - Patch installed dependencies in `node_modules` or silently replace Pi's model execution engine to obtain native annotations.
-- Implement Buda UI/database changes in this repository, relabel PR #8009 as annotations support, or fabricate `source-document` records from web pages.
+- Implement Buda UI/database changes in this repository, relabel existing source cards as annotations support, or fabricate `source-document` records from web pages.
 - Infer factual support from arbitrary links, rank citations by truthfulness, or guarantee that a model's cited claim is correct.
 
 ## Decisions
@@ -42,7 +42,7 @@ Use `searchContractVersion?: 1` in SDK options, manager runner specification, an
 
 A `start`/message-metadata acknowledgement reports effective version and separate capabilities for structured retrieval, native annotations, and explicit-source-marker annotations. Pi supports v1 structured search and the explicit bridge. Codex supports a v1 query-only envelope with unavailable detail and no citation capability. Other runners reject explicit v1 selection until adapted; their unspecified-version behavior remains unchanged. An older daemon/CLI that cannot acknowledge the contract is not silently treated as v1; the SDK surfaces an unsupported-contract error without automatic retry.
 
-Alternative: change all default tool outputs immediately. Rejected because existing text consumers, third-party clients, and PR #8009 do not yet understand the new envelope. Version selection is the migration boundary, while structured data is authoritative whenever v1 is selected.
+Alternative: change all default tool outputs immediately. Rejected because existing text consumers and third-party clients do not yet understand the new envelope. Version selection is the migration boundary, while structured data is authoritative whenever v1 is selected.
 
 ### 2. Use separate retrieval and answer contracts
 
@@ -190,7 +190,7 @@ Alternative: trust all upstream data or concatenate whole page text into citatio
 - [Source records span search calls, compaction, forks, and process restarts] → Use deterministic IDs and versioned branch-aware session entries; test fresh-process reconstruction.
 - [Unicode and Markdown rendering use different coordinate systems] → Freeze exact raw text and documented code-point ranges; provide tested conversion helpers and a downstream AST handoff.
 - [Structured errors can be flattened by AI SDK error handling] → Preserve the failed envelope in supported provider metadata and test a real UIMessage `output-error` part.
-- [v1 output is not directly handled by PR #8009] → Keep default legacy mode until a separate Buda consumer change supports structured-first parsing and annotations.
+- [Existing source-card consumers do not directly handle v1 output] → Keep default legacy mode until a separate Buda consumer change supports structured-first parsing and annotations.
 - [Safe URL validation does not prove a cited statement] → Describe provenance and model authorship accurately; do not claim semantic verification.
 
 ## Migration Plan
