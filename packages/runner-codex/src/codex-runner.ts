@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { buildWebSearchUnavailableDetailRecord } from "@bunny-agent/manager/contracts/record";
 import {
   type ApprovalMode,
   Codex,
@@ -23,6 +24,15 @@ export interface CodexRunnerOptions extends BaseRunnerOptions {
   networkAccessEnabled?: boolean;
   webSearchMode?: WebSearchMode;
   modelReasoningEffort?: ModelReasoningEffort;
+  /**
+   * Explicit opt-in to the versioned web search / answer citation contract
+   * (see `@bunny-agent/manager/contracts`). Codex's `web_search` completion
+   * exposes only `{query}` — no result list or citation metadata is ever
+   * recoverable from it — so v1 mode wraps that query in an `unavailable`
+   * {@link WebSearchCallRecord} rather than inventing sources. Absent means
+   * legacy `{query}` output, unchanged.
+   */
+  searchContractVersion?: 1;
 }
 
 export interface CodexRunner {
@@ -93,6 +103,7 @@ function toToolStartPayload(
 
 function toToolEndPayload(
   event: ThreadEvent,
+  searchContractVersion?: 1,
 ): { toolCallId: string; result: unknown; isError?: boolean } | null {
   if (event.type !== "item.completed") {
     return null;
@@ -121,6 +132,18 @@ function toToolEndPayload(
   }
 
   if (item.type === "web_search") {
+    if (searchContractVersion === 1) {
+      return {
+        toolCallId: item.id,
+        result: {
+          web_search: buildWebSearchUnavailableDetailRecord({
+            id: item.id,
+            query: item.query,
+            provider: "codex",
+          }),
+        },
+      };
+    }
     return {
       toolCallId: item.id,
       result: { query: item.query },
@@ -362,7 +385,7 @@ export function createCodexRunner(options: CodexRunnerOptions): CodexRunner {
           });
         }
 
-        const toolEnd = toToolEndPayload(event);
+        const toolEnd = toToolEndPayload(event, options.searchContractVersion);
         if (toolEnd) {
           yield sseData({
             type: "tool-output-available",

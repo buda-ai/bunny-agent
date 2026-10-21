@@ -22,6 +22,10 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { ensureApplyPatchShim } from "./apply-patch-shim.js";
 import { buildApplyPatchTool } from "./apply-patch-tool.js";
+import {
+  citationSourceGuidance,
+  createCitationSessionRegistry,
+} from "./citation-session-cache.js";
 import { buildImageEditTool, buildImageGenerateTool } from "./image-tools.js";
 import {
   createMcpExtension,
@@ -175,6 +179,12 @@ export interface PiRunnerOptions {
    * a timeout result to the model so the conversation can continue.
    */
   askUserQuestionTimeoutMs?: number;
+  /**
+   * Explicit opt-in to the versioned web search / answer citation contract.
+   * Only version `1` is currently supported; `undefined` keeps legacy
+   * text-only `web_search` tool output.
+   */
+  searchContractVersion?: 1;
 }
 
 export interface PiRunner {
@@ -482,8 +492,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
         await modelRuntime.setRuntimeApiKey(provider, inlineApiKey);
       }
       try {
-        // biome-ignore lint/suspicious/noExplicitAny: getBuiltinModel accepts provider/model string unions.
-        const defaultModel = getBuiltinModel(provider as any, modelName as any);
+        const defaultModel = getBuiltinModel(provider, modelName);
         let model = (defaultModel ??
           modelRuntime.getModel(provider, modelName)) as Model<Api>;
         if (model == null) {
@@ -578,6 +587,18 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           }
           return SessionManager.create(cwd);
         })();
+        const sourceRegistry = createCitationSessionRegistry(
+          sessionManager,
+          options.searchContractVersion === 1,
+        );
+        const citationGuidance = citationSourceGuidance(
+          options.searchContractVersion === 1,
+          sourceRegistry,
+        );
+        const appendSystemPrompt =
+          [options.systemPrompt, citationGuidance]
+            .filter(Boolean)
+            .join("\n\n") || undefined;
         // Make `apply_patch` resolvable as a real shell command in bash
         // children. GPT-5.x chains it after other commands
         // (`cd x && apply_patch <<'PATCH'`), which the native tool below
@@ -586,10 +607,16 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
 
         const customTools: ToolDefinition[] =
           options.env && Object.keys(options.env).length > 0
-            ? buildSecretAwareTools(cwd, options.env, {
-                systemEnv: options.systemEnv,
-                pathPrepend: applyPatchShimDir,
-              })
+            ? buildSecretAwareTools(
+                cwd,
+                options.env,
+                {
+                  systemEnv: options.systemEnv,
+                  pathPrepend: applyPatchShimDir,
+                },
+                options.searchContractVersion,
+                sourceRegistry,
+              )
             : applyPatchShimDir
               ? [
                   buildEnvInjectedBashTool(cwd, {
@@ -656,7 +683,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           agentDir,
           settingsManager,
           skillPaths: options.skillPaths,
-          systemPrompt: options.systemPrompt,
+          systemPrompt: appendSystemPrompt,
           extensionFactories: [
             createSecretGuardExtension(options.env ?? {}),
             ...(bypassApproval
@@ -760,6 +787,8 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           );
 
           const streamConverter = new PiAISDKStreamConverter({
+            searchContractVersion: options.searchContractVersion,
+            sourceRegistry,
             sessionId: session.sessionId,
             model,
             normalizeToolOutput: extractToolResultText,

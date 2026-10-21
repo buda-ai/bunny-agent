@@ -1,9 +1,11 @@
+import { deriveSourceId } from "@bunny-agent/manager/contracts/source-id";
 import type { AgentSessionEvent } from "@earendil-works/pi-coding-agent";
 import { describe, expect, it } from "vitest";
 import { PiAISDKStreamConverter } from "../stream-converter.js";
 
-function makeConverter() {
+function makeConverter(searchContractVersion?: 1) {
   return new PiAISDKStreamConverter({
+    searchContractVersion,
     sessionId: "sess",
     model: { id: "gpt-5.4", provider: "openai" },
     normalizeToolOutput: (r) => JSON.stringify(r),
@@ -180,5 +182,140 @@ describe("PiAISDKStreamConverter tool output", () => {
         output: { answers: { "Known question": "Known answer" } },
       }),
     );
+  });
+
+  const validWebSearchRecord = {
+    schema_version: 1 as const,
+    type: "web_search_call" as const,
+    id: "tool-3",
+    status: "completed" as const,
+    action: {
+      type: "search" as const,
+      query: "example docs",
+      sources: [
+        {
+          type: "url" as const,
+          source_id: deriveSourceId("https://example.com/docs")!,
+          url: "https://example.com/docs",
+          title: "Documentation",
+        },
+      ],
+    },
+    source_details: "available" as const,
+    results: [
+      {
+        source_id: deriveSourceId("https://example.com/docs")!,
+        url: "https://example.com/docs",
+        title: "Documentation",
+        snippet: "A readable description.",
+      },
+    ],
+    provider: "tavily",
+    truncated: false,
+  };
+
+  it("prefers the validated details.web_search record over the plain-text fallback", () => {
+    const conv = makeConverter(1);
+    const chunks = conv.handleEvent(
+      {
+        type: "tool_execution_end",
+        toolCallId: "tool-3",
+        toolName: "web_search",
+        result: {
+          content: [{ type: "text", text: "[Tavily] 1 result(s)..." }],
+          details: { web_search: validWebSearchRecord },
+        },
+        isError: false,
+      } as AgentSessionEvent,
+      false,
+    );
+
+    expect(eventsOf(chunks)).toContainEqual(
+      expect.objectContaining({
+        type: "tool-output-available",
+        toolCallId: "tool-3",
+        output: validWebSearchRecord,
+      }),
+    );
+  });
+
+  it("falls back to plain text when details.web_search is absent (legacy mode unaffected)", () => {
+    const conv = makeConverter();
+    const chunks = conv.handleEvent(
+      {
+        type: "tool_execution_end",
+        toolCallId: "tool-4",
+        toolName: "web_search",
+        result: {
+          content: [{ type: "text", text: "[Tavily] 1 result(s)..." }],
+          details: {
+            usage: { raw: { tavily: { requests: 1, fetchedPages: 0 } } },
+          },
+        },
+        isError: false,
+      } as AgentSessionEvent,
+      false,
+    );
+
+    expect(eventsOf(chunks)).toContainEqual(
+      expect.objectContaining({
+        type: "tool-output-available",
+        toolCallId: "tool-4",
+        output: JSON.stringify({
+          content: [{ type: "text", text: "[Tavily] 1 result(s)..." }],
+          details: {
+            usage: { raw: { tavily: { requests: 1, fetchedPages: 0 } } },
+          },
+        }),
+      }),
+    );
+  });
+
+  it("does not let a malformed details.web_search override legacy text", () => {
+    const conv = makeConverter();
+    const chunks = conv.handleEvent(
+      {
+        type: "tool_execution_end",
+        toolCallId: "tool-5",
+        toolName: "web_search",
+        result: {
+          content: [{ type: "text", text: "legacy text wins" }],
+          details: {
+            web_search: { schema_version: 1, type: "not_a_search_call" },
+          },
+        },
+        isError: false,
+      } as AgentSessionEvent,
+      false,
+    );
+
+    const output = eventsOf(chunks).find(
+      (e) => e.type === "tool-output-available",
+    )?.output;
+    expect(output).not.toEqual(
+      expect.objectContaining({ type: "not_a_search_call" }),
+    );
+  });
+
+  it("leaves unrelated tools unaffected by the web_search structured-output check", () => {
+    const conv = makeConverter();
+    const chunks = conv.handleEvent(
+      {
+        type: "tool_execution_end",
+        toolCallId: "tool-6",
+        toolName: "bash",
+        result: {
+          content: [{ type: "text", text: "ok" }],
+          details: { web_search: validWebSearchRecord },
+        },
+        isError: false,
+      } as AgentSessionEvent,
+      false,
+    );
+
+    const output = eventsOf(chunks).find(
+      (e) => e.type === "tool-output-available",
+    )?.output;
+    expect(output).not.toEqual(validWebSearchRecord);
   });
 });

@@ -30,6 +30,7 @@
   },
   "license": "Apache-2.0",
   "dependencies": {
+    "@bunny-agent/manager": "workspace:*",
     "@openai/codex-sdk": "^0.144.6"
   },
   "devDependencies": {

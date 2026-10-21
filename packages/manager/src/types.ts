@@ -165,6 +165,16 @@ export interface BunnyAgentCodingRunBody {
    * Passed through to the runner; pi maps it to its native ThinkingLevel enum.
    */
   effort?: string;
+  /**
+   * Explicit opt-in to the versioned web search / answer citation contract
+   * (see `@bunny-agent/manager/contracts`). Absent means legacy text-only
+   * search behavior; `1` requests the structured retrieval envelope and
+   * Responses-shaped answer annotations. Request-scoped — never a
+   * process-global switch. Runners that do not support the requested
+   * version reject the request explicitly rather than silently falling
+   * back to legacy behavior.
+   */
+  searchContractVersion?: number;
 }
 
 /**
@@ -319,6 +329,11 @@ export interface RunnerSpec {
   yolo?: boolean;
   /** Reasoning effort / thinking level (e.g. "low", "medium", "high"). */
   effort?: string;
+  /**
+   * Explicit opt-in to the versioned web search / answer citation contract.
+   * See {@link BunnyAgentCodingRunBody.searchContractVersion}.
+   */
+  searchContractVersion?: number;
 }
 
 /**

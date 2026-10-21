@@ -1,3 +1,4 @@
+import type { SourceRegistry } from "./source-registry.js";
 /**
  * Tool overrides and secret guarding for bunny-agent pi runner.
  *
@@ -258,6 +259,8 @@ export function buildSecretAwareTools(
   cwd: string,
   secrets: Record<string, string>,
   opts: BashToolOptions = {},
+  searchContractVersion?: 1,
+  sourceRegistry?: SourceRegistry,
 ): ToolDefinition[] {
   const tools: ToolDefinition[] = [
     buildEnvInjectedBashTool(cwd, opts),
@@ -265,7 +268,9 @@ export function buildSecretAwareTools(
   ];
 
   if (resolveSearchProvider(secrets)) {
-    tools.push(buildWebSearchTool(secrets));
+    tools.push(
+      buildWebSearchTool(secrets, searchContractVersion, sourceRegistry),
+    );
   }
 
   return tools;

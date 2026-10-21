@@ -9,6 +9,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { approvalFileName } from "@bunny-agent/manager";
+import { WEB_SEARCH_CITATION_SYSTEM_GUIDANCE } from "@bunny-agent/manager/citation-guidance";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createPiRunner, type PiRunnerOptions } from "../pi-runner.js";
 import { ENV_DUMP_BLOCKED_MESSAGE } from "../tool-overrides.js";
@@ -35,6 +36,7 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
+  vi.restoreAllMocks();
   vi.unstubAllEnvs();
   await server?.close();
   server = undefined;
@@ -94,6 +96,8 @@ async function approveWhenAsked(
 
 describe("createPiRunner tool hooks (real pi session)", () => {
   it("asks for approval before a built-in tool runs and redacts its result", async () => {
+    // Exercise approval even when the test host runs as root (which bypasses it).
+    if (process.getuid) vi.spyOn(process, "getuid").mockReturnValue(1000);
     writeFileSync(join(cwd, "notes.txt"), `the key is ${SECRET}\n`);
     const fake = await startServer([
       { toolCall: { name: "read", arguments: { path: "notes.txt" } } },
@@ -194,6 +198,40 @@ describe("createPiRunner tool hooks (real pi session)", () => {
     const text = JSON.stringify(system.content);
     expect(text.startsWith('"You are Bunny QA.')).toBe(true);
     expect(text).not.toContain("operating inside pi");
+  });
+
+  it("keeps citation guidance and secret hooks with the official resource loader", async () => {
+    const fake = await startServer(
+      [{ toolCall: { name: "lookup", arguments: {} } }],
+      { toolBody: `token ${SECRET} issued` },
+    );
+
+    await runPi(fake, {
+      yolo: true,
+      systemPrompt: "You are Bunny QA.",
+      searchContractVersion: 1,
+      toolRefs: [
+        {
+          name: "lookup",
+          description: "Look something up",
+          inputSchema: { type: "object", properties: {} },
+          runtime: { type: "http", url: `${fake.baseUrl}/tool` },
+        },
+      ],
+    });
+
+    const system = fake.requests[0].messages[0];
+    expect(system.role).toBe("system");
+    expect(String(system.content)).toContain(
+      `You are Bunny QA.\n\n${WEB_SEARCH_CITATION_SYSTEM_GUIDANCE}`,
+    );
+    expect(
+      String(system.content).split(WEB_SEARCH_CITATION_SYSTEM_GUIDANCE),
+    ).toHaveLength(2);
+    expect(toolResultText(fake.requests[1], "call_1")).toContain(
+      "token *** issued",
+    );
+    expect(toolResultText(fake.requests[1], "call_1")).not.toContain(SECRET);
   });
 
   it("stores sessions under pi's agent dir and resumes them by id", async () => {

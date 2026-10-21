@@ -19,10 +19,22 @@ import {
   type Message,
   type RunnerSpec,
   SandboxExecError,
+  type SandboxHandle,
   streamCodingRunFromSandbox,
   type ToolRef,
 } from "@bunny-agent/manager";
+import type { SearchContractCapabilities } from "../contracts";
+import {
+  isSafeHttpUrl,
+  isSearchContractCapabilities,
+  isValidCitationContractMetadata,
+} from "../contracts";
 import { getProviderLogger } from "./logging";
+import { assertSearchContractAiSdkSupport } from "./search-contract-ai-sdk";
+import {
+  discoverPiSearchContract,
+  waitForSearchDiscovery,
+} from "./search-contract-discovery";
 import { compileToolRefsFromLanguageModelTools } from "./tool-refs";
 import type {
   BunnyAgentModelId,
@@ -228,6 +240,17 @@ function readToolDynamicFlag(parsed: Record<string, unknown>): boolean {
   return parsed.providerExecuted === true;
 }
 
+function mergeProviderMetadata(
+  previous: SharedV3ProviderMetadata | undefined,
+  next: SharedV3ProviderMetadata | undefined,
+): SharedV3ProviderMetadata {
+  const merged = { ...previous };
+  for (const [provider, fields] of Object.entries(next ?? {})) {
+    merged[provider] = { ...merged[provider], ...fields };
+  }
+  return merged;
+}
+
 /**
  * BunnyAgent Language Model implementation for AI SDK.
  */
@@ -247,6 +270,94 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
   private legacyTextPartCounter = 0;
   private receivedFinish = false;
   private activeReasoningPartId: string | undefined;
+  private acknowledgedSearchContract: SearchContractCapabilities | undefined;
+  /** Defense in depth: the runner already dedupes per emitted source, but a
+   * duplicate `source-url` event must never reach the UI as two source parts. */
+  private emittedSourceIds: Set<string> = new Set();
+  private readonly completedTextIds = new Set<string>();
+  private readonly completedToolIds = new Set<string>();
+  private readonly textById = new Map<string, string>();
+  private readonly textMetadata = new Map<string, SharedV3ProviderMetadata>();
+  private readonly toolMetadata = new Map<string, SharedV3ProviderMetadata>();
+  private readonly pendingSources = new Map<string, Record<string, unknown>>();
+  private readonly citedSources = new Map<
+    string,
+    { url: string; title: string }
+  >();
+  private messageMetadata: Record<string, JSONValue> = {};
+  private readonly seenMessageMetadata = new Set<string>();
+  private readonly seenStreamErrors = new Set<string>();
+
+  /** Merge every provider namespace while retaining negotiated request facts. */
+  private partMetadata(
+    raw: unknown,
+    textPartId?: string,
+  ): SharedV3ProviderMetadata {
+    const metadata = mergeProviderMetadata(
+      textPartId === undefined ? undefined : this.textMetadata.get(textPartId),
+      raw && typeof raw === "object"
+        ? (raw as SharedV3ProviderMetadata)
+        : undefined,
+    );
+    const { searchContract: _untrustedAcknowledgement, ...bunnyMetadata } =
+      metadata["bunny-agent"] ?? {};
+    const result: SharedV3ProviderMetadata = {
+      ...metadata,
+      "bunny-agent": {
+        ...this.messageMetadata,
+        ...bunnyMetadata,
+        ...(this.sessionId ? { sessionId: this.sessionId } : {}),
+        ...(textPartId !== undefined ? { textPartId } : {}),
+        ...(this.acknowledgedSearchContract
+          ? {
+              searchContract: this
+                .acknowledgedSearchContract as unknown as JSONValue,
+            }
+          : {}),
+      },
+    };
+    if (textPartId !== undefined) this.textMetadata.set(textPartId, result);
+    return result;
+  }
+
+  private toolPartMetadata(
+    parsed: Record<string, unknown>,
+  ): SharedV3ProviderMetadata {
+    const id = parsed.toolCallId as string;
+    const metadata = mergeProviderMetadata(
+      this.toolMetadata.get(id),
+      this.partMetadata(parsed.providerMetadata),
+    );
+    this.toolMetadata.set(id, metadata);
+    return metadata;
+  }
+
+  private emitCitedSource(sourceId: string): LanguageModelV3StreamPart[] {
+    const source = this.pendingSources.get(sourceId);
+    const cited = this.citedSources.get(sourceId);
+    if (
+      !source ||
+      !cited ||
+      this.emittedSourceIds.has(sourceId) ||
+      typeof source.url !== "string" ||
+      !isSafeHttpUrl(source.url) ||
+      new URL(source.url).href !== new URL(cited.url).href
+    )
+      return [];
+    this.emittedSourceIds.add(sourceId);
+    return [
+      {
+        type: "source",
+        sourceType: "url",
+        id: sourceId,
+        url: source.url,
+        title: cited.title,
+        ...(source.providerMetadata
+          ? { providerMetadata: this.partMetadata(source.providerMetadata) }
+          : {}),
+      },
+    ];
+  }
 
   private logUnparsedStreamLine(candidate: string, error: unknown): void {
     const trimmed = candidate.trim();
@@ -293,7 +404,10 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
     let usage: LanguageModelV3Usage = createEmptyUsage();
     let providerMetadata: SharedV3ProviderMetadata | undefined;
 
-    const textParts: Map<string, { text: string }> = new Map();
+    const textParts = new Map<
+      string,
+      { text: string; providerMetadata?: SharedV3ProviderMetadata }
+    >();
     const reasoningParts: Map<string, { text: string }> = new Map();
     const toolInputs: Map<string, { toolName: string; input: string }> =
       new Map();
@@ -305,13 +419,20 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
 
         switch (value.type) {
           case "text-start": {
-            textParts.set(value.id, { text: "" });
+            textParts.set(value.id, {
+              text: "",
+              providerMetadata: value.providerMetadata,
+            });
             break;
           }
           case "text-delta": {
             const part = textParts.get(value.id);
             if (part) {
               part.text += value.delta;
+              part.providerMetadata = mergeProviderMetadata(
+                part.providerMetadata,
+                value.providerMetadata,
+              );
             }
             break;
           }
@@ -321,7 +442,12 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
               content.push({
                 type: "text",
                 text: part.text,
+                providerMetadata: mergeProviderMetadata(
+                  part.providerMetadata,
+                  value.providerMetadata,
+                ),
               });
+              textParts.delete(value.id);
             }
             break;
           }
@@ -361,13 +487,15 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
             break;
           }
           case "tool-call": {
-            content.push({
-              type: "tool-call",
-              toolCallId: value.toolCallId,
-              toolName: value.toolName,
-              input: value.input,
-              providerExecuted: value.providerExecuted,
-            });
+            content.push(value);
+            break;
+          }
+          case "tool-result": {
+            content.push(value);
+            break;
+          }
+          case "source": {
+            content.push(value);
             break;
           }
           case "stream-start": {
@@ -416,10 +544,58 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
   async doStream(
     options: LanguageModelV3CallOptions,
   ): Promise<LanguageModelV3StreamResult> {
+    // A model may be reused by overlapping AI SDK calls. All mutable parser,
+    // negotiation, identity, and artifact state belongs to this invocation.
+    let invocationOptions = this.options;
+    let discoveredHandle: SandboxHandle | undefined;
+    if (this.options.searchContractVersion === "auto") {
+      if (!this.options.sandbox) {
+        throw new Error(
+          "BunnyAgent language model requires a sandbox adapter (set `sandbox` on the provider).",
+        );
+      }
+      if (options.abortSignal?.aborted) {
+        throw new DOMException(
+          "Search capability discovery aborted.",
+          "AbortError",
+        );
+      }
+      let version: 1 | undefined;
+      if (this.options.runner.runnerType === "pi" && this.options.daemonUrl) {
+        discoveredHandle = await waitForSearchDiscovery(
+          this.options.sandbox.attach(),
+          options.abortSignal,
+        );
+        version = await discoverPiSearchContract(
+          discoveredHandle,
+          this.options.daemonUrl,
+          {
+            cwd: this.options.cwd,
+            signal: options.abortSignal,
+          },
+        );
+      }
+      invocationOptions = {
+        ...this.options,
+        runner: { ...this.options.runner, searchContractVersion: version },
+      };
+    }
+    const invocation = new BunnyAgentLanguageModel({
+      id: this.modelId,
+      options: invocationOptions,
+    });
+    return invocation.doStreamInvocation(options, discoveredHandle);
+  }
+
+  private async doStreamInvocation(
+    options: LanguageModelV3CallOptions,
+    discoveredHandle?: SandboxHandle,
+  ): Promise<LanguageModelV3StreamResult> {
+    if (this.requestedSearchContractVersion === 1) {
+      await assertSearchContractAiSdkSupport();
+    }
     const { prompt, abortSignal } = options;
     const messages = this.convertPromptToMessages(prompt);
-
-    this.resetStreamState();
 
     this.logger.debug(
       `[bunny-agent] Starting stream with ${messages.length} messages`,
@@ -438,7 +614,7 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
     const daemonUrl = this.options.daemonUrl;
 
     if (daemonUrl) {
-      const handle = await sandbox.attach();
+      const handle = discoveredHandle ?? (await sandbox.attach());
       const sandboxEnv = sandbox.getEnv?.() ?? {};
       const runnerEnv = { ...sandboxEnv, ...this.options.env };
       const body: BunnyAgentCodingRunBody = {
@@ -525,12 +701,37 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
     }
   }
 
-  private resetStreamState(): void {
-    this.sessionId = undefined;
-    this.toolNameMap = new Map();
-    this.legacyTextPartCounter = 0;
-    this.receivedFinish = false;
-    this.activeReasoningPartId = undefined;
+  /** The `searchContractVersion` explicitly requested for this turn, if any (never a process-global default). */
+  private get requestedSearchContractVersion(): 1 | undefined {
+    return this.options.runner.searchContractVersion === 1 ? 1 : undefined;
+  }
+
+  /**
+   * When an explicit v1 selection was requested but the stream reached a
+   * normal finish without ever delivering a `searchContract` acknowledgement
+   * (e.g. an older daemon/CLI peer that silently ignores the field), surface
+   * a clear error instead of letting the caller believe v1 behavior is
+   * active. Never retried automatically — the caller decides whether to
+   * retry without the contract.
+   */
+  private buildMissingAcknowledgementErrorParts(): LanguageModelV3StreamPart[] {
+    return [
+      {
+        type: "error",
+        error: new Error(
+          "searchContractVersion: 1 was explicitly requested but the runner/daemon never acknowledged support for it (no searchContract capability message received). The peer may be running an older release that silently ignores this option.",
+        ),
+      },
+      {
+        type: "finish",
+        finishReason: {
+          unified: "error",
+          raw: "search-contract-unacknowledged",
+        },
+        usage: createEmptyUsage(),
+        providerMetadata: this.partMetadata(undefined),
+      },
+    ];
   }
 
   /** Close the open reasoning part, if any (returns the end part to emit). */
@@ -543,6 +744,12 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
 
   /** Synthesize a terminal error+finish pair for streams that end (EOF or `[DONE]`) without ever emitting a "finish" part, so the UI shows an error instead of silently stalling. */
   private buildUnexpectedEndParts(): LanguageModelV3StreamPart[] {
+    if (
+      this.requestedSearchContractVersion === 1 &&
+      this.acknowledgedSearchContract === undefined
+    ) {
+      return this.buildMissingAcknowledgementErrorParts();
+    }
     return [
       {
         type: "error",
@@ -554,11 +761,7 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
         type: "finish",
         finishReason: { unified: "error", raw: "unexpected-stream-end" },
         usage: createEmptyUsage(),
-        providerMetadata: {
-          "bunny-agent": {
-            sessionId: this.sessionId,
-          } as unknown as SharedV3ProviderMetadata,
-        },
+        providerMetadata: this.partMetadata(undefined),
       },
     ];
   }
@@ -598,6 +801,9 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
       ...(toolRefs && toolRefs.length > 0 ? { toolRefs } : {}),
       ...(this.options.mcpConfig ? { mcpConfig: this.options.mcpConfig } : {}),
       ...(this.options.effort ? { effort: this.options.effort } : {}),
+      ...(runner.searchContractVersion !== undefined
+        ? { searchContractVersion: runner.searchContractVersion }
+        : {}),
     };
   }
 
@@ -770,10 +976,17 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
     const parsed = JSON.parse(data) as Record<string, unknown>;
     const parsedType =
       typeof parsed.type === "string" ? parsed.type : undefined;
+    if (
+      this.receivedFinish &&
+      parsedType !== "error" &&
+      !(!parsedType && typeof parsed.error === "string")
+    )
+      return parts;
 
     // daemon NDJSON errors may arrive as: {"error":"..."} (without type)
     if (!parsedType && typeof parsed.error === "string") {
-      this.receivedFinish = true;
+      if (this.seenStreamErrors.has(parsed.error)) return parts;
+      this.seenStreamErrors.add(parsed.error);
       return [
         {
           type: "error",
@@ -796,14 +1009,14 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
             {
               type: "text-start",
               id,
-              providerMetadata: {
-                "bunny-agent": {
-                  sessionId: this.sessionId,
-                } as unknown as SharedV3ProviderMetadata,
-              },
+              providerMetadata: this.partMetadata(parsed.providerMetadata, id),
             },
             { type: "text-delta", id, delta: text },
-            { type: "text-end", id },
+            {
+              type: "text-end",
+              id,
+              providerMetadata: this.partMetadata(parsed.providerMetadata, id),
+            },
           );
         }
         break;
@@ -811,7 +1024,21 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
 
       case "message-metadata": {
         const metadata = parsed.messageMetadata as Record<string, unknown>;
-        if (metadata?.sessionId && typeof metadata.sessionId === "string") {
+        const key = JSON.stringify(metadata);
+        if (this.seenMessageMetadata.has(key)) break;
+        this.seenMessageMetadata.add(key);
+        if (metadata && typeof metadata === "object") {
+          const { searchContract: _acknowledgement, ...fields } = metadata;
+          this.messageMetadata = {
+            ...this.messageMetadata,
+            ...fields,
+          } as Record<string, JSONValue>;
+        }
+        if (
+          metadata?.sessionId &&
+          typeof metadata.sessionId === "string" &&
+          this.sessionId !== metadata.sessionId
+        ) {
           this.sessionId = metadata.sessionId;
           this.logger.debug(
             `[bunny-agent] Session ID extracted: ${this.sessionId}`,
@@ -820,6 +1047,16 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
             type: "raw",
             rawValue: this.sessionId,
           });
+        }
+        if (
+          this.requestedSearchContractVersion === 1 &&
+          isSearchContractCapabilities(metadata?.searchContract) &&
+          this.acknowledgedSearchContract === undefined
+        ) {
+          this.acknowledgedSearchContract = metadata.searchContract;
+          this.logger.debug(
+            `[bunny-agent] Search contract acknowledged: ${JSON.stringify(this.acknowledgedSearchContract)}`,
+          );
         }
         break;
       }
@@ -876,32 +1113,99 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
       }
 
       case "text-start": {
+        const id = parsed.id as string;
+        if (this.textById.has(id) || this.completedTextIds.has(id)) break;
+        this.textById.set(id, "");
         parts.push(...this.closeReasoningPart());
         parts.push({
           type: "text-start",
           id: parsed.id as string,
-          providerMetadata: {
-            "bunny-agent": {
-              sessionId: this.sessionId,
-            } as unknown as SharedV3ProviderMetadata,
-          },
+          providerMetadata: this.partMetadata(parsed.providerMetadata, id),
         });
         break;
       }
 
       case "text-delta": {
+        const id = parsed.id as string;
+        if (this.completedTextIds.has(id)) break;
+        this.textById.set(
+          id,
+          (this.textById.get(id) ?? "") + (parsed.delta as string),
+        );
         parts.push({
           type: "text-delta",
           id: parsed.id as string,
           delta: parsed.delta as string,
+          ...(parsed.providerMetadata
+            ? {
+                providerMetadata: this.partMetadata(
+                  parsed.providerMetadata,
+                  id,
+                ),
+              }
+            : {}),
         });
         break;
       }
 
       case "text-end": {
+        const id = parsed.id as string;
+        if (this.completedTextIds.has(id)) break;
+        this.completedTextIds.add(id);
+        const rawMetadata = parsed.providerMetadata as
+          | Record<string, unknown>
+          | undefined;
+        const bunnyMetadata = rawMetadata?.["bunny-agent"] as
+          | Record<string, unknown>
+          | undefined;
+        const contract = bunnyMetadata?.citation_contract;
+        if (
+          this.acknowledgedSearchContract &&
+          isValidCitationContractMetadata(contract, {
+            text: this.textById.get(id) ?? "",
+          })
+        ) {
+          for (const binding of contract.bindings) {
+            const annotation = contract.annotations[binding.annotation_index];
+            this.citedSources.set(binding.source_id, {
+              url: annotation.url,
+              title: annotation.title,
+            });
+            parts.push(...this.emitCitedSource(binding.source_id));
+          }
+        }
         parts.push({
           type: "text-end",
           id: parsed.id as string,
+          providerMetadata: this.partMetadata(rawMetadata, id),
+        });
+        break;
+      }
+
+      // Terminal per-text citation marker bridge: one `source-url` chunk per
+      // actually cited source (never per retrieved-but-uncited result).
+      case "source-url": {
+        const sourceId = parsed.sourceId as string;
+        if (
+          typeof sourceId !== "string" ||
+          typeof parsed.url !== "string" ||
+          !isSafeHttpUrl(parsed.url)
+        )
+          break;
+        if (this.requestedSearchContractVersion === 1) {
+          if (!this.pendingSources.has(sourceId))
+            this.pendingSources.set(sourceId, parsed);
+          parts.push(...this.emitCitedSource(sourceId));
+          break;
+        }
+        if (this.emittedSourceIds.has(sourceId)) break;
+        this.emittedSourceIds.add(sourceId);
+        parts.push({
+          type: "source",
+          sourceType: "url",
+          id: sourceId,
+          url: parsed.url as string,
+          ...(typeof parsed.title === "string" ? { title: parsed.title } : {}),
         });
         break;
       }
@@ -914,6 +1218,7 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
           toolName: parsed.toolName as string,
           dynamic: readToolDynamicFlag(parsed),
           providerExecuted: parsed.providerExecuted as boolean,
+          providerMetadata: this.toolPartMetadata(parsed),
         });
         break;
       }
@@ -923,6 +1228,15 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
           type: "tool-input-delta",
           id: parsed.toolCallId as string,
           delta: parsed.inputTextDelta as string,
+          providerMetadata: this.toolPartMetadata(parsed),
+        });
+        break;
+      }
+      case "tool-input-end": {
+        parts.push({
+          type: "tool-input-end",
+          id: parsed.toolCallId as string,
+          providerMetadata: this.toolPartMetadata(parsed),
         });
         break;
       }
@@ -938,11 +1252,14 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
           input: JSON.stringify(input),
           dynamic: readToolDynamicFlag(parsed),
           providerExecuted: parsed.providerExecuted as boolean,
+          providerMetadata: this.toolPartMetadata(parsed),
         });
         break;
       }
 
       case "tool-output-available": {
+        if (this.completedToolIds.has(parsed.toolCallId as string)) break;
+        this.completedToolIds.add(parsed.toolCallId as string);
         const toolName = this.toolNameMap.get(parsed.toolCallId as string);
         parts.push({
           type: "tool-result",
@@ -951,10 +1268,13 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
           result: parsed.output as NonNullable<JSONValue>,
           isError: parsed.isError as boolean,
           dynamic: readToolDynamicFlag(parsed),
+          providerMetadata: this.toolPartMetadata(parsed),
         });
         break;
       }
       case "tool-output-error": {
+        if (this.completedToolIds.has(parsed.toolCallId as string)) break;
+        this.completedToolIds.add(parsed.toolCallId as string);
         const toolName = this.toolNameMap.get(parsed.toolCallId as string);
         parts.push({
           type: "tool-result",
@@ -963,18 +1283,20 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
           result: (parsed.errorText as string) ?? "Tool execution failed",
           isError: true,
           dynamic: readToolDynamicFlag(parsed),
+          providerMetadata: this.toolPartMetadata(parsed),
         });
         break;
       }
       case "error": {
-        this.receivedFinish = true;
+        const message =
+          (parsed.errorText as string) ||
+          (parsed.error as string) ||
+          "Unknown stream error";
+        if (this.seenStreamErrors.has(message)) break;
+        this.seenStreamErrors.add(message);
         parts.push({
           type: "error",
-          error: new Error(
-            (parsed.errorText as string) ||
-              (parsed.error as string) ||
-              "Unknown stream error",
-          ),
+          error: new Error(message),
         });
         break;
       }
@@ -995,6 +1317,20 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
           finishReason = this.mapFinishReason(rawFinishReason as string);
         }
 
+        // An explicit v1 selection that reaches a non-error finish without
+        // ever receiving a `searchContract` acknowledgement means the peer
+        // silently ignored the option (e.g. an older daemon/CLI release) —
+        // surface that honestly instead of letting the caller assume v1
+        // behavior was actually active.
+        if (
+          this.requestedSearchContractVersion === 1 &&
+          this.acknowledgedSearchContract === undefined &&
+          finishReason.unified !== "error"
+        ) {
+          parts.push(...this.buildMissingAcknowledgementErrorParts());
+          break;
+        }
+
         const usage =
           normalizeBunnyAgentUsage(
             (parsed.messageMetadata as Record<string, unknown>) ?? undefined,
@@ -1004,12 +1340,17 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
           type: "finish",
           finishReason,
           usage,
-          providerMetadata: {
-            "bunny-agent": {
-              ...((parsed.messageMetadata as Record<string, unknown>) ?? {}),
-              sessionId: this.sessionId,
-            } as unknown as SharedV3ProviderMetadata,
-          },
+          providerMetadata: this.partMetadata(
+            mergeProviderMetadata(
+              parsed.providerMetadata as SharedV3ProviderMetadata | undefined,
+              {
+                "bunny-agent": (parsed.messageMetadata ?? {}) as Record<
+                  string,
+                  JSONValue
+                >,
+              },
+            ),
+          ),
         });
         break;
       }

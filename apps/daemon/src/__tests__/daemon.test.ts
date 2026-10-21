@@ -61,6 +61,15 @@ describe("healthz", () => {
     const res = await get("/healthz");
     expect(res.ok).toBe(true);
     expect(res.data.status).toBe("ok");
+    expect(res.data.capabilities.searchContracts.pi).toEqual({
+      version: 1,
+      structured_retrieval: true,
+      native_annotations: false,
+      explicit_source_marker_annotations: true,
+    });
+    expect(
+      res.data.capabilities.searchContracts.codex.structured_retrieval,
+    ).toBe(false);
   });
 });
 
