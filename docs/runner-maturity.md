@@ -163,5 +163,7 @@ Claude and Pi share a file-based approval bridge at
   asked again: the script was approved as one call. Pi asks for one call at a
   time, so a batch of parallel calls is approved call by call and then runs.
 - Pi redacts the runner `env` values from every tool result through its
-  `tool_result` hook, and blocks bash commands that dump the environment
+  `tool_result` hook — the text the model sees, and the `details` and
+  structured content that are stored in the session file or handed to
+  codemode scripts — and blocks bash commands that dump the environment
   before asking for approval.

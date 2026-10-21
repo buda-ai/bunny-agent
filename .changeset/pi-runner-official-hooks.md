@@ -6,8 +6,9 @@
 The Pi runner now uses Pi's own extension hooks and resource loader instead of
 wrapping each tool. Secret values from the runner `env` are redacted from every
 tool result — tool refs and MCP tools included, which previously reached the
-model unredacted — and MCP tools are now gated by tool approval like the other
-tools. Bash commands that dump the environment are blocked without first asking
+model unredacted — and from the result details stored in session files, where
+the MCP adapter kept the raw server response. MCP tools are now gated by tool
+approval like the other tools. Bash commands that dump the environment are blocked without first asking
 for approval.
 
 Sessions, settings, skills and extensions now all use Pi's agent directory

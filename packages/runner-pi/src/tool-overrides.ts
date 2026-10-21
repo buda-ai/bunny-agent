@@ -37,11 +37,7 @@ export function redactSecrets(
   text: string,
   secrets: Record<string, string>,
 ): string {
-  const values = Object.values(secrets)
-    .filter((v) => v.length >= 8)
-    .filter((v) => !/^\//.test(v) && !/^[A-Za-z]:[/\\]/.test(v)) // exclude filesystem paths
-    .filter((v) => text.includes(v))
-    .sort((a, b) => b.length - a.length);
+  const values = secretValues(secrets).filter((v) => text.includes(v));
   // Leave text without secrets byte-identical; this runs on every tool result.
   if (values.length === 0) return text;
 
@@ -63,6 +59,40 @@ export function redactSecrets(
 
   result = result.replace(/\n{3,}/g, "\n\n");
   return result.trim();
+}
+
+/** Secret values worth redacting, longest first so overlaps mask fully. */
+function secretValues(secrets: Record<string, string>): string[] {
+  return Object.values(secrets)
+    .filter((v) => v.length >= 8)
+    .filter((v) => !/^\//.test(v) && !/^[A-Za-z]:[/\\]/.test(v)) // exclude filesystem paths
+    .sort((a, b) => b.length - a.length);
+}
+
+/**
+ * Replace secret values inside every string of a JSON-like value. Returns the
+ * same reference when nothing matched, so callers can tell whether it changed.
+ */
+function maskSecrets<T>(value: T, values: string[]): T {
+  if (typeof value === "string") {
+    let masked: string = value;
+    for (const v of values) masked = masked.split(v).join("***");
+    return masked as T;
+  }
+  if (Array.isArray(value)) {
+    const next = value.map((item) => maskSecrets(item, values));
+    return next.some((item, i) => item !== value[i]) ? (next as T) : value;
+  }
+  if (value !== null && typeof value === "object") {
+    let changed = false;
+    const next: Record<string, unknown> = {};
+    for (const [key, item] of Object.entries(value)) {
+      next[key] = maskSecrets(item, values);
+      if (next[key] !== item) changed = true;
+    }
+    return changed ? (next as T) : value;
+  }
+  return value;
 }
 
 /**
@@ -131,9 +161,10 @@ export const ENV_DUMP_BLOCKED_MESSAGE =
  * so built-in, custom, toolRef and extension (MCP) tools are all covered —
  * including calls a codemode script makes:
  * - `tool_call`: block bash commands that dump the environment.
- * - `tool_result`: redact `secrets` values from text content before the LLM
- *   (and the session file) sees it. Replacing `content` drops
- *   `structuredContent`, which could carry the same values.
+ * - `tool_result`: redact `secrets` values before the LLM sees the result and
+ *   before pi stores it in the session file — the text content, plus `details`
+ *   (where the MCP adapter keeps the raw server result) and
+ *   `structuredContent` (what codemode scripts receive), masked in place.
  */
 export function createSecretGuardExtension(
   secrets: Record<string, string>,
@@ -151,16 +182,28 @@ export function createSecretGuardExtension(
         }
         return undefined;
       });
+      const values = secretValues(secrets);
       pi.on("tool_result", (event) => {
-        let changed = false;
+        if (values.length === 0) return undefined;
+        let contentChanged = false;
         const content = event.content.map((part) => {
           if (part.type !== "text") return part;
           const text = redactSecrets(part.text, secrets);
           if (text === part.text) return part;
-          changed = true;
+          contentChanged = true;
           return { ...part, text };
         });
-        return changed ? { content } : undefined;
+        const details = maskSecrets(event.details, values);
+        const structuredContent = maskSecrets(event.structuredContent, values);
+        if (
+          !contentChanged &&
+          details === event.details &&
+          structuredContent === event.structuredContent
+        ) {
+          return undefined;
+        }
+        // Returning content without structuredContent would drop the latter.
+        return { content, details, structuredContent };
       });
     },
   };

@@ -2,24 +2,13 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { approvalFileName } from "@bunny-agent/manager";
-import type { Context } from "@earendil-works/pi-ai";
 import {
-  createFauxCore,
-  fauxAssistantMessage,
-  fauxToolCall,
-} from "@earendil-works/pi-ai";
-import {
-  createAgentSession,
   defineTool,
   type InlineExtension,
-  ModelRuntime,
-  SessionManager,
-  SettingsManager,
   type ToolDefinition,
 } from "@earendil-works/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createPiResourceLoader } from "../pi-runner.js";
 import {
   type ApprovalGateOptions,
   ASK_USER_QUESTION_TIMEOUT_ANSWER_KEY,
@@ -32,6 +21,7 @@ import {
   MAX_ASK_USER_QUESTIONS,
   waitForApproval,
 } from "../tool-approval.js";
+import { runFauxToolCall } from "./faux-session.js";
 
 let cwd: string;
 
@@ -419,56 +409,18 @@ describe("createToolApprovalExtension (real pi session)", () => {
   }
 
   /** Run one prompt where the model calls `toolName`, then finishes. */
-  async function runToolCall(options: {
+  const runToolCall = (options: {
     toolName: string;
-    args?: Parameters<typeof fauxToolCall>[1];
+    args?: Parameters<typeof runFauxToolCall>[0]["args"];
     gate?: Partial<ApprovalGateOptions>;
     customTools?: ToolDefinition[];
     extensions?: InlineExtension[];
     abortAfterMs?: number;
-  }): Promise<{ seenResult: string }> {
-    const faux = createFauxCore({
-      api: "faux-approval",
-      provider: "faux-approval",
-      models: [{ id: "faux-model", contextWindow: 100_000, maxTokens: 1_000 }],
-    });
-    let seenResult = "";
-    faux.setResponses([
-      fauxAssistantMessage(
-        fauxToolCall(options.toolName, options.args ?? {}, { id: "call-1" }),
-        { stopReason: "toolUse" },
-      ),
-      (context: Context) => {
-        seenResult = JSON.stringify(context.messages.at(-1));
-        return fauxAssistantMessage("done");
-      },
-    ]);
-    const modelRuntime = await ModelRuntime.create({
-      modelsPath: null,
-      allowModelNetwork: false,
-    });
-    modelRuntime.registerProvider("faux-approval", {
-      baseUrl: "http://localhost",
-      apiKey: "test-key",
-      api: "faux-approval",
-      streamSimple: faux.streamSimple,
-      models: [
-        {
-          id: "faux-model",
-          name: "faux-model",
-          reasoning: false,
-          input: ["text"],
-          cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-          contextWindow: 100_000,
-          maxTokens: 1_000,
-        },
-      ],
-    });
-    const agentDir = path.join(cwd, "agent");
-    const resourceLoader = await createPiResourceLoader({
+  }) =>
+    runFauxToolCall({
+      ...options,
       cwd,
-      agentDir,
-      extensionFactories: [
+      extensions: [
         createToolApprovalExtension({
           cwd,
           pollIntervalMs: 10,
@@ -477,28 +429,6 @@ describe("createToolApprovalExtension (real pi session)", () => {
         ...(options.extensions ?? []),
       ],
     });
-    const { session } = await createAgentSession({
-      cwd,
-      agentDir,
-      model: modelRuntime.getModel("faux-approval", "faux-model"),
-      modelRuntime,
-      resourceLoader,
-      sessionManager: SessionManager.inMemory(cwd),
-      settingsManager: SettingsManager.inMemory({ retry: { enabled: false } }),
-      noTools: "builtin",
-      customTools: options.customTools,
-    });
-    try {
-      await session.bindExtensions({ mode: "print" });
-      if (options.abortAfterMs !== undefined) {
-        setTimeout(() => void session.abort(), options.abortAfterMs);
-      }
-      await session.prompt("go");
-    } finally {
-      session.dispose();
-    }
-    return { seenResult };
-  }
 
   const countingTool = (name: string, calls: string[]) =>
     defineTool({

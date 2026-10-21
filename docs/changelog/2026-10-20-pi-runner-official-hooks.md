@@ -27,8 +27,11 @@ Pi and the published runner-cli depends on unpatched Pi, so both used `~/.pi`.
   the bridge itself, and calls another tool made (codemode), whose caller was
   already approved.
 - `createSecretGuardExtension` blocks env-dump bash commands on `tool_call`
-  and redacts `env` values from every tool result on `tool_result`. Text without
-  a secret is left byte-identical.
+  and redacts `env` values from every tool result on `tool_result`: the text
+  content, plus `details` (the MCP adapter stores the raw server result there,
+  and pi writes it to the session file) and `structuredContent` (what codemode
+  scripts receive), which are masked in place rather than dropped. Results
+  without a secret are left untouched.
 - The bash override is `createBashToolDefinition` with a `spawnHook`; the read
   override is gone.
 - `createPiResourceLoader` builds `DefaultResourceLoader` with the caller's
@@ -65,6 +68,10 @@ Pi and the published runner-cli depends on unpatched Pi, so both used `~/.pi`.
 - `tool-approval.test.ts`: real Pi sessions with a faux model; extension tools
   are gated, timeouts and aborts block the call, nested calls and
   `ask_user_question` are asked once.
+- `secret-guard.test.ts`: real Pi sessions; a tool shaped like an MCP result
+  (secret in content, `details` and `structuredContent`) leaves no secret in
+  the model context or the stored session, and programmatic callers get the
+  structured content masked rather than dropped.
 - `pi-resource-loader.test.ts`: fails if Pi's default skill discovery is
   turned back on.
 - Built daemon with a real model (`openai:gpt-6.1-sol`): a file containing a
