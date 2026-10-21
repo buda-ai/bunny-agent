@@ -222,6 +222,30 @@ describe("buildWebSearchTool", () => {
       expect(record.results[0].source_id).toMatch(/^src_[a-f0-9]{64}$/);
 
       expect(result.content[0]?.text).toContain("Reference: turn0url0");
+      for (const guidance of [
+        tool.description,
+        ...(tool.promptGuidelines ?? []),
+        result.content[0]?.text,
+      ].filter((text) => text?.includes("To cite web_search evidence"))) {
+        expect(guidance).toContain(
+          "after the final punctuation of a complete supported sentence, bullet item, or paragraph",
+        );
+        expect(guidance).toContain(
+          "Do not insert citations between clauses, inside headings",
+        );
+        expect(guidance).toContain(
+          "Group distinct supporting References in one marker",
+        );
+        expect(guidance).toContain("Never write manual numbered references");
+        expect(guidance).toContain(
+          "If the user explicitly requests direct links, provide those links",
+        );
+      }
+      expect(tool.description).toContain("To cite web_search evidence");
+      expect(tool.promptGuidelines).toContainEqual(
+        expect.stringContaining("To cite web_search evidence"),
+      );
+      expect(result.content[0]?.text).toContain("To cite web_search evidence");
       expect(result.content[0]?.text).not.toContain(
         record.action.sources[0].source_id,
       );

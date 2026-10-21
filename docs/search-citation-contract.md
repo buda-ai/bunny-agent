@@ -305,7 +305,16 @@ For tools without native provider annotations, the model is instructed
 (guidance text from `citationSourceGuidance()` in
 `packages/runner-pi/src/citation-session-cache.ts`) to emit
 `\uE200cite\uE202turn0url0\uE201` after punctuation of a supported statement,
-using the exact Reference and complete Citation Marker provided with each result.
+using the exact Reference and complete Citation Marker provided with each result. Put one marker after the final punctuation
+of a complete supported sentence, bullet item, or paragraph, never between
+clauses, inside headings, or after an already linked source title. This means
+semantic item endings, not physical screen wrapping; prefer shorter complete
+sentences over interleaving citations between clauses. Explicit user requests
+for citation placement take precedence. Group distinct supporting
+sources in one marker and do not repeat the same source within an item or emit
+manual numbered references. Prefer structured citations over duplicate source
+Markdown links; respect requests for direct links and avoid redundant citations
+for those already linked sources.
 This uses OpenAI's recommended U+E200 start, `cite` family, U+E202 field separator,
 and U+E201 stop. Multiple sources share one marker with U+E202-separated IDs.
 The `turnN` counter advances once per search invocation (including empty and

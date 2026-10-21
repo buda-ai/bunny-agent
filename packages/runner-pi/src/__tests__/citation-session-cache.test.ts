@@ -49,6 +49,28 @@ function session() {
 }
 
 describe("supported Pi citation session persistence", () => {
+  it("places citations after complete items without duplicate links or manual references", () => {
+    const guidance = citationSourceGuidance(true)!;
+    expect(guidance).toContain(
+      "after the final punctuation of a complete supported sentence, bullet item, or paragraph",
+    );
+    expect(guidance).toContain(
+      "Do not insert citations between clauses, inside headings",
+    );
+    expect(guidance).toContain(
+      "Group distinct supporting References in one marker",
+    );
+    expect(guidance).toContain(
+      "do not repeat the same source within that item",
+    );
+    expect(guidance).toContain("Never write manual numbered references");
+    expect(guidance).toContain(
+      "If the user explicitly requests direct links, provide those links",
+    );
+    expect(guidance).toContain("physical screen line wraps");
+    expect(citationSourceGuidance(false)).toBeUndefined();
+  });
+
   it("round-trips appendCustomEntry/getBranch through a fresh SessionManager after compaction", () => {
     const { manager } = session();
     const registry = createCitationSessionRegistry(manager, true);
