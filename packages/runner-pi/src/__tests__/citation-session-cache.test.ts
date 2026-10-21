@@ -105,14 +105,18 @@ describe("supported Pi citation session persistence", () => {
 
   it("restores compacted and forked branch provenance in an isolated Node process", () => {
     const { manager, directory } = session();
+    const originalToolCallId = `search-call__thought__${"s".repeat(1072)}`;
+    const siblingToolCallId = `siblingcall__thought__${"t".repeat(1072)}`;
+    expect(originalToolCallId).toHaveLength(1094);
+    expect(siblingToolCallId).toHaveLength(1094);
     createCitationSessionRegistry(manager, true).register(
       source("fresh-process"),
-      ["original-search"],
+      [originalToolCallId],
     );
     const branchPoint = manager.getLeafId()!;
     createCitationSessionRegistry(manager, true).register(
       source("unrelated-sibling"),
-      ["sibling-search"],
+      [siblingToolCallId],
     );
     manager.branch(branchPoint);
     const keep = manager.appendMessage({
@@ -165,12 +169,13 @@ describe("supported Pi citation session persistence", () => {
       Array.from({ length: 2 }, () => ({
         source: {
           ...source("fresh-process"),
-          references: { turn0url0: "original-search" },
-          tool_call_ids: ["original-search"],
+          references: { turn0url0: originalToolCallId },
+          tool_call_ids: [originalToolCallId],
         },
         sibling: null,
       })),
     );
+    expect(output).not.toContain(siblingToolCallId);
   });
 
   it("restores only current ancestry and forks without importing sibling/future records", () => {

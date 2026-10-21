@@ -50,12 +50,7 @@ function sourcesFromEntry(value: unknown): RegisteredSource[] {
     record.status === "completed"
   ) {
     const callId = entry.message.toolCallId;
-    if (
-      typeof callId !== "string" ||
-      callId.trim().length === 0 ||
-      callId.length > 1024
-    )
-      return [];
+    if (typeof callId !== "string" || callId.trim().length === 0) return [];
     return record.action.sources.map((source) => ({
       ...source,
       tool_call_ids: [callId],
@@ -210,7 +205,6 @@ export function createCitationSessionRegistry(
           call &&
           typeof call.id === "string" &&
           call.id.trim().length > 0 &&
-          call.id.length <= 1024 &&
           Number.isSafeInteger(call.turn) &&
           call.turn >= 0
         )

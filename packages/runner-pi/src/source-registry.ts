@@ -71,11 +71,9 @@ export class SourceRegistry {
     save = true,
     restoredReferences?: Record<string, string>,
   ): RegisteredSource | undefined {
+    // Provider IDs are opaque and may include an encoded thought signature.
     if (
-      toolCallIds.some(
-        (id) =>
-          typeof id !== "string" || id.trim().length === 0 || id.length > 1024,
-      )
+      toolCallIds.some((id) => typeof id !== "string" || id.trim().length === 0)
     ) {
       this.diagnose("invalid_version", "Rejected malformed source provenance.");
       return undefined;
@@ -220,8 +218,7 @@ export function isRegisteredSource(value: unknown): value is RegisteredSource {
     Array.isArray(entry.tool_call_ids) &&
     entry.tool_call_ids.length <= 50 &&
     entry.tool_call_ids.every(
-      (id) =>
-        typeof id === "string" && id.trim().length > 0 && id.length <= 1024,
+      (id) => typeof id === "string" && id.trim().length > 0,
     )
   );
 }
