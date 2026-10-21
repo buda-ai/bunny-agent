@@ -412,6 +412,7 @@ describe("createToolApprovalExtension (real pi session)", () => {
   const runToolCall = (options: {
     toolName: string;
     args?: Parameters<typeof runFauxToolCall>[0]["args"];
+    alsoCall?: string[];
     gate?: Partial<ApprovalGateOptions>;
     customTools?: ToolDefinition[];
     extensions?: InlineExtension[];
@@ -517,6 +518,68 @@ describe("createToolApprovalExtension (real pi session)", () => {
     }
     expect(approver.asked).toEqual(["outer"]);
     expect(calls).toEqual(["outer", "inner"]);
+  });
+
+  it("asks for parallel calls one at a time, then runs them", async () => {
+    const log: string[] = [];
+    const loggingTool = (name: string) =>
+      defineTool({
+        name,
+        label: name,
+        description: `${name} tool`,
+        parameters: Type.Object({}),
+        execute: async () => {
+          log.push(`ran ${name}`);
+          return {
+            content: [{ type: "text", text: `${name} ran` }],
+            details: undefined,
+          };
+        },
+      });
+    // Answer each request 100ms after it appears, so overlapping asks would show.
+    const dir = path.join(cwd, ".bunny-agent", "approvals");
+    let stopped = false;
+    const answered = new Set<string>();
+    const approver = (async () => {
+      while (!stopped) {
+        for (const name of fs.existsSync(dir) ? fs.readdirSync(dir) : []) {
+          const file = path.join(dir, name);
+          try {
+            const data = JSON.parse(fs.readFileSync(file, "utf-8"));
+            if (data.status !== "pending" || answered.has(name)) continue;
+            answered.add(name);
+            log.push(`asked ${data.toolName}`);
+            setTimeout(() => {
+              log.push(`approved ${data.toolName}`);
+              fs.writeFileSync(
+                file,
+                JSON.stringify({ ...data, status: "completed" }),
+              );
+            }, 100);
+          } catch {
+            // Mid-write; next poll picks it up.
+          }
+        }
+        await sleep(10);
+      }
+    })();
+    try {
+      await runToolCall({
+        toolName: "first",
+        alsoCall: ["second"],
+        customTools: [loggingTool("first"), loggingTool("second")],
+      });
+    } finally {
+      stopped = true;
+      await approver;
+    }
+    expect(log.slice(0, 4)).toEqual([
+      "asked first",
+      "approved first",
+      "asked second",
+      "approved second",
+    ]);
+    expect(log.slice(4).sort()).toEqual(["ran first", "ran second"]);
   });
 
   it("leaves ask_user_question to its own approval round", async () => {

@@ -32,6 +32,9 @@ Pi and the published runner-cli depends on unpatched Pi, so both used `~/.pi`.
   and pi writes it to the session file) and `structuredContent` (what codemode
   scripts receive), which are masked in place rather than dropped. Results
   without a secret are left untouched.
+- The env-dump rule no longer blocks `env NAME=value cmd` or `env -u NAME cmd`,
+  which only run `cmd` with a changed environment. `env` is blocked when it
+  prints the environment, including `env FOO=1 printenv`.
 - The bash override is `createBashToolDefinition` with a `spawnHook`; the read
   override is gone.
 - `createPiResourceLoader` builds `DefaultResourceLoader` with the caller's
@@ -63,11 +66,16 @@ Pi and the published runner-cli depends on unpatched Pi, so both used `~/.pi`.
 ## Verification
 
 - `pi-runner.hooks.test.ts`: the real runner against a scripted
-  OpenAI-compatible endpoint. On `main`, the tool-ref redaction, env-dump and
-  `PI_CODING_AGENT_DIR` cases fail; all pass here.
+  OpenAI-compatible endpoint. On `main`, the tool-ref redaction, env-dump,
+  `env NAME=value cmd` and `PI_CODING_AGENT_DIR` cases fail; all pass here. It
+  also checks the caller's system prompt opens the prompt the model receives.
 - `tool-approval.test.ts`: real Pi sessions with a faux model; extension tools
   are gated, timeouts and aborts block the call, nested calls and
-  `ask_user_question` are asked once.
+  `ask_user_question` are asked once, and two parallel calls are asked one
+  after the other and run once both are approved.
+- `tool-overrides.test.ts`: the env-dump rule on both sides (12 commands it
+  blocks, 8 it allows); `redactSecrets` cases moved here from
+  `pi-runner.test.ts`, which tested the same function a second time.
 - `secret-guard.test.ts`: real Pi sessions; a tool shaped like an MCP result
   (secret in content, `details` and `structuredContent`) leaves no secret in
   the model context or the stored session, and programmatic callers get the

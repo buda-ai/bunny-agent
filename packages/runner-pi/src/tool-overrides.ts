@@ -95,15 +95,46 @@ function maskSecrets<T>(value: T, values: string[]): T {
   return value;
 }
 
+/** `env` options that take the next word as their value. */
+const ENV_OPTIONS_WITH_VALUE = new Set([
+  "-u",
+  "--unset",
+  "-C",
+  "--chdir",
+  "-S",
+  "--split-string",
+]);
+
 /**
  * Detect commands that would dump environment variables to stdout or a file.
  * These are blocked to prevent secret exfiltration via env dump + file read.
+ * `env NAME=value cmd` only runs `cmd` with a changed environment, so it is
+ * allowed unless `cmd` is itself a dump.
  */
-function isEnvDumpCommand(command: string): boolean {
+export function isEnvDumpCommand(command: string): boolean {
   // Normalize: collapse whitespace, strip leading/trailing
   const cmd = command.replace(/\s+/g, " ").trim();
-  // Match: env, printenv, export -p, `declare -x` — optionally piped or redirected
-  return /(?:^|[|;&])\s*(?:env|printenv|export\s+-p|declare\s+-x)\b/.test(cmd);
+  // Match: printenv, export -p, `declare -x` — optionally piped or redirected
+  if (/(?:^|[|;&])\s*(?:printenv|export\s+-p|declare\s+-x)\b/.test(cmd)) {
+    return true;
+  }
+  for (const match of cmd.matchAll(
+    /(?:^|[|;&])\s*env(?=$|[\s|;&>])([^|;&>]*)/g,
+  )) {
+    const words = match[1].trim().split(" ").filter(Boolean);
+    let i = 0;
+    while (
+      i < words.length &&
+      (words[i].startsWith("-") || /^[A-Za-z_]\w*=/.test(words[i]))
+    ) {
+      i += ENV_OPTIONS_WITH_VALUE.has(words[i]) ? 2 : 1;
+    }
+    // No command after the options and assignments: `env` prints the environment.
+    if (i >= words.length || isEnvDumpCommand(words.slice(i).join(" "))) {
+      return true;
+    }
+  }
+  return false;
 }
 
 export interface BashToolOptions {

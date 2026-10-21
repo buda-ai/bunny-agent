@@ -17,13 +17,14 @@ import { createPiResourceLoader } from "../pi-runner.js";
 
 /**
  * Run one prompt in a real pi session where a faux model calls `toolName`
- * once and then finishes. Returns the tool result message the model saw next
+ * (and any `alsoCall` tools in the same message) once and then finishes. Returns the tool result message the model saw next
  * and every session entry pi persisted, both serialized.
  */
 export async function runFauxToolCall(options: {
   cwd: string;
   toolName: string;
   args?: Parameters<typeof fauxToolCall>[1];
+  alsoCall?: string[];
   customTools?: ToolDefinition[];
   extensions?: InlineExtension[];
   abortAfterMs?: number;
@@ -36,7 +37,12 @@ export async function runFauxToolCall(options: {
   let seenResult = "";
   faux.setResponses([
     fauxAssistantMessage(
-      fauxToolCall(options.toolName, options.args ?? {}, { id: "call-1" }),
+      [
+        fauxToolCall(options.toolName, options.args ?? {}, { id: "call-1" }),
+        ...(options.alsoCall ?? []).map((name, i) =>
+          fauxToolCall(name, {}, { id: `call-${i + 2}` }),
+        ),
+      ],
       { stopReason: "toolUse" },
     ),
     (context: Context) => {

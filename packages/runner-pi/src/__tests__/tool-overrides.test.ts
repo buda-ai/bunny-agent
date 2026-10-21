@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { redactSecrets } from "../tool-overrides.js";
+import { isEnvDumpCommand, redactSecrets } from "../tool-overrides.js";
 
 // ---------------------------------------------------------------------------
 // redactSecrets
@@ -73,6 +73,30 @@ describe("redactSecrets", () => {
     expect(result).toBe("line1\n\nline2");
   });
 
+  it("removes KEY: 'VALUE' entries (JS object style)", () => {
+    const text = "{\n  OPENAI_API_KEY: 'sk-abcdefgh1234',\n  HOME: '/root',\n}";
+    const result = redactSecrets(text, { OPENAI_API_KEY: "sk-abcdefgh1234" });
+    expect(result).toContain("HOME");
+    expect(result).not.toContain("sk-abcdefgh1234");
+  });
+
+  it("handles single-line JS object output", () => {
+    const text = "{OPENAI_API_KEY: 'sk-abcdefgh1234', HOME: '/root'}";
+    const result = redactSecrets(text, { OPENAI_API_KEY: "sk-abcdefgh1234" });
+    expect(result).toContain("HOME");
+    expect(result).not.toContain("sk-abcdefgh1234");
+  });
+
+  it("does not strip underscores from other keys when _ is a secret key", () => {
+    const text = "OPENAI_API_KEY: 'sk-abcdefgh1234', HOME: '/root'";
+    const result = redactSecrets(text, {
+      OPENAI_API_KEY: "sk-abcdefgh1234",
+      _: "/usr/local/bin/node",
+    });
+    expect(result).not.toContain("OPENAIAPIKEY");
+    expect(result).toContain("HOME");
+  });
+
   it("handles env dump output — removes secret lines, keeps others", () => {
     const text = [
       "TERM=xterm-256color",
@@ -90,6 +114,38 @@ describe("redactSecrets", () => {
     expect(result).not.toContain("GEMINI_API_KEY");
     expect(result).toContain("TERM=xterm-256color");
     expect(result).toContain("HOME=/root");
+  });
+});
+
+describe("isEnvDumpCommand", () => {
+  it.each([
+    "env",
+    "env | sort",
+    "env > /tmp/vars",
+    "printenv",
+    "printenv OPENAI_API_KEY",
+    "export -p",
+    "declare -x",
+    "cd /tmp && env",
+    "echo start; printenv | grep KEY",
+    "env -u DEBUG",
+    "env FOO=1 printenv",
+    "env -i FOO=1 env",
+  ])("blocks %j", (command) => {
+    expect(isEnvDumpCommand(command)).toBe(true);
+  });
+
+  it.each([
+    "echo $HOME",
+    "cat .env.example",
+    "npm run env:check",
+    "envsubst < template.txt",
+    "node -e 'console.log(1)'",
+    "git log --oneline",
+    "env NODE_ENV=production node app.js",
+    "env -u DEBUG node app.js",
+  ])("allows %j", (command) => {
+    expect(isEnvDumpCommand(command)).toBe(false);
   });
 });
 

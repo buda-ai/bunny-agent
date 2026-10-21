@@ -9,7 +9,7 @@ tool result — tool refs and MCP tools included, which previously reached the
 model unredacted — and from the result details stored in session files, where
 the MCP adapter kept the raw server response. MCP tools are now gated by tool
 approval like the other tools. Bash commands that dump the environment are blocked without first asking
-for approval.
+for approval, and `env NAME=value cmd` is no longer mistaken for one.
 
 Sessions, settings, skills and extensions now all use Pi's agent directory
 (`~/.pi/agent`, override with `PI_CODING_AGENT_DIR`). Published builds already

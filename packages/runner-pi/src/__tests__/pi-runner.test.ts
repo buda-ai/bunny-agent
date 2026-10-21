@@ -347,7 +347,6 @@ vi.mock("@earendil-works/pi-ai/providers/all", async (importOriginal) => {
 
 import { createPiRunner, disposePiSession } from "../pi-runner.js";
 import { extractToolResultText } from "../stream-converter.js";
-import { redactSecrets } from "../tool-overrides.js";
 
 // ── extractToolResultText unit tests ─────────────────────────────────────────
 
@@ -1384,87 +1383,4 @@ it("emits tool-output-error when a tool execution fails", async () => {
       c.includes('"type":"tool-output-available"') && c.includes("tool_fail"),
   );
   expect(okChunk).toBeUndefined();
-});
-
-// ── redactSecrets unit tests ─────────────────────────────────────────────────
-
-describe("redactSecrets", () => {
-  const secrets: Record<string, string> = {
-    OPENAI_API_KEY: "sk-test-1234567890abcdef",
-    ANTHROPIC_BASE_URL: "http://litellm.litellm:4",
-    AGENT_KEY: "agk_598abe628c625975844596da75a2ec96",
-    SHORT_VAL: "abc",
-    _: "/usr/local/bin/node",
-  };
-
-  it("returns text unchanged when secrets is empty", () => {
-    expect(redactSecrets("hello world", {})).toBe("hello world");
-  });
-
-  it("removes secret values from KEY=VALUE lines (env/printenv style)", () => {
-    const input = [
-      "HOME=/root",
-      "OPENAI_API_KEY=sk-test-1234567890abcdef",
-      "PATH=/usr/bin",
-    ].join("\n");
-    const result = redactSecrets(input, secrets);
-    expect(result).toContain("HOME=/root");
-    expect(result).toContain("PATH=/usr/bin");
-    expect(result).not.toContain("sk-test-1234567890abcdef");
-  });
-
-  it("removes secret values from KEY: 'VALUE' entries (JS object style)", () => {
-    const input = `{
-  OPENAI_API_KEY: 'sk-test-1234567890abcdef',
-  HOME: '/root',
-  AGENT_KEY: 'agk_598abe628c625975844596da75a2ec96',
-}`;
-    const result = redactSecrets(input, secrets);
-    expect(result).toContain("HOME");
-    expect(result).not.toContain("sk-test-1234567890abcdef");
-    expect(result).not.toContain("agk_598abe628c625975844596da75a2ec96");
-  });
-
-  it('removes secret values from "KEY": "VALUE" entries (JSON style)', () => {
-    const input = `{
-  "OPENAI_API_KEY": "sk-test-1234567890abcdef",
-  "HOME": "/root",
-  "ANTHROPIC_BASE_URL": "http://litellm.litellm:4"
-}`;
-    const result = redactSecrets(input, secrets);
-    expect(result).toContain("HOME");
-    expect(result).not.toContain("sk-test-1234567890abcdef");
-    expect(result).not.toContain("http://litellm.litellm:4");
-  });
-
-  it("handles single-line JS object output", () => {
-    const input =
-      "{OPENAI_API_KEY: 'sk-test-1234567890abcdef', HOME: '/root', AGENT_KEY: 'agk_598abe628c625975844596da75a2ec96'}";
-    const result = redactSecrets(input, secrets);
-    expect(result).toContain("HOME");
-    expect(result).not.toContain("sk-test-1234567890abcdef");
-    expect(result).not.toContain("agk_598abe628c625975844596da75a2ec96");
-  });
-
-  it("does not remove underscores from other keys when _ is a secret key", () => {
-    const input = "OPENAI_API_KEY: 'sk-test-1234567890abcdef', HOME: '/root'";
-    const result = redactSecrets(input, secrets);
-    // Underscores in other keys must not be stripped
-    expect(result).not.toContain("OPENAIAPIKEY");
-    expect(result).toContain("HOME");
-  });
-
-  it("scrubs bare secret values (>= 8 chars) appearing in free text", () => {
-    const input = "The key is sk-test-1234567890abcdef and it works.";
-    const result = redactSecrets(input, secrets);
-    expect(result).not.toContain("sk-test-1234567890abcdef");
-    expect(result).toContain("***");
-  });
-
-  it("does not scrub short secret values to avoid false positives", () => {
-    const input = "abc is a common string and abc appears twice";
-    const result = redactSecrets(input, { SHORT: "abc" });
-    // "abc" is only 3 chars, should NOT be scrubbed
-    expect(result).toContain("abc");
-  });
 });

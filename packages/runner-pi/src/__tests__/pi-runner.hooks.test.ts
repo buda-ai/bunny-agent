@@ -152,6 +152,23 @@ describe("createPiRunner tool hooks (real pi session)", () => {
     expect(existsSync(join(cwd, ".bunny-agent", "approvals"))).toBe(false);
   });
 
+  it("still runs commands that only set env for a program", async () => {
+    const fake = await startServer([
+      {
+        toolCall: {
+          name: "bash",
+          arguments: {
+            command: "env GREETING=hi-from-env sh -c 'echo $GREETING'",
+          },
+        },
+      },
+    ]);
+
+    await runPi(fake, { yolo: true });
+
+    expect(toolResultText(fake.requests[1], "call_1")).toContain("hi-from-env");
+  });
+
   it("runs tools without approval files in yolo mode", async () => {
     const fake = await startServer([
       {
@@ -165,6 +182,18 @@ describe("createPiRunner tool hooks (real pi session)", () => {
       "hi-from-bash",
     );
     expect(existsSync(join(cwd, ".bunny-agent", "approvals"))).toBe(false);
+  });
+
+  it("opens the model's system prompt with the caller's prompt", async () => {
+    const fake = await startServer([{ text: "done" }]);
+
+    await runPi(fake, { yolo: true, systemPrompt: "You are Bunny QA." });
+
+    const system = fake.requests[0].messages[0];
+    expect(system.role).toBe("system");
+    const text = JSON.stringify(system.content);
+    expect(text.startsWith('"You are Bunny QA.')).toBe(true);
+    expect(text).not.toContain("operating inside pi");
   });
 
   it("stores sessions under pi's agent dir and resumes them by id", async () => {
