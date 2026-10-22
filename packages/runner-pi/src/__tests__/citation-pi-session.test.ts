@@ -23,7 +23,17 @@ import {
 } from "../stream-converter.js";
 
 describe("real Pi session citation subscription", () => {
-  it("executes an offline fixture tool, persists source entries, and does not emit after unsubscribe", async () => {
+  it.each([
+    { label: "short", toolCallId: "search-call" },
+    {
+      label: "signed",
+      toolCallId: `search-call__thought__${"s".repeat(1072)}`,
+    },
+  ])("executes an offline fixture with an exact $label tool ID, persists source entries, and does not emit after unsubscribe", async ({
+    label,
+    toolCallId,
+  }) => {
+    expect(toolCallId).toHaveLength(label === "signed" ? 1094 : 11);
     const directory = mkdtempSync(join(tmpdir(), "pi-citation-subscription-"));
     const url = "https://example.com/fixture";
     const sourceId = deriveSourceId(url)!;
@@ -35,7 +45,7 @@ describe("real Pi session citation subscription", () => {
       models: [{ id: "fixture" }],
     });
     faux.setResponses([
-      fauxAssistantMessage(fauxToolCall("web_search", {}), {
+      fauxAssistantMessage(fauxToolCall("web_search", {}, { id: toolCallId }), {
         stopReason: "toolUse",
       }),
       fauxAssistantMessage(`A😀B ${token}`),
@@ -150,6 +160,10 @@ describe("real Pi session citation subscription", () => {
     expect(
       terminal.providerMetadata["bunny-agent"].citation_contract.annotations[0],
     ).toMatchObject({ start_index: 4, end_index: 7, url });
+    expect(
+      terminal.providerMetadata["bunny-agent"].citation_contract.bindings[0]
+        .tool_call_ids,
+    ).toEqual([toolCallId]);
     expect(events.filter((event) => event.type === "source-url")).toHaveLength(
       1,
     );
@@ -157,8 +171,11 @@ describe("real Pi session citation subscription", () => {
       SessionManager.open(manager.getSessionFile()!),
       true,
     );
-    expect(restored.resolve(sourceId)?.tool_call_ids.length).toBe(1);
+    expect(restored.resolve(sourceId)?.tool_call_ids).toEqual([toolCallId]);
     expect(restored.resolve(sourceId)?.source_id).toBe(sourceId);
     expect(restored.resolve(reference)?.source_id).toBe(sourceId);
+    expect(restored.resolve(reference)?.references?.[reference]).toBe(
+      toolCallId,
+    );
   });
 });
