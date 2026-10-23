@@ -804,6 +804,7 @@ export class BunnyAgentLanguageModel implements LanguageModelV3 {
       ...(runner.searchContractVersion !== undefined
         ? { searchContractVersion: runner.searchContractVersion }
         : {}),
+      ...(this.options.control ? { control: this.options.control } : {}),
     };
   }
 

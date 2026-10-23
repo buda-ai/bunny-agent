@@ -9,6 +9,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 // Mock runner-harness before importing server/nextjs
 // Track createRunner calls for assertion
 const createRunnerCalls: Array<Record<string, unknown>> = [];
+let controlRunGate: Promise<void> | undefined;
 
 vi.mock("@bunny-agent/runner-harness", async (importOriginal) => {
   const actual =
@@ -18,6 +19,14 @@ vi.mock("@bunny-agent/runner-harness", async (importOriginal) => {
     createRunner: vi.fn(
       (opts: { input?: unknown; userInput?: string; yolo?: boolean }) => {
         createRunnerCalls.push(opts);
+        if (opts.userInput === "daemon control test") {
+          return (async function* () {
+            yield `data: ${JSON.stringify({ type: "start" })}\n\n`;
+            await controlRunGate;
+            yield `data: ${JSON.stringify({ type: "finish", finishReason: "stop" })}\n\n`;
+            yield `data: [DONE]\n\n`;
+          })();
+        }
         if (opts.userInput === "__THROW__") {
           // biome-ignore lint/correctness/useYield: throw-only generator simulates immediate runner failure
           return (async function* () {
@@ -206,7 +215,7 @@ describe("POST /api/coding/acp (standalone server)", () => {
 
 describe("codingRunStream (Web Response)", () => {
   it("returns streaming Response with NDJSON", async () => {
-    const res = codingRunStream({ userInput: "test" }, {});
+    const res = await codingRunStream({ userInput: "test" }, {});
 
     expect(res.headers.get("content-type")).toBe("application/x-ndjson");
 
@@ -229,7 +238,7 @@ describe("codingRunStream (Web Response)", () => {
       capabilities: [],
       execution: {},
     };
-    const res = codingRunStream({ input }, {});
+    const res = await codingRunStream({ input }, {});
     await res.text();
 
     expect(createRunnerCalls.at(-1)).toMatchObject({ input });
@@ -241,7 +250,7 @@ describe("codingRunStream (Web Response)", () => {
         remote: { url: "https://mcp.example.com" },
       },
     };
-    const res = codingRunStream(
+    const res = await codingRunStream(
       {
         userInput: "use mcp",
         runner: "pi",
@@ -260,7 +269,7 @@ describe("codingRunStream (Web Response)", () => {
   });
 
   it("forwards the interactive question timeout to the runner harness", async () => {
-    const res = codingRunStream(
+    const res = await codingRunStream(
       {
         userInput: "ask a question",
         runner: "pi",
@@ -306,6 +315,39 @@ describe("createNextHandler", () => {
 
     const text = await res.text();
     expect(text).toContain("echo: nextjs test");
+  });
+
+  it("routes /api/daemon/api/coding/control to the shared control registry", async () => {
+    const probeReq = new Request(
+      "http://localhost/api/daemon/api/coding/control",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ version: 1, operation: "capabilities" }),
+      },
+    );
+    const probeRes = await handler(probeReq);
+    expect(probeRes.status).toBe(200);
+    await expect(probeRes.json()).resolves.toEqual({
+      version: 1,
+      supportedPiSteer: true,
+    });
+
+    const statusReq = new Request(
+      "http://localhost/api/daemon/api/coding/control",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          version: 1,
+          operation: "status",
+          runId: "nextjs-unknown-run",
+          token: "z".repeat(44),
+        }),
+      },
+    );
+    const statusRes = await handler(statusReq);
+    expect(statusRes.status).toBe(404);
   });
 
   it("routes ACP Streamable HTTP GET and DELETE through the adapter", async () => {
@@ -376,9 +418,15 @@ describe("createNextHandler", () => {
   });
 
   it("routes fs write-stream through nextjs adapter", async () => {
+    // `write-stream` defaults to the "agent" volume when the query omits
+    // one, and `resolveVolumeRoot` treats "agent"/"space" as well-known
+    // mounts: if a real `/agent` (or `/space`) directory exists on the host
+    // running the test, it wins over this test's scoped `adapterRoot`. Use
+    // an explicit non-well-known volume so the write is guaranteed to land
+    // under `adapterRoot`'s scoped volumes dir, never a global host mount.
     const payload = Buffer.from("next adapter stream");
     const writeReq = new Request(
-      "http://localhost/api/daemon/api/fs/write-stream?path=next/stream.bin",
+      "http://localhost/api/daemon/api/fs/write-stream?path=next/stream.bin&volume=fixture",
       {
         method: "PUT",
         body: payload,
@@ -389,9 +437,16 @@ describe("createNextHandler", () => {
     expect(writeJson.ok).toBe(true);
     expect(writeJson.data.size).toBe(payload.length);
 
-    const written = await fs.readFile(
-      path.join(adapterRoot, "next", "stream.bin"),
+    const expectedPath = path.join(
+      adapterRoot,
+      "volumes",
+      "fixture",
+      "next",
+      "stream.bin",
     );
+    expect(writeJson.data.path).toBe(expectedPath);
+
+    const written = await fs.readFile(expectedPath);
     expect(written.equals(payload)).toBe(true);
   });
 
@@ -435,7 +490,7 @@ describe("coding/run error handling", () => {
   });
 
   it("streams error SSE when runner throws (web response)", async () => {
-    const res = codingRunStream({ userInput: "__THROW__" }, {});
+    const res = await codingRunStream({ userInput: "__THROW__" }, {});
     const text = await res.text();
     const dataLines = text
       .split("\n")
@@ -446,6 +501,86 @@ describe("coding/run error handling", () => {
     const err = JSON.parse(payloads[0]);
     expect(err.type).toBe("error");
     expect(err.errorText).toBe("runner exploded");
+  });
+});
+
+describe("POST /api/coding/control (standalone daemon)", () => {
+  async function controlPost(body: unknown) {
+    const r = await fetch(`${BASE}/api/coding/control`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    return { status: r.status, body: await r.json() };
+  }
+
+  it("generic capabilities probe needs no auth and never 404s", async () => {
+    const { status, body } = await controlPost({
+      version: 1,
+      operation: "capabilities",
+    });
+    expect(status).toBe(200);
+    expect(body).toEqual({ version: 1, supportedPiSteer: true });
+  });
+
+  it("status on an unregistered run 404s", async () => {
+    const { status, body } = await controlPost({
+      version: 1,
+      operation: "status",
+      runId: "never-registered",
+      token: "x".repeat(44),
+    });
+    expect(status).toBe(404);
+    expect(body).toMatchObject({ ok: false });
+  });
+
+  it("a run registered via /api/coding/run is steerable (and 409s not_ready before the mocked runner ever calls liveControl)", async () => {
+    const token = "y".repeat(44);
+    const runId = crypto.randomUUID();
+    let release!: () => void;
+    controlRunGate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const runRes = fetch(`${BASE}/api/coding/run`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        runner: "pi",
+        userInput: "daemon control test",
+        control: { version: 1, runId, token },
+      }),
+    });
+
+    // Headers prove registration; the explicit gate keeps this run active.
+    const headersRes = await runRes;
+    try {
+      expect(headersRes.status).toBe(200);
+      const { status, body } = await controlPost({
+        version: 1,
+        operation: "steer",
+        runId,
+        token,
+        message: { id: "m1", text: "hello" },
+      });
+      expect(status).toBe(409);
+      expect(body).toMatchObject({ ok: false });
+      expect(body.error).toContain("not ready");
+    } finally {
+      release();
+      await headersRes.text();
+      controlRunGate = undefined;
+    }
+  });
+
+  it("malformed JSON never echoes the raw body back", async () => {
+    const r = await fetch(`${BASE}/api/coding/control`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: `{"version":1,"operation":"steer","token":"leaked-secret-value"`,
+    });
+    expect(r.status).toBe(400);
+    const text = await r.text();
+    expect(text).not.toContain("leaked-secret-value");
   });
 });
 
@@ -554,7 +689,11 @@ describe("yolo flag", () => {
 
   it("passes yolo=true via codingRunStream (web response)", async () => {
     const before = createRunnerCalls.length;
-    await codingRunStream({ userInput: "web yolo", yolo: true }, {}).text();
+    const res = await codingRunStream(
+      { userInput: "web yolo", yolo: true },
+      {},
+    );
+    await res.text();
     const call = createRunnerCalls[before];
     expect(call.yolo).toBe(true);
   });
@@ -566,7 +705,7 @@ describe("heartbeat keepalive", () => {
     // in __SLOW_SHORT__ triggers multiple heartbeats.
     setHeartbeatIntervalMs(20);
     try {
-      const res = codingRunStream({ userInput: "__SLOW_SHORT__" }, {});
+      const res = await codingRunStream({ userInput: "__SLOW_SHORT__" }, {});
       const text = await res.text();
 
       // Verify heartbeats were present (100ms pause / 20ms interval ≈ 4-5 heartbeats)
@@ -604,7 +743,7 @@ describe("heartbeat keepalive", () => {
   });
 
   it("does not emit heartbeat for fast responses (web response)", async () => {
-    const res = codingRunStream({ userInput: "fast" }, {});
+    const res = await codingRunStream({ userInput: "fast" }, {});
     const text = await res.text();
 
     // Fast response should complete before any heartbeat fires

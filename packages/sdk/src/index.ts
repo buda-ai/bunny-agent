@@ -62,6 +62,7 @@ export type {
   McpStdioServerConfig,
   Message,
   Question,
+  RunControl,
   // Re-exports from @bunny-agent/manager
   SandboxAdapter,
   SandboxHandle,

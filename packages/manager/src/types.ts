@@ -1,4 +1,5 @@
 import type { AgentTurnInputV1 } from "./agent-input.js";
+import type { RunControl } from "./run-control.js";
 
 /**
  * Volume info (for backends that support persistent volumes)
@@ -175,6 +176,15 @@ export interface BunnyAgentCodingRunBody {
    * back to legacy behavior.
    */
   searchContractVersion?: number;
+  /**
+   * Opt-in live steering control channel. When set, the daemon registers the
+   * active run under `control.runId` so a caller holding `control.token` can
+   * later POST `/api/coding/control` to steer the live Pi session at a safe
+   * tool/turn boundary. Currently only the `pi` runner wires this through to
+   * a real session; other runners ignore it (capabilities will report
+   * `supportedPiSteer: false` for their runs).
+   */
+  control?: RunControl;
 }
 
 /**

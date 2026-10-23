@@ -15,6 +15,20 @@ export { isBunnyAgentDaemonHealthy } from "./daemon-health.js";
 export type { RunnerEnvParams, RunnerType } from "./env.js";
 // Env helpers
 export { buildRunnerEnv } from "./env.js";
+export type {
+  LiveRunController,
+  LiveSteerDisposition,
+  LiveSteerResult,
+  RegisterLiveRunController,
+  RunControl,
+  RunControlCapabilities,
+  RunControlMessage,
+  RunControlOperation,
+  RunControlReceipt,
+  RunControlReceiptState,
+  RunControlRequestBody,
+  RunControlStatus,
+} from "./run-control.js";
 export type { SandboxExecErrorCode } from "./sandbox-exec-error.js";
 export {
   ExecDiagnostics,

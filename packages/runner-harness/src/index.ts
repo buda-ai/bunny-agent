@@ -1,3 +1,17 @@
+export type {
+  LiveRunController,
+  LiveSteerDisposition,
+  LiveSteerResult,
+  RegisterLiveRunController,
+  RunControl,
+  RunControlCapabilities,
+  RunControlMessage,
+  RunControlOperation,
+  RunControlReceipt,
+  RunControlReceiptState,
+  RunControlRequestBody,
+  RunControlStatus,
+} from "@bunny-agent/manager";
 export type { BaseRunnerOptions } from "@bunny-agent/runner-claude";
 export { BUNNY_AGENT_SYSTEM_PROMPT } from "./agent-context.js";
 export type { CodingRunServer } from "./coding-run-server.js";
