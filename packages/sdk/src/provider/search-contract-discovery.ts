@@ -50,6 +50,21 @@ function object(value: unknown): Record<string, unknown> | undefined {
     : undefined;
 }
 
+/**
+ * Whether this sandbox can actually run the `curl` probe.
+ *
+ * `exec` is required by `SandboxHandle`, but some adapters only implement it to
+ * satisfy the interface while delegating real work elsewhere (the Buda
+ * connector relays a coding run to a daemon on the user's machine and yields a
+ * fixed diagnostic string from `exec`). Running discovery there can never
+ * succeed and — because a failed discovery rejects the stream — would take down
+ * an otherwise valid turn. Such an adapter therefore reports no new search
+ * contract (`undefined`), which is the same outcome as an old daemon.
+ */
+function canProbe(handle: SandboxHandle): boolean {
+  return handle.supportsExec?.() !== false;
+}
+
 /** Only a successful, recognizable legacy health document proves old support. */
 function parseHealth(text: string): 1 | undefined {
   const status = /\n(\d{3})$/.exec(text);
@@ -166,6 +181,9 @@ export async function discoverPiSearchContract(
   }
   parsed.pathname = `${parsed.pathname.replace(/\/$/, "").replace(/\/healthz$/, "")}/healthz`;
   const url = parsed.href;
+  // Verify the URL before the transport check so a genuinely malformed daemon
+  // URL still surfaces as a configuration error rather than a silent skip.
+  if (!canProbe(handle)) return undefined;
   const key = JSON.stringify([handle.getSandboxId(), url]);
   let entries = cache.get(handle);
   if (!entries) {
