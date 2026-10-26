@@ -23,7 +23,19 @@ concurrency:
 jobs:
   local-srt:
     name: Full suite + local/srt live (mock LLM)
-    runs-on: ubuntu-latest
+    # Pinned, NOT ubuntu-latest. This job runs SrtSandbox's real bubblewrap
+    # isolation tests, and the runner's OS must be one where srt can create a
+    # nested user namespace. ubuntu-latest rolled 24.04 -> 26.04 on 2026-10-26
+    # and every srt live test started failing with:
+    #   apply-seccomp: write /proc/self/setgroups
+    #   (nested userns is capability-restricted; caller must provide
+    #    CAP_SYS_ADMIN): Permission denied
+    # The sysctl + `bwrap --ro-bind / / true` probe below still SUCCEEDED on
+    # 26.04, because they only exercise the top-level namespace — so the break
+    # is not caught there, it surfaces later as 7 red srt tests. Verified by an
+    # empty-commit control run on unmodified main: same 7 failures, i.e. the
+    # image moved, not our code. Revisit once srt supports 26.04.
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - name: Checkout
