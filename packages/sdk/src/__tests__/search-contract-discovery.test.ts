@@ -29,6 +29,29 @@ function fixture(health: unknown = current, status = 200) {
   return { handle, exec };
 }
 
+/**
+ * Mirrors a relay/connector adapter: `exec` exists only to satisfy the
+ * interface and yields a diagnostic line instead of shell output.
+ */
+function stubExecFixture() {
+  const exec = vi.fn(async function* (_args: string[], _opts?: ExecOptions) {
+    yield new TextEncoder().encode(
+      "sandbox does not support ad-hoc exec; runs through the daemon.",
+    );
+  });
+  const handle: SandboxHandle = {
+    getSandboxId: () => "connector-1",
+    getVolumes: () => null,
+    getWorkdir: () => "/agent",
+    exec,
+    supportsExec: () => false,
+    upload: async () => {},
+    readFile: async () => "",
+    destroy: async () => {},
+  };
+  return { handle, exec };
+}
+
 afterEach(() => {
   vi.useRealTimers();
 });
@@ -52,6 +75,29 @@ describe("read-only Pi daemon search discovery", () => {
     const { handle, exec } = fixture(legacy);
     expect(await discoverPiSearchContract(handle, url)).toBeUndefined();
     expect(await discoverPiSearchContract(handle, url)).toBeUndefined();
+    expect(exec).toHaveBeenCalledTimes(1);
+  });
+
+  it("skips discovery instead of failing when the sandbox cannot run exec", async () => {
+    const { handle, exec } = stubExecFixture();
+    // An exec-less adapter reports no new contract — never an error. Failing
+    // here would reject the whole turn for a sandbox that simply cannot probe.
+    expect(await discoverPiSearchContract(handle, url)).toBeUndefined();
+    expect(exec).not.toHaveBeenCalled();
+  });
+
+  it("still rejects an unsafe daemon URL for a sandbox that cannot run exec", async () => {
+    const { handle, exec } = stubExecFixture();
+    await expect(
+      discoverPiSearchContract(handle, "http://user:pw@localhost"),
+    ).rejects.toThrow();
+    expect(exec).not.toHaveBeenCalled();
+  });
+
+  it("keeps probing when an adapter omits supportsExec", async () => {
+    const { handle, exec } = fixture();
+    delete (handle as { supportsExec?: () => boolean }).supportsExec;
+    expect(await discoverPiSearchContract(handle, url)).toBe(1);
     expect(exec).toHaveBeenCalledTimes(1);
   });
 

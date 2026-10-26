@@ -225,6 +225,21 @@ export interface SandboxHandle {
   exec(command: string[], opts?: ExecOptions): AsyncIterable<Uint8Array>;
 
   /**
+   * Whether `exec` can actually run an arbitrary command in this sandbox.
+   *
+   * Transport-only adapters (e.g. a relay/connector that forwards a coding run
+   * to a daemon on a user's machine) still implement `exec`, but only to keep
+   * the `SandboxHandle` interface satisfied — it may yield a diagnostic string
+   * instead of shell output. Probes that depend on real shell execution
+   * (daemon health, capability negotiation) must consult this before trusting
+   * `exec` output.
+   *
+   * Omitted means "assumed supported" to preserve every existing adapter's
+   * behavior; only adapters whose `exec` is a stub need to return `false`.
+   */
+  supportsExec?(): boolean;
+
+  /**
    * Upload files to the sandbox
    * @param files - Array of files to upload
    * @param targetDir - Target directory in the sandbox
