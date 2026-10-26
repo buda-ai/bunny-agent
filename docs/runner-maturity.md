@@ -1,7 +1,29 @@
 # Runner Integration Maturity
 
 > Living document — update this whenever a runner gains/loses a capability,
-> an SDK is upgraded, or a new runner lands. Last updated: 2026-10-16.
+> an SDK is upgraded, or a new runner lands. Last updated: 2026-10-26.
+
+## ACP process fidelity and host interaction
+
+The ACP server preserves rich v1 tool content, resources, sources, and metadata.
+Native ACP runners round-trip their original notifications. Version 1 lifecycle
+events are sent only after extension negotiation; provider-reported model/step
+boundaries are not inferred from tool counts.
+
+| Runner | Pre-execution host authorization | Structured user question | Reported step boundary |
+| --- | --- | --- | --- |
+| Claude | `canUseTool` | `AskUserQuestion` | Assistant message start/stop |
+| Pi | `tool_call` hook (including root with explicit host gate) | `ask_user_question` | Assistant message start/end |
+| Copilot | `onPermissionRequest` | `onUserInputRequest` | `assistant.turn_start` / `assistant.turn_end` |
+| Gemini / OpenCode | Native ACP permission request | Not advertised by this bridge | Original ACP notifications; no fabricated internal steps |
+| Codex | Not exposed by the installed Codex SDK | Not advertised | SDK turn start/completion |
+
+Permission decisions and structured answers are separate protocols. Supported
+hosts may reply across daemon connections using a session-scoped, unguessable
+interaction id; cancellation and invalid/conflicting replies are explicit.
+See [server-acp](../packages/server-acp/README.md) for negotiation and build
+instructions. These protocol fixture checks do not replace live-provider
+acceptance.
 
 Architecture recap:
 

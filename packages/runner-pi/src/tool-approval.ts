@@ -15,7 +15,10 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { approvalFileName } from "@bunny-agent/manager";
+import {
+  approvalFileName,
+  type ToolInteractionHandler,
+} from "@bunny-agent/manager";
 import type {
   InlineExtension,
   ToolDefinition,
@@ -61,6 +64,7 @@ export interface WaitForApprovalOptions {
    * this low-level bridge; AskUserQuestion supplies its production default.
    */
   timeoutMs?: number;
+  toolInteraction?: ToolInteractionHandler;
 }
 
 function approvalFilePath(cwd: string, toolCallId: string): string {
@@ -79,6 +83,26 @@ function approvalFilePath(cwd: string, toolCallId: string): string {
 export async function waitForApproval(
   options: WaitForApprovalOptions,
 ): Promise<ApprovalDecision> {
+  if (options.toolInteraction) {
+    const decision = await options.toolInteraction({
+      toolCallId: options.toolCallId,
+      toolName: options.toolName,
+      input: options.input,
+      signal: options.signal,
+      timeoutMs: options.timeoutMs,
+    });
+    if (decision.behavior === "deny") return decision;
+    const updatedInput = decision.updatedInput ?? {};
+    return {
+      behavior: "allow",
+      updatedInput: {
+        questions:
+          updatedInput.questions ??
+          (options.input as Record<string, unknown>)?.questions,
+        answers: (updatedInput.answers ?? {}) as Record<string, unknown>,
+      },
+    };
+  }
   const {
     cwd,
     toolCallId,
@@ -235,6 +259,7 @@ const askUserQuestionParameters = Type.Object({
 });
 
 export interface ApprovalGateOptions {
+  toolInteraction?: ToolInteractionHandler;
   cwd: string;
   /** Fallback abort signal (session abort controller). */
   fallbackSignal?: AbortSignal;
@@ -322,6 +347,7 @@ export function buildAskUserQuestionTool(
         signal: signal ?? options.fallbackSignal,
         pollIntervalMs: options.pollIntervalMs,
         timeoutMs: options.timeoutMs ?? DEFAULT_ASK_USER_QUESTION_TIMEOUT_MS,
+        toolInteraction: options.toolInteraction,
       });
       if (decision.behavior === "deny") {
         throw new Error(decision.message);
@@ -376,6 +402,7 @@ export function createToolApprovalExtension(
           signal: ctx.signal ?? options.fallbackSignal,
           pollIntervalMs: options.pollIntervalMs,
           timeoutMs: options.timeoutMs,
+          toolInteraction: options.toolInteraction,
         });
         if (decision.behavior === "deny") {
           return {

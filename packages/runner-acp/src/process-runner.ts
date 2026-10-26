@@ -18,6 +18,7 @@ import {
   type SessionUpdate,
   type Usage,
 } from "@agentclientprotocol/sdk";
+import type { ToolInteractionHandler } from "@bunny-agent/manager";
 
 export interface AcpProcessRunnerOptions {
   displayName: string;
@@ -30,6 +31,7 @@ export interface AcpProcessRunnerOptions {
   /** Existing session to load when the ACP agent advertises load support. */
   resume?: string;
   yolo?: boolean;
+  toolInteraction?: ToolInteractionHandler;
 }
 
 export interface AcpProcessRunner {
@@ -115,9 +117,16 @@ function usageMetadata(usage: Usage | null | undefined): unknown {
   return {
     input_tokens: usage.inputTokens,
     output_tokens: usage.outputTokens,
-    cache_read_input_tokens: usage.cachedReadTokens ?? 0,
-    cache_creation_input_tokens: usage.cachedWriteTokens ?? 0,
-    reasoning_tokens: usage.thoughtTokens ?? 0,
+    total_tokens: usage.totalTokens,
+    ...(typeof usage.cachedReadTokens === "number"
+      ? { cache_read_input_tokens: usage.cachedReadTokens }
+      : {}),
+    ...(typeof usage.cachedWriteTokens === "number"
+      ? { cache_creation_input_tokens: usage.cachedWriteTokens }
+      : {}),
+    ...(typeof usage.thoughtTokens === "number"
+      ? { reasoning_tokens: usage.thoughtTokens }
+      : {}),
   };
 }
 
@@ -240,6 +249,10 @@ export function createAcpProcessRunner(
       };
 
       const handleUpdate = (update: SessionUpdate) => {
+        // Keep the original notification alongside the compatibility UI chunks.
+        // server-acp recognizes this channel and forwards it without flattening
+        // plans, diffs, locations, resources, or provider metadata.
+        output.push(sseData({ type: "data-acp-session-update", data: update }));
         if (
           update.sessionUpdate === "agent_message_chunk" &&
           update.content.type === "text"
@@ -339,6 +352,7 @@ export function createAcpProcessRunner(
             finishReason: aborted ? "error" : finishReason(stopReason),
             messageMetadata: {
               sessionId,
+              acpStopReason: stopReason,
               usage: usageMetadata(usage),
             },
           }),
@@ -348,8 +362,39 @@ export function createAcpProcessRunner(
       };
 
       const app = client({ name: "bunny-agent" })
-        .onRequest(methods.client.session.requestPermission, ({ params }) =>
-          resolvePermission(cwd, options.yolo ?? false, params),
+        .onRequest(
+          methods.client.session.requestPermission,
+          async ({ params }) => {
+            if (!options.toolInteraction || options.yolo) {
+              return resolvePermission(cwd, options.yolo ?? false, params);
+            }
+            const decision = await options.toolInteraction({
+              toolCallId: params.toolCall.toolCallId,
+              toolName: params.toolCall.title ?? "tool",
+              input: params.toolCall.rawInput,
+              permission: {
+                toolCall: params.toolCall as unknown as Record<string, unknown>,
+                options: params.options,
+                ...(params._meta ? { _meta: params._meta } : {}),
+              },
+              signal: options.abortController?.signal,
+            });
+            const wanted =
+              decision.behavior === "allow" ? "allow_once" : "reject_once";
+            const selected = params.options.find((option) =>
+              decision.optionId
+                ? option.optionId === decision.optionId &&
+                  (decision.behavior === "allow"
+                    ? ["allow_once", "allow_always"].includes(option.kind)
+                    : ["reject_once", "reject_always"].includes(option.kind))
+                : option.kind === wanted,
+            );
+            return {
+              outcome: selected
+                ? { outcome: "selected" as const, optionId: selected.optionId }
+                : { outcome: "cancelled" as const },
+            };
+          },
         )
         .onNotification(methods.client.session.update, ({ params }) => {
           if (acceptingLoadedUpdates && params.sessionId === loadedSessionId) {

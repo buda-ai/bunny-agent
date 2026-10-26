@@ -234,6 +234,7 @@ export class PiAISDKStreamConverter {
   private currentContentIndex: number | undefined;
   private lastEndedContentIndex = -1;
   private textInputEnded = false;
+  private stepNumber = 0;
 
   constructor(private readonly options: PiAISDKStreamConverterOptions) {
     this.registry = options.sourceRegistry ?? new SourceRegistry();
@@ -260,6 +261,12 @@ export class PiAISDKStreamConverter {
     if (event.type === "message_start") {
       const msg = (event as { message?: { role?: string } }).message;
       if (msg?.role === "assistant") {
+        chunks.push(
+          sseData({
+            type: "start-step",
+            id: `${this.messageId}:step:${++this.stepNumber}`,
+          }),
+        );
         chunks.push(...this.endTextStreamIfOpen());
         this.currentContentIndex = undefined;
         this.lastEndedContentIndex = -1;
@@ -267,6 +274,14 @@ export class PiAISDKStreamConverter {
       return chunks;
     }
     if (event.type === "message_end") {
+      if (event.message.role === "assistant") {
+        chunks.push(
+          sseData({
+            type: "finish-step",
+            id: `${this.messageId}:step:${this.stepNumber}`,
+          }),
+        );
+      }
       if (
         this.options.searchContractVersion === 1 &&
         event.message.role === "assistant"

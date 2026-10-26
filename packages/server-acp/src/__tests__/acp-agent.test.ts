@@ -39,6 +39,33 @@ vi.mock("@bunny-agent/runner-harness", async () => {
         abortedRunners.push(userInput);
       });
       return (async function* () {
+        if (userInput === "__PERMISSION__" || userInput === "__QUESTION__") {
+          const toolName =
+            userInput === "__QUESTION__" ? "AskUserQuestion" : "bash";
+          const toolInput =
+            userInput === "__QUESTION__"
+              ? {
+                  questions: [
+                    {
+                      question: "Which approach?",
+                      options: [{ label: "Careful" }, { label: "Fast" }],
+                    },
+                  ],
+                }
+              : { command: "echo reviewed" };
+          yield `data: ${JSON.stringify({ type: "tool-input-available", toolCallId: "interactive-tool", toolName, input: toolInput })}\n\n`;
+          const interact =
+            opts.toolInteraction as import("@bunny-agent/manager").ToolInteractionHandler;
+          const decision = await interact({
+            toolCallId: "interactive-tool",
+            toolName,
+            input: toolInput,
+            signal: abort?.signal,
+          });
+          yield `data: ${JSON.stringify({ type: "tool-output-available", toolCallId: "interactive-tool", output: decision, isError: decision.behavior === "deny" })}\n\n`;
+          yield `data: ${JSON.stringify({ type: "finish", finishReason: "stop" })}\n\n`;
+          return;
+        }
         if (userInput === "__THROW__") {
           yield `data: ${JSON.stringify({ type: "error", errorText: "runner exploded" })}\n\n`;
           yield `data: ${JSON.stringify({ type: "finish", finishReason: "error" })}\n\n`;
@@ -80,11 +107,221 @@ vi.mock("@bunny-agent/runner-harness", async () => {
 });
 
 import { createBunnyAgentAcpApp } from "../acp-agent.js";
+import { AcpInteractionRegistry } from "../interaction-registry.js";
 
 describe("BunnyAgent ACP agent", () => {
   beforeEach(() => {
     createRunnerCalls.length = 0;
     abortedRunners.length = 0;
+  });
+
+  it("bridges an actual pending tool permission and applies the user's rejection", async () => {
+    const updates: SessionUpdate[] = [];
+    let interactionId = "";
+    const clientApp = client({ name: "permission-client" })
+      .onNotification(methods.client.session.update, ({ params }) => {
+        updates.push(params.update);
+      })
+      .onRequest(methods.client.session.requestPermission, ({ params }) => {
+        interactionId = (
+          params._meta?.["bunny-agent"] as { interactionId: string }
+        ).interactionId;
+        expect(params.toolCall.rawInput).toEqual({ command: "echo reviewed" });
+        expect(params._meta?.["bunny-agent"]).toMatchObject({
+          interactionId: expect.any(String),
+        });
+        return { outcome: { outcome: "selected", optionId: "reject-once" } };
+      });
+    const connection = clientApp.connect(createBunnyAgentAcpApp() as never);
+    try {
+      await connection.agent.request(methods.agent.initialize, {
+        protocolVersion: PROTOCOL_VERSION,
+        clientCapabilities: {},
+      });
+      const session = await connection.agent.request(
+        methods.agent.session.new,
+        { cwd: "/workspace", mcpServers: [] },
+      );
+      await connection.agent.request(methods.agent.session.prompt, {
+        sessionId: session.sessionId,
+        prompt: [{ type: "text", text: "__PERMISSION__" }],
+      });
+      expect(updates.at(-1)).toMatchObject({
+        sessionUpdate: "tool_call_update",
+        status: "failed",
+        rawOutput: {
+          behavior: "deny",
+          message: "The user did not authorize this tool.",
+        },
+      });
+      await expect(
+        connection.agent.request("_bunny-agent/interaction/respond", {
+          sessionId: session.sessionId,
+          requestId: interactionId,
+          action: "accept",
+          optionId: "reject-once",
+        }),
+      ).resolves.toEqual({ ok: true });
+    } finally {
+      connection.close();
+    }
+  });
+
+  it("negotiates forms separately from permissions and returns the selected answer to the runner", async () => {
+    const updates: SessionUpdate[] = [];
+    const clientApp = client({ name: "form-client" })
+      .onNotification(methods.client.session.update, ({ params }) => {
+        updates.push(params.update);
+      })
+      .onRequest("elicitation/create", ({ params }) => {
+        expect(params.mode).toBe("form");
+        return { action: "accept", content: { question_0: "Careful" } };
+      });
+    const connection = clientApp.connect(createBunnyAgentAcpApp() as never);
+    try {
+      await connection.agent.request(methods.agent.initialize, {
+        protocolVersion: PROTOCOL_VERSION,
+        clientCapabilities: { elicitation: { form: {} } },
+      });
+      const session = await connection.agent.request(
+        methods.agent.session.new,
+        { cwd: "/workspace", mcpServers: [] },
+      );
+      await connection.agent.request(methods.agent.session.prompt, {
+        sessionId: session.sessionId,
+        prompt: [{ type: "text", text: "__QUESTION__" }],
+      });
+      expect(updates.at(-1)).toMatchObject({
+        rawOutput: {
+          behavior: "allow",
+          updatedInput: { answers: { "Which approach?": "Careful" } },
+        },
+      });
+    } finally {
+      connection.close();
+    }
+  });
+
+  it("accepts an idempotent interaction reply from another daemon connection and rejects wrong-session or conflicting replies", async () => {
+    const registry = new AcpInteractionRegistry();
+    let received!: (id: string) => void;
+    const observed = new Promise<string>((resolve) => {
+      received = resolve;
+    });
+    const original = client({ name: "original-worker" })
+      .onRequest(
+        methods.client.session.requestPermission,
+        ({ params, signal }) => {
+          received(
+            (params._meta?.["bunny-agent"] as { interactionId: string })
+              .interactionId,
+          );
+          return new Promise((resolve) =>
+            signal.addEventListener(
+              "abort",
+              () => resolve({ outcome: { outcome: "cancelled" } }),
+              { once: true },
+            ),
+          );
+        },
+      )
+      .connect(
+        createBunnyAgentAcpApp({ interactionRegistry: registry }) as never,
+      );
+    const responder = client({ name: "new-worker" }).connect(
+      createBunnyAgentAcpApp({ interactionRegistry: registry }) as never,
+    );
+    try {
+      for (const connection of [original, responder])
+        await connection.agent.request(methods.agent.initialize, {
+          protocolVersion: PROTOCOL_VERSION,
+          clientCapabilities: {},
+        });
+      const session = await original.agent.request(methods.agent.session.new, {
+        cwd: "/workspace",
+        mcpServers: [],
+      });
+      const prompt = original.agent.request(methods.agent.session.prompt, {
+        sessionId: session.sessionId,
+        prompt: [{ type: "text", text: "__PERMISSION__" }],
+      });
+      const requestId = await observed;
+      const params = {
+        sessionId: session.sessionId,
+        requestId,
+        action: "accept",
+        optionId: "allow-once",
+      };
+      await expect(
+        responder.agent.request("_bunny-agent/interaction/respond", {
+          ...params,
+          sessionId: "another-session",
+        }),
+      ).rejects.toThrow("unknown or expired");
+      await expect(
+        responder.agent.request("_bunny-agent/interaction/respond", params),
+      ).resolves.toEqual({ ok: true });
+      await expect(prompt).resolves.toMatchObject({ stopReason: "end_turn" });
+      await expect(
+        responder.agent.request("_bunny-agent/interaction/respond", params),
+      ).resolves.toEqual({ ok: true });
+      await expect(
+        responder.agent.request("_bunny-agent/interaction/respond", {
+          ...params,
+          action: "decline",
+          optionId: "reject-once",
+        }),
+      ).rejects.toThrow("different decision");
+    } finally {
+      original.close();
+      responder.close();
+    }
+  });
+
+  it("sends lifecycle only to clients that negotiated the versioned extension", async () => {
+    const lifecycle: unknown[] = [];
+    const clientApp = client({ name: "lifecycle-client" }).onNotification(
+      "_bunny-agent/session_event",
+      { parse: (value: unknown) => value },
+      ({ params }) => {
+        lifecycle.push(params);
+      },
+    );
+    const connection = clientApp.connect(createBunnyAgentAcpApp() as never);
+    try {
+      const init = await connection.agent.request(methods.agent.initialize, {
+        protocolVersion: PROTOCOL_VERSION,
+        clientCapabilities: { _meta: { "bunny-agent": { eventStream: 1 } } },
+      });
+      expect(init.agentCapabilities?._meta?.["bunny-agent"]).toMatchObject({
+        eventStream: 1,
+        interactionRespond: 1,
+      });
+      const session = await connection.agent.request(
+        methods.agent.session.new,
+        { cwd: "/workspace", mcpServers: [] },
+      );
+      await connection.agent.request(methods.agent.session.prompt, {
+        sessionId: session.sessionId,
+        prompt: [{ type: "text", text: "hello" }],
+      });
+      expect(lifecycle).toMatchObject([
+        {
+          sessionId: session.sessionId,
+          event: {
+            version: 1,
+            type: "turn_started",
+            turnId: expect.any(String),
+          },
+        },
+        {
+          sessionId: session.sessionId,
+          event: { version: 1, type: "turn_finished", stopReason: "end_turn" },
+        },
+      ]);
+    } finally {
+      connection.close();
+    }
   });
 
   it("negotiates the protocol version on initialize", async () => {
@@ -275,12 +512,17 @@ describe("BunnyAgent ACP agent", () => {
           sessionUpdate: "tool_call",
           toolCallId: "t1",
           title: "read_file",
+          kind: "read",
           status: "pending",
+          _meta: { "bunny-agent/toolName": "read_file" },
         },
         {
           sessionUpdate: "tool_call_update",
           toolCallId: "t1",
           status: "in_progress",
+          title: "read_file: a.ts",
+          kind: "read",
+          locations: [{ path: "/workspace/a.ts" }],
           rawInput: { path: "a.ts" },
         },
         {

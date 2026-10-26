@@ -296,6 +296,10 @@ export function createCodexRunner(options: CodexRunnerOptions): CodexRunner {
         }
         yield* ensureStart();
 
+        if (event.type === "turn.started") {
+          yield sseData({ type: "start-step" });
+        }
+
         // Incremental assistant text: item.started/updated/completed all
         // carry the full text so far; emit only the new suffix.
         if (
@@ -396,6 +400,7 @@ export function createCodexRunner(options: CodexRunnerOptions): CodexRunner {
         }
 
         if (event.type === "turn.completed") {
+          yield sseData({ type: "finish-step" });
           // Usage goes under messageMetadata in snake_case so the SDK
           // provider's normalizeBunnyAgentUsage picks it up (top-level
           // `usage` on finish chunks is ignored by the provider).
@@ -416,6 +421,7 @@ export function createCodexRunner(options: CodexRunnerOptions): CodexRunner {
         }
 
         if (event.type === "turn.failed") {
+          yield sseData({ type: "finish-step" });
           yield sseData({ type: "error", errorText: event.error.message });
           yield sseData({ type: "finish", finishReason: "error" });
           yield `data: [DONE]\n\n`;

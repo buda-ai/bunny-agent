@@ -23,6 +23,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@bunny-agent/manager": "workspace:*",
     "@github/copilot-sdk": "1.0.7"
   },
   "devDependencies": {
