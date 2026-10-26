@@ -12,6 +12,7 @@
       "@bunny-agent/sandbox-sandock",
       "@bunny-agent/sandbox-srt",
       "@bunny-agent/sandbox-daytona",
+      "@bunny-agent/sandbox-smol",
       "@bunny-agent/sdk"
     ]
   ],
