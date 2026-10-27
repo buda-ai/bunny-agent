@@ -247,16 +247,38 @@ describe("LiveRunRegistry — steer dispatch & idempotency", () => {
     });
     expect(receipt.state).toBe("accepted");
 
-    let status = await registry.getStatus("run-1", TOK);
+    const status = await registry.getStatus("run-1", TOK);
     expect(status.receipts[0].state).toBe("accepted");
 
-    emitConsumed("m1");
-    // onConsumed's journal write is async (fire-and-forget from the
-    // controller's perspective); give the microtask queue a turn.
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    // The callback returns before the real journal write completes. Hold
+    // that write so the pending durable state is deterministic under load.
+    let releaseWrite!: () => void;
+    const writeGate = new Promise<void>((resolve) => {
+      releaseWrite = resolve;
+    });
+    const putReceipt = ControlJournal.prototype.putReceipt;
+    const persistence = vi
+      .spyOn(ControlJournal.prototype, "putReceipt")
+      .mockImplementationOnce(async function (this: ControlJournal, ...args) {
+        await writeGate;
+        return putReceipt.apply(this, args);
+      });
 
-    status = await registry.getStatus("run-1", TOK);
-    expect(status.receipts[0].state).toBe("consumed");
+    emitConsumed("m1");
+    try {
+      await vi.waitFor(() => expect(persistence).toHaveBeenCalledOnce());
+      const pending = await registry.getStatus("run-1", TOK);
+      expect(pending.receipts[0].state).toBe("accepted");
+    } finally {
+      releaseWrite();
+    }
+
+    // Observe persisted completion instead of assuming filesystem I/O
+    // finishes within a fixed sleep on every CI runner.
+    await vi.waitFor(async () => {
+      const consumed = await registry.getStatus("run-1", TOK);
+      expect(consumed.receipts[0].state).toBe("consumed");
+    });
   });
 
   it("handled disposition never regresses to consumed later", async () => {
