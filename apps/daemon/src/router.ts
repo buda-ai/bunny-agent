@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+import type { LiveRunRegistry } from "@bunny-agent/server-ai-sdk";
 import * as fsRoutes from "./routes/fs.js";
 import * as gitRoutes from "./routes/git.js";
 import { healthHandler } from "./routes/health.js";
@@ -17,8 +19,11 @@ type Route = [method: string, pattern: string, handler: RouteHandler];
 export class DaemonRouter {
   private state: AppState;
   private routes: Route[];
+  private readonly instanceId = randomUUID();
+  private readonly controlRegistry?: LiveRunRegistry;
 
-  constructor(opts: { root: string }) {
+  constructor(opts: { root: string; controlRegistry?: LiveRunRegistry }) {
+    this.controlRegistry = opts.controlRegistry;
     this.state = {
       root: opts.root,
       volumesRoot: `${opts.root}/volumes`,
@@ -70,7 +75,14 @@ export class DaemonRouter {
     params: Record<string, unknown>,
   ): Promise<{ status: number; body: ApiEnvelope } | null> {
     if (pathname === "/healthz" && method === "GET") {
-      return { status: 200, body: healthHandler(this.state) };
+      return {
+        status: 200,
+        body: await healthHandler(
+          this.state,
+          this.instanceId,
+          this.controlRegistry,
+        ),
+      };
     }
     for (const [m, p, handler] of this.routes) {
       if (method !== m) continue;
