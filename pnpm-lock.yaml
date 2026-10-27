@@ -576,6 +576,9 @@ importers:
       '@agentclientprotocol/sdk':
         specifier: ^1.2.1
         version: 1.2.1(zod@4.6.7)
+      '@bunny-agent/manager':
+        specifier: workspace:*
+        version: link:../manager
     devDependencies:
       '@types/node':
         specifier: ^20.10.0
@@ -633,6 +636,9 @@ importers:
 
   packages/runner-copilot:
     dependencies:
+      '@bunny-agent/manager':
+        specifier: workspace:*
+        version: link:../manager
       '@github/copilot-sdk':
         specifier: 1.0.7
         version: 1.0.7
@@ -861,7 +867,7 @@ importers:
     dependencies:
       '@ai-sdk/provider':
         specifier: ^3.0.8
-        version: 3.0.8
+        version: 3.0.19
       '@ai-sdk/react':
         specifier: ^3.0.267
         version: 3.0.311(react@19.2.4)(zod@4.6.7)
@@ -908,10 +914,16 @@ importers:
       '@agentclientprotocol/sdk':
         specifier: ^1.2.1
         version: 1.2.1(zod@4.6.7)
+      '@bunny-agent/manager':
+        specifier: workspace:*
+        version: link:../manager
       '@bunny-agent/runner-harness':
         specifier: workspace:*
         version: link:../runner-harness
     devDependencies:
+      '@bunny-agent/runner-acp':
+        specifier: workspace:*
+        version: link:../runner-acp
       '@types/node':
         specifier: ^20.10.0
         version: 20.19.33
@@ -975,10 +987,6 @@ packages:
 
   '@ai-sdk/provider@3.0.19':
     resolution: {integrity: sha512-5lWq7zSfRaU5ylDESn3sDQjgGl2AI1vjZKO/6JY3aFW70ct4zcP1kN+ZUYOuTXr28fVsYbyu2YFhddLdIgQFZQ==}
-    engines: {node: '>=18'}
-
-  '@ai-sdk/provider@3.0.8':
-    resolution: {integrity: sha512-oGMAgGoQdBXbZqNG0Ze56CHjDZ1IDYOwGYxYjO5KLSlz5HiNQ9udIXsPZ61VWaHGZ5XW/jyjmr6t2xz2jGVwbQ==}
     engines: {node: '>=18'}
 
   '@ai-sdk/react@3.0.311':
@@ -7463,10 +7471,6 @@ snapshots:
       json-schema: 0.4.0
 
   '@ai-sdk/provider@3.0.19':
-    dependencies:
-      json-schema: 0.4.0
-
-  '@ai-sdk/provider@3.0.8':
     dependencies:
       json-schema: 0.4.0
 

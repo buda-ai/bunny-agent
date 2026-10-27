@@ -226,6 +226,29 @@ export function createCanUseToolCallback(
       };
     }
 
+    if (claudeOptions.toolInteraction) {
+      const decision = await claudeOptions.toolInteraction({
+        toolCallId: toolUseID,
+        toolName,
+        input,
+        signal: options.signal,
+        ...(toolName === "AskUserQuestion"
+          ? {
+              timeoutMs:
+                claudeOptions.askUserQuestionTimeoutMs ??
+                DEFAULT_ASK_USER_QUESTION_TIMEOUT_MS,
+            }
+          : {}),
+      });
+      return decision.behavior === "allow"
+        ? {
+            behavior: "allow",
+            updatedInput:
+              decision.updatedInput ?? (input as Record<string, unknown>),
+          }
+        : decision;
+    }
+
     // Non-yolo: intercept all tools. AskUserQuestion always intercepted.
     const cwd = claudeOptions.cwd || process.cwd();
 

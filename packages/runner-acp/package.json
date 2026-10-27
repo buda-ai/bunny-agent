@@ -20,7 +20,8 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@agentclientprotocol/sdk": "^1.2.1"
+    "@agentclientprotocol/sdk": "^1.2.1",
+    "@bunny-agent/manager": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",

@@ -55,6 +55,49 @@ afterEach(() => {
 });
 
 describe("waitForApproval", () => {
+  it("uses the host gate before execution and keeps questions separate from approval files", async () => {
+    const calls: unknown[] = [];
+    const questions = [{ question: "Format?" }];
+    const response = await waitForApproval({
+      cwd,
+      toolCallId: "question/1",
+      toolName: ASK_USER_QUESTION_TOOL_NAME,
+      input: { questions },
+      toolInteraction: async (request) => {
+        calls.push(request);
+        return {
+          behavior: "allow",
+          updatedInput: { questions, answers: { "Format?": "PDF" } },
+        };
+      },
+    });
+    expect(calls).toMatchObject([
+      {
+        toolCallId: "question/1",
+        toolName: ASK_USER_QUESTION_TOOL_NAME,
+        input: { questions },
+      },
+    ]);
+    expect(response).toEqual({
+      behavior: "allow",
+      updatedInput: { questions, answers: { "Format?": "PDF" } },
+    });
+    expect(fs.existsSync(path.join(cwd, ".bunny-agent", "approvals"))).toBe(
+      false,
+    );
+    await expect(
+      waitForApproval({
+        cwd,
+        toolCallId: "write1",
+        toolName: "write",
+        input: { path: "a" },
+        toolInteraction: async () => ({
+          behavior: "deny",
+          message: "Rejected",
+        }),
+      }),
+    ).resolves.toEqual({ behavior: "deny", message: "Rejected" });
+  });
   it("supports opaque tool call IDs that are unsafe as filenames", async () => {
     const toolCallId = `thought/${"opaque+payload".repeat(80)}`;
     const questions = [{ question: "Format?" }];

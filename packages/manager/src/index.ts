@@ -39,6 +39,11 @@ export {
 // string instead of using independent argv/env channels.
 export { posixShellQuote } from "./shell-escape.js";
 export type {
+  ToolInteractionHandler,
+  ToolInteractionRequest,
+  ToolInteractionResponse,
+} from "./tool-interaction.js";
+export type {
   GuardedToolOutput,
   ToolOutputGuardDetails,
 } from "./tool-output.js";

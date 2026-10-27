@@ -4,6 +4,7 @@ import {
   type AgentTurnInputV1,
   compileAgentTurnInput,
   type RegisterLiveRunController,
+  type ToolInteractionHandler,
 } from "@bunny-agent/manager";
 import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
 import type { Api, ImageContent, Model } from "@earendil-works/pi-ai";
@@ -111,6 +112,7 @@ interface ModelIdentity {
 }
 
 export interface PiRunnerOptions {
+  toolInteraction?: ToolInteractionHandler;
   model?: string;
   systemPrompt?: string;
   cwd?: string;
@@ -668,10 +670,12 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
         // AskUserQuestion is always gated.
         const isRoot =
           typeof process.getuid === "function" && process.getuid() === 0;
-        const bypassApproval = Boolean(options.yolo) || isRoot;
+        const bypassApproval =
+          Boolean(options.yolo) || (isRoot && !options.toolInteraction);
         const approvalGate: ApprovalGateOptions = {
           cwd,
           fallbackSignal: options.abortController?.signal,
+          toolInteraction: options.toolInteraction,
         };
         const askUserQuestionEnabled =
           allowedTools === undefined ||

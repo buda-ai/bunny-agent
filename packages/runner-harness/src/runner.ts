@@ -201,6 +201,7 @@ export function createRunner(
     env,
     abortController,
     askUserQuestionTimeoutMs: options.askUserQuestionTimeoutMs,
+    toolInteraction: options.toolInteraction,
   };
 
   const input = options.input
@@ -314,6 +315,7 @@ function dispatchRunner(
         systemPrompt: base.systemPrompt,
         resume: base.resume,
         yolo: base.yolo,
+        toolInteraction: base.toolInteraction,
       }).run(compiled.text);
     case "pi": {
       return createPiRunner({
@@ -344,6 +346,7 @@ function dispatchRunner(
         systemPrompt: base.systemPrompt,
         resume: base.resume,
         yolo: base.yolo,
+        toolInteraction: base.toolInteraction,
       }).run(compiled.text);
     case "copilot": {
       const reasoningEfforts = ["low", "medium", "high", "xhigh"];
@@ -359,6 +362,7 @@ function dispatchRunner(
         resume: base.resume,
         yolo: base.yolo,
         cwd,
+        toolInteraction: base.toolInteraction,
         env: base.env,
         abortController: base.abortController,
         ...(options.effort && reasoningEfforts.includes(options.effort)

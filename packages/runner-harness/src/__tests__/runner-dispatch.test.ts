@@ -93,6 +93,28 @@ describe("createRunner dispatch", () => {
     );
   });
 
+  it("keeps the host's pre-execution interaction callback on supported runner options", () => {
+    const toolInteraction = async () => ({
+      behavior: "deny" as const,
+      message: "User rejected",
+    });
+    for (const runner of ["claude", "pi"])
+      createRunner({
+        runner,
+        model: "test-model",
+        userInput: "hello",
+        cwd: "/tmp",
+        autoInject: false,
+        toolInteraction,
+      });
+    expect(createClaudeRunner.mock.calls[0][0].toolInteraction).toBe(
+      toolInteraction,
+    );
+    expect(createPiRunner.mock.calls[0][0].toolInteraction).toBe(
+      toolInteraction,
+    );
+  });
+
   it("passes structured image input to Claude and Pi without stringifying", () => {
     const input: AgentTurnInputV1 = {
       version: 1,

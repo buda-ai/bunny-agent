@@ -32,6 +32,48 @@ function event(type: string, data: Record<string, unknown>) {
 }
 
 describe("createCopilotRunner", () => {
+  it("uses SDK permission and question callbacks without treating answers as approval", async () => {
+    const seen: unknown[] = [];
+    mocks.sendAndWait.mockImplementationOnce(async () => {
+      const config = mocks.createSession.mock.calls[0][0];
+      await expect(
+        config.onPermissionRequest(
+          { kind: "write", toolCallId: "write1", fileName: "a.ts" },
+          { sessionId: "copilot-session-1" },
+        ),
+      ).resolves.toEqual({ kind: "reject", feedback: "Rejected" });
+      await expect(
+        config.onUserInputRequest(
+          { question: "Format?", choices: ["PDF", "HTML"] },
+          { sessionId: "copilot-session-1" },
+        ),
+      ).resolves.toEqual({ answer: "PDF", wasFreeform: false });
+      mocks.handler?.(event("assistant.turn_start", { turnId: "step-1" }));
+      mocks.handler?.(event("assistant.turn_end", { turnId: "step-1" }));
+      mocks.handler?.(event("session.idle", {}));
+    });
+    const runner = createCopilotRunner({
+      model: "test",
+      yolo: false,
+      toolInteraction: async (request) => {
+        seen.push(request);
+        return request.toolName === "ask_user_question"
+          ? {
+              behavior: "allow",
+              updatedInput: { answers: { "Format?": "PDF" } },
+            }
+          : { behavior: "deny", message: "Rejected" };
+      },
+    });
+    const chunks: string[] = [];
+    for await (const chunk of runner.run("Review")) chunks.push(chunk);
+    expect(seen).toMatchObject([
+      { toolCallId: "write1", toolName: "write" },
+      { toolName: "ask_user_question" },
+    ]);
+    expect(chunks.join("")).toContain('"type":"start-step","id":"step-1"');
+    expect(chunks.join("")).toContain('"type":"finish-step"');
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.handler = undefined;
