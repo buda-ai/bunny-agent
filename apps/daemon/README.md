@@ -519,6 +519,31 @@ command result for flag combinations that cannot be represented through
 GET /healthz
 ```
 
+The existing `{ ok, data, error }` response includes readiness and capabilities
+in one request. `data.status`, `data.root`, `data.volumesRoot`, and
+`data.capabilities.searchContracts` remain unchanged. New fields are:
+
+```json
+{
+  "data": {
+    "capabilities": {
+      "codingControl": { "version": 1, "supportedPiSteer": true }
+    }
+  }
+}
+```
+
+Clients can retain the health response and reuse its capability declarations
+instead of making separate search and control capability requests. Run-specific
+readiness and receipts still require `/api/coding/control` status requests.
+
+`codingControl` checks the same durable control journal used by coding runs and
+`/api/coding/control`. Journal initialization is shared and runs once, including
+concurrent health and legacy capability requests. A journal initialization failure
+reports `supportedPiSteer: false` while health remains HTTP 200; it never starts a
+runner or calls a model. The legacy control `capabilities` operation remains
+available for older clients.
+
 ---
 
 ## Environment Variables

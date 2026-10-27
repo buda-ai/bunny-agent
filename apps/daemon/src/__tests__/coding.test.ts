@@ -555,6 +555,12 @@ describe("POST /api/coding/control (standalone daemon)", () => {
     const headersRes = await runRes;
     try {
       expect(headersRes.status).toBe(200);
+      const health = await (await fetch(`${BASE}/healthz`)).json();
+      expect(health.data.capabilities.codingControl).toEqual({
+        version: 1,
+        supportedPiSteer: true,
+      });
+      // Health discovery uses the active run registry without replacing it.
       const { status, body } = await controlPost({
         version: 1,
         operation: "steer",
