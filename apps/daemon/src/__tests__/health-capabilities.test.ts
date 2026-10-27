@@ -81,22 +81,12 @@ for (const kind of ["standalone", "nextjs"] as const) {
           },
         },
       });
-      expect(health.data.instanceId).toMatch(
-        /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/,
-      );
       expect((await fs.stat(path.join(root, "control"))).isDirectory()).toBe(
         true,
       );
       const legacy = await request("/api/coding/control", controlCapabilities);
       expect(await legacy.json()).toEqual(
         health.data.capabilities.codingControl,
-      );
-      const repeated = await (await request("/healthz")).json();
-      expect(repeated.data.instanceId).toBe(health.data.instanceId);
-      const replacement = await startTransport(kind);
-      const replacementHealth = await (await replacement("/healthz")).json();
-      expect(replacementHealth.data.instanceId).not.toBe(
-        health.data.instanceId,
       );
       expect(createRunner).not.toHaveBeenCalled();
     });

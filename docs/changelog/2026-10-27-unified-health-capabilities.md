@@ -18,16 +18,14 @@ search and control capabilities separately.
 - Health and control reuse the registry's existing memoized journal
   initialization. Failed journal initialization leaves health at HTTP 200 and
   advertises steering as unavailable without running a model.
-- Health includes a stable `data.instanceId` UUID for each server or Next.js
-  handler lifetime. Replacing the daemon changes the UUID.
 - Existing health fields and the legacy control capability operation are kept.
 - README and daemon patch changeset document the public response additions.
 
 ## Validation
 
 - Integration tests cover real standalone HTTP, Next.js requests, control/health
-  parity, 12 concurrent probes sharing one failed journal initialization, stable
-  and replaced instance identities, and no runner/model invocation.
+  parity, 12 concurrent probes sharing one failed journal initialization, and
+  no runner/model invocation.
 - The existing active-run control test now reads health before steering to ensure
   discovery preserves the active run registry.
 - `pnpm --filter @bunny-agent/daemon... build` passed for the daemon and its

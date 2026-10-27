@@ -526,7 +526,6 @@ in one request. `data.status`, `data.root`, `data.volumesRoot`, and
 ```json
 {
   "data": {
-    "instanceId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
     "capabilities": {
       "codingControl": { "version": 1, "supportedPiSteer": true }
     }
@@ -534,11 +533,9 @@ in one request. `data.status`, `data.root`, `data.volumesRoot`, and
 }
 ```
 
-`instanceId` is stable for one standalone server or Next.js handler lifetime and
-changes when that instance is replaced. Clients can retain the health response
-and reuse its capability declarations instead of making separate search and
-control capability requests. Run-specific readiness and receipts still require
-`/api/coding/control` status requests.
+Clients can retain the health response and reuse its capability declarations
+instead of making separate search and control capability requests. Run-specific
+readiness and receipts still require `/api/coding/control` status requests.
 
 `codingControl` checks the same durable control journal used by coding runs and
 `/api/coding/control`. Journal initialization is shared and runs once, including

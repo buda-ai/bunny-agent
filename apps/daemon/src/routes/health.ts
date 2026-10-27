@@ -5,12 +5,10 @@ import { ok } from "../utils.js";
 
 export async function healthHandler(
   state: AppState,
-  instanceId: string,
   controlRegistry?: LiveRunRegistry,
 ) {
   return ok({
     status: "ok",
-    instanceId,
     root: state.root,
     volumesRoot: state.volumesRoot,
     capabilities: {
