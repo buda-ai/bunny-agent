@@ -77,8 +77,8 @@ describe("resolveDynamicModelProfile", () => {
 
   it("retains the generic profile for unknown aliases", () => {
     expect(resolveDynamicModelProfile("custom-model")).toEqual({
-      contextWindow: 128_000,
-      maxTokens: 16_384,
+      contextWindow: 200_000,
+      maxTokens: 64_000,
       reasoning: false,
       thinkingLevelMap: { off: null, xhigh: "xhigh" },
     });
