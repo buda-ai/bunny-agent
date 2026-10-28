@@ -16,11 +16,17 @@ support for these limits.
 
 ## Validation
 
-- Scoped typecheck was attempted but is blocked by unresolved local dependencies,
-  including Pi packages and workspace package declarations.
-- Existing runner-package tests were attempted: 78 tests passed, while nine
-  suites could not load because local dependencies/build outputs are missing.
-- No live gateway or deployment validation was performed.
+- Installed the runner and its workspace dependencies with the frozen lockfile;
+  built the manager and apply-patch packages.
+- Scoped runner-pi typecheck, build, and Biome check passed.
+- All 184 tests across 15 runner-pi test files passed, including the real MCP
+  adapter integration test.
+- Ran the built runner with the real installed Pi runtime and a local HTTP
+  response fixture. An unknown model registered with contextWindow=200000 and
+  maxTokens=64000, sent a Chat Completions request with a 64000-token output
+  limit, and streamed the fixture reply successfully.
+- Partially verified: no production gateway, long-context model quality, or
+  deployment validation was performed.
 
 ## Scope
 
