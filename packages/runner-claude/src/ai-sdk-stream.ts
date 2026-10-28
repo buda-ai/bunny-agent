@@ -568,6 +568,14 @@ export class AISDKStreamConverter {
         if (message.type === "stream_event") {
           const streamEvent = message as SDKPartialAssistantMessage;
           const event = streamEvent.event;
+          const parentToolCallId = (
+            message as unknown as { parent_tool_use_id?: string | null }
+          ).parent_tool_use_id;
+          if (!parentToolCallId && event.type === "message_start") {
+            yield this.emit({ type: "start-step", id: event.message.id });
+          } else if (!parentToolCallId && event.type === "message_stop") {
+            yield this.emit({ type: "finish-step" });
+          }
           // Only emit start on first message_start (avoid duplicates in multi-turn)
           if (event.type === "message_start" && !this.hasEmittedStart) {
             this.hasEmittedStart = true;
@@ -626,6 +634,9 @@ export class AISDKStreamConverter {
               input: tool.input,
               dynamic: true,
               providerExecuted: true,
+              parentToolCallId: (
+                message as unknown as { parent_tool_use_id?: string | null }
+              ).parent_tool_use_id,
             });
           }
         }
@@ -642,6 +653,9 @@ export class AISDKStreamConverter {
                 output: message.tool_use_result || part.content,
                 dynamic: true,
                 providerExecuted: true,
+                parentToolCallId: (
+                  message as unknown as { parent_tool_use_id?: string | null }
+                ).parent_tool_use_id,
               });
             }
           }

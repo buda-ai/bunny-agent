@@ -6,6 +6,7 @@ import {
   type BunnyAgentAcpOptions,
   createBunnyAgentAcpApp,
 } from "./acp-agent.js";
+import { AcpInteractionRegistry } from "./interaction-registry.js";
 
 export interface AcpHttpServerOptions extends BunnyAgentAcpOptions {
   mountPath?: string;
@@ -23,8 +24,11 @@ export interface AcpCodingRunServer extends CodingRunServer {
 export function createAcpHttpServer(
   options: AcpHttpServerOptions = {},
 ): AcpCodingRunServer {
+  const interactionRegistry =
+    options.interactionRegistry ?? new AcpInteractionRegistry();
   const server = new AcpServer({
-    createAgent: () => createBunnyAgentAcpApp(options),
+    createAgent: () =>
+      createBunnyAgentAcpApp({ ...options, interactionRegistry }),
   });
   const nodeHandler = createNodeHttpHandler(server);
 

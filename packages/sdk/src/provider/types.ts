@@ -2,6 +2,7 @@ import type { LanguageModelV3StreamPart } from "@ai-sdk/provider";
 import type {
   BunnyAgentOptions,
   McpConfig,
+  RunControl,
   SandboxAdapter,
   ToolRef,
 } from "@bunny-agent/manager";
@@ -14,6 +15,7 @@ export type {
   McpServerOptions,
   McpSettings,
   McpStdioServerConfig,
+  RunControl,
   ToolRuntime,
 } from "@bunny-agent/manager";
 
@@ -117,8 +119,8 @@ export type BunnyAgentRunnerType =
 /**
  * AI Provider specific settings that extend BunnyAgentOptions.
  * Requires a `sandbox`. Optional `daemonUrl` streams via bunny-agent-daemon HTTP
- * (`POST /api/coding/run`) inside the sandbox. The SDK does **not** probe `/healthz`
- * on each request — call `isBunnyAgentDaemonHealthy` (re-exported from
+ * (`POST /api/coding/run`) inside the sandbox. Unless search contract `"auto"`
+ * is selected, the SDK does not probe `/healthz` — call `isBunnyAgentDaemonHealthy` (re-exported from
  * `@bunny-agent/sdk`) when you want to check readiness and omit `daemonUrl` to fall
  * back to the CLI runner, or set `daemonUrl` and handle HTTP errors yourself.
  */
@@ -129,7 +131,8 @@ export interface BunnyAgentProviderSettings
   /**
    * bunny-agent-daemon base URL **inside** the sandbox (e.g. BunnyAgent image:
    * `http://127.0.0.1:3080`). When set, the SDK uses HTTP streaming only (no
-   * automatic health probe or CLI fallback).
+   * automatic health probe or CLI fallback, except read-only capability discovery
+   * when `searchContractVersion: "auto"` is selected).
    */
   daemonUrl?: string;
   /**
@@ -186,6 +189,26 @@ export interface BunnyAgentProviderSettings
   /** Reasoning effort / thinking level (e.g. "low", "medium", "high"). */
   effort?: string;
   /**
+   * Explicit opt-in to the versioned web search / answer citation contract
+   * (see `@bunny-agent/manager/contracts`, re-exported browser-safe as
+   * `@bunny-agent/sdk/contracts`). Absent means legacy text-only search
+   * behavior, unchanged; `1` requests the structured retrieval envelope and
+   * Responses-shaped answer annotations. V1 requires a stable AI SDK 6 peer
+   * at >=6.0.264 <7.0.0 to preserve tool-result metadata; older peers are
+   * rejected before execution. Request-scoped, never a
+   * process-global switch. The SDK rejects the call (surfaced as a stream
+   * error / rejected `generateText`/`streamText` result) if the runner/daemon
+   * never acknowledges support for the requested version rather than
+   * silently falling back to legacy behavior or retrying automatically.
+   * `"auto"` discovers a Pi daemon's capabilities before coding execution and
+   * selects v1 only when advertised. An older healthy daemon without that
+   * advertisement uses legacy behavior. Other runners and CLI-only transports
+   * stay legacy in auto mode. Discovery failures reject instead of executing or
+   * downgrading. Successful discovery is cached per handle/sandbox ID/URL for
+   * 30 seconds; an in-place daemon restart can take that long to be rediscovered.
+   */
+  searchContractVersion?: 1 | "auto";
+  /**
    * Optional subset of `env` whose keys are safe to expose to the pi runner's
    * bash tool. When omitted, the runner classifies `env` via a built-in
    * whitelist so business credentials never leak into the shell. Use this to
@@ -194,6 +217,20 @@ export interface BunnyAgentProviderSettings
    * Ignored by runners other than `pi`.
    */
   systemEnv?: Record<string, string>;
+  /**
+   * Opt-in live steering control channel (PUL-355). When set, the host
+   * daemon registers the active run under `control.runId` so a caller
+   * holding `control.token` can later POST `/api/coding/control` against
+   * that same daemon to steer the live session at a safe tool/turn
+   * boundary. The token is caller-generated (never issued by the daemon)
+   * and must carry at least 32 bytes of entropy before encoding.
+   *
+   * Only takes effect on the `daemonUrl` HTTP transport, and only the `pi`
+   * runner currently wires it through to a real session — other runners'
+   * capabilities probe reports `supportedPiSteer: false`. Ignored entirely
+   * on the CLI fallback transport (no daemon to host the control channel).
+   */
+  control?: RunControl;
 }
 
 /**

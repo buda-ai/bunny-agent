@@ -1,7 +1,29 @@
 # Runner Integration Maturity
 
 > Living document — update this whenever a runner gains/loses a capability,
-> an SDK is upgraded, or a new runner lands. Last updated: 2026-07-27.
+> an SDK is upgraded, or a new runner lands. Last updated: 2026-10-26.
+
+## ACP process fidelity and host interaction
+
+The ACP server preserves rich v1 tool content, resources, sources, and metadata.
+Native ACP runners round-trip their original notifications. Version 1 lifecycle
+events are sent only after extension negotiation; provider-reported model/step
+boundaries are not inferred from tool counts.
+
+| Runner | Pre-execution host authorization | Structured user question | Reported step boundary |
+| --- | --- | --- | --- |
+| Claude | `canUseTool` | `AskUserQuestion` | Assistant message start/stop |
+| Pi | `tool_call` hook (including root with explicit host gate) | `ask_user_question` | Assistant message start/end |
+| Copilot | `onPermissionRequest` | `onUserInputRequest` | `assistant.turn_start` / `assistant.turn_end` |
+| Gemini / OpenCode | Native ACP permission request | Not advertised by this bridge | Original ACP notifications; no fabricated internal steps |
+| Codex | Not exposed by the installed Codex SDK | Not advertised | SDK turn start/completion |
+
+Permission decisions and structured answers are separate protocols. Supported
+hosts may reply across daemon connections using a session-scoped, unguessable
+interaction id; cancellation and invalid/conflicting replies are explicit.
+See [server-acp](../packages/server-acp/README.md) for negotiation and build
+instructions. These protocol fixture checks do not replace live-provider
+acceptance.
 
 Architecture recap:
 
@@ -53,7 +75,7 @@ Absent `_meta`, the server falls back to its configured default runner/model
 | Runner | Underlying SDK | Version |
 |---|---|---|
 | runner-claude | `@anthropic-ai/claude-agent-sdk` (in-process) | 0.3.215 |
-| runner-pi | `@earendil-works/pi-coding-agent` / `pi-agent-core` / `pi-ai` | 0.80.10 |
+| runner-pi | `@earendil-works/pi-coding-agent` / `pi-agent-core` / `pi-ai` | 1.3.0 |
 | runner-codex | `@openai/codex-sdk` (official, in-process) | 0.144.6 |
 | runner-gemini | `@agentclientprotocol/sdk` (Gemini CLI subprocess) | 1.2.1 |
 | runner-opencode | `@agentclientprotocol/sdk` (OpenCode CLI subprocess) | 1.2.1 |
@@ -148,6 +170,54 @@ The SDK provider forwards this out of band through `onCompaction`; the web app
 uses a transient `data-compaction` part so the event is not persisted as
 assistant content.
 
+## Web search / citation contract (`searchContractVersion: 1`)
+
+Request-scoped, opt-in (never a process-global switch): omit
+`searchContractVersion` for unchanged legacy behavior. Set it to `1` to
+request the versioned retrieval/citation contract defined in
+`packages/manager/src/contracts/` (re-exported browser-safe as
+`@bunny-agent/sdk/contracts`). V1 requires stable `ai >=6.0.264 <7.0.0`
+(packaged React hooks use `@ai-sdk/react ^3.0.267`); unsupported consumer
+peers fail before execution. Legacy calls keep `ai: ^6.0.0` compatibility.
+An explicit `1` selection that the runner/daemon
+never acknowledges (older peer, or a stream that ends — including premature
+EOF — before any acknowledgement arrives) fails closed: the SDK surfaces a
+stream/generate error rather than silently falling back to legacy behavior or
+retrying automatically.
+
+See [`docs/search-citation-contract.md`](./search-citation-contract.md) for
+the full protocol: retrieval/citation JSON shapes, Unicode code-point offset
+units, source identity derivation, the explicit `\uE200cite\uE202turn0url0\uE201`
+marker bridge, native-annotation ingestion boundary, processing limits, and
+Pi session resume/compaction/fork persistence — plus a validated illustrative
+fixture at
+[`docs/fixtures/search-citation-contract-handoff.json`](./fixtures/search-citation-contract-handoff.json).
+
+| Runner | structured_retrieval | native_annotations | explicit_source_marker_annotations |
+|---|---|---|---|
+| pi | ✅ `details.web_search` structured success/failure envelope on native Brave/Tavily and recognized canonical tool-ref results | ❌ (Pi/pi-ai do not natively ingest Responses-shaped annotations) | ✅ assistant-authored `\uE200cite\uE202turn0url0\uE201` markers resolved into `[n]` + Responses-shaped `url_citation` annotations |
+| codex | ⚠️ query-only; Codex's own web-search tool is a provider-executed black box with no retrievable result payload — adapted to a truthful `source_details: "unavailable"` v1 envelope rather than inventing sources or zero-hit results | ❌ | ❌ (no bridge; Codex's SDK never surfaces assistant-visible search results to attach markers to) |
+| claude, gemini, opencode, copilot | ❌ unsupported runner for this version | ❌ | ❌ |
+
+Capabilities are never claimed speculatively: `native_annotations` is `false`
+for every runner today because the installed Pi/Codex SDK versions do not
+natively ingest or forward Responses-shaped annotations — this reflects the
+currently installed dependency versions, not a Bunny-side limitation, and is
+not expected to change without a dependency upgrade.
+
+The harness (`runner-harness/src/runner.ts`) is the sole enforcement point: it
+validates the requested version/runner pair before any runner is constructed,
+and on acceptance prepends a `message-metadata` SSE chunk carrying the
+runner's honest `SearchContractCapabilities` ahead of the runner's own stream.
+The SDK provider (`bunny-agent-language-model.ts`) requires this
+acknowledgement for any call that explicitly requested `searchContractVersion:
+1`, and treats a missing or structurally malformed acknowledgement identically
+(fail closed, no retry).
+
+Downstream UIMessage consumers must pass `{ sendSources: true }` to
+`toUIMessageStream()` to receive cited-source parts — the AI SDK does not
+forward them by default.
+
 ## Tool approval semantics
 
 Claude and Pi share a file-based approval bridge at
@@ -158,3 +228,12 @@ Claude and Pi share a file-based approval bridge at
   root, matching Claude's permission bypass behavior.
 - Claude and Pi wait until the user answers or the run aborts. The web app
   still needs a generic approval UI for tools other than `AskUserQuestion`.
+- Pi gates calls through its `tool_call` hook, so built-in, custom, tool-ref and
+  extension tools (MCP) are all covered. Calls a codemode script makes are not
+  asked again: the script was approved as one call. Pi asks for one call at a
+  time, so a batch of parallel calls is approved call by call and then runs.
+- Pi redacts the runner `env` values from every tool result through its
+  `tool_result` hook — the text the model sees, and the `details` and
+  structured content that are stored in the session file or handed to
+  codemode scripts — and blocks bash commands that dump the environment
+  before asking for approval.

@@ -1,10 +1,6 @@
+import { guardToolOutput } from "@bunny-agent/manager";
 import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
-
-type ToolResult = {
-  content: Array<{ type: "text"; text: string }>;
-  details: undefined;
-};
 
 type RuntimeResponse = { status: number; body: string };
 
@@ -70,20 +66,28 @@ function buildOne(spec: PiToolRef): ToolDefinition {
       try {
         response = await executeToolRef(spec, params, signal);
       } catch (error) {
-        const message = formatTransportError(error);
+        const { text: message } = await guardToolOutput(
+          `Tool "${spec.name}" transport error: ${formatTransportError(error)}`,
+        );
+        throw new PiToolRefError(message, { toolName: spec.name });
+      }
+      const output = await guardToolOutput(response.body);
+      if (response.status < 200 || response.status >= 300) {
         throw new PiToolRefError(
-          `Tool "${spec.name}" transport error: ${message}`,
-          { toolName: spec.name },
+          formatToolRuntimeErrorMessage({ ...response, body: output.text }),
+          {
+            toolName: spec.name,
+            status: response.status,
+            body: output.text,
+          },
         );
       }
-      if (response.status < 200 || response.status >= 300) {
-        throw new PiToolRefError(formatToolRuntimeErrorMessage(response), {
-          toolName: spec.name,
-          status: response.status,
-          body: response.body,
-        });
-      }
-      return okResult(response.body);
+      return {
+        content: [{ type: "text", text: output.text }],
+        details: output.outputGuard
+          ? { outputGuard: output.outputGuard }
+          : undefined,
+      };
     },
   };
 }
@@ -170,13 +174,6 @@ async function executeModuleTool(
   }
   const result = await fn(params, { signal });
   return { status: 200, body: serializeResult(result) };
-}
-
-function okResult(text: string): ToolResult {
-  return {
-    content: [{ type: "text", text }],
-    details: undefined,
-  };
 }
 
 function serializeResult(result: unknown): string {

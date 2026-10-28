@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import {
   existsSync,
   mkdirSync,
@@ -6,6 +7,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
+import type { ToolInteractionHandler } from "@bunny-agent/manager";
 import {
   approveAll,
   CopilotClient,
@@ -19,6 +21,7 @@ import type { BaseRunnerOptions } from "./types.js";
 export type CopilotReasoningEffort = "low" | "medium" | "high" | "xhigh";
 
 export interface CopilotRunnerOptions extends BaseRunnerOptions {
+  toolInteraction?: ToolInteractionHandler;
   yolo?: boolean;
   cwd?: string;
   env?: Record<string, string>;
@@ -219,7 +222,62 @@ export function createCopilotRunner(
             : undefined,
           onPermissionRequest: options.yolo
             ? approveAll
-            : createFilePermissionHandler(cwd),
+            : options.toolInteraction
+              ? async (request: PermissionRequest) => {
+                  const decision = await options.toolInteraction!({
+                    toolCallId: request.toolCallId ?? randomUUID(),
+                    toolName: permissionToolName(request),
+                    input: request,
+                    signal: options.abortController?.signal,
+                  });
+                  return decision.behavior === "allow"
+                    ? { kind: "approved" as const }
+                    : { kind: "reject" as const, feedback: decision.message };
+                }
+              : createFilePermissionHandler(cwd),
+          ...(options.toolInteraction
+            ? {
+                onUserInputRequest: async (request: {
+                  question: string;
+                  choices?: string[];
+                  allowFreeform?: boolean;
+                }) => {
+                  const decision = await options.toolInteraction!({
+                    toolCallId: randomUUID(),
+                    toolName: "ask_user_question",
+                    input: {
+                      questions: [
+                        {
+                          question: request.question,
+                          allowFreeform: request.allowFreeform,
+                          ...(request.choices
+                            ? {
+                                options: request.choices.map((label) => ({
+                                  label,
+                                })),
+                              }
+                            : {}),
+                        },
+                      ],
+                    },
+                    signal: options.abortController?.signal,
+                  });
+                  if (decision.behavior === "deny")
+                    throw new Error(decision.message);
+                  const answer = (
+                    decision.updatedInput?.answers as
+                      | Record<string, unknown>
+                      | undefined
+                  )?.[request.question];
+                  if (typeof answer !== "string")
+                    throw new Error("The client did not supply an answer.");
+                  return {
+                    answer,
+                    wasFreeform: !request.choices?.includes(answer),
+                  };
+                },
+              }
+            : {}),
         };
         session = options.resume
           ? await client.resumeSession(options.resume, sessionConfig)
@@ -260,6 +318,14 @@ export function createCopilotRunner(
 
         try {
           for await (const event of events) {
+            if (!event.agentId && event.type === "assistant.turn_start") {
+              yield sseData({ type: "start-step", id: event.data.turnId });
+              continue;
+            }
+            if (!event.agentId && event.type === "assistant.turn_end") {
+              yield sseData({ type: "finish-step" });
+              continue;
+            }
             if (event.type === "assistant.message_delta") {
               const { messageId, deltaContent } = event.data;
               if (!openText.has(messageId)) {

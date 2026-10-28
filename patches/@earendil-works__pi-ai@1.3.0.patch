@@ -1,0 +1,72 @@
+diff --git a/dist/api/transform-messages.js b/dist/api/transform-messages.js
+index 6a364cb..db60f71 100644
+--- a/dist/api/transform-messages.js
++++ b/dist/api/transform-messages.js
+@@ -1,6 +1,41 @@
+ const NON_VISION_USER_IMAGE_PLACEHOLDER = "(image omitted: model does not support images)";
+ const NON_VISION_TOOL_IMAGE_PLACEHOLDER = "(tool image omitted: model does not support images)";
+ const ERROR_TOOL_IMAGE_PLACEHOLDER = "(image attached after the tool results)";
++const LLM_THOUGHT_SIGNATURE_SEPARATOR = "__thought__";
++const OPENAI_TOOL_CALL_ID_LIMIT = 40;
++function stripLLMThoughtSignatureFromId(id) {
++    const separatorIndex = id.indexOf(LLM_THOUGHT_SIGNATURE_SEPARATOR);
++    return separatorIndex === -1 ? id : id.slice(0, separatorIndex);
++}
++function stripLLMThoughtSignaturesFromMessage(message, model, normalizeToolCallId, toolCallIdMap) {
++    const isSameModel = message.provider === model.provider &&
++        message.api === model.api &&
++        message.model === model.id;
++    let changed = false;
++    const content = message.content.map((block) => {
++        if (block.type !== "toolCall")
++            return block;
++        const shouldStrip = !isSameModel ||
++            (block.id.length === OPENAI_TOOL_CALL_ID_LIMIT &&
++                block.id.includes(LLM_THOUGHT_SIGNATURE_SEPARATOR));
++        if (!shouldStrip)
++            return block;
++        const unsignedId = stripLLMThoughtSignatureFromId(block.id);
++        const normalizedId = !isSameModel && normalizeToolCallId
++            ? normalizeToolCallId(unsignedId, model, message)
++            : unsignedId;
++        if (normalizedId === block.id && !block.thoughtSignature)
++            return block;
++        const normalizedToolCall = { ...block, id: normalizedId };
++        delete normalizedToolCall.thoughtSignature;
++        if (normalizedId !== block.id) {
++            toolCallIdMap.set(block.id, normalizedId);
++        }
++        changed = true;
++        return normalizedToolCall;
++    });
++    return changed ? { ...message, content } : message;
++}
+ /**
+  * Split the images out of an error tool result, for APIs that reject images in error results
+  * (Anthropic, and Claude on Bedrock). Send the returned content as the tool result and the caption and
+@@ -83,7 +118,12 @@ export function transformMessages(messages, model, normalizeToolCallId) {
+         }
+         // Assistant messages need transformation check
+         if (msg.role === "assistant") {
+-            const assistantMsg = msg;
++            const assistantMsg = stripLLMThoughtSignaturesFromMessage(
++                msg,
++                model,
++                normalizeToolCallId,
++                toolCallIdMap,
++            );
+             const isSameModel = assistantMsg.provider === model.provider &&
+                 assistantMsg.api === model.api &&
+                 assistantMsg.model === model.id;
+diff --git a/dist/utils/overflow.js b/dist/utils/overflow.js
+index 2878759..2dcfe41 100644
+--- a/dist/utils/overflow.js
++++ b/dist/utils/overflow.js
+@@ -55,6 +55,7 @@ const OVERFLOW_PATTERNS = [
+     /model_context_window_exceeded/i, // z.ai non-standard finish_reason surfaced as error text
+     /prompt too long; exceeded (?:max )?context length/i, // Ollama explicit overflow error
+     /range of input length should be/i, // DashScope / Qwen Token Plan
++    /context ?window ?exceeded/i, // OpenAI-compatible gateways ("Context Window exceeded for given call")
+     /context[_ ]length[_ ]exceeded/i, // Generic fallback
+     /too many tokens/i, // Generic fallback
+     /token limit exceeded/i, // Generic fallback

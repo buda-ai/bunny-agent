@@ -85,6 +85,7 @@ interface ParsedRunArgs {
   skillPaths?: string[];
   yolo?: boolean;
   effort?: string;
+  searchContractVersion?: number;
   userInput: string;
 }
 
@@ -111,6 +112,7 @@ function parseRunArgs(): ParsedRunArgs {
       "fork-from": { type: "string" },
       yolo: { type: "boolean" },
       effort: { type: "string" },
+      "search-contract-version": { type: "string" },
       help: { type: "boolean", short: "h" },
     },
     allowPositionals: true,
@@ -160,6 +162,9 @@ function parseRunArgs(): ParsedRunArgs {
     forkFrom: values["fork-from"],
     yolo: values["yolo"],
     effort: values["effort"],
+    searchContractVersion: values["search-contract-version"]
+      ? Number.parseInt(values["search-contract-version"], 10)
+      : undefined,
     userInput,
   };
 }
@@ -286,6 +291,10 @@ Options:
   -a, --allowed-tools <tools>  Comma-separated allowed tools
       --yolo                   Automatically approve tool permission requests
       --effort <level>         Reasoning effort (runner-dependent)
+      --search-contract-version <n>
+                               Explicit opt-in to the versioned web search /
+                               answer citation contract (currently only "1",
+                               supported by the pi and codex runners)
       --skill-path <path>      Additional skill path (can be repeated, for pi runner)
       --resume <session-id>    Resume a previous session
       --fork-from <session-id> Snapshot-clone the given source session into a
@@ -416,6 +425,7 @@ async function main(): Promise<void> {
         forkFrom: args.forkFrom,
         yolo: args.yolo,
         effort: args.effort,
+        searchContractVersion: args.searchContractVersion,
         ...(toolRefs ? { toolRefs: toolRefs.tools } : {}),
         ...(mcpConfig ? { mcpConfig: mcpConfig.config } : {}),
       });

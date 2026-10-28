@@ -1,4 +1,6 @@
 // Minimal ToolDefinition compatible with @mariozechner/pi-coding-agent extension API
+import type { WebSearchCallRecord } from "@bunny-agent/manager/contracts";
+
 export interface ToolDefinition {
   name: string;
   label: string;
@@ -26,4 +28,15 @@ export interface SearchResult {
   snippet: string;
   age?: string;
   content?: string;
+}
+
+/**
+ * `web_search` tool result `details` shape. `web_search` (the validated v1
+ * {@link WebSearchCallRecord}) is only present when the caller explicitly
+ * selected `searchContractVersion: 1`; legacy (version-unspecified) calls
+ * keep their current `details` shape unchanged.
+ */
+export interface WebSearchToolDetails {
+  usage?: { raw: Record<string, { requests: number; fetchedPages: number }> };
+  web_search?: WebSearchCallRecord;
 }

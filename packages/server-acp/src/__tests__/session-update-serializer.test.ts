@@ -76,12 +76,16 @@ describe("AcpSessionUpdateSerializer", () => {
         sessionUpdate: "tool_call",
         toolCallId: "t1",
         title: "read_file",
+        kind: "read",
         status: "pending",
+        _meta: { "bunny-agent/toolName": "read_file" },
       },
       {
         sessionUpdate: "tool_call_update",
         toolCallId: "t1",
         status: "in_progress",
+        kind: "read",
+        title: "read_file: a.ts",
         rawInput: { path: "a.ts" },
       },
       {
@@ -105,7 +109,9 @@ describe("AcpSessionUpdateSerializer", () => {
       sessionUpdate: "tool_call",
       toolCallId: "t9",
       title: "tool",
+      kind: "other",
       status: "pending",
+      _meta: { "bunny-agent/toolName": "tool" },
     });
   });
 

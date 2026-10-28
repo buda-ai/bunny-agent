@@ -1,11 +1,19 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+import { TOOL_OUTPUT_MAX_BYTES } from "@bunny-agent/manager";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildToolDefinitionsFromRefs, type PiToolRef } from "../tool-refs.js";
+
+vi.mock("node:os", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:os")>();
+  return { ...actual, tmpdir: vi.fn(actual.tmpdir) };
+});
+
+const systemTempDirectory = tmpdir();
 
 interface CapturedCall {
   authorization: string | undefined;
@@ -76,8 +84,13 @@ const sampleSpec: Omit<PiToolRef, "runtime"> = {
 
 describe("buildToolDefinitionsFromRefs", () => {
   let server: FakeBridgeServer;
+  let tempDirectory: string;
 
   beforeEach(async () => {
+    tempDirectory = mkdtempSync(
+      join(systemTempDirectory, "bunny-pi-tool-refs-"),
+    );
+    vi.mocked(tmpdir).mockReturnValue(tempDirectory);
     server = await startFakeBridge(({ body }) => ({
       body: { now: "2026-04-29T00:00:00.000Z", echoed: body },
     }));
@@ -86,6 +99,7 @@ describe("buildToolDefinitionsFromRefs", () => {
   afterEach(async () => {
     vi.restoreAllMocks();
     await server.close();
+    rmSync(tempDirectory, { recursive: true, force: true });
   });
 
   it("posts direct HTTP runtime inputs with configured headers", async () => {
@@ -241,5 +255,85 @@ describe("buildToolDefinitionsFromRefs", () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+
+  it.each([
+    200, 500,
+  ])("bounds oversized HTTP responses while preserving status %i semantics", async (status) => {
+    const body = JSON.stringify({
+      records: [{ report: "work log\\n".repeat(400_000) }],
+    });
+    await server.close();
+    server = await startFakeBridge(() => ({ status, body }));
+    const [tool] = buildToolDefinitionsFromRefs([
+      { ...sampleSpec, runtime: { type: "http", url: server.url } },
+    ]);
+    let text: string;
+    if (status === 200) {
+      const result = await tool.execute(
+        "large",
+        {},
+        undefined,
+        undefined,
+        undefined as never,
+      );
+      text = (result.content[0] as { text: string }).text;
+    } else {
+      const error = await tool
+        .execute("large", {}, undefined, undefined, undefined as never)
+        .catch((error) => error);
+      expect(error).toMatchObject({ name: "PiToolRefError", status });
+      text = error.message;
+      expect(error.body).toBe(text);
+    }
+    expect(Buffer.byteLength(text)).toBeLessThanOrEqual(TOOL_OUTPUT_MAX_BYTES);
+    const path = JSON.parse(text.match(/Full output saved to: (".*?")\./)![1]);
+    expect(path.startsWith(tempDirectory)).toBe(true);
+    expect(readFileSync(path, "utf8")).toBe(body);
+  });
+
+  it("guards concurrent module results and oversized thrown errors", async () => {
+    const modulePath = join(tempDirectory, "large.mjs");
+    writeFileSync(
+      modulePath,
+      'export function execute(input) { if (input.fail) throw new Error("failure".repeat(100000)); return input.id + ":" + "x".repeat(100000); }',
+    );
+    const [tool] = buildToolDefinitionsFromRefs([
+      {
+        ...sampleSpec,
+        runtime: { type: "module", module: pathToFileURL(modulePath).href },
+      },
+    ]);
+    const results = await Promise.all(
+      Array.from({ length: 5 }, (_, id) =>
+        tool.execute(
+          `batch_${id}`,
+          { id },
+          undefined,
+          undefined,
+          undefined as never,
+        ),
+      ),
+    );
+    for (const [id, result] of results.entries()) {
+      const text = (result.content[0] as { text: string }).text;
+      expect(Buffer.byteLength(text)).toBeLessThanOrEqual(
+        TOOL_OUTPUT_MAX_BYTES,
+      );
+      const details = result.details as {
+        outputGuard: { fullOutputPath: string };
+      };
+      expect(readFileSync(details.outputGuard.fullOutputPath, "utf8")).toBe(
+        `${id}:${"x".repeat(100_000)}`,
+      );
+    }
+    const error = await tool
+      .execute("fail", { fail: true }, undefined, undefined, undefined as never)
+      .catch((error) => error);
+    expect(error.name).toBe("PiToolRefError");
+    expect(Buffer.byteLength(error.message)).toBeLessThanOrEqual(
+      TOOL_OUTPUT_MAX_BYTES,
+    );
+    expect(error.message).toContain("Full output saved to:");
   });
 });

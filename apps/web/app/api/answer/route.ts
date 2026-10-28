@@ -3,6 +3,10 @@ import {
   type CreateSandboxParams,
   getOrCreateSandbox,
 } from "@/lib/example/create-sandbox";
+import {
+  resolveSandboxProvider,
+  SandboxProviderConfigError,
+} from "@/lib/example/sandbox-provider";
 
 /**
  * POST /api/answer
@@ -45,8 +49,24 @@ export async function POST(request: Request) {
     );
   }
 
+  let sandboxProvider: ReturnType<typeof resolveSandboxProvider>;
+  try {
+    sandboxProvider = resolveSandboxProvider(
+      b.SANDBOX_PROVIDER as string | undefined,
+      process.env.SANDBOX_PROVIDER,
+    );
+  } catch (error) {
+    return Response.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 400 },
+    );
+  }
+
   const sandboxParams: CreateSandboxParams = {
-    SANDBOX_PROVIDER: b.SANDBOX_PROVIDER as string | undefined,
+    SANDBOX_PROVIDER: sandboxProvider,
     E2B_API_KEY: b.E2B_API_KEY as string | undefined,
     SANDOCK_API_KEY: b.SANDOCK_API_KEY as string | undefined,
     DAYTONA_API_KEY: b.DAYTONA_API_KEY as string | undefined,
@@ -70,7 +90,9 @@ export async function POST(request: Request) {
         success: false,
         error: error instanceof Error ? error.message : "Unknown error",
       },
-      { status: 500 },
+      {
+        status: error instanceof SandboxProviderConfigError ? 400 : 500,
+      },
     );
   }
 }

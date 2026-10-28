@@ -29,6 +29,21 @@ pnpm dev
 
 Open http://localhost:3000
 
+### Demo Execution Mode
+
+The example chat uses E2B by default. When the web service is already deployed
+inside a trusted sandbox, run the agent directly in that environment:
+
+```bash
+SANDBOX_PROVIDER=local pnpm dev
+```
+
+Local mode does not require an E2B, Sandock, or Daytona key. It executes agent
+commands with the web service process permissions, so do not enable it on an
+untrusted or shared host. A runner/model credential must still be available in
+the server environment or browser settings unless the configured Bunny Agent
+daemon already supplies it.
+
 ### Build
 
 ```bash

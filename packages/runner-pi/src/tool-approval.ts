@@ -15,8 +15,14 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { approvalFileName } from "@bunny-agent/manager";
-import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
+import {
+  approvalFileName,
+  type ToolInteractionHandler,
+} from "@bunny-agent/manager";
+import type {
+  InlineExtension,
+  ToolDefinition,
+} from "@earendil-works/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
 
 export const ASK_USER_QUESTION_TOOL_NAME = "ask_user_question";
@@ -58,6 +64,7 @@ export interface WaitForApprovalOptions {
    * this low-level bridge; AskUserQuestion supplies its production default.
    */
   timeoutMs?: number;
+  toolInteraction?: ToolInteractionHandler;
 }
 
 function approvalFilePath(cwd: string, toolCallId: string): string {
@@ -76,6 +83,26 @@ function approvalFilePath(cwd: string, toolCallId: string): string {
 export async function waitForApproval(
   options: WaitForApprovalOptions,
 ): Promise<ApprovalDecision> {
+  if (options.toolInteraction) {
+    const decision = await options.toolInteraction({
+      toolCallId: options.toolCallId,
+      toolName: options.toolName,
+      input: options.input,
+      signal: options.signal,
+      timeoutMs: options.timeoutMs,
+    });
+    if (decision.behavior === "deny") return decision;
+    const updatedInput = decision.updatedInput ?? {};
+    return {
+      behavior: "allow",
+      updatedInput: {
+        questions:
+          updatedInput.questions ??
+          (options.input as Record<string, unknown>)?.questions,
+        answers: (updatedInput.answers ?? {}) as Record<string, unknown>,
+      },
+    };
+  }
   const {
     cwd,
     toolCallId,
@@ -232,6 +259,7 @@ const askUserQuestionParameters = Type.Object({
 });
 
 export interface ApprovalGateOptions {
+  toolInteraction?: ToolInteractionHandler;
   cwd: string;
   /** Fallback abort signal (session abort controller). */
   fallbackSignal?: AbortSignal;
@@ -319,6 +347,7 @@ export function buildAskUserQuestionTool(
         signal: signal ?? options.fallbackSignal,
         pollIntervalMs: options.pollIntervalMs,
         timeoutMs: options.timeoutMs ?? DEFAULT_ASK_USER_QUESTION_TIMEOUT_MS,
+        toolInteraction: options.toolInteraction,
       });
       if (decision.behavior === "deny") {
         throw new Error(decision.message);
@@ -339,67 +368,50 @@ export function buildAskUserQuestionTool(
 }
 
 /**
- * Minimal tool shape we need to wrap. Compatible with pi's ToolDefinition and
- * the AgentTool objects returned by createCodingTools.
+ * Gate every tool call on the file approval bridge through pi's `tool_call`
+ * hook, so built-in, custom, toolRef and extension (MCP) tools all go through
+ * the same check. Mirrors runner-claude's semantics: the caller only installs
+ * this when not bypassing (`yolo || isRoot`, see pi-runner).
+ *
+ * AskUserQuestion is skipped because it blocks on the bridge itself (see
+ * {@link buildAskUserQuestionTool}). Calls another tool made (codemode
+ * scripts) are skipped because the calling tool was already approved with the
+ * script that issues them.
+ *
+ * pi runs `tool_call` handlers one call at a time, so a batch of parallel tool
+ * calls asks for approval one by one and runs once all are decided.
  */
-interface WrappableTool {
-  name: string;
-  label?: string;
-  description: string;
-  parameters: unknown;
-  execute(...args: unknown[]): Promise<unknown>;
-}
-
-/**
- * Wrap a tool so its execution requires user approval via the file bridge.
- * On approval the tool runs with its ORIGINAL params (the approval file's
- * questions/answers payload is only meaningful for AskUserQuestion); on
- * denial or timeout the tool call fails with an error result.
- */
-export function wrapToolWithApproval(
-  tool: WrappableTool,
+export function createToolApprovalExtension(
   options: ApprovalGateOptions,
-): ToolDefinition {
+): InlineExtension {
   return {
-    name: tool.name,
-    label: tool.label ?? tool.name,
-    description: tool.description,
-    parameters: tool.parameters as ToolDefinition["parameters"],
-    async execute(toolCallId, params, signal, onUpdate, ctx) {
-      const decision = await waitForApproval({
-        cwd: options.cwd,
-        toolCallId,
-        toolName: tool.name,
-        input: params,
-        signal: signal ?? options.fallbackSignal,
-        pollIntervalMs: options.pollIntervalMs,
-        timeoutMs: options.timeoutMs,
+    name: "bunny-agent-tool-approval",
+    factory: (pi) => {
+      pi.on("tool_call", async (event, ctx) => {
+        if (
+          isAskUserQuestionToolName(event.toolName) ||
+          event.parentToolCallId !== undefined
+        ) {
+          return undefined;
+        }
+        const decision = await waitForApproval({
+          cwd: options.cwd,
+          toolCallId: event.toolCallId,
+          toolName: event.toolName,
+          input: event.input,
+          signal: ctx.signal ?? options.fallbackSignal,
+          pollIntervalMs: options.pollIntervalMs,
+          timeoutMs: options.timeoutMs,
+          toolInteraction: options.toolInteraction,
+        });
+        if (decision.behavior === "deny") {
+          return {
+            block: true,
+            reason: `Tool "${event.toolName}" was not approved: ${decision.message}`,
+          };
+        }
+        return undefined;
       });
-      if (decision.behavior === "deny") {
-        throw new Error(
-          `Tool "${tool.name}" was not approved: ${decision.message}`,
-        );
-      }
-      // biome-ignore lint/suspicious/noExplicitAny: delegate to the wrapped tool's execute
-      return (tool as any).execute(toolCallId, params, signal, onUpdate, ctx);
     },
   };
-}
-
-/**
- * Apply the approval gate to a set of regular tools.
- *
- * Mirrors runner-claude's semantics: when `bypass` is false EVERY tool
- * execution requires approval; when `bypass` is true the tools run unmodified.
- * The caller computes `bypass` from `yolo || isRoot` (see pi-runner), matching
- * how claude switches to `bypassPermissions`. AskUserQuestion is not handled
- * here — it is built via {@link buildAskUserQuestionTool} and is always gated.
- */
-export function gateToolsForApproval(
-  tools: ToolDefinition[],
-  bypass: boolean | undefined,
-  options: ApprovalGateOptions,
-): ToolDefinition[] {
-  if (bypass) return tools;
-  return tools.map((tool) => wrapToolWithApproval(tool, options));
 }

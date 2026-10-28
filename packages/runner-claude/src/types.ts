@@ -5,6 +5,8 @@
  * - "stream-json": Realtime streaming JSON (NDJSON)
  * - "stream": SSE-based AI SDK UI Data Stream format
  */
+import type { ToolInteractionHandler } from "@bunny-agent/manager";
+
 export type OutputFormat = "data-stream";
 
 /**
@@ -28,4 +30,6 @@ export interface BaseRunnerOptions {
    * When false (default), pauses before any tool and waits for approval file.
    */
   yolo?: boolean;
+  /** Host authorization/input bridge, used before executing a gated tool. */
+  toolInteraction?: ToolInteractionHandler;
 }

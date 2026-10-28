@@ -1,4 +1,5 @@
 import type { AgentTurnInputV1 } from "./agent-input.js";
+import type { RunControl } from "./run-control.js";
 
 /**
  * Volume info (for backends that support persistent volumes)
@@ -165,6 +166,25 @@ export interface BunnyAgentCodingRunBody {
    * Passed through to the runner; pi maps it to its native ThinkingLevel enum.
    */
   effort?: string;
+  /**
+   * Explicit opt-in to the versioned web search / answer citation contract
+   * (see `@bunny-agent/manager/contracts`). Absent means legacy text-only
+   * search behavior; `1` requests the structured retrieval envelope and
+   * Responses-shaped answer annotations. Request-scoped — never a
+   * process-global switch. Runners that do not support the requested
+   * version reject the request explicitly rather than silently falling
+   * back to legacy behavior.
+   */
+  searchContractVersion?: number;
+  /**
+   * Opt-in live steering control channel. When set, the daemon registers the
+   * active run under `control.runId` so a caller holding `control.token` can
+   * later POST `/api/coding/control` to steer the live Pi session at a safe
+   * tool/turn boundary. Currently only the `pi` runner wires this through to
+   * a real session; other runners ignore it (capabilities will report
+   * `supportedPiSteer: false` for their runs).
+   */
+  control?: RunControl;
 }
 
 /**
@@ -191,11 +211,33 @@ export interface SandboxHandle {
 
   /**
    * Execute a command in the sandbox and stream the output
+   *
+   * Stdout is the protocol channel; stderr is diagnostic only. The local,
+   * Sandock, E2B and Daytona adapters reject unconfirmed/nonzero completion
+   * with a nonretryable SandboxExecError. Never blindly replay an execution.
+   * Sandock preserves legacy single-element raw-shell commands; multiple
+   * elements are quoted argv. Use ["/bin/sh", "-c", script] for portable shell
+   * syntax. Local execution uses direct argv without an intermediate shell.
    * @param command - The command and arguments to execute
    * @param opts - Execution options
    * @returns An async iterable of stdout chunks
    */
   exec(command: string[], opts?: ExecOptions): AsyncIterable<Uint8Array>;
+
+  /**
+   * Whether `exec` can actually run an arbitrary command in this sandbox.
+   *
+   * Transport-only adapters (e.g. a relay/connector that forwards a coding run
+   * to a daemon on a user's machine) still implement `exec`, but only to keep
+   * the `SandboxHandle` interface satisfied — it may yield a diagnostic string
+   * instead of shell output. Probes that depend on real shell execution
+   * (daemon health, capability negotiation) must consult this before trusting
+   * `exec` output.
+   *
+   * Omitted means "assumed supported" to preserve every existing adapter's
+   * behavior; only adapters whose `exec` is a stub need to return `false`.
+   */
+  supportsExec?(): boolean;
 
   /**
    * Upload files to the sandbox
@@ -312,6 +354,11 @@ export interface RunnerSpec {
   yolo?: boolean;
   /** Reasoning effort / thinking level (e.g. "low", "medium", "high"). */
   effort?: string;
+  /**
+   * Explicit opt-in to the versioned web search / answer citation contract.
+   * See {@link BunnyAgentCodingRunBody.searchContractVersion}.
+   */
+  searchContractVersion?: number;
 }
 
 /**

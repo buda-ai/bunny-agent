@@ -15,6 +15,43 @@ export { isBunnyAgentDaemonHealthy } from "./daemon-health.js";
 export type { RunnerEnvParams, RunnerType } from "./env.js";
 // Env helpers
 export { buildRunnerEnv } from "./env.js";
+export type {
+  LiveRunController,
+  LiveSteerDisposition,
+  LiveSteerResult,
+  RegisterLiveRunController,
+  RunControl,
+  RunControlCapabilities,
+  RunControlMessage,
+  RunControlOperation,
+  RunControlReceipt,
+  RunControlReceiptState,
+  RunControlRequestBody,
+  RunControlStatus,
+} from "./run-control.js";
+export type { SandboxExecErrorCode } from "./sandbox-exec-error.js";
+export {
+  ExecDiagnostics,
+  SandboxExecError,
+  validateExecInput,
+} from "./sandbox-exec-error.js";
+// Shared POSIX shell quoting for adapters that must build a shell command
+// string instead of using independent argv/env channels.
+export { posixShellQuote } from "./shell-escape.js";
+export type {
+  ToolInteractionHandler,
+  ToolInteractionRequest,
+  ToolInteractionResponse,
+} from "./tool-interaction.js";
+export type {
+  GuardedToolOutput,
+  ToolOutputGuardDetails,
+} from "./tool-output.js";
+export {
+  guardToolOutput,
+  TOOL_OUTPUT_MAX_BYTES,
+  TOOL_OUTPUT_MAX_LINES,
+} from "./tool-output.js";
 // Local adapters live in their own packages, mirroring the cloud adapters:
 // @bunny-agent/sandbox-local (LocalMachine — NO isolation) and
 // @bunny-agent/sandbox-srt (SrtSandbox — OS-level isolation via

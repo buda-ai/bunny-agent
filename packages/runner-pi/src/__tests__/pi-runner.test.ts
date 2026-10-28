@@ -247,9 +247,6 @@ let nextSessionBehavior:
 const mockPiAgentState = vi.hoisted(() => ({
   baseSystemPrompt: undefined as string | undefined,
 }));
-const mockCreateCodingToolsState = vi.hoisted(() => ({
-  lastOptions: undefined as unknown,
-}));
 
 vi.mock("@earendil-works/pi-coding-agent", () => {
   const mockModelRuntime = {
@@ -277,7 +274,9 @@ vi.mock("@earendil-works/pi-coding-agent", () => {
       getPathMetadata: vi.fn().mockReturnValue(new Map()),
       extendResources: vi.fn(),
     })),
-    loadSkills: vi.fn().mockReturnValue({ skills: [], diagnostics: [] }),
+    CONFIG_DIR_NAME: ".pi",
+    getAgentDir: vi.fn().mockReturnValue("/tmp/pi-runner-mock-agent"),
+    SettingsManager: { create: vi.fn().mockReturnValue({}) },
     readTool: { name: "read" },
     bashTool: { name: "bash" },
     editTool: { name: "edit" },
@@ -305,16 +304,7 @@ vi.mock("@earendil-works/pi-coding-agent", () => {
       createdSessions.push(session);
       return { session };
     }),
-    createCodingTools: vi.fn().mockImplementation((_cwd: string, options) => {
-      mockCreateCodingToolsState.lastOptions = options;
-      return [
-        { name: "read", execute: vi.fn() },
-        { name: "bash", execute: vi.fn() },
-        { name: "edit", execute: vi.fn() },
-        { name: "write", execute: vi.fn() },
-      ];
-    }),
-    createBashTool: vi.fn().mockReturnValue({
+    createBashToolDefinition: vi.fn().mockReturnValue({
       name: "bash",
       label: "bash",
       description: "Execute a bash command",
@@ -325,20 +315,6 @@ vi.mock("@earendil-works/pi-coding-agent", () => {
       },
       execute: vi.fn().mockResolvedValue({
         content: [{ type: "text", text: "ok" }],
-        details: {},
-      }),
-    }),
-    createReadTool: vi.fn().mockReturnValue({
-      name: "read",
-      label: "read",
-      description: "Read a file",
-      parameters: {
-        type: "object",
-        properties: { path: { type: "string" } },
-        required: ["path"],
-      },
-      execute: vi.fn().mockResolvedValue({
-        content: [{ type: "text", text: "file content" }],
         details: {},
       }),
     }),
@@ -371,7 +347,6 @@ vi.mock("@earendil-works/pi-ai/providers/all", async (importOriginal) => {
 
 import { createPiRunner, disposePiSession } from "../pi-runner.js";
 import { extractToolResultText } from "../stream-converter.js";
-import { redactSecrets } from "../tool-overrides.js";
 
 // ── extractToolResultText unit tests ─────────────────────────────────────────
 
@@ -440,7 +415,6 @@ describe("createPiRunner", () => {
     createdSessions.length = 0;
     nextSessionBehavior = "normal";
     mockPiAgentState.baseSystemPrompt = undefined;
-    mockCreateCodingToolsState.lastOptions = undefined;
     const { createAgentSession: createSession } = await import(
       "@earendil-works/pi-coding-agent"
     );
@@ -612,9 +586,16 @@ describe("createPiRunner", () => {
     for await (const _ of runner.run("hi")) {
       break;
     }
-    // systemPrompt is now injected via BunnyAgentResourceLoader.getAppendSystemPrompt(),
-    // not via session.agent.setSystemPrompt(). Verify session was created.
-    expect(createdSessions.length).toBeGreaterThan(0);
+    // Appended after any APPEND_SYSTEM.md, like pi's --append-system-prompt.
+    const { DefaultResourceLoader } = await import(
+      "@earendil-works/pi-coding-agent"
+    );
+    const loaderOptions = vi
+      .mocked(DefaultResourceLoader)
+      .mock.calls.at(-1)?.[0];
+    expect(
+      loaderOptions?.appendSystemPromptOverride?.(["APPEND_SYSTEM.md rules"]),
+    ).toEqual(["APPEND_SYSTEM.md rules", "HOST_APP_RULES"]);
   });
 
   it("creates session without error when systemPrompt is empty", async () => {
@@ -855,6 +836,30 @@ describe("createPiRunner", () => {
     expect(spy).toHaveBeenCalled();
     const callArgs = spy.mock.calls[0]?.[0];
     expect(callArgs?.thinkingLevel).toBeUndefined();
+  });
+
+  it("uses the new model default when a resumed session switches models", async () => {
+    const { createAgentSession: mockCreateAgentSession, SessionManager } =
+      await import("@earendil-works/pi-coding-agent");
+    const spy = vi.mocked(mockCreateAgentSession);
+    spy.mockClear();
+    vi.mocked(SessionManager.open).mockReturnValueOnce({
+      buildSessionContext: () => ({
+        model: { provider: "openai", modelId: "gemini-3.1-pro" },
+      }),
+    } as unknown as ReturnType<typeof SessionManager.open>);
+
+    const runner = createPiRunner({
+      model: "openai:gemini-3.7-flash",
+      sessionId: "/tmp/pi-sessions/gemini-3.1-pro.jsonl",
+    });
+
+    for await (const _ of runner.run("continue with Gemini 3.7 Flash")) {
+      break;
+    }
+
+    expect(spy).toHaveBeenCalled();
+    expect(spy.mock.calls[0]?.[0]?.thinkingLevel).toBe("medium");
   });
 
   it("passes effort 'low' as thinkingLevel for GPT models", async () => {
@@ -1378,87 +1383,4 @@ it("emits tool-output-error when a tool execution fails", async () => {
       c.includes('"type":"tool-output-available"') && c.includes("tool_fail"),
   );
   expect(okChunk).toBeUndefined();
-});
-
-// ── redactSecrets unit tests ─────────────────────────────────────────────────
-
-describe("redactSecrets", () => {
-  const secrets: Record<string, string> = {
-    OPENAI_API_KEY: "sk-test-1234567890abcdef",
-    ANTHROPIC_BASE_URL: "http://litellm.litellm:4",
-    AGENT_KEY: "agk_598abe628c625975844596da75a2ec96",
-    SHORT_VAL: "abc",
-    _: "/usr/local/bin/node",
-  };
-
-  it("returns text unchanged when secrets is empty", () => {
-    expect(redactSecrets("hello world", {})).toBe("hello world");
-  });
-
-  it("removes secret values from KEY=VALUE lines (env/printenv style)", () => {
-    const input = [
-      "HOME=/root",
-      "OPENAI_API_KEY=sk-test-1234567890abcdef",
-      "PATH=/usr/bin",
-    ].join("\n");
-    const result = redactSecrets(input, secrets);
-    expect(result).toContain("HOME=/root");
-    expect(result).toContain("PATH=/usr/bin");
-    expect(result).not.toContain("sk-test-1234567890abcdef");
-  });
-
-  it("removes secret values from KEY: 'VALUE' entries (JS object style)", () => {
-    const input = `{
-  OPENAI_API_KEY: 'sk-test-1234567890abcdef',
-  HOME: '/root',
-  AGENT_KEY: 'agk_598abe628c625975844596da75a2ec96',
-}`;
-    const result = redactSecrets(input, secrets);
-    expect(result).toContain("HOME");
-    expect(result).not.toContain("sk-test-1234567890abcdef");
-    expect(result).not.toContain("agk_598abe628c625975844596da75a2ec96");
-  });
-
-  it('removes secret values from "KEY": "VALUE" entries (JSON style)', () => {
-    const input = `{
-  "OPENAI_API_KEY": "sk-test-1234567890abcdef",
-  "HOME": "/root",
-  "ANTHROPIC_BASE_URL": "http://litellm.litellm:4"
-}`;
-    const result = redactSecrets(input, secrets);
-    expect(result).toContain("HOME");
-    expect(result).not.toContain("sk-test-1234567890abcdef");
-    expect(result).not.toContain("http://litellm.litellm:4");
-  });
-
-  it("handles single-line JS object output", () => {
-    const input =
-      "{OPENAI_API_KEY: 'sk-test-1234567890abcdef', HOME: '/root', AGENT_KEY: 'agk_598abe628c625975844596da75a2ec96'}";
-    const result = redactSecrets(input, secrets);
-    expect(result).toContain("HOME");
-    expect(result).not.toContain("sk-test-1234567890abcdef");
-    expect(result).not.toContain("agk_598abe628c625975844596da75a2ec96");
-  });
-
-  it("does not remove underscores from other keys when _ is a secret key", () => {
-    const input = "OPENAI_API_KEY: 'sk-test-1234567890abcdef', HOME: '/root'";
-    const result = redactSecrets(input, secrets);
-    // Underscores in other keys must not be stripped
-    expect(result).not.toContain("OPENAIAPIKEY");
-    expect(result).toContain("HOME");
-  });
-
-  it("scrubs bare secret values (>= 8 chars) appearing in free text", () => {
-    const input = "The key is sk-test-1234567890abcdef and it works.";
-    const result = redactSecrets(input, secrets);
-    expect(result).not.toContain("sk-test-1234567890abcdef");
-    expect(result).toContain("***");
-  });
-
-  it("does not scrub short secret values to avoid false positives", () => {
-    const input = "abc is a common string and abc appears twice";
-    const result = redactSecrets(input, { SHORT: "abc" });
-    // "abc" is only 3 chars, should NOT be scrubbed
-    expect(result).toContain("abc");
-  });
 });

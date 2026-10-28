@@ -36,6 +36,29 @@ function _randomUUID(): string {
 }
 
 describe("createClaudeRunner", () => {
+  it("hands the original tool input to a real pre-execution host gate", async () => {
+    const calls: unknown[] = [];
+    const callback = createCanUseToolCallback({
+      model: "test",
+      yolo: false,
+      toolInteraction: async (request) => {
+        calls.push(request);
+        return { behavior: "allow" };
+      },
+    });
+    const signal = new AbortController().signal;
+    const input = { command: "echo approved" };
+    await expect(
+      callback("Bash", input, {
+        toolUseID: "tool-1",
+        requestId: "request-1",
+        signal,
+      }),
+    ).resolves.toEqual({ behavior: "allow", updatedInput: input });
+    expect(calls).toEqual([
+      { toolCallId: "tool-1", toolName: "Bash", input, signal },
+    ]);
+  });
   const originalEnv = process.env;
 
   beforeEach(() => {

@@ -1,0 +1,146 @@
+{
+  "_meta": {
+    "purpose": "Illustrative handoff fixture for the search/citation contract (searchContractVersion: 1). NOT a captured live provider response.",
+    "status": "illustrative-only",
+    "validated_against": [
+      "@bunny-agent/manager/contracts: isValidWebSearchCallRecord, isWebSearchSource, isUrlCitationAnnotation, isCitationBinding, isValidCitationContractMetadata",
+      "@bunny-agent/manager/contracts/source-id: deriveSourceId (used to derive source_id below from url, not invented)",
+      "@bunny-agent/manager/contracts: utf16RangeToCodePointRange, codePointLength (used to confirm the A😀B [1] -> [4,7) code-point / [5,8) UTF-16 example)",
+      "@bunny-agent/sdk/contracts: isSearchContractCapabilities, projectUIMessageOutputText — verified against the public projection API and fresh-process replay tests"
+    ],
+    "ai_sdk_compatibility": "V1 requires stable ai >=6.0.264 <7.0.0; that baseline preserves resultProviderMetadata through actual streamText/toUIMessageStream/readUIMessageStream processing. Unsupported peers fail before execution. This JSON remains an illustrative fixture, separate from the controlled-provider model integration matrix and the pending fresh live Tavily acceptance run.",
+    "source_text_example": "A😀B [1]",
+    "source_text_example_note": "The leading emoji is one Unicode code point but two UTF-16 code units (a surrogate pair). The literal [1] marker is code-point range [4,7) and UTF-16 range [5,8)."
+  },
+  "message": {
+    "id": "msg_fixture_1",
+    "role": "assistant",
+    "parts": [
+      {
+        "type": "dynamic-tool",
+        "toolName": "web_search",
+        "toolCallId": "call_fixture_1",
+        "state": "output-available",
+        "input": { "query": "bunny agent citation contract example" },
+        "output": {
+          "schema_version": 1,
+          "type": "web_search_call",
+          "id": "call_fixture_1",
+          "status": "completed",
+          "action": {
+            "type": "search",
+            "query": "bunny agent citation contract example",
+            "sources": [
+              {
+                "type": "url",
+                "source_id": "src_de106e607d0e711199de3fb7eb98fe5d412ee49ac326eadd3db848ee272ad2cb",
+                "url": "https://example.com/docs",
+                "title": "Documentation"
+              }
+            ]
+          },
+          "source_details": "available",
+          "results": [
+            {
+              "source_id": "src_de106e607d0e711199de3fb7eb98fe5d412ee49ac326eadd3db848ee272ad2cb",
+              "url": "https://example.com/docs",
+              "title": "Documentation",
+              "snippet": "A readable description of the documentation page."
+            }
+          ],
+          "provider": "tavily",
+          "truncated": false
+        },
+        "resultProviderMetadata": {
+          "bunny-agent": {
+            "sessionId": "session_fixture_1",
+            "searchContract": {
+              "version": 1,
+              "structured_retrieval": true,
+              "native_annotations": false,
+              "explicit_source_marker_annotations": true
+            },
+            "usage": { "requests": 1 }
+          }
+        }
+      },
+      {
+        "type": "text",
+        "text": "A😀B [1]",
+        "state": "done",
+        "providerMetadata": {
+          "bunny-agent": {
+            "sessionId": "session_fixture_1",
+            "textPartId": "text_fixture_1",
+            "searchContract": {
+              "version": 1,
+              "structured_retrieval": true,
+              "native_annotations": false,
+              "explicit_source_marker_annotations": true
+            },
+            "citation_contract": {
+              "schema_version": 1,
+              "offset_unit": "unicode-code-points",
+              "processing": "complete",
+              "annotations": [
+                {
+                  "type": "url_citation",
+                  "start_index": 4,
+                  "end_index": 7,
+                  "url": "https://example.com/docs",
+                  "title": "Documentation"
+                }
+              ],
+              "bindings": [
+                {
+                  "annotation_index": 0,
+                  "source_id": "src_de106e607d0e711199de3fb7eb98fe5d412ee49ac326eadd3db848ee272ad2cb",
+                  "origin": "explicit_source_marker",
+                  "tool_call_ids": ["call_fixture_1"]
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "type": "source-url",
+        "sourceId": "src_de106e607d0e711199de3fb7eb98fe5d412ee49ac326eadd3db848ee272ad2cb",
+        "url": "https://example.com/docs",
+        "title": "Documentation"
+      }
+    ]
+  },
+  "expected_projection": [
+    {
+      "textPartId": "text_fixture_1",
+      "output_text": {
+        "type": "output_text",
+        "text": "A😀B [1]",
+        "annotations": [
+          {
+            "type": "url_citation",
+            "start_index": 4,
+            "end_index": 7,
+            "url": "https://example.com/docs",
+            "title": "Documentation"
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "annotation_index": 0,
+          "source_id": "src_de106e607d0e711199de3fb7eb98fe5d412ee49ac326eadd3db848ee272ad2cb",
+          "origin": "explicit_source_marker",
+          "tool_call_ids": ["call_fixture_1"]
+        }
+      ],
+      "searchContract": {
+        "version": 1,
+        "structured_retrieval": true,
+        "native_annotations": false,
+        "explicit_source_marker_annotations": true
+      }
+    }
+  ]
+}

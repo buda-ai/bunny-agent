@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { getSandboxCredentialKey } from "@/lib/example/sandbox-provider";
 import {
   MCP_CONFIG_UPDATED_EVENT,
   MCP_STORAGE_KEY,
@@ -157,10 +158,16 @@ const ENV_CONFIGS: EnvConfig[] = [
   {
     name: "Sandbox Provider",
     key: "SANDBOX_PROVIDER",
-    description: "Choose sandbox: 'e2b', 'sandock', or 'daytona'. Default: e2b",
+    description:
+      "Use the deployment default or explicitly select a cloud sandbox. Local execution can only be enabled with SANDBOX_PROVIDER=local on the server.",
     required: false,
     category: "sandbox",
-    placeholder: "e2b",
+    placeholder: "Deployment default",
+    options: [
+      { value: "e2b", label: "E2B" },
+      { value: "sandock", label: "Sandock" },
+      { value: "daytona", label: "Daytona" },
+    ],
   },
   {
     name: "Runner",
@@ -356,10 +363,13 @@ export default function SettingsPage() {
     }
   };
 
-  // Check if all required fields are filled
-  const requiredConfigs = ENV_CONFIGS.filter((c) => c.required);
-  const allRequiredSet = requiredConfigs.every((c) => !!config[c.key]);
-  const missingRequired = requiredConfigs.filter((c) => !config[c.key]);
+  const sandboxCredentialKey = getSandboxCredentialKey(config.SANDBOX_PROVIDER);
+  const requiredConfigs = ENV_CONFIGS.filter(
+    (item) => item.required || item.key === sandboxCredentialKey,
+  );
+  const requiredConfigKeys = new Set(requiredConfigs.map((item) => item.key));
+  const allRequiredSet = requiredConfigs.every((item) => !!config[item.key]);
+  const missingRequired = requiredConfigs.filter((item) => !config[item.key]);
 
   const categories = {
     runner: {
@@ -459,6 +469,7 @@ export default function SettingsPage() {
               <div className="space-y-4">
                 {categoryConfigs.map((envConfig) => {
                   const hasValue = !!config[envConfig.key];
+                  const isRequired = requiredConfigKeys.has(envConfig.key);
                   return (
                     <div
                       key={envConfig.key}
@@ -470,7 +481,7 @@ export default function SettingsPage() {
                             <span className="font-medium text-foreground">
                               {envConfig.name}
                             </span>
-                            {envConfig.required ? (
+                            {isRequired ? (
                               hasValue ? (
                                 <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-green-500/20 text-green-600 dark:text-green-400">
                                   <Check className="size-3" /> Set

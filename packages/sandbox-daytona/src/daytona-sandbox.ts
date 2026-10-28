@@ -1,9 +1,13 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type {
-  ExecOptions,
-  SandboxAdapter,
-  SandboxHandle,
+import {
+  ExecDiagnostics,
+  type ExecOptions,
+  posixShellQuote,
+  type SandboxAdapter,
+  SandboxExecError,
+  type SandboxHandle,
+  validateExecInput,
 } from "@bunny-agent/manager";
 import { Daytona, type Sandbox, type VolumeMount } from "@daytonaio/sdk";
 
@@ -517,9 +521,7 @@ class DaytonaHandle implements SandboxHandle {
     if (/^[a-zA-Z0-9._\-/=]+$/.test(arg)) {
       return arg;
     }
-    // Wrap in single quotes and escape any single quotes within
-    // Replace ' with '\'' (end quote, escaped quote, start quote)
-    return `'${arg.replace(/'/g, "'\\''")}'`;
+    return posixShellQuote(arg);
   }
 
   /**
@@ -578,24 +580,24 @@ class DaytonaHandle implements SandboxHandle {
     // Add NODE_PATH so Node can find packages installed in workspace
     // Add PATH so shell can find bunny-agent command
     const envWithNodePath: Record<string, string> = {
-      ...this.sandboxEnv,
-      ...opts?.env,
       NODE_PATH: `${this.workdir}/node_modules`,
       PATH: `${this.workdir}/node_modules/.bin:/usr/local/bin:/usr/bin:/bin`,
+      ...this.sandboxEnv,
+      ...opts?.env,
     };
 
     // Build environment exports for shell
     const envExports = Object.entries(envWithNodePath)
-      .filter(([key]) => key === "NODE_PATH" || key === "PATH")
-      .map(([k, v]) => `export ${k}='${v.replace(/'/g, "'\\''")}'`)
-      .join("; ");
+      .map(([k, v]) => `export ${k}=${posixShellQuote(v)}`)
+      .join(" && ");
 
     // Build shell-safe command string with proper escaping
     const baseCommand = this.buildShellCommand(command);
-    const shellCommand = `${envExports}; ${baseCommand}`;
+    validateExecInput(command, envWithNodePath);
+    const diagnostics = new ExecDiagnostics(envWithNodePath);
+    const shellCommand = `cd ${posixShellQuote(opts?.cwd ?? this.workdir)} && ${envExports} && ${baseCommand}`;
 
     // Debug: log environment variables being passed to sandbox
-    console.log("[Daytona] Executing command:", shellCommand);
     console.log(
       "[Daytona] Environment variables:",
       Object.keys(envWithNodePath),
@@ -604,12 +606,6 @@ class DaytonaHandle implements SandboxHandle {
       "[Daytona] ANTHROPIC_API_KEY present:",
       !!envWithNodePath.ANTHROPIC_API_KEY,
     );
-    if (envWithNodePath.ANTHROPIC_API_KEY) {
-      console.log(
-        "[Daytona] ANTHROPIC_API_KEY prefix:",
-        envWithNodePath.ANTHROPIC_API_KEY.substring(0, 10) + "...",
-      );
-    }
 
     const sessionId = `session-${Date.now()}-${Math.random().toString(36).substring(7)}`;
     console.log("[Daytona] Session ID:", sessionId);
@@ -636,8 +632,8 @@ class DaytonaHandle implements SandboxHandle {
           try {
             await sandbox.process.deleteSession(sessionId);
             console.log("[Daytona] Session deleted successfully");
-          } catch (err) {
-            console.error("[Daytona] Failed to delete session:", err);
+          } catch {
+            console.error("[Daytona] Failed to delete session");
           }
 
           if (resolveNext) {
@@ -674,7 +670,6 @@ class DaytonaHandle implements SandboxHandle {
               sessionId,
               result.cmdId,
               (chunk: string) => {
-                console.log("[Daytona] stdout:", chunk);
                 chunks.push(new TextEncoder().encode(chunk));
                 if (resolveNext) {
                   resolveNext();
@@ -682,18 +677,42 @@ class DaytonaHandle implements SandboxHandle {
                 }
               },
               (chunk: string) => {
-                console.log("[Daytona] stderr:", chunk);
+                diagnostics.append(chunk);
               },
             );
 
-            console.log("[Daytona] Command completed");
-            finished = true;
+            // getSessionCommandLogs() resolves to void — it does not report
+            // the exit code — so a nonzero exit must be fetched separately
+            // via getSessionCommand(); without this, a deterministic
+            // failure (bad command, nonzero exit) looked identical to a
+            // clean stream end.
+            const finishedCommand = await sandbox.process.getSessionCommand(
+              sessionId,
+              result.cmdId,
+            );
+            console.log(
+              "[Daytona] Command completed, exitCode:",
+              finishedCommand.exitCode,
+            );
+
+            if (finishedCommand.exitCode !== 0) {
+              error = new SandboxExecError(
+                `Command exited with code ${finishedCommand.exitCode}`,
+                {
+                  code: "nonzero_exit",
+                  exitCode: finishedCommand.exitCode,
+                  stderr: diagnostics.text(),
+                },
+              );
+            } else {
+              finished = true;
+            }
             if (resolveNext) {
               (resolveNext as () => void)();
               resolveNext = null;
             }
           } catch (err) {
-            error = err instanceof Error ? err : new Error(String(err));
+            error = diagnostics.failure(err);
             if (error.name === "AbortError") {
               console.log("[Daytona] Command execution aborted by user");
             } else {

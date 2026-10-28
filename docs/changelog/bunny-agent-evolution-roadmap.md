@@ -64,7 +64,7 @@ Bunny Agent evolves through a **skills + benchmark flywheel**:
 **Goal:** Cross-session knowledge accumulation.
 
 ### 3.1 Session search
-- [ ] pi already stores sessions in `~/.bunny/agent/sessions/`
+- [ ] pi already stores sessions in `~/.pi/agent/sessions/`
 - [ ] Add FTS5 search: `bunny search "how did I fix the webpack config"`
 - [ ] Surface relevant past sessions at start of new session
 

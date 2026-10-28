@@ -11,6 +11,7 @@
  * `@bunny-agent/runner-pi` (deliberately re-declared here so the packages
  * stay decoupled), and the execution semantics mirror pi's `tool-refs.ts`.
  */
+import { guardToolOutput } from "@bunny-agent/manager";
 import { z } from "zod";
 
 /** Where and how a tool ref executes. */
@@ -86,17 +87,21 @@ function buildOne(ref: ClaudeToolRef): ClaudeMcpToolDefinition {
         response = await executeToolRef(ref, args, undefined);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        return errorResult(`Tool "${ref.name}" transport error: ${message}`);
+        const output = await guardToolOutput(
+          `Tool "${ref.name}" transport error: ${message}`,
+        );
+        return errorResult(output.text);
       }
+      const output = await guardToolOutput(response.body);
       if (response.status < 200 || response.status >= 300) {
-        const body = response.body.trim();
+        const body = output.text.trim();
         return errorResult(
           body.length > 0
             ? body
             : `Tool execution failed with status ${response.status}`,
         );
       }
-      return { content: [{ type: "text", text: response.body }] };
+      return { content: [{ type: "text", text: output.text }] };
     },
   };
 }

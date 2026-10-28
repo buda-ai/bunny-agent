@@ -1,4 +1,7 @@
-import { createAcpProcessRunner } from "@bunny-agent/runner-acp";
+import {
+  type AcpProcessRunnerOptions,
+  createAcpProcessRunner,
+} from "@bunny-agent/runner-acp";
 
 export interface OpenCodeRunnerOptions {
   model?: string;
@@ -9,6 +12,7 @@ export interface OpenCodeRunnerOptions {
   /** Existing ACP session to load when the agent advertises load support. */
   resume?: string;
   yolo?: boolean;
+  toolInteraction?: AcpProcessRunnerOptions["toolInteraction"];
 }
 
 export interface OpenCodeRunner {
@@ -32,5 +36,6 @@ export function createOpenCodeRunner(
     systemPrompt: options.systemPrompt,
     resume: options.resume,
     yolo: options.yolo,
+    toolInteraction: options.toolInteraction,
   });
 }

@@ -216,11 +216,19 @@ Output: raw AI SDK UI NDJSON stream to stdout.
 # DNS-rebinding security check. Without this rewrite, external clients
 # (Host: container-ip:9222) are rejected even when the port is open.
 chromium --headless --no-sandbox \
+  --user-data-dir=/tmp/bunny-agent-chromium \
+  --disk-cache-dir=/tmp/bunny-agent-chromium-cache \
+  --disk-cache-size=104857600 \
+  --media-cache-size=104857600 \
   --remote-debugging-port=9223 \
   --remote-allow-origins=* &
 nginx  # proxies :9222 → :9223 with Host rewrite
 exec bunny-agent-daemon
 ```
+
+The CDP browser uses an ephemeral profile under `/tmp` so browser state does not
+accumulate in `~/.config/chromium`. Disk and media caches are each capped at
+100 MiB.
 
 ```bash
 # Run an agent — SSE stream
@@ -510,6 +518,31 @@ command result for flag combinations that cannot be represented through
 ```
 GET /healthz
 ```
+
+The existing `{ ok, data, error }` response includes readiness and capabilities
+in one request. `data.status`, `data.root`, `data.volumesRoot`, and
+`data.capabilities.searchContracts` remain unchanged. New fields are:
+
+```json
+{
+  "data": {
+    "capabilities": {
+      "codingControl": { "version": 1, "supportedPiSteer": true }
+    }
+  }
+}
+```
+
+Clients can retain the health response and reuse its capability declarations
+instead of making separate search and control capability requests. Run-specific
+readiness and receipts still require `/api/coding/control` status requests.
+
+`codingControl` checks the same durable control journal used by coding runs and
+`/api/coding/control`. Journal initialization is shared and runs once, including
+concurrent health and legacy capability requests. A journal initialization failure
+reports `supportedPiSteer: false` while health remains HTTP 200; it never starts a
+runner or calls a model. The legacy control `capabilities` operation remains
+available for older clients.
 
 ---
 

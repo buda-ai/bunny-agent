@@ -1,6 +1,10 @@
 export type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 export type { ImageToolDetails, ImageToolUsageDetails } from "./image-tools.js";
 export {
+  createPiLiveController,
+  type SteerableSession,
+} from "./live-control.js";
+export {
   createMcpExtension,
   type McpConfig,
   McpConfigValidationError,
@@ -25,12 +29,11 @@ export {
   ASK_USER_QUESTION_TIMEOUT_MESSAGE,
   ASK_USER_QUESTION_TOOL_NAME,
   buildAskUserQuestionTool,
+  createToolApprovalExtension,
   DEFAULT_ASK_USER_QUESTION_TIMEOUT_MS,
-  gateToolsForApproval,
   MAX_ASK_USER_QUESTIONS,
   type WaitForApprovalOptions,
   waitForApproval,
-  wrapToolWithApproval,
 } from "./tool-approval.js";
 export type { ToolDetailsWithUsage, ToolUsageDetails } from "./tool-details.js";
 export {

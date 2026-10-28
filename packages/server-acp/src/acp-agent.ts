@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import {
   type AgentApp,
   agent,
+  type ClientCapabilities,
   type ContentBlock,
   methods,
   PROTOCOL_VERSION,
@@ -13,7 +14,18 @@ import {
   type RunnerCoreOptions,
   type RunnerToolRef,
 } from "@bunny-agent/runner-harness";
+import {
+  BUNNY_INTERACTION_RESPOND_METHOD,
+  createAcpToolInteraction,
+  INTERACTIVE_RUNNERS,
+} from "./interaction-bridge.js";
+import {
+  AcpInteractionRegistry,
+  type InteractionReply,
+} from "./interaction-registry.js";
+import { BUNNY_ACP_EVENT_METHOD } from "./lifecycle.js";
 import { AcpSessionUpdateSerializer } from "./session-update-serializer.js";
+import { recordOf } from "./tool-display.js";
 
 /** Namespace for BunnyAgent fields inside ACP's implementation-defined `_meta`. */
 const BUNNY_META_KEY = "bunny-agent";
@@ -32,6 +44,8 @@ export interface BunnyAgentAcpOptions {
   env?: Record<string, string>;
   /** Skip tool approval checks for every session on this server. */
   yolo?: boolean;
+  /** Shared by connections served by the same daemon. */
+  interactionRegistry?: AcpInteractionRegistry;
 }
 
 interface SessionOverrides {
@@ -142,13 +156,31 @@ export function createBunnyAgentAcpApp(
   options: BunnyAgentAcpOptions = {},
 ): AgentApp {
   const sessions = new Map<string, SessionState>();
+  const interactions =
+    options.interactionRegistry ?? new AcpInteractionRegistry();
+  let capabilities: ClientCapabilities = {};
 
   return agent({ name: "bunny-agent" })
-    .onRequest(methods.agent.initialize, () => ({
-      protocolVersion: PROTOCOL_VERSION,
-      agentCapabilities: { loadSession: false, promptCapabilities: {} },
-      agentInfo: { name: "bunny-agent", version: "0.1.0" },
-    }))
+    .onRequest(methods.agent.initialize, ({ params }) => {
+      capabilities = params.clientCapabilities ?? {};
+      return {
+        protocolVersion: PROTOCOL_VERSION,
+        agentCapabilities: {
+          loadSession: false,
+          promptCapabilities: {},
+          _meta: {
+            [BUNNY_META_KEY]: {
+              eventStream: 1,
+              permissionRequests: 1,
+              elicitation: 1,
+              interactionRespond: 1,
+              interactiveRunners: INTERACTIVE_RUNNERS,
+            },
+          },
+        },
+        agentInfo: { name: "bunny-agent", version: "0.1.0" },
+      };
+    })
 
     .onRequest(methods.agent.session.new, ({ params }) => {
       const sessionId = randomUUID();
@@ -156,7 +188,18 @@ export function createBunnyAgentAcpApp(
         cwd: params.cwd ?? options.defaultCwd ?? process.cwd(),
         ...readBunnyMeta(params._meta),
       });
-      return { sessionId };
+      const runner =
+        readBunnyMeta(params._meta).runner ?? options.defaultRunner ?? "claude";
+      return {
+        sessionId,
+        _meta: {
+          [BUNNY_META_KEY]: {
+            runner,
+            permissionRequests: INTERACTIVE_RUNNERS.includes(runner) ? 1 : 0,
+            elicitation: ["claude", "pi", "copilot"].includes(runner) ? 1 : 0,
+          },
+        },
+      };
     })
 
     .onRequest(
@@ -179,7 +222,18 @@ export function createBunnyAgentAcpApp(
         const onTransportAbort = () => abort.abort();
         if (signal.aborted) abort.abort();
         else signal.addEventListener("abort", onTransportAbort, { once: true });
-        const serializer = new AcpSessionUpdateSerializer();
+        const turnId = randomUUID();
+        const serializer = new AcpSessionUpdateSerializer({
+          turnId,
+          cwd: session.cwd,
+          signal: abort.signal,
+        });
+        const runner =
+          turn.runner ?? session.runner ?? options.defaultRunner ?? "claude";
+        const extension = recordOf(
+          recordOf(capabilities._meta)?.[BUNNY_META_KEY],
+        );
+        const eventStream = extension?.eventStream === 1;
 
         try {
           let chunks: ReturnType<typeof parseRunnerStream>;
@@ -191,11 +245,7 @@ export function createBunnyAgentAcpApp(
             // as a bare JSON-RPC "Internal error".
             chunks = parseRunnerStream(
               createRunner({
-                runner:
-                  turn.runner ??
-                  session.runner ??
-                  options.defaultRunner ??
-                  "claude",
+                runner,
                 model:
                   turn.model ??
                   session.model ??
@@ -219,6 +269,17 @@ export function createBunnyAgentAcpApp(
                 askUserQuestionTimeoutMs:
                   turn.askUserQuestionTimeoutMs ??
                   session.askUserQuestionTimeoutMs,
+                ...(INTERACTIVE_RUNNERS.includes(runner)
+                  ? {
+                      toolInteraction: createAcpToolInteraction({
+                        sessionId: params.sessionId,
+                        client,
+                        registry: interactions,
+                        supportsForm: capabilities.elicitation?.form != null,
+                        cwd: session.cwd,
+                      }),
+                    }
+                  : {}),
                 abortController: abort,
                 // Caller owns session/resume; don't touch cwd/.bunny-agent.
                 autoInject: false,
@@ -231,11 +292,18 @@ export function createBunnyAgentAcpApp(
             );
           }
 
-          for await (const update of serializer.serialize(chunks)) {
-            await client.notify(methods.client.session.update, {
-              sessionId: params.sessionId,
-              update,
-            });
+          for await (const event of serializer.serializeEvents(chunks)) {
+            if (event.type === "update") {
+              await client.notify(methods.client.session.update, {
+                sessionId: params.sessionId,
+                update: event.update,
+              });
+            } else if (eventStream) {
+              await client.notify(BUNNY_ACP_EVENT_METHOD, {
+                sessionId: params.sessionId,
+                event: event.event,
+              });
+            }
           }
         } finally {
           signal.removeEventListener("abort", onTransportAbort);
@@ -244,7 +312,9 @@ export function createBunnyAgentAcpApp(
 
         const runnerMeta = {
           ...(serializer.sessionId ? { sessionId: serializer.sessionId } : {}),
-          ...(serializer.errorText ? { errorText: serializer.errorText } : {}),
+          ...(serializer.errorText && !abort.signal.aborted
+            ? { errorText: serializer.errorText }
+            : {}),
         };
         return {
           stopReason: serializer.stopReason,
@@ -253,6 +323,40 @@ export function createBunnyAgentAcpApp(
             ? { _meta: { [BUNNY_META_KEY]: runnerMeta } }
             : {}),
         };
+      },
+    )
+
+    .onRequest(
+      BUNNY_INTERACTION_RESPOND_METHOD,
+      { parse: (value: unknown) => recordOf(value) ?? {} },
+      async ({ params }) => {
+        const value = recordOf(params);
+        if (
+          typeof value?.sessionId !== "string" ||
+          typeof value.requestId !== "string" ||
+          !["accept", "decline", "cancel"].includes(String(value.action))
+        ) {
+          throw RequestError.invalidParams(
+            undefined,
+            "Invalid interaction response.",
+          );
+        }
+        try {
+          return await interactions.respond(value.sessionId, value.requestId, {
+            action: value.action as InteractionReply["action"],
+            ...(recordOf(value.content)
+              ? { content: value.content as Record<string, unknown> }
+              : {}),
+            ...(typeof value.optionId === "string"
+              ? { optionId: value.optionId }
+              : {}),
+          });
+        } catch (error) {
+          throw RequestError.invalidParams(
+            undefined,
+            error instanceof Error ? error.message : String(error),
+          );
+        }
       },
     )
 

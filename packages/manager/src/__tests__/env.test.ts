@@ -59,6 +59,42 @@ describe("buildRunnerEnv", () => {
     expect(env.TAVILY_API_KEY).toBe("tvly-tavily");
   });
 
+  it("includes search URL overrides from params", () => {
+    const env = buildRunnerEnv({
+      BRAVE_SEARCH_URL: "https://gateway.example/brave",
+      TAVILY_SEARCH_URL: "https://gateway.example/tavily",
+    });
+    expect(env.BRAVE_SEARCH_URL).toBe("https://gateway.example/brave");
+    expect(env.TAVILY_SEARCH_URL).toBe("https://gateway.example/tavily");
+  });
+
+  it("falls back to process.env for search URLs", () => {
+    process.env.BRAVE_SEARCH_URL = "https://env-brave.example/brave";
+    process.env.TAVILY_SEARCH_URL = "https://env-tavily.example/tavily";
+    const env = buildRunnerEnv({});
+    expect(env.BRAVE_SEARCH_URL).toBe("https://env-brave.example/brave");
+    expect(env.TAVILY_SEARCH_URL).toBe("https://env-tavily.example/tavily");
+  });
+
+  it("params override process.env for search URLs", () => {
+    process.env.BRAVE_SEARCH_URL = "https://env-brave.example/brave";
+    const env = buildRunnerEnv({
+      BRAVE_SEARCH_URL: "https://param-brave.example/brave",
+    });
+    expect(env.BRAVE_SEARCH_URL).toBe("https://param-brave.example/brave");
+  });
+
+  it("keeps search URLs from the inherited environment", () => {
+    const env = buildRunnerEnv({
+      inherit: {
+        BRAVE_SEARCH_URL: "https://inherited.example/brave",
+        TAVILY_SEARCH_URL: "https://inherited.example/tavily",
+      },
+    });
+    expect(env.BRAVE_SEARCH_URL).toBe("https://inherited.example/brave");
+    expect(env.TAVILY_SEARCH_URL).toBe("https://inherited.example/tavily");
+  });
+
   it("includes IMAGE_GENERATION_MODEL from params", () => {
     const env = buildRunnerEnv({
       IMAGE_GENERATION_MODEL: "openai:gpt-image-1",

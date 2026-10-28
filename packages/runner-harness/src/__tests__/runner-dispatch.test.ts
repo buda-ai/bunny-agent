@@ -93,6 +93,28 @@ describe("createRunner dispatch", () => {
     );
   });
 
+  it("keeps the host's pre-execution interaction callback on supported runner options", () => {
+    const toolInteraction = async () => ({
+      behavior: "deny" as const,
+      message: "User rejected",
+    });
+    for (const runner of ["claude", "pi"])
+      createRunner({
+        runner,
+        model: "test-model",
+        userInput: "hello",
+        cwd: "/tmp",
+        autoInject: false,
+        toolInteraction,
+      });
+    expect(createClaudeRunner.mock.calls[0][0].toolInteraction).toBe(
+      toolInteraction,
+    );
+    expect(createPiRunner.mock.calls[0][0].toolInteraction).toBe(
+      toolInteraction,
+    );
+  });
+
   it("passes structured image input to Claude and Pi without stringifying", () => {
     const input: AgentTurnInputV1 = {
       version: 1,
@@ -126,5 +148,35 @@ describe("createRunner dispatch", () => {
 
     expect(claudeRun).toHaveBeenCalledWith(input);
     expect(piRun).toHaveBeenCalledWith(input);
+  });
+
+  it("forwards liveControl to the pi runner only", () => {
+    const liveControl = vi.fn();
+
+    createRunner({
+      runner: "pi",
+      model: "gpt-5",
+      userInput: "hi",
+      cwd: "/tmp",
+      autoInject: false,
+      liveControl,
+    });
+
+    expect(createPiRunner.mock.calls[0][0].liveControl).toBe(liveControl);
+  });
+
+  it("does not forward liveControl to runners that don't support it", () => {
+    const liveControl = vi.fn();
+
+    createRunner({
+      runner: "claude",
+      model: "claude-sonnet-4-20250514",
+      userInput: "hi",
+      cwd: "/tmp",
+      autoInject: false,
+      liveControl,
+    });
+
+    expect(createClaudeRunner.mock.calls[0][0].liveControl).toBeUndefined();
   });
 });

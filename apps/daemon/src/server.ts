@@ -3,7 +3,7 @@ import * as http from "node:http";
 import { pipeline } from "node:stream/promises";
 import { URL } from "node:url";
 import { createAcpHttpServer } from "@bunny-agent/server-acp";
-import { createAiSdkCodingRunServer } from "@bunny-agent/server-ai-sdk";
+import { createAiSdkCodingServers } from "@bunny-agent/server-ai-sdk";
 import {
   type CodingRunBodyWithEnv,
   prepareCodingRunEnv,
@@ -20,17 +20,29 @@ export interface DaemonConfig {
 }
 
 export function createDaemon(config: DaemonConfig): http.Server {
-  const router = new DaemonRouter({ root: config.root });
   const env = process.env as Record<string, string>;
   const state: AppState = {
     root: config.root,
     volumesRoot: `${config.root}/volumes`,
   };
+  // `run` and `control` share one LiveRunRegistry instance so a
+  // `/api/coding/control` request always sees the exact run `/api/coding/run`
+  // just registered — see PUL-355 (docs/changelog/2026-10-16-pi-live-control-bridge.md).
+  const {
+    run: aiSdkRunServer,
+    control: aiSdkControlServer,
+    registry,
+  } = createAiSdkCodingServers({
+    prepareEnv: (body) =>
+      prepareCodingRunEnv(env, body as CodingRunBodyWithEnv),
+  });
+  const router = new DaemonRouter({
+    root: config.root,
+    controlRegistry: registry,
+  });
   const codingRunServers = [
-    createAiSdkCodingRunServer({
-      prepareEnv: (body) =>
-        prepareCodingRunEnv(env, body as CodingRunBodyWithEnv),
-    }),
+    aiSdkRunServer,
+    aiSdkControlServer,
     createAcpHttpServer({ defaultCwd: config.root, env }),
   ];
 
@@ -43,8 +55,9 @@ export function createDaemon(config: DaemonConfig): http.Server {
       );
       const pathname = url.pathname;
 
-      // AI SDK is POST-only. ACP Streamable HTTP additionally uses GET for
-      // connection/session SSE streams and DELETE to close the connection.
+      // AI SDK run + control are POST-only. ACP Streamable HTTP additionally
+      // uses GET for connection/session SSE streams and DELETE to close the
+      // connection.
       const codingRunServer = codingRunServers.find(
         (server) => server.mountPath === pathname,
       );

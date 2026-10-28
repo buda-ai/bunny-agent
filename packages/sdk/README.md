@@ -333,7 +333,7 @@ const model = bunnyAgent("claude-sonnet-4-20250514");
 
 #### Daemon HTTP transport (same provider)
 
-**With any sandbox adapter** (E2B, Sandock, `LocalMachine`, etc.): pass **`sandbox` + `daemonUrl`**. The URL is resolved **inside** the sandbox (the `vikadata/bunny-agent` image starts `bunny-agent-daemon` on port 3080). The SDK streams via `streamCodingRunFromSandbox` (`curl -N` in the sandbox, including `LocalMachine`), not `fetch` from your server. It does **not** call `/healthz` for you — use `isBunnyAgentDaemonHealthy` from `@bunny-agent/sdk` when you want a probe before setting `daemonUrl` (e.g. to fall back to the CLI runner).
+**With any sandbox adapter** (E2B, Sandock, `LocalMachine`, etc.): pass **`sandbox` + `daemonUrl`**. The URL is resolved **inside** the sandbox (the `vikadata/bunny-agent` image starts `bunny-agent-daemon` on port 3080). The SDK streams via `streamCodingRunFromSandbox` (`curl -N` in the sandbox, including `LocalMachine`), not `fetch` from your server. It does not call `/healthz` unless you select Pi search contract `"auto"`, as described below. Use `isBunnyAgentDaemonHealthy` from `@bunny-agent/sdk` for an explicit readiness probe before setting `daemonUrl` (e.g. to fall back to the CLI runner).
 
 ```typescript
 import { createBunnyAgent, DEFAULT_BUNNY_AGENT_DAEMON_URL } from "@bunny-agent/sdk";
@@ -347,6 +347,35 @@ const bunnyAgent = createBunnyAgent({
 ```
 
 Omit `daemonUrl` to use the **CLI runner** in the same sandbox. `createBunnyAgent` always requires a `sandbox` adapter.
+
+#### Structured web search and answer citations
+
+For Pi daemon execution, select `searchContractVersion: "auto"` on the provider
+or an individual model. The SDK discovers the attached runtime's capabilities
+before starting the turn:
+
+```typescript
+const bunnyAgent = createBunnyAgent({
+  sandbox: mySandboxAdapter,
+  daemonUrl: DEFAULT_BUNNY_AGENT_DAEMON_URL,
+  runnerType: "pi",
+  searchContractVersion: "auto",
+});
+```
+
+- A capable daemon uses v1 structured search and answer annotations, with a
+  required stream acknowledgement. A healthy older daemon uses legacy search.
+- Discovery sends a read-only `/healthz` GET through the same sandbox transport.
+  The turn executes once; it is never replayed to negotiate support. Failed or
+  malformed discovery rejects before execution instead of silently downgrading.
+- Healthy results are cached for 30 seconds per attached handle, sandbox ID,
+  and daemon URL. An in-place runtime restart can take that long to be discovered.
+- Omitting the option preserves legacy behavior without discovery. Explicit `1`
+  preserves strict acknowledgement requirements without discovery. CLI execution
+  and other runners remain legacy when `"auto"` is selected.
+
+See the [search citation contract](../../docs/search-citation-contract.md) for
+the capability schema, AI SDK requirements, and citation metadata fields.
 
 ### Exports
 

@@ -1,8 +1,10 @@
 import { appendFileSync, existsSync, unlinkSync } from "node:fs";
-import { join } from "node:path";
+import { isAbsolute, join, resolve } from "node:path";
 import {
   type AgentTurnInputV1,
   compileAgentTurnInput,
+  type RegisterLiveRunController,
+  type ToolInteractionHandler,
 } from "@bunny-agent/manager";
 import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
 import type { Api, ImageContent, Model } from "@earendil-works/pi-ai";
@@ -10,16 +12,24 @@ import { getBuiltinModel } from "@earendil-works/pi-ai/providers/all";
 import {
   type AgentSession,
   type AgentSessionEvent,
+  CONFIG_DIR_NAME,
   createAgentSession,
-  createCodingTools,
+  DefaultResourceLoader,
+  getAgentDir,
+  type InlineExtension,
   ModelRuntime,
   SessionManager,
+  SettingsManager,
   type ToolDefinition,
 } from "@earendil-works/pi-coding-agent";
 import { ensureApplyPatchShim } from "./apply-patch-shim.js";
 import { buildApplyPatchTool } from "./apply-patch-tool.js";
-import { BunnyAgentResourceLoader } from "./bunny-agent-resource-loader.js";
+import {
+  citationSourceGuidance,
+  createCitationSessionRegistry,
+} from "./citation-session-cache.js";
 import { buildImageEditTool, buildImageGenerateTool } from "./image-tools.js";
+import { createPiLiveController } from "./live-control.js";
 import {
   createMcpExtension,
   type McpConfig,
@@ -38,21 +48,71 @@ import {
   type ApprovalGateOptions,
   ASK_USER_QUESTION_TOOL_NAME,
   buildAskUserQuestionTool,
+  createToolApprovalExtension,
   DEFAULT_ASK_USER_QUESTION_TIMEOUT_MS,
-  gateToolsForApproval,
   LEGACY_ASK_USER_QUESTION_TOOL_NAME,
 } from "./tool-approval.js";
 import {
   buildEnvInjectedBashTool,
   buildSecretAwareTools,
+  createSecretGuardExtension,
 } from "./tool-overrides.js";
 import { buildToolDefinitionsFromRefs, type PiToolRef } from "./tool-refs.js";
 import { getUsageFromAgentEndMessages } from "./usage-metadata.js";
 
 const LOG_PREFIX = "[bunny-agent:pi]";
-const LLM_THOUGHT_SIGNATURE_SEPARATOR = "__thought__";
+
+export interface DynamicModelProfile {
+  contextWindow: number;
+  maxTokens: number;
+  reasoning: boolean;
+  thinkingLevelMap: Record<string, string | null>;
+}
+
+const DEFAULT_DYNAMIC_MODEL_PROFILE = {
+  contextWindow: 200_000,
+  maxTokens: 64_000,
+  thinkingLevelMap: { off: null, xhigh: "xhigh" },
+} as const;
+
+const DYNAMIC_MODEL_PROFILES: Record<
+  string,
+  Omit<DynamicModelProfile, "reasoning" | "thinkingLevelMap"> & {
+    reasoning?: boolean;
+    thinkingLevelMap?: Record<string, string | null>;
+  }
+> = {
+  "gemini-3.7-flash": {
+    contextWindow: 1_048_576,
+    maxTokens: 65_536,
+    reasoning: true,
+    thinkingLevelMap: {
+      off: null,
+      minimal: null,
+      xhigh: null,
+      max: null,
+    },
+  },
+  "gemini-3.8-flash": {
+    contextWindow: 1_048_576,
+    maxTokens: 65_536,
+    reasoning: true,
+    thinkingLevelMap: {
+      off: null,
+      minimal: null,
+      xhigh: null,
+      max: null,
+    },
+  },
+};
+
+interface ModelIdentity {
+  provider: string;
+  modelId: string;
+}
 
 export interface PiRunnerOptions {
+  toolInteraction?: ToolInteractionHandler;
   model?: string;
   systemPrompt?: string;
   cwd?: string;
@@ -76,7 +136,8 @@ export interface PiRunnerOptions {
    * if the value contains '/', it is treated as a session file path and opened directly.
    * When NOT set, a brand-new session is created each time so no stale context
    * is loaded from previous runs.
-   * Sessions use Bunny's patched pi config directory (~/.bunny/agent/sessions/...) so workspace is not used.
+   * Sessions live under pi's agent directory (`getAgentDir()`, default
+   * ~/.pi/agent/sessions/...; override with PI_CODING_AGENT_DIR) so the workspace is not used.
    */
   sessionId?: string;
   /**
@@ -122,10 +183,56 @@ export interface PiRunnerOptions {
    * a timeout result to the model so the conversation can continue.
    */
   askUserQuestionTimeoutMs?: number;
+  /**
+   * Explicit opt-in to the versioned web search / answer citation contract.
+   * Only version `1` is currently supported; `undefined` keeps legacy
+   * text-only `web_search` tool output.
+   */
+  searchContractVersion?: 1;
+  /**
+   * Host hook invoked once this run's `AgentSession` exists and is ready to
+   * accept mid-run input — immediately before the initial prompt stream
+   * starts, never before. The host (daemon) uses this to register a live
+   * steering handle for the run; it is not called again for this run.
+   */
+  liveControl?: RegisterLiveRunController;
 }
 
 export interface PiRunner {
   run(userInput: string | AgentTurnInputV1): AsyncIterable<string>;
+}
+
+export function resolveDynamicModelProfile(
+  modelName: string,
+  effort?: string,
+): DynamicModelProfile {
+  const profile = DYNAMIC_MODEL_PROFILES[modelName.toLowerCase()];
+  return {
+    contextWindow:
+      profile?.contextWindow ?? DEFAULT_DYNAMIC_MODEL_PROFILE.contextWindow,
+    maxTokens: profile?.maxTokens ?? DEFAULT_DYNAMIC_MODEL_PROFILE.maxTokens,
+    reasoning: profile?.reasoning ?? Boolean(effort && effort !== "off"),
+    thinkingLevelMap: {
+      ...(profile?.thinkingLevelMap ??
+        DEFAULT_DYNAMIC_MODEL_PROFILE.thinkingLevelMap),
+    },
+  };
+}
+
+export function resolveInitialThinkingLevel(
+  effort: string | undefined,
+  previousModel: ModelIdentity | null | undefined,
+  currentModel: Pick<Model<Api>, "id" | "provider">,
+): ThinkingLevel | undefined {
+  if (effort) return effort as ThinkingLevel;
+  if (
+    previousModel &&
+    (previousModel.provider !== currentModel.provider ||
+      previousModel.modelId !== currentModel.id)
+  ) {
+    return "medium";
+  }
+  return undefined;
 }
 
 export async function disposePiSession(
@@ -168,102 +275,6 @@ function normalizeAllowedTools(
       ),
     ),
   ];
-}
-
-export function shouldStripLLMThoughtSignaturesForModel(model: {
-  id?: string;
-}): boolean {
-  const id = (model.id ?? "").toLowerCase();
-  return !id.includes("gemini");
-}
-
-export function stripLLMThoughtSignatureFromId(id: string): string {
-  const separatorIndex = id.indexOf(LLM_THOUGHT_SIGNATURE_SEPARATOR);
-  if (separatorIndex === -1) return id;
-  return id.slice(0, separatorIndex);
-}
-
-export function stripLLMThoughtSignaturesFromSessionManager(
-  sessionManager: unknown,
-  model: { id?: string },
-): void {
-  if (!shouldStripLLMThoughtSignaturesForModel(model)) return;
-
-  const manager = sessionManager as {
-    getEntries?: () => unknown[];
-    buildSessionContext?: () => { messages?: unknown[] };
-  };
-  const entries = manager.getEntries?.();
-  if (Array.isArray(entries)) {
-    for (const entry of entries) {
-      if (entry == null || typeof entry !== "object") continue;
-      const message = (entry as { type?: string; message?: unknown }).message;
-      if ((entry as { type?: string }).type === "message") {
-        stripLLMThoughtSignaturesFromMessage(message);
-      }
-    }
-    return;
-  }
-
-  const context = (
-    sessionManager as {
-      buildSessionContext?: () => { messages?: unknown[] };
-    }
-  ).buildSessionContext?.();
-  const messages = context?.messages;
-  if (!Array.isArray(messages)) return;
-
-  for (const message of messages) {
-    stripLLMThoughtSignaturesFromMessage(message);
-  }
-}
-
-function stripLLMThoughtSignaturesFromMessage(message: unknown): void {
-  if (message == null || typeof message !== "object") return;
-  const msg = message as {
-    role?: string;
-    toolCallId?: string;
-    tool_call_id?: string;
-    content?: unknown;
-  };
-
-  if (typeof msg.toolCallId === "string") {
-    msg.toolCallId = stripLLMThoughtSignatureFromId(msg.toolCallId);
-  }
-  if (typeof msg.tool_call_id === "string") {
-    msg.tool_call_id = stripLLMThoughtSignatureFromId(msg.tool_call_id);
-  }
-
-  if (!Array.isArray(msg.content)) return;
-  for (const block of msg.content) {
-    if (block == null || typeof block !== "object") continue;
-    const contentBlock = block as {
-      type?: string;
-      id?: string;
-      toolCallId?: string;
-      tool_call_id?: string;
-      call_id?: string;
-    };
-    if (contentBlock.type !== "toolCall") continue;
-    if (typeof contentBlock.id === "string") {
-      contentBlock.id = stripLLMThoughtSignatureFromId(contentBlock.id);
-    }
-    if (typeof contentBlock.toolCallId === "string") {
-      contentBlock.toolCallId = stripLLMThoughtSignatureFromId(
-        contentBlock.toolCallId,
-      );
-    }
-    if (typeof contentBlock.tool_call_id === "string") {
-      contentBlock.tool_call_id = stripLLMThoughtSignatureFromId(
-        contentBlock.tool_call_id,
-      );
-    }
-    if (typeof contentBlock.call_id === "string") {
-      contentBlock.call_id = stripLLMThoughtSignatureFromId(
-        contentBlock.call_id,
-      );
-    }
-  }
 }
 
 export function parseModelSpec(model: string): {
@@ -385,10 +396,74 @@ function traceRawMessage(
   }
 }
 
+export interface PiResourceLoaderOptions {
+  cwd: string;
+  agentDir: string;
+  settingsManager?: SettingsManager;
+  /** Extra skill files or directories, loaded with the agent dir and project `.pi` skills. */
+  skillPaths?: string[];
+  /** Caller system prompt, appended after any APPEND_SYSTEM.md like pi's --append-system-prompt. */
+  systemPrompt?: string;
+  extensionFactories?: InlineExtension[];
+}
+
+/** Build pi's DefaultResourceLoader with the runner's skills, prompt and extensions. */
+export async function createPiResourceLoader(
+  options: PiResourceLoaderOptions,
+): Promise<DefaultResourceLoader> {
+  const { systemPrompt } = options;
+  // Skills come from the agent dir, the project's .pi dir and the caller's
+  // paths. pi's own discovery of ~/.agents/skills and ancestor .agents/skills
+  // stays off: it would pull a user's personal skills into local-mode agents.
+  const defaultSkillDirs = [
+    join(options.agentDir, "skills"),
+    join(options.cwd, CONFIG_DIR_NAME, "skills"),
+  ].filter((dir) => existsSync(dir));
+  const loader = new DefaultResourceLoader({
+    cwd: options.cwd,
+    agentDir: options.agentDir,
+    settingsManager: options.settingsManager,
+    noSkills: true,
+    additionalSkillPaths: [...defaultSkillDirs, ...(options.skillPaths ?? [])],
+    appendSystemPromptOverride: systemPrompt
+      ? (base) => [...base, systemPrompt]
+      : undefined,
+    extensionFactories: options.extensionFactories,
+  });
+  await loader.reload();
+  if (options.skillPaths && options.skillPaths.length > 0) {
+    logSkillLoad(options.cwd, options.skillPaths, loader.getSkills());
+  }
+  return loader;
+}
+
+function logSkillLoad(
+  cwd: string,
+  skillPaths: string[],
+  result: ReturnType<DefaultResourceLoader["getSkills"]>,
+): void {
+  const lines = [`${LOG_PREFIX} loadSkills cwd=${cwd}`];
+  for (const raw of skillPaths) {
+    const abs = isAbsolute(raw) ? raw : resolve(cwd, raw);
+    lines.push(
+      `  ${raw} -> ${abs} (exists: ${existsSync(abs) ? "yes" : "no"})`,
+    );
+  }
+  lines.push(
+    `  loaded skills (${result.skills.length}): ${result.skills.map((s) => s.name).join(", ")}`,
+  );
+  for (const d of result.diagnostics) {
+    lines.push(
+      `  [${d.type}] ${d.message}${d.path !== undefined ? ` path=${d.path}` : ""}`,
+    );
+  }
+  console.error(lines.join("\n"));
+}
+
 /**
  * Create a Pi agent runner that outputs SSE format (Data Stream Protocol).
- * Uses pi-coding-agent's AgentSession + SessionManager with Bunny's patched
- * default session dir (~/.bunny/agent/sessions/...).
+ * Uses pi-coding-agent's AgentSession + SessionManager with pi's default
+ * session dir under `getAgentDir()` (~/.pi/agent/sessions/...).
  * Resume: pass previous run's message-metadata.sessionFile as options.sessionId (--resume).
  */
 export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
@@ -416,6 +491,10 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
 
   return {
     async *run(userInput: string | AgentTurnInputV1): AsyncIterable<string> {
+      // One agent dir and settings instance for sessions, resources and the
+      // session itself (PI_CODING_AGENT_DIR overrides the ~/.pi/agent default).
+      const agentDir = getAgentDir();
+      const settingsManager = SettingsManager.create(cwd, agentDir);
       const modelRuntime = await ModelRuntime.create({
         modelsPath: null,
         allowModelNetwork: false,
@@ -424,8 +503,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
         await modelRuntime.setRuntimeApiKey(provider, inlineApiKey);
       }
       try {
-        // biome-ignore lint/suspicious/noExplicitAny: getBuiltinModel accepts provider/model string unions.
-        const defaultModel = getBuiltinModel(provider as any, modelName as any);
+        const defaultModel = getBuiltinModel(provider, modelName);
         let model = (defaultModel ??
           modelRuntime.getModel(provider, modelName)) as Model<Api>;
         if (model == null) {
@@ -440,6 +518,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
                 `Set ${baseUrlEnvKey} (or OPENAI_BASE_URL) to auto-register it.`,
             );
           }
+          const profile = resolveDynamicModelProfile(modelName, options.effort);
           // Pi resolves `apiKey` via resolveConfigValue: env var name -> process.env, else literal.
           modelRuntime.registerProvider(provider, {
             baseUrl,
@@ -449,15 +528,12 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
               {
                 id: modelName,
                 name: modelName,
-                reasoning: !!options.effort && options.effort !== "off",
-                thinkingLevelMap: { off: null, xhigh: "xhigh" } as Record<
-                  string,
-                  string | null
-                >,
+                reasoning: profile.reasoning,
+                thinkingLevelMap: profile.thinkingLevelMap,
                 input: ["text", "image"],
                 cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-                contextWindow: 200000,
-                maxTokens: 64000,
+                contextWindow: profile.contextWindow,
+                maxTokens: profile.maxTokens,
               },
             ],
           });
@@ -522,34 +598,18 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           }
           return SessionManager.create(cwd);
         })();
-        stripLLMThoughtSignaturesFromSessionManager(sessionManager, model);
-
-        // Create the loader whenever either input is present: systemPrompt is
-        // delivered via appendSystemPrompt, so it must not depend on skillPaths.
-        const resourceLoader =
-          options.skillPaths || options.systemPrompt || mcpExtension
-            ? new BunnyAgentResourceLoader({
-                cwd,
-                skillPaths: options.skillPaths,
-                appendSystemPrompt: options.systemPrompt,
-                extensionFactories: mcpExtension ? [mcpExtension] : undefined,
-              })
-            : undefined;
-
-        if (options.skillPaths && options.skillPaths.length > 0) {
-          console.error(
-            `${LOG_PREFIX} runner: cwd=${cwd} skillPaths=${JSON.stringify(options.skillPaths)}`,
-          );
-        }
-
-        // createAgentSession only calls reload() when it creates its own
-        // DefaultResourceLoader.  When we supply our own BunnyAgentResourceLoader
-        // we must reload it ourselves so that skills and extensions on disk are
-        // picked up before the session is built.
-        if (resourceLoader) {
-          await resourceLoader.reload();
-        }
-
+        const sourceRegistry = createCitationSessionRegistry(
+          sessionManager,
+          options.searchContractVersion === 1,
+        );
+        const citationGuidance = citationSourceGuidance(
+          options.searchContractVersion === 1,
+          sourceRegistry,
+        );
+        const appendSystemPrompt =
+          [options.systemPrompt, citationGuidance]
+            .filter(Boolean)
+            .join("\n\n") || undefined;
         // Make `apply_patch` resolvable as a real shell command in bash
         // children. GPT-5.x chains it after other commands
         // (`cd x && apply_patch <<'PATCH'`), which the native tool below
@@ -558,17 +618,21 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
 
         const customTools: ToolDefinition[] =
           options.env && Object.keys(options.env).length > 0
-            ? buildSecretAwareTools(cwd, options.env, {
-                systemEnv: options.systemEnv,
-                pathPrepend: applyPatchShimDir,
-              })
+            ? buildSecretAwareTools(
+                cwd,
+                options.env,
+                {
+                  systemEnv: options.systemEnv,
+                  pathPrepend: applyPatchShimDir,
+                },
+                options.searchContractVersion,
+                sourceRegistry,
+              )
             : applyPatchShimDir
               ? [
-                  buildEnvInjectedBashTool(
-                    cwd,
-                    {},
-                    { pathPrepend: applyPatchShimDir },
-                  ),
+                  buildEnvInjectedBashTool(cwd, {
+                    pathPrepend: applyPatchShimDir,
+                  }),
                 ]
               : [];
 
@@ -606,46 +670,55 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
         // AskUserQuestion is always gated.
         const isRoot =
           typeof process.getuid === "function" && process.getuid() === 0;
-        const bypassApproval = Boolean(options.yolo) || isRoot;
+        const bypassApproval =
+          Boolean(options.yolo) || (isRoot && !options.toolInteraction);
         const approvalGate: ApprovalGateOptions = {
           cwd,
           fallbackSignal: options.abortController?.signal,
+          toolInteraction: options.toolInteraction,
         };
-        let regularTools: ToolDefinition[] = [
-          ...applyAllowedTools(customTools, allowedTools),
-          ...toolRefDefinitions,
-        ];
-        if (!bypassApproval) {
-          const overriddenNames = new Set(
-            regularTools.map((tool) => tool.name),
-          );
-          const builtinTools = applyAllowedTools(
-            createCodingTools(cwd) as unknown as ToolDefinition[],
-            allowedTools,
-          ).filter((tool) => !overriddenNames.has(tool.name));
-          regularTools = [...regularTools, ...builtinTools];
-        }
-        const gatedTools = gateToolsForApproval(
-          regularTools,
-          bypassApproval,
-          approvalGate,
-        );
         const askUserQuestionEnabled =
           allowedTools === undefined ||
           allowedTools.includes(ASK_USER_QUESTION_TOOL_NAME);
 
+        const previousModel = sessionManager.buildSessionContext?.().model;
+        const thinkingLevel = resolveInitialThinkingLevel(
+          options.effort,
+          previousModel,
+          model,
+        );
+
+        // Pi hooks rather than per-tool wrappers, so extension (MCP) tools are
+        // covered too. The secret guard goes first so a blocked env dump never
+        // asks the user for approval.
+        const resourceLoader = await createPiResourceLoader({
+          cwd,
+          agentDir,
+          settingsManager,
+          skillPaths: options.skillPaths,
+          systemPrompt: appendSystemPrompt,
+          extensionFactories: [
+            createSecretGuardExtension(options.env ?? {}),
+            ...(bypassApproval
+              ? []
+              : [createToolApprovalExtension(approvalGate)]),
+            ...(mcpExtension ? [mcpExtension] : []),
+          ],
+        });
+
         const { session } = await createAgentSession({
           cwd,
+          agentDir,
           model,
           sessionManager,
+          settingsManager,
           modelRuntime,
           resourceLoader,
-          thinkingLevel: options.effort
-            ? (options.effort as ThinkingLevel)
-            : undefined,
+          thinkingLevel,
           tools: allowedTools,
           customTools: [
-            ...gatedTools,
+            ...applyAllowedTools(customTools, allowedTools),
+            ...toolRefDefinitions,
             ...(askUserQuestionEnabled
               ? [
                   buildAskUserQuestionTool({
@@ -679,6 +752,24 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           wakeConsumer?.();
           wakeConsumer = null;
         };
+
+        // Install the live-control wrapper before the first prompt so its
+        // wrapped `streamFunction` is in place for the very first provider
+        // request too. The host is only told the run is steerable once that
+        // wrapped `streamFunction` has actually been invoked for the first
+        // time — i.e. at the first real provider-call boundary — never
+        // before: `agent_start` fires too early (before any `streamFunction`
+        // call), so registering there could hand the host a controller for
+        // a run that hasn't reached a safe steering point yet.
+        let liveControlRegistered = false;
+        const registerLiveControl = options.liveControl;
+        const liveController = registerLiveControl
+          ? createPiLiveController(session, () => {
+              if (liveControlRegistered) return;
+              liveControlRegistered = true;
+              registerLiveControl(liveController!);
+            })
+          : undefined;
 
         const unsubscribe = session.subscribe((e) => {
           eventQueue.push(e);
@@ -727,6 +818,8 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           );
 
           const streamConverter = new PiAISDKStreamConverter({
+            searchContractVersion: options.searchContractVersion,
+            sourceRegistry,
             sessionId: session.sessionId,
             model,
             normalizeToolOutput: extractToolResultText,
@@ -801,6 +894,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           if (abortSignal) {
             abortSignal.removeEventListener("abort", abortHandler);
           }
+          liveController?.dispose();
           unsubscribe();
           await disposePiSession(session);
         }
