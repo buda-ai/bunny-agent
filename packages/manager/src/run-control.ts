@@ -75,10 +75,14 @@ export interface RunControlCapabilities {
   version: 1;
   /** True when this daemon build understands the live Pi steering control channel. */
   supportedPiSteer: boolean;
+  /** Supports interrupting the current provider generation within the same run. */
+  supportedPiSteerPreempt?: boolean;
 }
 
 export interface RunControlStatus {
   active: boolean;
+  /** True only for a ready controller with generation preemption installed. */
+  supportedPiSteerPreempt?: boolean;
   /** Monotonically increasing counter bumped every time the live handle changes (register/unregister/restart). */
   epoch: number;
   receipts: RunControlReceipt[];
@@ -116,9 +120,13 @@ export interface LiveSteerResult {
  * needing to know runner-specific event shapes.
  */
 export interface LiveRunController {
+  /** True only when generation preemption is installed on this live session. */
+  readonly supportedPiSteerPreempt?: boolean;
   /**
-   * Attempt to steer the live run with `message` at the next safe
-   * tool/turn boundary. Must not await native consumption — return as soon
+   * Queue `message` for the next safe tool/turn boundary. Controllers which
+   * advertise generation preemption also interrupt the active provider
+   * generation so the native loop reaches that boundary promptly. Running
+   * tools retain their own lifecycle. Must not await native consumption — return as soon
    * as the message has been durably handed to the runner's native queue (or
    * synchronously handled/rejected).
    */

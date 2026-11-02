@@ -76,7 +76,11 @@ describe("handleControlRequest", () => {
       operation: "capabilities",
     });
     expect(result.status).toBe(200);
-    expect(result.body).toEqual({ version: 1, supportedPiSteer: true });
+    expect(result.body).toEqual({
+      version: 1,
+      supportedPiSteer: true,
+      supportedPiSteerPreempt: true,
+    });
   });
 
   it("generic capabilities probe reports supportedPiSteer:false when durability is unavailable", async () => {
@@ -86,7 +90,11 @@ describe("handleControlRequest", () => {
       operation: "capabilities",
     });
     expect(result.status).toBe(200);
-    expect(result.body).toEqual({ version: 1, supportedPiSteer: false });
+    expect(result.body).toEqual({
+      version: 1,
+      supportedPiSteer: false,
+      supportedPiSteerPreempt: false,
+    });
   });
 
   it("status on an unknown run maps ControlError('not_found') to 404", async () => {
@@ -162,6 +170,34 @@ describe("handleControlRequest", () => {
       runner: "pi",
       model: "gpt-5",
     });
+  });
+
+  it("advertises preemption only for a ready controller which implements it", async () => {
+    const registry = new LiveRunRegistry({ stateDir });
+    await registry.registerRun("run-preempt", TOK, true);
+    expect(
+      (await registry.getStatus("run-preempt", TOK)).supportedPiSteerPreempt,
+    ).toBe(false);
+    const controller = {
+      steer: async () => ({ disposition: "queued" as const }),
+      onConsumed: () => {},
+      dispose: () => {},
+    };
+    registry.markReady("run-preempt", controller);
+    expect(
+      (await registry.getStatus("run-preempt", TOK)).supportedPiSteerPreempt,
+    ).toBe(false);
+    registry.markReady("run-preempt", {
+      ...controller,
+      supportedPiSteerPreempt: true,
+    });
+    expect(
+      (await registry.getStatus("run-preempt", TOK)).supportedPiSteerPreempt,
+    ).toBe(true);
+    await registry.unregisterRun("run-preempt");
+    expect(
+      (await registry.getStatus("run-preempt", TOK)).supportedPiSteerPreempt,
+    ).toBe(false);
   });
 
   it("registering a controlled run against a journal-less registry fails closed (409 unsupported), not a 200 start", async () => {

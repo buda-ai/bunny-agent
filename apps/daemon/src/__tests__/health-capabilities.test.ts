@@ -116,10 +116,15 @@ for (const kind of ["standalone", "nextjs"] as const) {
           expect(payload.data.capabilities.codingControl).toEqual({
             version: 1,
             supportedPiSteer: false,
+            supportedPiSteerPreempt: false,
           });
           expect(payload.data.capabilities.searchContracts.pi.version).toBe(1);
         } else {
-          expect(payload).toEqual({ version: 1, supportedPiSteer: false });
+          expect(payload).toEqual({
+            version: 1,
+            supportedPiSteer: false,
+            supportedPiSteerPreempt: false,
+          });
         }
       }
       expect(errors).toHaveBeenCalledTimes(1);
