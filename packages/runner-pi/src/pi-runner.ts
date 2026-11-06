@@ -18,7 +18,6 @@ import {
   getAgentDir,
   type InlineExtension,
   ModelRuntime,
-  SessionManager,
   SettingsManager,
   type ToolDefinition,
 } from "@earendil-works/pi-coding-agent";
@@ -36,10 +35,12 @@ import {
   shouldEnableMcp,
 } from "./mcp-config.js";
 import {
-  extractSessionContext,
-  isSessionFileTooLarge,
-  resolveSessionPathById,
-} from "./session-utils.js";
+  createMediaSession,
+  forkMediaSession,
+  openMediaSession,
+} from "./media-session-manager.js";
+import { sessionMediaCodec } from "./session-media.js";
+import { prepareSessionFile, resolveSessionPathById } from "./session-utils.js";
 import {
   extractToolResultText,
   PiAISDKStreamConverter,
@@ -142,7 +143,7 @@ export interface PiRunnerOptions {
   sessionId?: string;
   /**
    * Source session ID to fork from. When set, the runner locates the source
-   * session file, snapshot-clones it via SessionManager.forkFrom into a brand
+   * session file, snapshot-clones it with media-aware persistence into a brand
    * new session (with a fresh id and header pointing at the source as
    * parentSession), and runs the current turn on top of that copied history.
    *
@@ -385,7 +386,22 @@ function traceRawMessage(
     let payload: unknown = data;
     try {
       payload =
-        data !== undefined ? JSON.parse(JSON.stringify(data)) : undefined;
+        data !== undefined
+          ? JSON.parse(
+              JSON.stringify(data, (_key, value) => {
+                if (
+                  value &&
+                  typeof value === "object" &&
+                  value.type === "image" &&
+                  typeof value.data === "string"
+                ) {
+                  const { data: imageData, ...metadata } = value;
+                  return { ...metadata, omittedImageBytes: imageData.length };
+                }
+                return value;
+              }),
+            )
+          : undefined;
     } catch {
       payload = "[non-serializable]";
     }
@@ -550,7 +566,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
         const forkFrom = options.forkFrom?.trim();
         const resume = options.sessionId?.trim();
         const sessionManager = await (async (): Promise<
-          ReturnType<typeof SessionManager.create>
+          ReturnType<typeof createMediaSession>
         > => {
           // forkFrom wins over sessionId: snapshot-clone the source session
           // into a fresh session file (new id, header.parentSession = source)
@@ -566,10 +582,8 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
                 `Pi runner: forkFrom source session not found: ${forkFrom}`,
               );
             }
-            // SessionManager.forkFrom copies every non-header entry verbatim
-            // into a new file; the OOM guard used on resume does not apply
-            // because forkFrom is intended to preserve the full history.
-            return SessionManager.forkFrom(sourcePath, cwd);
+            prepareSessionFile(sourcePath, sessionMediaCodec.encode);
+            return forkMediaSession(sourcePath, cwd);
           }
           if (resume) {
             const sessionPath = resolveSessionPathById(cwd, resume);
@@ -577,26 +591,20 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
               `${LOG_PREFIX} resume: id=${resume} path=${sessionPath ?? "(not found)"}`,
             );
             if (sessionPath) {
-              // Skip loading oversized session files to avoid OOM.
-              // Extract the last compaction summary so the new session
-              // retains context from the previous conversation.
-              if (isSessionFileTooLarge(sessionPath)) {
-                const context = extractSessionContext(sessionPath);
+              const preparation = prepareSessionFile(
+                sessionPath,
+                sessionMediaCodec.encode,
+              );
+              if (preparation.migrated) {
                 console.error(
-                  `${LOG_PREFIX} session file too large, starting fresh${context ? " (with context)" : ""}`,
+                  `${LOG_PREFIX} externalized session images: ${preparation.originalBytes} -> ${preparation.metadataBytes} JSONL bytes; original session preserved`,
                 );
-                const newMgr = SessionManager.create(cwd);
-                if (context) {
-                  const firstId = newMgr.getEntries()[0]?.id ?? "";
-                  newMgr.appendCompaction(context, firstId, 0);
-                }
-                return newMgr;
               }
-              return SessionManager.open(sessionPath);
+              return openMediaSession(sessionPath);
             }
-            return SessionManager.create(cwd);
+            return createMediaSession(cwd);
           }
-          return SessionManager.create(cwd);
+          return createMediaSession(cwd);
         })();
         const sourceRegistry = createCitationSessionRegistry(
           sessionManager,

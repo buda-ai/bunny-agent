@@ -93,3 +93,46 @@ HTTPS-only schema and enforce sandbox egress controls.
 ## Output
 
 Produces AI SDK UI data stream (SSE) chunks.
+
+## Session Images and Recovery
+
+Pi sessions store image blocks as SHA-256 references in JSONL. The exact base64
+payloads live in a private sibling `.media/<sha256>.base64` directory, shared by
+sessions in that directory. Repeated images reuse one file. Images are restored
+and checksum-checked before Pi uses the session, so provider requests still carry
+real image data. Both user attachments and image tool results use this storage.
+Debug event traces omit image data as well.
+
+Resume and fork first migrate legacy inline-image JSONL one bounded line at a
+time. Migration preserves the session ID, entry IDs, parent links, compaction
+entries, user instructions and tool results. A successful migration keeps the
+original file as a hard-link backup named `<session>.pre-media-<id>.bak` and
+atomically replaces the active JSONL. Forks get a new session ID and copy their
+media into the destination's `.media` directory. Existing backup files are not
+scanned as active sessions.
+
+The metadata limit `SANDAGENT_MAX_SESSION_BYTES` defaults to 10 MiB after image
+externalization. Legacy input lines are limited to 64 MiB. Restoring a session preflights a
+64 MiB image-data budget, counting repeated blocks before allocating their data;
+`SANDAGENT_MAX_SESSION_MEDIA_BYTES` accepts a positive integer override. A blob
+also cannot exceed that budget. Raising either limit requires sufficient runtime
+memory. Invalid JSON, missing
+or corrupt media, and remaining oversized metadata produce explicit errors;
+they never start a replacement session seeded with an incomplete conversation
+tail. The source JSONL remains intact on migration failure. Completed media
+writes can remain unreferenced if migration is interrupted or rejected.
+
+**Backup and deployment:** keep `.media` together with its referencing JSONL
+files. Do not delete media when deleting one session: other sessions may share
+it. There is no automatic media or backup garbage collection. Older Bunny/Pi
+versions cannot read the new references; use the retained inline backup when
+rolling back an already migrated session. Deploy the updated runner before
+resuming migrated sessions. This adapter is bundled with Bunny and does not
+require consumer installations to apply workspace pnpm patches. It checks the
+persistence layout of the pinned Pi 1.3 dependency and must be revalidated when
+upgrading Pi.
+
+Images are still hydrated into Pi's in-memory history; this change does not make
+arbitrary image history free of memory cost or increase a model's context window.
+This storage repair also does not establish that a model will follow image-related
+instructions correctly.
