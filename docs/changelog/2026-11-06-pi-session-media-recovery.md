@@ -39,45 +39,19 @@ losing the user's task. Related investigation: vikadata/kapps#8243.
   restart and cross-directory fork still worked after removing source media.
   The dependency's SessionManager file matches the stock npm package exactly.
 
-### Local Buda acceptance with live models
+### Local application checks
 
-The actual browser-to-provider path was exercised on 2026-11-06:
-local Buda at port 3040, isolated PGLite and Redis, the rebuilt Bunny daemon at
-port 3084, and live `claude-sonnet-5-5` / `gpt-6-luna` through the configured
-LiteLLM OpenAI-compatible gateway. No Buda product code was changed. The local
-Drive root and `SANDAGENT_WORKDIR` both used `/tmp/buda-media470/drive`, so the
-agent's working directory contained the uploaded files.
+Local Buda was connected to the rebuilt Bunny daemon with isolated storage,
+database and Redis. Claude read all ten uploaded images. GPT retained the task
+and latest instruction after a 19,998,709-byte legacy transcript migrated to
+92,191 bytes through a daemon restart.
 
-1. Upload ten valid 1,493,235-byte PNGs through Buda. Ask Claude to read every
-   image and remember project Blue Bridge 470, a 15-second two-shape animation
-   with Chinese subtitles. Claude read all ten, identified the left blue circle
-   and right red square, and confirmed the task. Ten image blocks produced one
-   deduplicated sidecar rather than 19,909,800 inline Base64 bytes.
-2. Change the requirements to Spanish subtitles and 12 seconds in a subsequent
-   message. Claude confirmed the correction.
-3. Stop only the acceptance daemon. Rehydrate its real, completed transcript
-   into the old inline format as a controlled legacy-storage fixture, without
-   altering any messages, IDs or parent links. This file measured **19,998,709
-   bytes**, exceeding the unchanged 10 MiB metadata limit. Restart the daemon
-   and reload the same Buda conversation.
-4. Ask Claude to recall the project, task, latest requirements and image shapes,
-   without repeating the answers or reading files. It answered all correctly.
-   The recovered transcript was **92,191 bytes** after this turn; all 19 original
-   entries and parent links remained intact, all ten media references remained,
-   and the inline backup matched the fixture's SHA-256 exactly.
-5. Switch the same conversation to GPT-6 Luna. It also recalled the project,
-   task, Spanish subtitles, 12 seconds and both shapes correctly. The actual
-   transcript records both model IDs, not only a UI selection.
-
-Buda conversation: `tskx6vOFES9y6oZBXZb`.
-Pi session, unchanged across migration and recovery:
-`01a1b057-a700-74a0-8ff3-3b2bea508538`.
-
-Browser evidence (each public URL was checked for HTTP 200 and `image/png`):
-
-- [Claude reads all ten uploaded images](https://pub-5d59c786708441b3a80620d87e7dee2b.r2.dev/tmp/2026-11-06/bunny470-claude-ten-images.png)
-- [Claude recalls the latest correction after restart and migration](https://pub-5d59c786708441b3a80620d87e7dee2b.r2.dev/tmp/2026-11-06/bunny470-claude-restored.png)
-- [GPT continues with the same recovered history](https://pub-5d59c786708441b3a80620d87e7dee2b.r2.dev/tmp/2026-11-06/bunny470-gpt-same-history.png)
+The initial acceptance notes incorrectly attributed the recovery response to
+Claude. Per-response model metadata shows that Auto selected GPT for those later
+turns. That attribution is corrected here. A subsequent run with Claude explicitly
+selected failed to recall the original project and image facts, although the
+complete entries remained in JSONL. This validates storage preservation, not a
+complete fix for Claude conversation continuity.
 
 ## Design references
 
