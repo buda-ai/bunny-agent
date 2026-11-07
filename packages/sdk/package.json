@@ -1,6 +1,6 @@
 {
   "name": "@bunny-agent/sdk",
-  "version": "0.10.0-release.6",
+  "version": "0.10.1-beta.2",
   "description": "BunnyAgent SDK - AI Provider and React hooks for building AI agents",
   "type": "module",
   "sideEffects": false,
