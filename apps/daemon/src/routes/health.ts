@@ -7,6 +7,7 @@ export async function healthHandler(
   state: AppState,
   controlRegistry?: LiveRunRegistry,
 ) {
+  const supported = (await controlRegistry?.supportsDurableControl()) ?? false;
   return ok({
     status: "ok",
     root: state.root,
@@ -14,8 +15,8 @@ export async function healthHandler(
     capabilities: {
       codingControl: {
         version: 1,
-        supportedPiSteer:
-          (await controlRegistry?.supportsDurableControl()) ?? false,
+        supportedPiSteer: supported,
+        supportedPiSteerPreempt: supported,
       },
       searchContracts: {
         pi: resolveSearchContractCapabilities("pi", 1),

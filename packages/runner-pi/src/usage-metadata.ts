@@ -43,17 +43,37 @@ export function accumulateToolUsage(
 }
 
 /**
- * Get usage from the last assistant message in agent_end.messages.
- *
- * Pi reports full usage per completion (not incremental),
- * so we take the last assistant message's usage as the run total.
+ * Sum full, per-completion usage exactly once across the run's generations.
+ * A generation preempted by steering still incurred the usage it reported.
  */
 export function getUsageFromAgentEndMessages(
   messages: Array<{ role: string; usage?: Usage }>,
 ): Usage | undefined {
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const m = messages[i];
-    if (m.role === "assistant" && m.usage != null) return m.usage;
+  let total: Usage | undefined;
+  for (const message of messages) {
+    if (message.role !== "assistant" || !message.usage) continue;
+    const usage = message.usage;
+    if (!total) {
+      total = { ...usage, cost: { ...usage.cost } };
+      continue;
+    }
+    total.input += usage.input;
+    total.output += usage.output;
+    total.cacheRead += usage.cacheRead;
+    total.cacheWrite += usage.cacheWrite;
+    total.totalTokens += usage.totalTokens;
+    if (usage.reasoning !== undefined)
+      total.reasoning = (total.reasoning ?? 0) + usage.reasoning;
+    if (usage.cacheWrite1h !== undefined)
+      total.cacheWrite1h = (total.cacheWrite1h ?? 0) + usage.cacheWrite1h;
+    for (const key of [
+      "input",
+      "output",
+      "cacheRead",
+      "cacheWrite",
+      "total",
+    ] as const)
+      total.cost[key] += usage.cost[key];
   }
-  return undefined;
+  return total;
 }

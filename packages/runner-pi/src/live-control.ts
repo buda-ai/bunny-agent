@@ -7,7 +7,9 @@ import type {
 } from "@bunny-agent/manager";
 import type { AgentMessage, StreamFn } from "@earendil-works/pi-agent-core";
 import type { ImageContent, Message } from "@earendil-works/pi-ai";
+import { createAssistantMessageEventStream } from "@earendil-works/pi-ai";
 import type { AgentSession } from "@earendil-works/pi-coding-agent";
+import { fenceGenerationStream } from "./generation-stream.js";
 
 type QueuedInputDisposition = Awaited<ReturnType<AgentSession["steer"]>>;
 
@@ -16,6 +18,8 @@ type QueuedInputDisposition = Awaited<ReturnType<AgentSession["steer"]>>;
  * pass a lightweight fake instead of a real Pi session.
  */
 export type SteerableSession = Pick<AgentSession, "steer"> & {
+  /** Older test adapters may omit this, but real Pi exposes prompt liveness. */
+  readonly isStreaming?: boolean;
   agent: {
     steer(message: AgentMessage): void;
     streamFunction: StreamFn;
@@ -102,12 +106,14 @@ export function createPiLiveController(
     outcome?: QueuedInputDisposition;
     observed: boolean;
     reported: boolean;
+    preemptionRequested: boolean;
   };
   const dispatchContext = new AsyncLocalStorage<Dispatch>();
   const dispatches = new Map<string, Dispatch>();
   let consumedCallback: ((id: string) => void) | undefined;
   let disposed = false;
   let firstStreamInvocationReported = false;
+  let activeGeneration: AbortController | undefined;
   const reportIfConfirmed = (dispatch: Dispatch) => {
     if (
       !disposed &&
@@ -139,52 +145,143 @@ export function createPiLiveController(
 
   const originalStreamFunction = session.agent.streamFunction;
   const wrappedStreamFunction: StreamFn = (model, context, streamOptions) => {
+    const generation = new AbortController();
+    activeGeneration = generation;
+    const parentSignal = streamOptions?.signal;
+    const abortFromParent = () => generation.abort(parentSignal?.reason);
+    parentSignal?.addEventListener("abort", abortFromParent, { once: true });
+    if (parentSignal?.aborted) abortFromParent();
+    const settle = () => {
+      parentSignal?.removeEventListener("abort", abortFromParent);
+      if (activeGeneration === generation) activeGeneration = undefined;
+    };
     const observed = new Set<Dispatch>();
-    const sanitizedMessages: Message[] = context.messages.map((candidate) => {
-      if (!Object.getOwnPropertyDescriptor(candidate, "__bunnyLiveControl"))
-        return candidate;
-      const { __bunnyLiveControl: marker, ...rest } = candidate as Message &
-        LiveControlMarker;
-      if (
-        marker &&
-        marker.controllerNonce === controllerNonce &&
-        candidate.role === "user"
-      ) {
-        const dispatch = dispatches.get(marker.stableId);
-        if (dispatch) observed.add(dispatch);
-      }
-      // Strip our internal field even after consumption or when replaying
-      // a transcript from a different controller; never mutate the transcript.
-      return rest as Message;
-    });
+    const sanitizedMessages: Message[] = context.messages.flatMap(
+      (candidate) => {
+        if (
+          candidate.role === "assistant" &&
+          candidate.stopReason === "aborted"
+        ) {
+          // These tools were never executed. Preserve the real native partial
+          // for history/UI, but never send orphan calls or incomplete thinking
+          // signatures to a provider (and never invent tool-result messages).
+          const text = candidate.content.filter(
+            (part) => part.type === "text" && part.text.trim().length > 0,
+          );
+          // Pi's provider serializers discard all aborted messages. Mark this
+          // text-only outbound copy as replayable so the actual partial text
+          // remains an assistant boundary before the new user instruction.
+          // The wire has no stopReason; the native transcript stays aborted.
+          return text.length
+            ? [{ ...candidate, content: text, stopReason: "stop" as const }]
+            : [];
+        }
+        if (!Object.getOwnPropertyDescriptor(candidate, "__bunnyLiveControl"))
+          return [candidate];
+        const { __bunnyLiveControl: marker, ...rest } = candidate as Message &
+          LiveControlMarker;
+        if (
+          marker &&
+          marker.controllerNonce === controllerNonce &&
+          candidate.role === "user"
+        ) {
+          const dispatch = dispatches.get(marker.stableId);
+          if (dispatch) observed.add(dispatch);
+        }
+        // Strip our internal field even after consumption or when replaying
+        // a transcript from a different controller; never mutate the transcript.
+        return [rest as Message];
+      },
+    );
     const providerContext = {
       ...context,
       messages: sanitizedMessages,
     } as typeof context;
-    const result = originalStreamFunction.call(
-      session.agent,
-      model,
-      providerContext,
-      streamOptions,
+    let result: ReturnType<StreamFn>;
+    try {
+      result = originalStreamFunction.call(
+        session.agent,
+        model,
+        providerContext,
+        { ...streamOptions, signal: generation.signal },
+      );
+    } catch (error) {
+      settle();
+      throw error;
+    }
+    let abortStartup!: () => void;
+    const startupAborted = new Promise<Awaited<ReturnType<StreamFn>>>(
+      (resolve) => {
+        abortStartup = () =>
+          resolve(
+            fenceGenerationStream(
+              createAssistantMessageEventStream(),
+              model,
+              generation.signal,
+              settle,
+            ),
+          );
+        generation.signal.addEventListener("abort", abortStartup, {
+          once: true,
+        });
+        if (generation.signal.aborted) abortStartup();
+      },
     );
-    return Promise.resolve(result).then((stream) => {
-      if (!disposed && !firstStreamInvocationReported) {
-        firstStreamInvocationReported = true;
-        onFirstStreamInvocation?.();
-      }
-      for (const dispatch of observed) {
-        dispatch.observed = true;
-        reportIfConfirmed(dispatch);
-      }
-      return stream;
-    });
+    const started = Promise.resolve(result).then(
+      (stream) => {
+        generation.signal.removeEventListener("abort", abortStartup);
+        if (generation.signal.aborted)
+          return fenceGenerationStream(
+            stream,
+            model,
+            generation.signal,
+            settle,
+          );
+        if (!disposed && !firstStreamInvocationReported) {
+          firstStreamInvocationReported = true;
+          onFirstStreamInvocation?.();
+        }
+        if (!generation.signal.aborted) {
+          for (const dispatch of observed) {
+            dispatch.observed = true;
+            reportIfConfirmed(dispatch);
+          }
+          // Inputs accepted in the gap between generations must preempt the
+          // next generation too unless that exact provider context includes them.
+          const waiting = [...dispatches.values()].filter(
+            (dispatch) =>
+              dispatch.outcome === "queued" &&
+              dispatch.captured.length === 1 &&
+              !dispatch.observed &&
+              !dispatch.preemptionRequested,
+          );
+          if (waiting.length) {
+            for (const dispatch of waiting) dispatch.preemptionRequested = true;
+            generation.abort();
+          }
+        }
+        return fenceGenerationStream(stream, model, generation.signal, settle);
+      },
+      (error: unknown) => {
+        generation.signal.removeEventListener("abort", abortStartup);
+        settle();
+        throw error;
+      },
+    );
+    return Promise.race([started, startupAborted]);
   };
   session.agent.streamFunction = wrappedStreamFunction;
 
   return {
+    supportedPiSteerPreempt: true,
     async steer(message: RunControlMessage): Promise<LiveSteerResult> {
       if (disposed)
         return { disposition: "rejected", reason: "controller disposed" };
+      if (session.isStreaming === false)
+        return {
+          disposition: "rejected",
+          reason: "session is no longer running",
+        };
       if (dispatches.has(message.id)) {
         return {
           disposition: "rejected",
@@ -196,6 +293,7 @@ export function createPiLiveController(
         captured: [],
         observed: false,
         reported: false,
+        preemptionRequested: false,
       };
       dispatches.set(message.id, dispatch);
       const images: ImageContent[] | undefined = message.images?.map(
@@ -220,6 +318,17 @@ export function createPiLiveController(
       }
       if (dispatch.outcome === "handled") return { disposition: "handled" };
       reportIfConfirmed(dispatch);
+      // Queue first, then interrupt only the provider generation that has not
+      // seen this input. AgentSession's native post-run supervisor consumes
+      // the queue with agent.continue(); never abort the session or its tools.
+      if (
+        dispatch.captured.length === 1 &&
+        !dispatch.observed &&
+        activeGeneration
+      ) {
+        dispatch.preemptionRequested = true;
+        activeGeneration.abort();
+      }
       return { disposition: "queued" };
     },
     onConsumed(callback: (id: string) => void): void {

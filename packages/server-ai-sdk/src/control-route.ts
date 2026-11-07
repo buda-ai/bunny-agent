@@ -8,7 +8,8 @@
  * Wire contract (`RunControlRequestBody` / responses), v1:
  *
  *   - `{version:1, operation:"capabilities"}` (no runId/token) → generic
- *     probe, always 200: `{version:1, supportedPiSteer:boolean}`.
+ *     probe, always 200: `{version:1, supportedPiSteer:boolean,
+ *     supportedPiSteerPreempt:boolean}`.
  *     `supportedPiSteer` reflects whether this registry has a working
  *     durable journal — a registry with no durable journal (explicit
  *     `stateDir: null` or a real init failure) cannot safely support
@@ -19,6 +20,7 @@
  *     receipts in one call).
  *   - `{version:1, operation:"status", runId, token}` →
  *     `{version:1, active:boolean, ready:boolean, epoch:number,
+ *     supportedPiSteerPreempt:boolean,
  *     receipts:RunControlReceipt[], runner?:string, model?:string}`.
  *     `runner`/`model` are the run's configured provider profile (passed
  *     through from the `/api/coding/run` request that registered it), only
@@ -149,11 +151,13 @@ export async function handleControlRequest(
     switch (body.operation) {
       case "capabilities": {
         if (body.runId === undefined && body.token === undefined) {
+          const supported = await registry.supportsDurableControl();
           return {
             status: 200,
             body: {
               version: 1,
-              supportedPiSteer: await registry.supportsDurableControl(),
+              supportedPiSteer: supported,
+              supportedPiSteerPreempt: supported,
             },
           };
         }

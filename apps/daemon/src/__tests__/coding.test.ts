@@ -89,12 +89,14 @@ let root: string;
 
 beforeAll(async () => {
   root = await fs.mkdtemp(path.join(os.tmpdir(), "daemon-coding-test-"));
+  vi.stubEnv("BUNNY_CODING_CONTROL_STATE_DIR", path.join(root, "control"));
   server = createDaemon({ host: "127.0.0.1", port: PORT, root });
   await new Promise<void>((r) => server.listen(PORT, r));
 });
 
 afterAll(async () => {
   await new Promise<void>((r) => server.close(() => r()));
+  vi.unstubAllEnvs();
   await fs.rm(root, { recursive: true });
 });
 
@@ -331,6 +333,7 @@ describe("createNextHandler", () => {
     await expect(probeRes.json()).resolves.toEqual({
       version: 1,
       supportedPiSteer: true,
+      supportedPiSteerPreempt: true,
     });
 
     const statusReq = new Request(
@@ -520,7 +523,11 @@ describe("POST /api/coding/control (standalone daemon)", () => {
       operation: "capabilities",
     });
     expect(status).toBe(200);
-    expect(body).toEqual({ version: 1, supportedPiSteer: true });
+    expect(body).toEqual({
+      version: 1,
+      supportedPiSteer: true,
+      supportedPiSteerPreempt: true,
+    });
   });
 
   it("status on an unregistered run 404s", async () => {
@@ -559,6 +566,7 @@ describe("POST /api/coding/control (standalone daemon)", () => {
       expect(health.data.capabilities.codingControl).toEqual({
         version: 1,
         supportedPiSteer: true,
+        supportedPiSteerPreempt: true,
       });
       // Health discovery uses the active run registry without replacing it.
       const { status, body } = await controlPost({

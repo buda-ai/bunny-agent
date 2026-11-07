@@ -612,6 +612,7 @@ export class LiveRunRegistry {
     active: boolean;
     ready: boolean;
     epoch: number;
+    supportedPiSteerPreempt: boolean;
     receipts: RunControlReceipt[];
     runner?: string;
     model?: string;
@@ -637,6 +638,8 @@ export class LiveRunRegistry {
         active: !run.closed,
         ready: run.ready,
         epoch: run.epoch,
+        supportedPiSteerPreempt:
+          run.ready && run.controller?.supportedPiSteerPreempt === true,
         receipts: receipts.map((r) => this.toWireReceipt(r.id, r, run.closed)),
         ...(run.profile
           ? { runner: run.profile.runner, model: run.profile.model }
@@ -667,6 +670,7 @@ export class LiveRunRegistry {
       active: false,
       ready: false,
       epoch: 0,
+      supportedPiSteerPreempt: false,
       receipts: receipts.map((r) => this.toWireReceipt(r.id, r, true)),
     };
   }

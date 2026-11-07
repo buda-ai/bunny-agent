@@ -7,7 +7,12 @@ import {
   type ToolInteractionHandler,
 } from "@bunny-agent/manager";
 import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
-import type { Api, ImageContent, Model } from "@earendil-works/pi-ai";
+import type {
+  Api,
+  AssistantMessage,
+  ImageContent,
+  Model,
+} from "@earendil-works/pi-ai";
 import { getBuiltinModel } from "@earendil-works/pi-ai/providers/all";
 import {
   type AgentSession,
@@ -355,8 +360,15 @@ function getErrorFromAgentEndMessages(
 ): string | undefined {
   for (let i = messages.length - 1; i >= 0; i--) {
     const m = messages[i];
-    if (m.role === "assistant" && m.errorMessage) {
-      return m.errorMessage;
+    if (m.role === "assistant") {
+      // Earlier provider generations can be intentionally preempted while
+      // the native session continues successfully with a steering message.
+      if (m.stopReason === "aborted")
+        return (
+          m.errorMessage ??
+          "Generation interrupted before pending input could be consumed."
+        );
+      return m.stopReason === "error" ? m.errorMessage : undefined;
     }
   }
   return undefined;
@@ -745,6 +757,7 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
         let finalAgentEnd:
           | Extract<AgentSessionEvent, { type: "agent_end" }>
           | undefined;
+        const assistantCompletions: AssistantMessage[] = [];
         let aborted = false;
         let wakeConsumer: (() => void) | null = null;
 
@@ -835,6 +848,11 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
                 finalAgentEnd = event;
                 continue;
               }
+              if (
+                event.type === "message_end" &&
+                event.message.role === "assistant"
+              )
+                assistantCompletions.push(event.message);
               const chunks = streamConverter.handleEvent(event, aborted);
               for (const chunk of chunks) {
                 yield chunk;
@@ -873,7 +891,17 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
           }
 
           if (finalAgentEnd) {
-            const chunks = streamConverter.handleEvent(finalAgentEnd, false);
+            // A provider preemption can create several native agent cycles
+            // inside this one prompt. Include every completed generation once.
+            const chunks = streamConverter.handleEvent(
+              {
+                ...finalAgentEnd,
+                messages: assistantCompletions.length
+                  ? assistantCompletions
+                  : finalAgentEnd.messages,
+              },
+              false,
+            );
             for (const chunk of chunks) {
               yield chunk;
             }

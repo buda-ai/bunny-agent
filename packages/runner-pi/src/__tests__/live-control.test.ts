@@ -5,7 +5,10 @@ import {
   createFauxCore,
   fauxAssistantMessage,
   fauxToolCall,
+  InMemoryCredentialStore,
 } from "@earendil-works/pi-ai";
+import { streamSimple as streamCompletions } from "@earendil-works/pi-ai/api/openai-completions";
+import { normalizeContext } from "@earendil-works/pi-ai/utils/transcript";
 import {
   createAgentSession,
   defineTool,
@@ -116,6 +119,93 @@ function createFakeSession(): {
 }
 
 describe("createPiLiveController", () => {
+  it("omits an interrupted assistant without nonempty real text instead of fabricating a boundary", async () => {
+    const { session, streamCalls } = createFakeSession();
+    const controller = createPiLiveController(session);
+    const interrupted = fauxAssistantMessage(
+      [{ type: "text", text: "  " }, fauxToolCall("unstarted", {})],
+      { stopReason: "aborted" },
+    );
+    try {
+      await session.agent.streamFunction(
+        {} as any,
+        { messages: [interrupted] },
+        undefined,
+      );
+      expect(streamCalls[0].messages).toEqual([]);
+      expect(interrupted.stopReason).toBe("aborted");
+      expect(interrupted.content).toHaveLength(2);
+    } finally {
+      controller.dispose();
+    }
+  });
+
+  it("preempts a provider whose async startup ignores abort and closes its late stream", async () => {
+    const { session, queuedUserMessages } = createFakeSession();
+    let release!: (
+      stream: ReturnType<typeof createAssistantMessageEventStream>,
+    ) => void;
+    const pending = new Promise<
+      ReturnType<typeof createAssistantMessageEventStream>
+    >((resolve) => {
+      release = resolve;
+    });
+    session.agent.streamFunction = (() => pending) as TestStreamFunction;
+    const controller = createPiLiveController(session);
+    const consumed: string[] = [];
+    controller.onConsumed((id) => consumed.push(id));
+    const parent = new AbortController();
+    const first = session.agent.streamFunction(
+      {} as Parameters<StreamFn>[0],
+      { messages: [] },
+      { signal: parent.signal },
+    );
+    await controller.steer({ id: "async-start", text: "new direction" });
+    expect((await (await first).result()).stopReason).toBe("aborted");
+    expect(parent.signal.aborted).toBe(false);
+    const late = createAssistantMessageEventStream();
+    release(late);
+    expect((await late.result()).stopReason).toBe("aborted");
+    expect(queuedUserMessages).toHaveLength(1);
+    expect(consumed).toEqual([]);
+    controller.dispose();
+  });
+
+  it("does not keep preempting after transformed context silently drops an accepted message", async () => {
+    const { session } = createFakeSession();
+    const sources: ReturnType<typeof createAssistantMessageEventStream>[] = [];
+    const signals: AbortSignal[] = [];
+    session.agent.streamFunction = (async (_model, _context, options) => {
+      const source = createAssistantMessageEventStream();
+      sources.push(source);
+      signals.push(options!.signal!);
+      return source;
+    }) as TestStreamFunction;
+    const controller = createPiLiveController(session);
+    const consumed: string[] = [];
+    controller.onConsumed((id) => consumed.push(id));
+    await controller.steer({ id: "filtered", text: "dropped by extension" });
+    const first = await session.agent.streamFunction(
+      {} as Parameters<StreamFn>[0],
+      {
+        messages: [],
+      },
+    );
+    expect((await first.result()).stopReason).toBe("aborted");
+    const second = await session.agent.streamFunction(
+      {} as Parameters<StreamFn>[0],
+      {
+        messages: [],
+      },
+    );
+    expect(signals[1].aborted).toBe(false);
+    const message = fauxAssistantMessage("natural completion");
+    sources[1].push({ type: "done", reason: "stop", message });
+    expect((await second.result()).stopReason).toBe("stop");
+    expect(consumed).toEqual([]);
+    controller.dispose();
+  });
+
   it("forces one-at-a-time native steering mode", () => {
     const { session } = createFakeSession();
     createPiLiveController(session);
@@ -659,6 +749,213 @@ describe("createPiLiveController", () => {
 });
 
 describe("createPiLiveController integration (real AgentSession + faux provider)", () => {
+  it("preempts two unfinished text generations within the same native prompt and fences late deltas", async () => {
+    const faux = createFauxCore({
+      api: "faux-preempt",
+      provider: "faux-preempt",
+      models: [{ id: "faux-model", contextWindow: 20_000, maxTokens: 2_000 }],
+    });
+    faux.setResponses([fauxAssistantMessage("new-direction-done")]);
+    const contexts: Context[] = [];
+    const signals: AbortSignal[] = [];
+    const hangingStreams: ReturnType<
+      typeof createAssistantMessageEventStream
+    >[] = [];
+    const partials: AssistantMessage[] = [];
+    let unstartedToolExecutions = 0;
+    const modelRuntime = await ModelRuntime.create({
+      modelsPath: null,
+      allowModelNetwork: false,
+      credentials: new InMemoryCredentialStore(),
+    });
+    modelRuntime.registerProvider("faux-preempt", {
+      api: "faux-preempt",
+      apiKey: "test-key",
+      baseUrl: "http://localhost",
+      streamSimple: (model, context, options) => {
+        contexts.push(structuredClone(context));
+        if (contexts.length > 2)
+          return faux.streamSimple(model, context, options);
+        signals.push(options!.signal!);
+        const stream = createAssistantMessageEventStream();
+        const partial = fauxAssistantMessage(
+          [
+            { type: "text", text: `unfinished-${contexts.length}` },
+            fauxToolCall(
+              "unstarted_tool",
+              {},
+              { id: `never-started-${contexts.length}` },
+            ),
+          ],
+          { stopReason: "pending" },
+        );
+        partials.push(partial);
+        hangingStreams.push(stream);
+        stream.push({ type: "start", partial });
+        stream.push({ type: "text_start", contentIndex: 0, partial });
+        stream.push({
+          type: "text_delta",
+          contentIndex: 0,
+          delta: `unfinished-${contexts.length}`,
+          partial,
+        });
+        // Deliberately ignore the provider signal: the controller must still
+        // resume Pi and prevent late old-generation events from entering it.
+        return stream;
+      },
+      models: [
+        {
+          id: "faux-model",
+          name: "faux-model",
+          reasoning: false,
+          input: ["text"],
+          cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+          contextWindow: 20_000,
+          maxTokens: 2_000,
+        },
+      ],
+    });
+    const { session } = await createAgentSession({
+      cwd: "/tmp",
+      model: modelRuntime.getModel("faux-preempt", "faux-model"),
+      modelRuntime,
+      sessionManager: SessionManager.inMemory("/tmp"),
+      settingsManager: SettingsManager.inMemory({
+        retry: { enabled: false },
+        compaction: { enabled: false },
+      }),
+      noTools: "builtin",
+      customTools: [
+        defineTool({
+          name: "unstarted_tool",
+          label: "unstarted_tool",
+          description: "Must not execute a partial call",
+          parameters: Type.Object({}),
+          execute: async () => {
+            unstartedToolExecutions++;
+            return {
+              content: [{ type: "text", text: "unexpected" }],
+              details: undefined,
+            };
+          },
+        }),
+      ],
+    });
+    const sessionId = session.sessionId;
+    const consumed: string[] = [];
+    const updates: string[] = [];
+    const completions: AssistantMessage[] = [];
+    const events: string[] = [];
+    const waits = [0, 1].map(() => {
+      let resolve!: () => void;
+      const promise = new Promise<void>((done) => {
+        resolve = done;
+      });
+      return { promise, resolve };
+    });
+    const unsubscribe = session.subscribe((event) => {
+      events.push(JSON.stringify(event));
+      if (
+        event.type === "message_update" &&
+        event.assistantMessageEvent.type === "text_delta"
+      ) {
+        updates.push(event.assistantMessageEvent.delta);
+        if (updates.length <= 2) waits[updates.length - 1].resolve();
+      }
+      if (event.type === "message_end" && event.message.role === "assistant")
+        completions.push(event.message);
+    });
+    const controller = createPiLiveController(session);
+    controller.onConsumed((id) => consumed.push(id));
+    try {
+      const prompt = session.prompt("start a long response");
+      await Promise.race([
+        waits[0].promise,
+        prompt.then(() => {
+          throw new Error(`Prompt settled before text: ${events.join("\n")}`);
+        }),
+      ]);
+      expect(
+        await controller.steer({ id: "first", text: "change direction once" }),
+      ).toEqual({ disposition: "queued" });
+      await waits[1].promise;
+      // The old source remains alive and even mutates its partial object.
+      partials[0].content = [{ type: "text", text: "LATE-OLD" }];
+      hangingStreams[0].push({
+        type: "text_delta",
+        contentIndex: 0,
+        delta: "LATE-OLD",
+        partial: partials[0],
+      });
+      expect(
+        await controller.steer({
+          id: "second",
+          text: "change direction twice",
+        }),
+      ).toEqual({ disposition: "queued" });
+      await prompt;
+      expect(contexts).toHaveLength(3);
+      expect(signals.every((signal) => signal.aborted)).toBe(true);
+      expect(JSON.stringify(contexts[1])).toContain("change direction once");
+      expect(JSON.stringify(contexts[1])).toContain("unfinished-1");
+      expect(JSON.stringify(contexts[2])).toContain("change direction twice");
+      expect(JSON.stringify(contexts)).not.toContain("__bunnyLiveControl");
+      expect(JSON.stringify(contexts.slice(1))).not.toContain("never-started-");
+      // Exercise Pi's real OpenAI serializer and SDK HTTP request path, which
+      // otherwise silently drops aborted messages before sending to a gateway.
+      let wireMessages: Array<{ role: string; content: unknown }> = [];
+      const wireStream = streamCompletions(
+        {
+          ...modelRuntime.getModel("faux-preempt", "faux-model")!,
+          api: "openai-completions",
+        },
+        normalizeContext(contexts[1]),
+        {
+          apiKey: "test-key",
+          maxRetries: 0,
+          fetch: (async (_url, options) => {
+            wireMessages = JSON.parse(String(options?.body)).messages;
+            return new Response(
+              'data: {"id":"test","choices":[{"index":0,"delta":{"content":"ok"},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n',
+              { headers: { "content-type": "text/event-stream" } },
+            );
+          }) as typeof globalThis.fetch,
+        },
+      );
+      expect((await wireStream.result()).stopReason).toBe("stop");
+      expect(wireMessages.map((message) => message.role)).toEqual([
+        "system",
+        "user",
+        "assistant",
+        "user",
+      ]);
+      expect(wireMessages[2].content).toBe("unfinished-1");
+      expect(JSON.stringify(wireMessages[3])).toContain(
+        "change direction once",
+      );
+      expect(JSON.stringify(wireMessages)).not.toContain("never-started-");
+      expect(unstartedToolExecutions).toBe(0);
+      expect(consumed).toEqual(["first", "second"]);
+      expect(completions.map((message) => message.stopReason)).toEqual([
+        "aborted",
+        "aborted",
+        "stop",
+      ]);
+      expect(JSON.stringify(completions[0])).toContain("unfinished-1");
+      expect(JSON.stringify(completions[0])).toContain("never-started-1");
+      expect(updates.join("")).not.toContain("LATE-OLD");
+      expect(updates.join("")).toContain("new-direction-done");
+      expect(session.sessionId).toBe(sessionId);
+      expect(session.isIdle).toBe(true);
+    } finally {
+      controller.dispose();
+      unsubscribe();
+      session.dispose();
+      for (const stream of hangingStreams)
+        stream.end(fauxAssistantMessage("late"));
+    }
+  });
+
   it("correlates a steer() call injected mid-tool-execution to the next real provider request", async () => {
     const faux = createFauxCore({
       api: "faux-live-control",
@@ -693,6 +990,7 @@ describe("createPiLiveController integration (real AgentSession + faux provider)
     const modelRuntime = await ModelRuntime.create({
       modelsPath: null,
       allowModelNetwork: false,
+      credentials: new InMemoryCredentialStore(),
     });
     modelRuntime.registerProvider("faux-live-control", {
       baseUrl: "http://localhost",
@@ -728,7 +1026,7 @@ describe("createPiLiveController integration (real AgentSession + faux provider)
           label: "slow_tool",
           description: "A tool that steers the run while it executes",
           parameters: Type.Object({}),
-          execute: async () => {
+          execute: async (_id, _params, signal) => {
             // Controller is registered (by the test, mirroring how
             // pi-runner.ts registers it) before this prompt started, so it
             // is already installed by the time the tool runs.
@@ -737,6 +1035,7 @@ describe("createPiLiveController integration (real AgentSession + faux provider)
               text: "steer this run",
             });
             expect(result.disposition).toBe("queued");
+            expect(signal?.aborted).not.toBe(true);
             return {
               content: [{ type: "text", text: "ok" }],
               details: undefined,

@@ -638,6 +638,33 @@ describe("createPiRunner", () => {
     expect(chunks.some((c) => c.includes("[DONE]"))).toBe(true);
   });
 
+  it("does not report success when an interrupted generation has no successful continuation", async () => {
+    const { createAgentSession: createSession } = await import(
+      "@earendil-works/pi-coding-agent"
+    );
+    vi.mocked(createSession).mockImplementationOnce(async () => {
+      const session = new MockSession();
+      session.prompt = async function () {
+        this["emit"]({
+          type: "agent_end",
+          messages: [{ role: "assistant", stopReason: "aborted" }],
+        });
+      };
+      return { session } as unknown as Awaited<
+        ReturnType<typeof createSession>
+      >;
+    });
+    const chunks: string[] = [];
+    for await (const chunk of createPiRunner({ model: "openai:gpt-4o" }).run(
+      "interrupted",
+    ))
+      chunks.push(chunk);
+    expect(chunks.join("")).toContain(
+      "Generation interrupted before pending input could be consumed.",
+    );
+    expect(chunks.join("")).toContain('"finishReason":"error"');
+  });
+
   it("waits for overflow compaction and continuation before finishing", async () => {
     nextSessionBehavior = "overflow_compaction_continue";
     const runner = createPiRunner({ model: "google:gemini-2.5-pro" });
@@ -1191,11 +1218,37 @@ describe("createPiRunner", () => {
           messages: [
             {
               role: "assistant",
-              usage: { input: 10, output: 20, cacheRead: 1, cacheWrite: 2 },
+              usage: {
+                input: 10,
+                output: 20,
+                cacheRead: 1,
+                cacheWrite: 2,
+                totalTokens: 33,
+                cost: {
+                  input: 0,
+                  output: 0,
+                  cacheRead: 0,
+                  cacheWrite: 0,
+                  total: 0,
+                },
+              },
             },
             {
               role: "assistant",
-              usage: { input: 30, output: 40, cacheRead: 3, cacheWrite: 4 },
+              usage: {
+                input: 30,
+                output: 40,
+                cacheRead: 3,
+                cacheWrite: 4,
+                totalTokens: 77,
+                cost: {
+                  input: 0,
+                  output: 0,
+                  cacheRead: 0,
+                  cacheWrite: 0,
+                  total: 0,
+                },
+              },
             },
           ],
         });
@@ -1221,10 +1274,10 @@ describe("createPiRunner", () => {
       };
     };
 
-    expect(data.messageMetadata?.usage?.input_tokens).toBe(30);
-    expect(data.messageMetadata?.usage?.output_tokens).toBe(40);
-    expect(data.messageMetadata?.usage?.cache_read_input_tokens).toBe(3);
-    expect(data.messageMetadata?.usage?.cache_creation_input_tokens).toBe(4);
+    expect(data.messageMetadata?.usage?.input_tokens).toBe(40);
+    expect(data.messageMetadata?.usage?.output_tokens).toBe(60);
+    expect(data.messageMetadata?.usage?.cache_read_input_tokens).toBe(4);
+    expect(data.messageMetadata?.usage?.cache_creation_input_tokens).toBe(6);
     expect(
       (
         data.messageMetadata?.usage?.raw as

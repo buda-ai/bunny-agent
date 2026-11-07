@@ -95,7 +95,7 @@ describe("getUsageFromAgentEndMessages", () => {
     expect(result?.totalTokens).toBe(33);
   });
 
-  it("returns last assistant usage (not summed) across multiple turns", () => {
+  it("sums per-completion usage across multiple generations", () => {
     const result = getUsageFromAgentEndMessages([
       {
         role: "assistant",
@@ -121,11 +121,11 @@ describe("getUsageFromAgentEndMessages", () => {
         },
       },
     ]);
-    expect(result?.input).toBe(30);
-    expect(result?.output).toBe(40);
-    expect(result?.cacheRead).toBe(3);
-    expect(result?.cacheWrite).toBe(4);
-    expect(result?.totalTokens).toBe(77);
+    expect(result?.input).toBe(40);
+    expect(result?.output).toBe(60);
+    expect(result?.cacheRead).toBe(4);
+    expect(result?.cacheWrite).toBe(6);
+    expect(result?.totalTokens).toBe(110);
   });
 
   it("skips assistant messages without usage", () => {
