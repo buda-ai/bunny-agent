@@ -62,11 +62,12 @@ diff --git a/dist/utils/overflow.js b/dist/utils/overflow.js
 index 2878759..2dcfe41 100644
 --- a/dist/utils/overflow.js
 +++ b/dist/utils/overflow.js
-@@ -55,6 +55,7 @@ const OVERFLOW_PATTERNS = [
+@@ -55,6 +55,8 @@ const OVERFLOW_PATTERNS = [
      /model_context_window_exceeded/i, // z.ai non-standard finish_reason surfaced as error text
      /prompt too long; exceeded (?:max )?context length/i, // Ollama explicit overflow error
      /range of input length should be/i, // DashScope / Qwen Token Plan
 +    /context ?window ?exceeded/i, // OpenAI-compatible gateways ("Context Window exceeded for given call")
++    /Model context limit reached\. Conversation size exceeds model capacity\./, // Kiro gateway capacity rejection
      /context[_ ]length[_ ]exceeded/i, // Generic fallback
      /too many tokens/i, // Generic fallback
      /token limit exceeded/i, // Generic fallback
