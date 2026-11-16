@@ -1,0 +1,39 @@
+{
+  "name": "@bunny-agent/sandbox-smol",
+  "version": "0.9.61-release.2",
+  "description": "Smol Machines local and cloud sandbox adapter for BunnyAgent",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "lint": "echo 'no lint configured'",
+    "test": "vitest run"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/buda-ai/bunny-agent.git",
+    "directory": "packages/sandbox-smol"
+  },
+  "license": "Apache-2.0",
+  "publishConfig": { "access": "public" },
+  "engines": { "node": ">=20.19.0" },
+  "keywords": ["sandbox", "smol", "microvm", "bunny-agent", "adapter"],
+  "dependencies": {
+    "@bunny-agent/manager": "workspace:*",
+    "smolmachines": "^1.25.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.0",
+    "vitest": "^1.6.1"
+  }
+}
