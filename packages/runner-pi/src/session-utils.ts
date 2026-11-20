@@ -1,46 +1,34 @@
-/**
- * Lightweight session utilities that avoid loading full session files into memory.
- *
- * Pi's SessionManager.list() and SessionManager.open() parse every JSONL entry,
- * which can OOM on large/many session files. These helpers use directory listing
- * and tail-reading to stay O(1) in memory.
- */
-
+/** Bounded session discovery and lossless legacy-media migration. */
+import { randomUUID } from "node:crypto";
 import {
   closeSync,
   fstatSync,
+  fsyncSync,
+  linkSync,
   openSync,
   readdirSync,
   readSync,
+  renameSync,
+  rmSync,
   statSync,
+  writeSync,
 } from "node:fs";
 import { join } from "node:path";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 
-/** Maximum session file size (bytes) before we skip resume to avoid OOM.
- *  Override with env var SANDAGENT_MAX_SESSION_BYTES for testing. */
+/** Limit applies to JSONL metadata after images are externalized. */
 export const MAX_SESSION_FILE_BYTES =
-  Number(process.env.SANDAGENT_MAX_SESSION_BYTES) || 10 * 1024 * 1024; // 10 MB
+  Number(process.env.SANDAGENT_MAX_SESSION_BYTES) || 10 * 1024 * 1024;
 
-/**
- * Resolve a session reference to an on-disk path without loading/parsing
- * session contents.
- *
- * Accepts either:
- *  - A full session file path (contains '/') — returned as-is.
- *  - A bare pi session id — resolved against the pi sessions directory for
- *    `cwd` by scanning filenames (`<timestamp>_<id>.jsonl`). Only entry names
- *    are read; no JSON is parsed.
- *
- * @returns Full path to the session file, or undefined if not found.
- */
+/** Legacy files are parsed one bounded line at a time, never as a whole file. */
+export const MAX_LEGACY_SESSION_LINE_BYTES = 64 * 1024 * 1024;
+
 export function resolveSessionPathById(
   cwd: string,
   sessionIdOrPath: string,
 ): string | undefined {
   if (sessionIdOrPath.includes("/")) return sessionIdOrPath;
-  const tempMgr = SessionManager.create(cwd);
-  const sessionsDir = tempMgr.getSessionDir();
+  const sessionsDir = SessionManager.create(cwd).getSessionDir();
   try {
     const suffix = `_${sessionIdOrPath}.jsonl`;
     const match = readdirSync(sessionsDir).find((f) => f.endsWith(suffix));
@@ -50,9 +38,6 @@ export function resolveSessionPathById(
   }
 }
 
-/**
- * Check if a session file is too large to safely load into memory.
- */
 export function isSessionFileTooLarge(sessionPath: string): boolean {
   try {
     return statSync(sessionPath).size > MAX_SESSION_FILE_BYTES;
@@ -61,147 +46,123 @@ export function isSessionFileTooLarge(sessionPath: string): boolean {
   }
 }
 
-/**
- * Extract the last compaction summary from a session file by reading
- * from the end of the file. Avoids loading the entire file into memory.
- *
- * Reads the last ~1MB (enough for any reasonable compaction summary),
- * splits into lines, and finds the last `{"type":"compaction",...}` entry.
- *
- * @returns The compaction summary string, or undefined if none found.
- */
-export function extractLastCompactionSummary(
-  sessionPath: string,
-): string | undefined {
-  const TAIL_BYTES = 1024 * 1024;
-  let fd: number;
-  try {
-    fd = openSync(sessionPath, "r");
-  } catch {
-    return undefined;
-  }
-  try {
-    const fileSize = fstatSync(fd).size;
-    const readStart = Math.max(0, fileSize - TAIL_BYTES);
-    const readLen = fileSize - readStart;
-    const buf = Buffer.alloc(readLen);
-    readSync(fd, buf, 0, readLen, readStart);
-
-    const tail = buf.toString("utf8");
-    const lines = tail.split("\n");
-
-    // Walk backwards to find the last compaction entry
-    for (let i = lines.length - 1; i >= 0; i--) {
-      const line = lines[i].trim();
-      if (!line) continue;
-      try {
-        const entry = JSON.parse(line);
-        if (entry.type === "compaction" && typeof entry.summary === "string") {
-          return entry.summary;
-        }
-      } catch {
-        // not valid JSON, skip
+function* readSessionLines(fd: number): Generator<string> {
+  const chunk = Buffer.alloc(64 * 1024);
+  let parts: Buffer[] = [];
+  let lineBytes = 0;
+  while (true) {
+    const bytesRead = readSync(fd, chunk, 0, chunk.length, null);
+    if (bytesRead === 0) break;
+    let start = 0;
+    for (let i = 0; i < bytesRead; i++) {
+      if (chunk[i] !== 10) continue;
+      const part = chunk.subarray(start, i);
+      lineBytes += part.length;
+      if (lineBytes > MAX_LEGACY_SESSION_LINE_BYTES) {
+        throw new Error(
+          "Session line exceeds the 64 MiB legacy migration limit",
+        );
       }
+      parts.push(Buffer.from(part));
+      yield Buffer.concat(parts, lineBytes).toString("utf8");
+      parts = [];
+      lineBytes = 0;
+      start = i + 1;
     }
-    return undefined;
-  } finally {
-    closeSync(fd);
+    const remainder = chunk.subarray(start, bytesRead);
+    lineBytes += remainder.length;
+    if (lineBytes > MAX_LEGACY_SESSION_LINE_BYTES) {
+      throw new Error("Session line exceeds the 64 MiB legacy migration limit");
+    }
+    if (remainder.length) parts.push(Buffer.from(remainder));
   }
+  if (lineBytes) yield Buffer.concat(parts, lineBytes).toString("utf8");
+}
+
+export interface SessionFilePreparation {
+  originalBytes: number;
+  metadataBytes: number;
+  migrated: boolean;
+  backupPath?: string;
 }
 
 /**
- * Read the tail of a session file and return parsed JSONL entries.
- * Only reads the last `tailBytes` of the file.
+ * The encoder must preserve identity for unchanged entries and never mutate input.
+ * Externalize legacy images before Pi opens or forks a transcript. Preserve every
+ * entry, ID and parent link; never synthesize a summary from an arbitrary tail.
+ * A private hard-link backup retains the original when migration succeeds.
+ * On malformed/over-limit data, leave the original intact and fail explicitly.
  */
-function readTailEntries(
+export function prepareSessionFile(
   sessionPath: string,
-  tailBytes = 1024 * 1024,
-): Array<Record<string, unknown>> {
-  let fd: number;
+  encode: (entry: unknown, sessionPath: string) => unknown,
+): SessionFilePreparation {
+  const sourceFd = openSync(sessionPath, "r");
+  const original = fstatSync(sourceFd);
+  const temporaryPath = `${sessionPath}.media-${randomUUID()}.tmp`;
+  let targetFd: number | undefined;
+  let backupPath: string | undefined;
+  let migrated = false;
+  let metadataBytes = 0;
   try {
-    fd = openSync(sessionPath, "r");
-  } catch {
-    return [];
-  }
-  try {
-    const fileSize = fstatSync(fd).size;
-    const readStart = Math.max(0, fileSize - tailBytes);
-    const readLen = fileSize - readStart;
-    const buf = Buffer.alloc(readLen);
-    readSync(fd, buf, 0, readLen, readStart);
-
-    const tail = buf.toString("utf8");
-    const entries: Array<Record<string, unknown>> = [];
-    for (const line of tail.split("\n")) {
-      const trimmed = line.trim();
-      if (!trimmed) continue;
+    targetFd = openSync(temporaryPath, "wx", 0o600);
+    let lineNumber = 0;
+    for (const line of readSessionLines(sourceFd)) {
+      lineNumber++;
+      if (!line.trim()) continue;
+      let entry: unknown;
       try {
-        entries.push(JSON.parse(trimmed));
+        entry = JSON.parse(line);
       } catch {
-        // skip partial/invalid lines (first line may be truncated)
+        throw new Error(`Invalid session JSON at line ${lineNumber}`);
+      }
+      const encoded = encode(entry, sessionPath);
+      const after = JSON.stringify(encoded);
+      if (after === undefined)
+        throw new Error("Session codec returned no entry");
+      migrated ||= encoded !== entry;
+      const output = Buffer.from(`${after}\n`);
+      metadataBytes += output.length;
+      if (metadataBytes > MAX_SESSION_FILE_BYTES) {
+        throw new Error(
+          `Session metadata exceeds ${MAX_SESSION_FILE_BYTES} bytes after image externalization. ` +
+            "The original session is unchanged; increase SANDAGENT_MAX_SESSION_BYTES to resume it. " +
+            "No replacement session was created.",
+        );
+      }
+      let offset = 0;
+      while (offset < output.length) {
+        offset += writeSync(targetFd, output, offset, output.length - offset);
       }
     }
-    return entries;
+    fsyncSync(targetFd);
+    closeSync(targetFd);
+    targetFd = undefined;
+    const current = statSync(sessionPath);
+    if (
+      current.ino !== original.ino ||
+      current.dev !== original.dev ||
+      current.size !== original.size ||
+      current.mtimeMs !== original.mtimeMs
+    ) {
+      throw new Error(
+        "Session changed during media migration; retry after the active run finishes",
+      );
+    }
+    if (migrated) {
+      backupPath = `${sessionPath}.pre-media-${randomUUID()}.bak`;
+      linkSync(sessionPath, backupPath);
+      renameSync(temporaryPath, sessionPath);
+    }
+    return {
+      originalBytes: original.size,
+      metadataBytes,
+      migrated,
+      backupPath,
+    };
   } finally {
-    closeSync(fd);
+    closeSync(sourceFd);
+    if (targetFd !== undefined) closeSync(targetFd);
+    rmSync(temporaryPath, { force: true });
   }
-}
-
-/**
- * Extract context from an oversized session file for seeding a new session.
- *
- * Strategy (in priority order):
- * 1. Last compaction summary (best — already a structured context checkpoint)
- * 2. Last few user+assistant message texts (fallback — raw conversation tail)
- *
- * Returns a summary string suitable for `SessionManager.appendCompaction()`,
- * or undefined if no usable context was found.
- */
-export function extractSessionContext(sessionPath: string): string | undefined {
-  const entries = readTailEntries(sessionPath);
-  if (entries.length === 0) return undefined;
-
-  // Priority 1: last compaction summary
-  for (let i = entries.length - 1; i >= 0; i--) {
-    const e = entries[i];
-    if (e.type === "compaction" && typeof e.summary === "string") {
-      return e.summary;
-    }
-  }
-
-  // Priority 2: collect last few user/assistant messages as plain text
-  const recentMessages: string[] = [];
-  const MAX_MESSAGES = 6; // last 3 turns (user+assistant pairs)
-  for (
-    let i = entries.length - 1;
-    i >= 0 && recentMessages.length < MAX_MESSAGES;
-    i--
-  ) {
-    const e = entries[i];
-    if (e.type !== "message") continue;
-    const msg = e.message as { role?: string; content?: unknown } | undefined;
-    if (!msg) continue;
-    if (msg.role !== "user" && msg.role !== "assistant") continue;
-
-    let text = "";
-    if (typeof msg.content === "string") {
-      text = msg.content;
-    } else if (Array.isArray(msg.content)) {
-      text = (msg.content as Array<{ type?: string; text?: string }>)
-        .filter((c) => c.type === "text" && c.text)
-        .map((c) => c.text)
-        .join("\n");
-    }
-    if (text) {
-      recentMessages.unshift(`[${msg.role}]: ${text}`);
-    }
-  }
-
-  if (recentMessages.length === 0) return undefined;
-
-  return (
-    "## Previous Session Context (auto-extracted)\n\n" +
-    "The following is the tail of the previous conversation:\n\n" +
-    recentMessages.join("\n\n")
-  );
 }

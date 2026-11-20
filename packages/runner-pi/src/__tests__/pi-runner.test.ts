@@ -1,6 +1,23 @@
 import type { AgentTurnInputV1 } from "@bunny-agent/manager";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("../session-utils.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../session-utils.js")>();
+  return {
+    ...actual,
+    prepareSessionFile: vi.fn().mockReturnValue({ migrated: false }),
+  };
+});
+
+vi.mock("../media-session-manager.js", async () => {
+  const { SessionManager } = await import("@earendil-works/pi-coding-agent");
+  return {
+    createMediaSession: SessionManager.create,
+    openMediaSession: SessionManager.open,
+    forkMediaSession: SessionManager.forkFrom,
+  };
+});
+
 // ── Mock session that drives the event loop ──────────────────────────
 
 type Listener = (event: unknown) => void;

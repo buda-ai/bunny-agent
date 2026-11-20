@@ -1,164 +1,143 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  appendFileSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
-  extractLastCompactionSummary,
-  isSessionFileTooLarge,
+  MAX_LEGACY_SESSION_LINE_BYTES,
   MAX_SESSION_FILE_BYTES,
+  prepareSessionFile,
   resolveSessionPathById,
 } from "../session-utils.js";
 
-describe("session-utils", () => {
-  let tmpDir: string;
+const identity = (entry: unknown) => entry;
 
+describe("lossless session preparation", () => {
+  let tmpDir: string;
   beforeEach(() => {
     tmpDir = mkdtempSync(join(tmpdir(), "session-utils-test-"));
   });
+  afterEach(() => rmSync(tmpDir, { recursive: true, force: true }));
 
-  afterEach(() => {
-    rmSync(tmpDir, { recursive: true, force: true });
+  it("leaves a small transcript unchanged", () => {
+    const file = join(tmpDir, "session.jsonl");
+    const original = '{ "type": "session", "id": "s1" }\n';
+    writeFileSync(file, original);
+    expect(prepareSessionFile(file, identity).migrated).toBe(false);
+    expect(readFileSync(file, "utf8")).toBe(original);
+    expect(readdirSync(tmpDir)).toEqual(["session.jsonl"]);
   });
 
-  describe("isSessionFileTooLarge", () => {
-    it("returns false for small files", () => {
-      const file = join(tmpDir, "small.jsonl");
-      writeFileSync(file, '{"type":"session"}\n');
-      expect(isSessionFileTooLarge(file)).toBe(false);
+  it("recovers every entry around a multi-MiB image line, including the newest instruction", () => {
+    const file = join(tmpDir, "session.jsonl");
+    const entries = [
+      { type: "session", id: "s1" },
+      {
+        type: "message",
+        id: "goal",
+        parentId: null,
+        message: { role: "user", content: "Create a video in Chinese" },
+      },
+      {
+        type: "compaction",
+        id: "summary",
+        parentId: "goal",
+        summary: "Video goal",
+        firstKeptEntryId: "goal",
+      },
+      {
+        type: "message",
+        id: "image",
+        parentId: "summary",
+        data: "A".repeat(MAX_SESSION_FILE_BYTES + 1),
+      },
+      {
+        type: "message",
+        id: "latest",
+        parentId: "image",
+        message: {
+          role: "user",
+          content: "Use the second image and keep Chinese captions",
+        },
+      },
+    ];
+    const original = entries.map((entry) => JSON.stringify(entry)).join("\n");
+    writeFileSync(file, original);
+    const result = prepareSessionFile(file, (entry) => {
+      const e = entry as Record<string, unknown>;
+      return e.id === "image" ? { ...e, data: "media-reference" } : e;
     });
-
-    it("returns true for files exceeding the limit", () => {
-      const file = join(tmpDir, "large.jsonl");
-      // Write a file just over the limit
-      writeFileSync(file, "x".repeat(MAX_SESSION_FILE_BYTES + 1));
-      expect(isSessionFileTooLarge(file)).toBe(true);
-    });
-
-    it("returns false for non-existent files", () => {
-      expect(isSessionFileTooLarge(join(tmpDir, "nope.jsonl"))).toBe(false);
-    });
+    expect(result.migrated).toBe(true);
+    expect(result.metadataBytes).toBeLessThan(2048);
+    expect(readFileSync(result.backupPath!, "utf8")).toBe(original);
+    const recovered = readFileSync(file, "utf8")
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+    expect(recovered).toEqual(
+      entries.map((e) =>
+        e.id === "image" ? { ...e, data: "media-reference" } : e,
+      ),
+    );
+    expect(recovered.at(-1).message.content).toContain("second image");
   });
 
-  describe("extractLastCompactionSummary", () => {
-    it("returns undefined for non-existent file", () => {
-      expect(
-        extractLastCompactionSummary(join(tmpDir, "nope.jsonl")),
-      ).toBeUndefined();
-    });
-
-    it("returns undefined when no compaction entry exists", () => {
-      const file = join(tmpDir, "no-compact.jsonl");
-      writeFileSync(
-        file,
-        [
-          JSON.stringify({ type: "session", id: "s1" }),
-          JSON.stringify({
-            type: "message",
-            id: "m1",
-            message: { role: "user", content: "hi" },
-          }),
-        ].join("\n") + "\n",
-      );
-      expect(extractLastCompactionSummary(file)).toBeUndefined();
-    });
-
-    it("extracts the last compaction summary", () => {
-      const file = join(tmpDir, "with-compact.jsonl");
-      writeFileSync(
-        file,
-        [
-          JSON.stringify({ type: "session", id: "s1" }),
-          JSON.stringify({
-            type: "message",
-            id: "m1",
-            message: { role: "user", content: "hi" },
-          }),
-          JSON.stringify({
-            type: "compaction",
-            id: "c1",
-            summary: "First summary",
-            firstKeptEntryId: "m1",
-            tokensBefore: 1000,
-          }),
-          JSON.stringify({
-            type: "message",
-            id: "m2",
-            message: { role: "user", content: "more" },
-          }),
-          JSON.stringify({
-            type: "compaction",
-            id: "c2",
-            summary: "Second summary",
-            firstKeptEntryId: "m2",
-            tokensBefore: 2000,
-          }),
-          JSON.stringify({
-            type: "message",
-            id: "m3",
-            message: { role: "user", content: "latest" },
-          }),
-        ].join("\n") + "\n",
-      );
-      expect(extractLastCompactionSummary(file)).toBe("Second summary");
-    });
-
-    it("handles file with only one compaction entry", () => {
-      const file = join(tmpDir, "one-compact.jsonl");
-      writeFileSync(
-        file,
-        [
-          JSON.stringify({ type: "session", id: "s1" }),
-          JSON.stringify({
-            type: "compaction",
-            id: "c1",
-            summary: "Only summary",
-            firstKeptEntryId: "s1",
-            tokensBefore: 500,
-          }),
-        ].join("\n") + "\n",
-      );
-      expect(extractLastCompactionSummary(file)).toBe("Only summary");
-    });
-
-    it("reads from tail of large files without loading everything", () => {
-      const file = join(tmpDir, "large-with-compact.jsonl");
-      // Write a large file: lots of padding + compaction at the end
-      const padding = (
-        JSON.stringify({
-          type: "message",
-          id: "pad",
-          message: { role: "user", content: "x".repeat(200) },
-        }) + "\n"
-      ).repeat(100);
-      const compaction =
-        JSON.stringify({
-          type: "compaction",
-          id: "c1",
-          summary: "Tail summary",
-          firstKeptEntryId: "pad",
-          tokensBefore: 9999,
-        }) + "\n";
-      writeFileSync(file, padding + compaction);
-      expect(extractLastCompactionSummary(file)).toBe("Tail summary");
-    });
-
-    it("handles empty file", () => {
-      const file = join(tmpDir, "empty.jsonl");
-      writeFileSync(file, "");
-      expect(extractLastCompactionSummary(file)).toBeUndefined();
-    });
+  it("refuses text-only oversized sessions without creating a replacement or changing the source", () => {
+    const file = join(tmpDir, "large.jsonl");
+    const original = `${JSON.stringify({ text: "x".repeat(MAX_SESSION_FILE_BYTES) })}\n`;
+    writeFileSync(file, original);
+    expect(() => prepareSessionFile(file, identity)).toThrow(
+      /No replacement session was created/,
+    );
+    expect(readFileSync(file, "utf8")).toBe(original);
+    expect(readdirSync(tmpDir)).toEqual(["large.jsonl"]);
   });
 
-  describe("resolveSessionPathById", () => {
-    it("returns the input unchanged when it already looks like a path", () => {
-      const p = "/tmp/pi-sessions/2026-07-03_abc.jsonl";
-      // No filesystem lookup — the caller owns paths that contain '/'.
-      expect(resolveSessionPathById(tmpDir, p)).toBe(p);
-    });
+  it("refuses a malformed or interrupted line without replacing its original", () => {
+    const file = join(tmpDir, "partial.jsonl");
+    const original = '{"id":"one"}\n{"id":"two"';
+    writeFileSync(file, original);
+    expect(() => prepareSessionFile(file, () => ({ changed: true }))).toThrow(
+      /line 2/,
+    );
+    expect(readFileSync(file, "utf8")).toBe(original);
+    expect(readdirSync(tmpDir)).toEqual(["partial.jsonl"]);
+  });
 
-    it("returns undefined when id cannot be resolved in the sessions dir", () => {
-      // tmpDir is not a real pi sessions dir; readdir throws → undefined.
-      expect(resolveSessionPathById(tmpDir, "sess_missing")).toBeUndefined();
-    });
+  it("bounds even a single unterminated huge JSON line", () => {
+    const file = join(tmpDir, "huge.jsonl");
+    writeFileSync(file, Buffer.alloc(MAX_LEGACY_SESSION_LINE_BYTES + 1, 65));
+    expect(() => prepareSessionFile(file, identity)).toThrow(/64 MiB/);
+    expect(readdirSync(tmpDir)).toEqual(["huge.jsonl"]);
+  });
+
+  it("does not overwrite a transcript that was appended while migrating", () => {
+    const file = join(tmpDir, "concurrent.jsonl");
+    writeFileSync(file, '{"id":"one"}\n');
+    let appended = false;
+    expect(() =>
+      prepareSessionFile(file, (entry) => {
+        if (!appended) {
+          appended = true;
+          appendFileSync(file, '{"id":"two"}\n');
+        }
+        return { entry };
+      }),
+    ).toThrow(/changed during media migration/);
+    expect(readFileSync(file, "utf8")).toContain('"two"');
+    expect(readdirSync(tmpDir)).toEqual(["concurrent.jsonl"]);
+  });
+
+  it("resolves explicit paths without reading a transcript", () => {
+    expect(resolveSessionPathById(tmpDir, "/tmp/session.jsonl")).toBe(
+      "/tmp/session.jsonl",
+    );
+    expect(resolveSessionPathById(tmpDir, "missing-session")).toBeUndefined();
   });
 });
