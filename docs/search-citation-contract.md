@@ -131,7 +131,7 @@ closed identically.
 
 `native_annotations` is `false` for every runner today. This is a currently
 installed-dependency fact, not a BunnyAgent-side design choice: the installed
-Pi stack (`@earendil-works/pi-ai` 1.3.0) exposes `textSignature` on
+Pi stack (`@earendil-works/pi-ai` 1.6.1) exposes `textSignature` on
 `TextContent` but no annotations field, so Pi cannot natively ingest or
 forward Responses-shaped annotations. The native-annotation ingestion
 boundary (`CitationTextProcessor.ingestNative`, see "Native annotations"

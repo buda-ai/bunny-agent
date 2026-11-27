@@ -1,3 +1,4 @@
+import { getBuiltinModel } from "@earendil-works/pi-ai/providers/all";
 import { describe, expect, it } from "vitest";
 import {
   parseModelSpec,
@@ -90,44 +91,6 @@ describe("resolveDynamicModelProfile", () => {
 });
 
 describe("resolveDynamicModelRegistration", () => {
-  it.each([
-    "gpt-6.2-sol",
-    "gpt-6.2-astra",
-  ])("keeps %s on the Responses API with full GPT-6 limits", (modelName) => {
-    const registration = resolveDynamicModelRegistration(modelName, "high");
-
-    expect(registration.api).toBe("openai-responses");
-    expect(registration.profile).toEqual({
-      contextWindow: 272_000,
-      maxTokens: 128_000,
-      reasoning: true,
-      thinkingLevelMap: {
-        off: "none",
-        minimal: null,
-        low: "low",
-        medium: "medium",
-        high: "high",
-        xhigh: "xhigh",
-        max: "max",
-      },
-    });
-    expect(registration.compat).toEqual({
-      supportsStrictMode: true,
-      supportsOpenAIGrammarTools: true,
-      supportsAdditionalTools: true,
-      supportsToolSearch: true,
-      supportsMidConvoSystemMessages: true,
-      supportsExplicitPromptCacheMode: true,
-      supportsMidConvoEffort: true,
-    });
-  });
-
-  it("matches the GPT-6.2 ids case-insensitively", () => {
-    expect(resolveDynamicModelRegistration("GPT-6.2-SOL").api).toBe(
-      "openai-responses",
-    );
-  });
-
   it("defaults unknown models to Chat Completions with session affinity", () => {
     const registration = resolveDynamicModelRegistration("custom-model");
 
@@ -143,7 +106,7 @@ describe("resolveDynamicModelRegistration", () => {
     expect(registration.compat).toEqual({ sendSessionAffinityHeaders: true });
   });
 
-  it("lets PI_DYNAMIC_MODEL_API pick the endpoint for any dynamic model", () => {
+  it("lets PI_DYNAMIC_MODEL_API pick the endpoint for a dynamic model", () => {
     const registration = resolveDynamicModelRegistration(
       "custom-model",
       "high",
@@ -154,19 +117,6 @@ describe("resolveDynamicModelRegistration", () => {
 
     expect(registration.api).toBe("openai-responses");
     expect(registration.compat).toBeUndefined();
-  });
-
-  it("drops Responses-only compat when an override picks Chat Completions", () => {
-    const registration = resolveDynamicModelRegistration(
-      "gpt-6.2-sol",
-      "high",
-      {
-        PI_DYNAMIC_MODEL_API: "openai-completions",
-      },
-    );
-
-    expect(registration.api).toBe("openai-completions");
-    expect(registration.compat).toEqual({ sendSessionAffinityHeaders: true });
   });
 
   it("ignores an unsupported PI_DYNAMIC_MODEL_API value", () => {
@@ -253,5 +203,26 @@ describe("resolveImageModelName", () => {
         IMAGE_GENERATION_MODEL: "openai:gemini-3-pro-image",
       }),
     ).toBe("gemini-3-pro-image");
+  });
+});
+
+describe("pi-ai built-in catalog", () => {
+  const lookup = getBuiltinModel as (
+    provider: string,
+    modelId: string,
+  ) => { api: string; contextWindow: number; maxTokens: number } | undefined;
+
+  // A renamed model missing from the catalog is what silently downgraded the
+  // GPT-6.2 flagships to /v1/chat/completions (no session affinity, no
+  // prompt_cache_key, 200k/64k caps). They must resolve as built-ins.
+  it.each([
+    "gpt-6.2-sol",
+    "gpt-6.2-astra",
+  ])("resolves %s as a built-in Responses model", (modelId) => {
+    const model = lookup("openai", modelId);
+
+    expect(model?.api).toBe("openai-responses");
+    expect(model?.contextWindow).toBe(272_000);
+    expect(model?.maxTokens).toBe(128_000);
   });
 });
