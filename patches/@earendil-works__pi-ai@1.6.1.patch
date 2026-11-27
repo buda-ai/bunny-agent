@@ -1,5 +1,4 @@
 diff --git a/dist/api/transform-messages.js b/dist/api/transform-messages.js
-index 6a364cb..db60f71 100644
 --- a/dist/api/transform-messages.js
 +++ b/dist/api/transform-messages.js
 @@ -1,6 +1,41 @@
@@ -44,7 +43,7 @@ index 6a364cb..db60f71 100644
  /**
   * Split the images out of an error tool result, for APIs that reject images in error results
   * (Anthropic, and Claude on Bedrock). Send the returned content as the tool result and the caption and
-@@ -83,7 +118,12 @@ export function transformMessages(messages, model, normalizeToolCallId) {
+@@ -83,7 +118,12 @@
          }
          // Assistant messages need transformation check
          if (msg.role === "assistant") {
@@ -59,10 +58,9 @@ index 6a364cb..db60f71 100644
                  assistantMsg.api === model.api &&
                  assistantMsg.model === model.id;
 diff --git a/dist/utils/overflow.js b/dist/utils/overflow.js
-index 2878759..2dcfe41 100644
 --- a/dist/utils/overflow.js
 +++ b/dist/utils/overflow.js
-@@ -55,6 +55,8 @@ const OVERFLOW_PATTERNS = [
+@@ -58,6 +58,8 @@
      /model_context_window_exceeded/i, // z.ai non-standard finish_reason surfaced as error text
      /prompt too long; exceeded (?:max )?context length/i, // Ollama explicit overflow error
      /range of input length should be/i, // DashScope / Qwen Token Plan

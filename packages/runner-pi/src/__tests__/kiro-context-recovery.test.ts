@@ -217,6 +217,7 @@ async function runHttpCase(
         .filter((block) => block.type === "text")
         .map((block) => block.text)
         .join("") ?? "";
+    const lastErrorMessage = last?.errorMessage ?? "";
     const reloaded = SessionManager.open(manager.getSessionFile()!);
     return {
       calls,
@@ -230,6 +231,7 @@ async function runHttpCase(
       sessionId,
       reloadedId: reloaded.getSessionId(),
       reloadedEntries: reloaded.getEntries(),
+      lastErrorMessage,
     };
   } finally {
     session?.dispose();
@@ -276,13 +278,22 @@ describe("Kiro context-capacity recovery through Pi HTTP", () => {
   it("stops after one compact-and-retry cycle if capacity is still exceeded", async () => {
     const result = await runHttpCase("repeat");
     expect([result.normalCalls, result.summaryCalls]).toEqual([2, 1]);
+    // The run must stop after a single compact-and-retry cycle and report the
+    // capacity error. Pi decides whether a message predates the latest
+    // compaction by comparing millisecond timestamps, and an in-process mock
+    // can answer so fast that the retry is stamped in the same millisecond as
+    // the compaction it follows. In that case the descriptive
+    // "after one compact-and-retry" event is skipped and the capacity error is
+    // reported as the assistant message instead, so accept either surface
+    // rather than assert on a timing detail the mock controls.
+    const reportedByEvent = result.events.some(
+      (event) =>
+        event.type === "compaction_end" &&
+        event.willRetry === false &&
+        event.errorMessage?.includes("after one compact-and-retry"),
+    );
     expect(
-      result.events.some(
-        (event) =>
-          event.type === "compaction_end" &&
-          event.willRetry === false &&
-          event.errorMessage?.includes("after one compact-and-retry"),
-      ),
+      reportedByEvent || result.lastErrorMessage.includes(CAPACITY_ERROR),
     ).toBe(true);
   });
 

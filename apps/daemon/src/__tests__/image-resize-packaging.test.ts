@@ -40,14 +40,20 @@ function expectResized(result: ResizeResult | null | undefined) {
   expect(result.originalHeight).toBe(512);
   expect(result.width).toBe(32);
   expect(result.height).toBe(32);
-  expect(result.mimeType).toBe("image/png");
-  const png = Buffer.from(result.data, "base64");
-  expect(png.subarray(0, 8)).toEqual(
-    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
-  );
-  expect(png.toString("ascii", 12, 16)).toBe("IHDR");
-  expect(png.readUInt32BE(16)).toBe(32);
-  expect(png.readUInt32BE(20)).toBe(32);
+  // Pi 1.6.x keeps whichever of PNG and JPEG is smaller at the configured
+  // quality, so a small opaque image legitimately comes back as JPEG.
+  const bytes = Buffer.from(result.data, "base64");
+  if (result.mimeType === "image/png") {
+    expect(bytes.subarray(0, 8)).toEqual(
+      Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+    );
+    expect(bytes.toString("ascii", 12, 16)).toBe("IHDR");
+    expect(bytes.readUInt32BE(16)).toBe(32);
+    expect(bytes.readUInt32BE(20)).toBe(32);
+  } else {
+    expect(result.mimeType).toBe("image/jpeg");
+    expect(bytes.subarray(0, 3)).toEqual(Buffer.from([0xff, 0xd8, 0xff]));
+  }
   expect(Buffer.byteLength(result.data)).toBeLessThan(100_000);
 }
 

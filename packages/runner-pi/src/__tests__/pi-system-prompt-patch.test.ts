@@ -10,10 +10,11 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createPiResourceLoader } from "../pi-runner.js";
 
 // Bunny patch: patches/@earendil-works__pi-coding-agent@*.patch
-// The caller's appendSystemPrompt replaces pi's default "operating inside pi"
-// opener instead of being appended after it.
+// The caller's appendSystemPrompt replaces pi's default opener instead of being
+// appended after it. Keep the assertion phrase wording-agnostic so a pi upgrade
+// that rephrases the opener does not break it.
 
-const PI_DEFAULT_OPENER = "operating inside pi, a coding agent harness";
+const PI_DEFAULT_OPENER = "coding agent harness";
 
 describe("Pi system prompt patch", () => {
   let dir: string;
