@@ -91,6 +91,44 @@ describe("resolveDynamicModelProfile", () => {
 });
 
 describe("resolveDynamicModelRegistration", () => {
+  it.each([
+    "gpt-6.2-sol",
+    "gpt-6.2-astra",
+  ])("keeps %s on the Responses API with full GPT-6 limits", (modelName) => {
+    const registration = resolveDynamicModelRegistration(modelName, "high");
+
+    expect(registration.api).toBe("openai-responses");
+    expect(registration.profile).toEqual({
+      contextWindow: 272_000,
+      maxTokens: 128_000,
+      reasoning: true,
+      thinkingLevelMap: {
+        off: "none",
+        minimal: null,
+        low: "low",
+        medium: "medium",
+        high: "high",
+        xhigh: "xhigh",
+        max: "max",
+      },
+    });
+    expect(registration.compat).toEqual({
+      supportsStrictMode: true,
+      supportsOpenAIGrammarTools: true,
+      supportsAdditionalTools: true,
+      supportsToolSearch: true,
+      supportsMidConvoSystemMessages: true,
+      supportsExplicitPromptCacheMode: true,
+      supportsMidConvoEffort: true,
+    });
+  });
+
+  it("matches the GPT-6.2 ids case-insensitively", () => {
+    expect(resolveDynamicModelRegistration("GPT-6.2-SOL").api).toBe(
+      "openai-responses",
+    );
+  });
+
   it("defaults unknown models to Chat Completions with session affinity", () => {
     const registration = resolveDynamicModelRegistration("custom-model");
 
@@ -117,6 +155,19 @@ describe("resolveDynamicModelRegistration", () => {
 
     expect(registration.api).toBe("openai-responses");
     expect(registration.compat).toBeUndefined();
+  });
+
+  it("drops Responses-only compat when an override picks Chat Completions", () => {
+    const registration = resolveDynamicModelRegistration(
+      "gpt-6.2-sol",
+      "high",
+      {
+        PI_DYNAMIC_MODEL_API: "openai-completions",
+      },
+    );
+
+    expect(registration.api).toBe("openai-completions");
+    expect(registration.compat).toEqual({ sendSessionAffinityHeaders: true });
   });
 
   it("ignores an unsupported PI_DYNAMIC_MODEL_API value", () => {

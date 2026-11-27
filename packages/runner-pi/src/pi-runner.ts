@@ -111,11 +111,36 @@ const DYNAMIC_CHAT_COMPAT = {
   sendSessionAffinityHeaders: true,
 } satisfies OpenAICompletionsCompat;
 
+/** Thinking levels of the GPT-6 reasoning family. */
+const GPT_6_THINKING_LEVELS: Record<string, string | null> = {
+  off: "none",
+  minimal: null,
+  low: "low",
+  medium: "medium",
+  high: "high",
+  xhigh: "xhigh",
+  max: "max",
+};
+
+const GPT_6_RESPONSES_COMPAT = {
+  supportsStrictMode: true,
+  supportsOpenAIGrammarTools: true,
+  supportsAdditionalTools: true,
+  supportsToolSearch: true,
+  supportsMidConvoSystemMessages: true,
+  supportsExplicitPromptCacheMode: true,
+  supportsMidConvoEffort: true,
+} satisfies OpenAIResponsesCompat;
+
 interface DynamicModelSpec {
   contextWindow: number;
   maxTokens: number;
   reasoning?: boolean;
   thinkingLevelMap?: Record<string, string | null>;
+  /** Endpoint to call. Defaults to Chat Completions. */
+  api?: DynamicModelApi;
+  /** Extra provider compatibility flags merged into the api defaults. */
+  compat?: OpenAICompletionsCompat | OpenAIResponsesCompat;
 }
 
 const DYNAMIC_MODEL_PROFILES: Record<string, DynamicModelSpec> = {
@@ -141,9 +166,34 @@ const DYNAMIC_MODEL_PROFILES: Record<string, DynamicModelSpec> = {
       max: null,
     },
   },
+  // A gateway can serve a GPT-6 reasoning model before the pinned pi-ai
+  // catalog knows the id (a vendor rename is enough). The catalog in
+  // `pi-ai` 1.6.x does know these two for the `openai`, `azure` and
+  // `openai-codex` providers, but a custom provider id still falls through to
+  // this map. Falling back to Chat Completions silently drops the
+  // Responses-only behaviour — reasoning items, mid-conversation effort,
+  // prompt-cache keying — and parks the model on the generic 200k / 64k caps.
+  // Keep these ids on Responses.
+  "gpt-6.2-sol": {
+    contextWindow: 272_000,
+    maxTokens: 128_000,
+    reasoning: true,
+    thinkingLevelMap: GPT_6_THINKING_LEVELS,
+    api: "openai-responses",
+    compat: GPT_6_RESPONSES_COMPAT,
+  },
+  "gpt-6.2-astra": {
+    contextWindow: 272_000,
+    maxTokens: 128_000,
+    reasoning: true,
+    thinkingLevelMap: GPT_6_THINKING_LEVELS,
+    api: "openai-responses",
+    compat: GPT_6_RESPONSES_COMPAT,
+  },
 };
 
 function resolveDynamicModelApi(
+  spec: DynamicModelSpec | undefined,
   optionsEnv?: Record<string, string>,
 ): DynamicModelApi {
   const override = getEnvValue(optionsEnv, "PI_DYNAMIC_MODEL_API")?.trim();
@@ -156,7 +206,7 @@ function resolveDynamicModelApi(
         '(expected "openai-completions" or "openai-responses")',
     );
   }
-  return DEFAULT_DYNAMIC_MODEL_API;
+  return spec?.api ?? DEFAULT_DYNAMIC_MODEL_API;
 }
 
 /**
@@ -169,11 +219,24 @@ export function resolveDynamicModelRegistration(
   effort?: string,
   optionsEnv?: Record<string, string>,
 ): DynamicModelRegistration {
-  const api = resolveDynamicModelApi(optionsEnv);
+  const spec = DYNAMIC_MODEL_PROFILES[modelName.toLowerCase()];
+  const api = resolveDynamicModelApi(spec, optionsEnv);
+  const profile = resolveDynamicModelProfile(modelName, effort);
+  // Only apply the profile's compat when the endpoint it was written for is
+  // the one actually used; an env override must not smuggle Responses-only
+  // flags into a Chat Completions registration.
+  const specCompat =
+    spec && (spec.api ?? DEFAULT_DYNAMIC_MODEL_API) === api
+      ? spec.compat
+      : undefined;
+  const compat = {
+    ...(api === "openai-responses" ? undefined : DYNAMIC_CHAT_COMPAT),
+    ...specCompat,
+  };
   return {
     api,
-    profile: resolveDynamicModelProfile(modelName, effort),
-    compat: api === "openai-responses" ? undefined : DYNAMIC_CHAT_COMPAT,
+    profile,
+    compat: Object.keys(compat).length > 0 ? compat : undefined,
   };
 }
 

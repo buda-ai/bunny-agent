@@ -7,11 +7,11 @@
 
 Upgrade the Pi runtime to `@earendil-works/pi-*@1.6.1`.
 
-Pi 1.6.0 adds GPT-6.2 Sol and GPT-6.2 Astra to its bundled catalog, so a
-renamed model id no longer has to be re-declared locally. Both run on the
-Responses API with the 272K/128K profile, which restores session affinity and
-`prompt_cache_key` for gateway traffic — the 1.3.0 catalog did not know them and
-they silently fell back to Chat Completions.
+Pi 1.6.0 adds GPT-6.2 Sol and GPT-6.2 Astra to its bundled catalog on the
+Responses API with the 272K/128K profile, so the gateway models this repo serves
+are recognised upstream instead of being re-declared. The local
+`DYNAMIC_MODEL_PROFILES` entries stay as the fallback for a custom provider id,
+which still misses the catalog lookup.
 
 The upgrade also retries more gateway failures (Cloudflare 525, "provider is
 temporarily unavailable", partial responses, `finish_reason: "error"`), no
