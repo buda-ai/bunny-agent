@@ -12,6 +12,7 @@ import type {
   AssistantMessage,
   ImageContent,
   Model,
+  OpenAIResponsesCompat,
 } from "@earendil-works/pi-ai";
 import { getBuiltinModel } from "@earendil-works/pi-ai/providers/all";
 import {
@@ -80,13 +81,45 @@ const DEFAULT_DYNAMIC_MODEL_PROFILE = {
   thinkingLevelMap: { off: null, xhigh: "xhigh" },
 } as const;
 
-const DYNAMIC_MODEL_PROFILES: Record<
-  string,
-  Omit<DynamicModelProfile, "reasoning" | "thinkingLevelMap"> & {
-    reasoning?: boolean;
-    thinkingLevelMap?: Record<string, string | null>;
-  }
-> = {
+/**
+ * GPT-6 reasoning family on the Responses API, copied from pi-ai's catalog
+ * entries for `gpt-6.1-sol` / `gpt-6-astra` (the ids 6.2 replaced).
+ */
+const GPT_6_RESPONSES_PROFILE = {
+  contextWindow: 272_000,
+  maxTokens: 128_000,
+  reasoning: true,
+  thinkingLevelMap: {
+    off: null,
+    minimal: null,
+    low: "low",
+    medium: "medium",
+    high: "high",
+    xhigh: "xhigh",
+    max: "max",
+  },
+  api: "openai-responses",
+  compat: {
+    supportsStrictMode: true,
+    supportsOpenAIGrammarTools: true,
+    supportsAdditionalTools: true,
+    supportsToolSearch: true,
+    supportsMidConvoSystemMessages: true,
+    supportsExplicitPromptCacheMode: true,
+    supportsMidConvoEffort: true,
+  },
+} as const satisfies DynamicModelSpec;
+
+interface DynamicModelSpec
+  extends Omit<DynamicModelProfile, "reasoning" | "thinkingLevelMap"> {
+  reasoning?: boolean;
+  thinkingLevelMap?: Record<string, string | null>;
+  /** Defaults to Chat Completions. */
+  api?: "openai-responses";
+  compat?: OpenAIResponsesCompat;
+}
+
+const DYNAMIC_MODEL_PROFILES: Record<string, DynamicModelSpec> = {
   "gemini-3.7-flash": {
     contextWindow: 1_048_576,
     maxTokens: 65_536,
@@ -109,6 +142,11 @@ const DYNAMIC_MODEL_PROFILES: Record<
       max: null,
     },
   },
+  // Missing from the pinned pi-ai catalog. Without these entries they would be
+  // self-registered on Chat Completions, which sends no prompt_cache_key or
+  // session headers to a gateway, so the prompt cache rarely hits.
+  "gpt-6.2-sol": GPT_6_RESPONSES_PROFILE,
+  "gpt-6.2-astra": GPT_6_RESPONSES_PROFILE,
 };
 
 interface ModelIdentity {
@@ -222,6 +260,15 @@ export function resolveDynamicModelProfile(
         DEFAULT_DYNAMIC_MODEL_PROFILE.thinkingLevelMap),
     },
   };
+}
+
+/** Endpoint and compat flags for a model the pi-ai catalog does not know. */
+export function resolveDynamicModelEndpoint(modelName: string): {
+  api: "openai-completions" | "openai-responses";
+  compat?: OpenAIResponsesCompat;
+} {
+  const spec = DYNAMIC_MODEL_PROFILES[modelName.toLowerCase()];
+  return { api: spec?.api ?? "openai-completions", compat: spec?.compat };
 }
 
 export function resolveInitialThinkingLevel(
@@ -531,15 +578,18 @@ export function createPiRunner(options: PiRunnerOptions = {}): PiRunner {
             );
           }
           const profile = resolveDynamicModelProfile(modelName, options.effort);
+          const { api, compat } = resolveDynamicModelEndpoint(modelName);
           // Pi resolves `apiKey` via resolveConfigValue: env var name -> process.env, else literal.
           modelRuntime.registerProvider(provider, {
             baseUrl,
             apiKey: inlineApiKey ?? apiKeyEnvKey,
-            api: "openai-completions",
+            api,
             models: [
               {
                 id: modelName,
                 name: modelName,
+                api,
+                ...(compat ? { compat } : {}),
                 reasoning: profile.reasoning,
                 thinkingLevelMap: profile.thinkingLevelMap,
                 input: ["text", "image"],

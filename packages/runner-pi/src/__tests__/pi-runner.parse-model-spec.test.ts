@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   parseModelSpec,
+  resolveDynamicModelEndpoint,
   resolveDynamicModelProfile,
   resolveImageModelName,
   resolveInitialThinkingLevel,
@@ -85,6 +86,31 @@ describe("resolveDynamicModelProfile", () => {
     expect(resolveDynamicModelProfile("custom-model", "high").reasoning).toBe(
       true,
     );
+  });
+
+  it.each([
+    "gpt-6.2-sol",
+    "gpt-6.2-astra",
+    "GPT-6.2-Sol",
+  ])("keeps %s on the GPT-6 Responses profile", (modelName) => {
+    expect(resolveDynamicModelProfile(modelName)).toMatchObject({
+      contextWindow: 272_000,
+      maxTokens: 128_000,
+      reasoning: true,
+    });
+    const { api, compat } = resolveDynamicModelEndpoint(modelName);
+    expect(api).toBe("openai-responses");
+    expect(compat).toMatchObject({
+      supportsExplicitPromptCacheMode: true,
+      supportsMidConvoEffort: true,
+    });
+  });
+
+  it("keeps unknown models on Chat Completions", () => {
+    expect(resolveDynamicModelEndpoint("custom-model")).toEqual({
+      api: "openai-completions",
+      compat: undefined,
+    });
   });
 });
 
